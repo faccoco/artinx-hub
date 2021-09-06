@@ -1,0 +1,31 @@
+#pragma once
+
+#if _WIN32
+#define ARTINXHUB_WINDOWS
+#elif __linux__ && !__ANDROID__
+#define ARTINXHUB_LINUX
+//#elif __APPLE__
+//#define ANIMGUI_MACOS
+#else
+#error "Unsupported platform"
+#endif
+
+class Uncopyable {
+public:
+    Uncopyable() = default;
+    Uncopyable(const Uncopyable&) = delete;
+    Uncopyable& operator=(const Uncopyable&) = delete;
+    Uncopyable(Uncopyable&&) = default;
+    Uncopyable& operator=(Uncopyable&&) = default;
+    ~Uncopyable() = default;
+};
+
+class Unmovable {
+public:
+    Unmovable() = default;
+    Unmovable(const Unmovable&) = delete;
+    Unmovable& operator=(const Unmovable&) = delete;
+    Unmovable(Unmovable&&) = delete;
+    Unmovable& operator=(Unmovable&&) = delete;
+    ~Unmovable() = default;
+};
