@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <httplib.h>
 #include <opencv2/opencv.hpp>
+#include <optional>
 #ifdef ARTINXHUB_WINDOWS
 #define NOMINMAX
 #include <Windows.h>
@@ -19,28 +20,46 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
     std::mutex mMutex;
     std::thread mListener;
 
+    void modifyParameter(std::string path, std::string value) {}
+    std::string generateParameterJson() {
+        return "hello world!    clock " + std::to_string(::clock());
+    }
+
+    std::optional<std::vector<uchar>> generateImageData(std::string path) {
+        if(mImage.empty())
+            return std::nullopt;
+        std::unique_lock<std::mutex> guard{ mMutex };
+        auto img = mImage;
+        guard.unlock();
+        std::vector<uchar> data;
+        if(!cv::imencode(".jpg", img, data))
+            return std::nullopt;
+        return data;
+    }
+    std::string generateStatusJson() {
+        return "hello world!    clock " + std::to_string(::clock());
+    }
+    std::string generateProfileJson() {
+        return "hello world!    clock " + std::to_string(::clock());
+    }
+
 public:
     HttpServer(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {
         mServer.set_mount_point("/pages", "./pages");
 
-        mServer.Get("/status", [](const httplib::Request&, httplib::Response& res) {
-            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
+        mServer.Get("/status", [this](const httplib::Request&, httplib::Response& res) {
+            res.set_content(generateStatusJson(), "text/plain");
         });
-        mServer.Get("/profile", [](const httplib::Request&, httplib::Response& res) {
-            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
+        mServer.Get("/profile", [this](const httplib::Request&, httplib::Response& res) {
+            res.set_content(generateProfileJson(), "text/plain");
         });
-        mServer.Get("/parameters", [](const httplib::Request&, httplib::Response& res) {
-            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
+        mServer.Get("/parameters", [this](const httplib::Request& req, httplib::Response& res) {
+            res.set_content(generateParameterJson(), "text/plain");
         });
-        mServer.Get("/imgs", [this](const httplib::Request&, httplib::Response& res) {
-            if(mImage.empty())
-                return;
-            std::unique_lock<std::mutex> guard{ mMutex };
-            auto img = mImage;
-            guard.unlock();
-            std::vector<uchar> data;
-            if(cv::imencode(".jpg", img, data)) {
-                res.set_content(reinterpret_cast<char*>(data.data()), data.size(), "blob");
+        mServer.Get("/imgs", [this](const httplib::Request& req, httplib::Response& res) {
+            if(auto img = generateImageData("")) {
+                const auto& data = img.value();
+                res.set_content(reinterpret_cast<const char*>(data.data()), data.size(), "blob");
             }
         });
         mServer.Get("/exit", [this](const httplib::Request& req, httplib::Response& res) {

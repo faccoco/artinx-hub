@@ -10,9 +10,9 @@
 #include <caf/scoped_actor.hpp>
 #include <filesystem>
 #include <fstream>
+#include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
-#include <opencv2/opencv.hpp>
 
 namespace fs = std::filesystem;
 using namespace std::literals;
@@ -141,6 +141,8 @@ std::vector<caf::actor> buildPipeline(caf::actor_system& system, const HubConfig
     return actors;
 }
 
+void createDaemonActor(caf::actor_system& sys, const std::vector<caf::actor>& actors);
+
 void caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
     CAF_LOG_INFO("ArtinxHub Started");
     CAF_LOG_INFO("Initializing");
@@ -160,6 +162,8 @@ void caf_main(caf::actor_system& system, const caf::actor_system_config& config)
     const auto configData = loadConfig(argv[1]);
     const auto pipelineConfig = caf::config_value::parse(configData).value();
     const auto actors = buildPipeline(system, pipelineConfig);
+
+    createDaemonActor(system, actors);
 
     std::this_thread::sleep_for(3s);
 

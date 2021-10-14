@@ -1,11 +1,13 @@
 cmake_minimum_required (VERSION 3.19)
 
-set(SOURCE HubMain.cpp
+set(SOURCE Core/Daemon.cpp
+Core/PerformanceMonitor.cpp
 DataLink/HttpServer.cpp
 Sensor/DahengDriver.cpp
 Sensor/VideoReplay.cpp
 Test/Test.cpp
 Utility/VideoRecoder.cpp
+HubMain.cpp
 )
 
 find_package(CAF REQUIRED COMPONENTS core io)

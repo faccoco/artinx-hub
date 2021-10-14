@@ -3,8 +3,11 @@
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <opencv2/videoio.hpp>
+
+namespace fs = std::filesystem;
 
 class VideoRecorder final : public HubHelper<caf::event_based_actor, VideoRecorderSettings> {
 private:
@@ -32,6 +35,10 @@ public:
                          mWriter.reset();
                      }
                      if(!mWriter) {
+                         if(!fs::create_directories(mConfig.base)) {
+                             const auto error = "Failed to create directory " + mConfig.base;
+                             CAF_RAISE_ERROR(error.c_str());
+                         }
                          mWriter = std::make_unique<cv::VideoWriter>(
                              mConfig.base + "/" + std::to_string(Clock::now().time_since_epoch().count()) + ".mp4", mFourcc,
                              mConfig.fps, image.size());
