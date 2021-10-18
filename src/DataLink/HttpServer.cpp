@@ -1,3 +1,5 @@
+#include "BlackBoard.hpp"
+#include "CameraFrame.hpp"
 #include "Common.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
@@ -81,9 +83,9 @@ public:
                     ::system("xdg-open http://127.0.0.1:8080/pages/Main.html");
 #endif
                 },
-                 [this](const cv::Mat& img) {
+                 [this](image_frame_atom, Identifier key) {
                      std::lock_guard<std::mutex> guard{ mMutex };
-                     mImage = img;
+                     mImage = BlackBoard::instance().get<CameraFrame>(key).value().frame;
                  } };
     }
 };

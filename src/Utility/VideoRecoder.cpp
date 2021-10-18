@@ -1,3 +1,5 @@
+#include "BlackBoard.hpp"
+#include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include <caf/actor_ostream.hpp>
@@ -8,6 +10,20 @@
 #include <opencv2/videoio.hpp>
 
 namespace fs = std::filesystem;
+
+struct VideoRecorderSettings final {
+    std::string base;
+    double segmentLength;
+    double fps;
+};
+
+template <class Inspector>
+bool inspect(Inspector& f, VideoRecorderSettings& x) {
+    return f.object(x).fields(
+        f.field("base", x.base),
+        f.field("segmentLength", x.segmentLength).fallback(60.0).invariant([](double v) { return v >= 10.0; }),
+        f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 120.0; }));
+}
 
 class VideoRecorder final : public HubHelper<caf::event_based_actor, VideoRecorderSettings> {
 private:
@@ -26,11 +42,15 @@ public:
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) { mStartFlag = true; },
-                 [this](cv::Mat image) {
-                     if(!mStartFlag || image.empty())
+                 [this](image_frame_atom, Identifier key) {
+                     if(!mStartFlag)
                          return;
+
+                     const auto frameData = BlackBoard::instance().get<CameraFrame>(key).value();
+                     // TODO: record camera info
+
                      if(mWriter &&
-                        (image.type() != mFormat || image.size() != mSize ||
+                        (frameData.frame.type() != mFormat || frameData.frame.size() != mSize ||
                          mFrameCount >= static_cast<uint32_t>(mConfig.fps * mConfig.segmentLength))) {
                          mWriter.reset();
                      }
@@ -41,12 +61,12 @@ public:
                          }
                          mWriter = std::make_unique<cv::VideoWriter>(
                              mConfig.base + "/" + std::to_string(Clock::now().time_since_epoch().count()) + ".mp4", mFourcc,
-                             mConfig.fps, image.size());
-                         mFormat = image.type();
-                         mSize = image.size();
+                             mConfig.fps, frameData.frame.size());
+                         mFormat = frameData.frame.type();
+                         mSize = frameData.frame.size();
                          mFrameCount = 0;
                      }
-                     mWriter->write(image);
+                     mWriter->write(frameData.frame);
                      ++mFrameCount;
                  } };
     }

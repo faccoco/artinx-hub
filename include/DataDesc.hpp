@@ -1,55 +1,49 @@
 #pragma once
+#include "Constants.hpp"
 #include <caf/allowed_unsafe_message_type.hpp>
 #include <caf/type_id.hpp>
-#include <opencv2/opencv.hpp>
+#include <cstdint>
 
-struct VideoReplaySettings final {
-    std::string path;
-    double fps;
+struct GlobalSettings final {
+    double gForce;
+    double dragCoefficient;
+    bool bullet42mm;
+
+    double bulletRadius() const noexcept {
+        return bullet42mm ? radiusOf42mm : radiusOf17mm;
+    }
+    double bulletMass() const noexcept {
+        return bullet42mm ? massOf42mm : massOf17mm;
+    }
 };
 
 template <class Inspector>
-bool inspect(Inspector& f, VideoReplaySettings& x) {
-    return f.object(x).fields(f.field("path", x.path),
-                              f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 120.0; }));
+bool inspect(Inspector& f, GlobalSettings& x) {
+    return f.object(x).fields(f.field("gForce", x.gForce), f.field("dragCoefficient", x.dragCoefficient),
+                              f.field("bullet42mm", x.bullet42mm));
 }
 
-struct VideoRecorderSettings final {
-    std::string base;
-    double segmentLength;
-    double fps;
+struct Identifier final {
+    uint64_t val;
 };
 
-template <class Inspector>
-bool inspect(Inspector& f, VideoRecorderSettings& x) {
-    return f.object(x).fields(
-        f.field("base", x.base),
-        f.field("segmentLength", x.segmentLength).fallback(60.0).invariant([](double v) { return v >= 10.0; }),
-        f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 120.0; }));
-}
+CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id);
 
-struct DahengDriverSettings final {
-    std::string serialNumber;
-    double fps;
-    uint32_t width;
-    uint32_t height;
-};
+CAF_ADD_ATOM(ArtinxHub, start_atom);
+CAF_ADD_ATOM(ArtinxHub, shoot_atom);
+CAF_ADD_ATOM(ArtinxHub, detect_available_atom);
+CAF_ADD_ATOM(ArtinxHub, set_target_atom);
+CAF_ADD_ATOM(ArtinxHub, set_target_posture_atom);
+CAF_ADD_ATOM(ArtinxHub, update_posture_atom);
+CAF_ADD_ATOM(ArtinxHub, update_head_atom);
+CAF_ADD_ATOM(ArtinxHub, simulator_step_atom);
+CAF_ADD_ATOM(ArtinxHub, timer_atom);
+CAF_ADD_ATOM(ArtinxHub, image_frame_atom);
+CAF_ADD_ATOM(ArtinxHub, car_detect_available_atom);
+CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
 
-template <class Inspector>
-bool inspect(Inspector& f, DahengDriverSettings& x) {
-    return f.object(x).fields(f.field("serialNumber", x.serialNumber),
-                              f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 500.0; }),
-                              f.field("width", x.width), f.field("height", x.height));
-}
+CAF_ADD_TYPE_ID(ArtinxHub, (Identifier));
 
-CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id)
+CAF_END_TYPE_ID_BLOCK(ArtinxHub);
 
-CAF_ADD_ATOM(ArtinxHub, start_atom)
-CAF_ADD_TYPE_ID(ArtinxHub, (cv::Mat))
-CAF_ADD_TYPE_ID(ArtinxHub, (VideoReplaySettings))
-CAF_ADD_TYPE_ID(ArtinxHub, (VideoRecorderSettings))
-CAF_ADD_TYPE_ID(ArtinxHub, (DahengDriverSettings))
-
-CAF_END_TYPE_ID_BLOCK(ArtinxHub)
-
-CAF_ALLOW_UNSAFE_MESSAGE_TYPE(cv::Mat)
+CAF_ALLOW_UNSAFE_MESSAGE_TYPE(Identifier);

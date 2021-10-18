@@ -1,13 +1,28 @@
+#include "BlackBoard.hpp"
+#include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#pragma warning(push,0)
-#include <GxIAPI.h>
-#pragma warning(pop)
-
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
 #include <opencv2/opencv.hpp>
+#pragma warning(push, 0)
+#include <GxIAPI.h>
+#pragma warning(pop)
+
+struct DahengDriverSettings final {
+    std::string serialNumber;
+    double fps;
+    uint32_t width;
+    uint32_t height;
+};
+
+template <class Inspector>
+bool inspect(Inspector& f, DahengDriverSettings& x) {
+    return f.object(x).fields(f.field("serialNumber", x.serialNumber),
+                              f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 500.0; }),
+                              f.field("width", x.width), f.field("height", x.height));
+}
 
 static void checkGXStatus(const GX_STATUS status) {
     if(status != GX_STATUS_SUCCESS) {
@@ -30,8 +45,9 @@ static void initLib() {
     static DahengLibGuard guard;
 }
 
-class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriverSettings> {
+class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriverSettings, image_frame_atom> {
 private:
+    Identifier mKey;
     GX_DEV_HANDLE mDevice;
     bool mStartFlag;
 
@@ -43,19 +59,23 @@ private:
         if(pFrameData->status != GX_FRAME_STATUS_SUCCESS)
             return;
 
-        // const auto timeStamp = MasterTimer::get().now();
+        const auto timeStamp = SynchronizedClock::now();  // TODO: propagation time and internal timer
 
         cv::Mat frame{ cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, pixelStorageFormat };
         memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
 
-        cv::Mat bgr8;
-        cv::cvtColor(frame, bgr8, pixelCast);
+        CameraFrame frameData;
+        frameData.lastUpdate = timeStamp;
+        cv::cvtColor(frame, frameData.frame, pixelCast);
+        // TODO: frameData.info;
 
-        sendAll(frame);
+        BlackBoard::instance().updateSync(mKey, std::move(frameData));
+        sendAll(image_frame_atom_v, mKey);
     }
 
 public:
-    DahengDriver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mStartFlag{ false } {
+    DahengDriver(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ typeid(DahengDriver).hash_code() }, mStartFlag{ false } {
         initLib();
 
         GX_OPEN_PARAM deviceDesc;
@@ -90,6 +110,7 @@ public:
         checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_X, 0));
         checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_Y, 0));
 
+#ifdef ARTINXHUB_WINDOWS
         auto bImplementPacketSize = false;
         checkGXStatus(GXIsImplemented(mDevice, GX_INT_GEV_PACKETSIZE, &bImplementPacketSize));
         if(bImplementPacketSize) {
@@ -97,6 +118,7 @@ public:
             checkGXStatus(GXGetOptimalPacketSize(mDevice, &unPacketSize));
             checkGXStatus(GXSetInt(mDevice, GX_INT_GEV_PACKETSIZE, unPacketSize));
         }
+#endif
 
         checkGXStatus(GXRegisterCaptureCallback(mDevice, this, [](GX_FRAME_CALLBACK_PARAM* pFrameData) {
             static_cast<DahengDriver*>(pFrameData->pUserParam)->newFrame(pFrameData);
