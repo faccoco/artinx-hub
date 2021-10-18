@@ -25,26 +25,37 @@ namespace detail {
     };
 #define HUB_REGISTER_CLASS(CLASS_NAME) static detail::HubClassRegister<CLASS_NAME> hubClassRegister##CLASS_NAME
 
-    std::vector<caf::actor> parseSucceed(caf::actor_system& system, const HubConfig& config);
+    std::vector<std::string> parseSucceed(const HubConfig& config, const std::string& name);
+    std::vector<caf::actor> parseSucceed(caf::actor_system& system, const std::vector<std::string>& succeed);
 }  // namespace detail
 
-template <typename T, typename Config, typename = std::enable_if_t<std::is_base_of_v<caf::abstract_actor, T>>>
+template <typename T, typename Config, typename... Succeed>
 class HubHelper : public T {
-    std::vector<caf::actor> mDest;
+    static_assert(std::is_base_of_v<caf::abstract_actor, T>);
+
+    template <typename T>
+    struct SucceedAddress final {
+        std::variant<std::vector<std::string>, std::vector<caf::actor>> val;
+    };
+
+    std::tuple<SucceedAddress<Succeed>...> mDest;
 
 protected:
     std::conditional_t<std::is_void_v<Config>, char, Config> mConfig;
 
 public:
     HubHelper(caf::actor_config& base, const HubConfig& config)
-        : T{ base }, mDest{ detail::parseSucceed(this->system(), config) } {
+        : T{ base }, mDest{ SucceedAddress<Succeed>{ detail::parseSucceed(config, typeid(Succeed).name()) }... } {
         if constexpr(!std::is_void_v<Config>) {
             mConfig = caf::get_as<Config>(config).value();
         }
     }
-    template <typename... Args>
-    void sendAll(Args&&... args) {
-        for(auto&& address : mDest)
-            this->send(address, args...);
+    template <typename T, typename... Args>
+    void sendAll(T atom, Args&&... args) {
+        auto& dest = std::get<SucceedAddress<T>>(mDest).val;
+        if(dest.index() == 0)
+            dest = detail::parseSucceed(this->system(), std::get<0>(dest));
+        for(auto&& address : std::get<1>(dest))
+            this->send(address, atom, args...);
     }
 };

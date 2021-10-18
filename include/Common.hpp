@@ -1,4 +1,8 @@
 #pragma once
+#include <exception>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 #if _WIN32
 #define ARTINXHUB_WINDOWS
@@ -29,3 +33,5 @@ public:
     Unmovable& operator=(Unmovable&&) = delete;
     ~Unmovable() = default;
 };
+
+class NotImplemented final : public std::exception {};

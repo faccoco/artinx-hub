@@ -1,6 +1,8 @@
+#include "BlackBoard.hpp"
 #include "Common.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
+#include "Timer.hpp"
 #include <caf/actor_registry.hpp>
 #include <caf/actor_system.hpp>
 #include <caf/actor_system_config.hpp>
@@ -8,13 +10,10 @@
 #include <caf/exec_main.hpp>
 #include <caf/logger.hpp>
 #include <caf/scoped_actor.hpp>
-#include <filesystem>
 #include <fstream>
-#include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
 
-namespace fs = std::filesystem;
 using namespace std::literals;
 
 static std::string loadConfig(const char* path) {
@@ -60,14 +59,28 @@ namespace detail {
     void registerComponent(const char* name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction) {
         NodeFactory::get().addNodeType(std::string{ name }, std::move(spawnFunction));
     }
-    std::vector<caf::actor> parseSucceed(caf::actor_system& system, const HubConfig& config) {
+    std::vector<std::string> parseSucceed(const HubConfig& config, const std::string& name) {
+        std::string_view nameNormalized = name;
+        if(const auto pos = nameNormalized.find_last_of(' '); pos != std::string::npos) {
+            nameNormalized = nameNormalized.substr(pos + 1);
+        }
         const auto attr = config.to_dictionary().value();
-        const auto iter = attr.find("succeed"sv);
+        const auto iter = attr.find(nameNormalized);
         if(iter == attr.cend())
-            return {};
+            CAF_LOG_ERROR("Succeed " + std::string{ nameNormalized } + " is needed");
+
+        const auto succeed = iter->second.to_list().value();
+        std::vector<std::string> res;
+        res.reserve(succeed.size());
+        for(auto id : succeed) {
+            res.push_back(caf::to_string(id));
+        }
+        return res;
+    }
+    std::vector<caf::actor> parseSucceed(caf::actor_system& system, const std::vector<std::string>& succeed) {
         const auto& registry = system.registry();
         std::vector<caf::actor> res;
-        const auto succeed = iter->second.to_list().value();
+        res.reserve(succeed.size());
         for(auto id : succeed) {
             res.push_back(registry.get<caf::actor>(caf::to_string(id)));
         }
@@ -81,61 +94,15 @@ std::vector<caf::actor> buildPipeline(caf::actor_system& system, const HubConfig
     std::vector<std::tuple<uint32_t, std::string, std::vector<uint32_t>>> reference;
     reference.reserve(nodes.size());
 
-    for(auto&& [name, config] : nodes) {
-        idMap.emplace(name, static_cast<uint32_t>(reference.size()));
-        reference.push_back({ 0, name, {} });
-    }
-
-    for(auto&& [name, config] : nodes) {
-        const auto idx = idMap.find(name)->second;
-        auto& linkCount = std::get<uint32_t>(reference[idx]);
-
-        const auto attr = config.to_dictionary().value();
-        const auto succeedIter = attr.find("succeed"sv);
-        if(succeedIter == attr.cend())
-            continue;
-
-        const auto succeed = succeedIter->second.to_list().value();
-        for(auto&& ref : succeed) {
-            const auto refName = caf::to_string(ref);
-            const auto iter = idMap.find(refName);
-            if(iter == idMap.cend()) {
-                const auto error = "Undefined Node " + refName;
-                CAF_RAISE_ERROR(error.c_str());
-            }
-            ++linkCount;
-            auto& link = std::get<std::vector<uint32_t>>(reference[iter->second]);
-            link.push_back(idx);
-        }
-    }
-
     auto&& factory = NodeFactory::get();
 
     std::vector<caf::actor> actors;
     actors.reserve(nodes.size());
 
-    while(true) {
-        bool sideEffects = false;
-
-        for(auto&& [ref, name, link] : reference) {
-            if(ref == 0) {
-                actors.push_back(factory.buildNode(system, name, nodes.find(name)->second));
-                ref = std::numeric_limits<uint32_t>::max();
-                sideEffects = true;
-
-                for(auto dep : link)
-                    --std::get<uint32_t>(reference[dep]);
-            }
-        }
-
-        if(!sideEffects) {
-            for(auto&& [ref, name, link] : reference) {
-                if(ref != std::numeric_limits<uint32_t>::max()) {
-                    CAF_RAISE_ERROR("Cycles detected.");
-                }
-            }
-            break;
-        }
+    for(auto&& [name, config] : nodes) {
+        if(name == "global")
+            continue;
+        actors.push_back(factory.buildNode(system, name, nodes.find(name)->second));
     }
 
     return actors;
@@ -144,8 +111,9 @@ std::vector<caf::actor> buildPipeline(caf::actor_system& system, const HubConfig
 void createDaemonActor(caf::actor_system& sys, const std::vector<caf::actor>& actors);
 
 void caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
-    CAF_LOG_INFO("ArtinxHub Started");
     CAF_LOG_INFO("Initializing");
+    Timer::instance().bindSystem(system);
+
     const auto [argc, argv] = config.c_args_remainder();
     auto args = "Command Arguments: "s;
     for(int idx = 1; idx < argc; ++idx) {
@@ -161,6 +129,7 @@ void caf_main(caf::actor_system& system, const caf::actor_system_config& config)
 
     const auto configData = loadConfig(argv[1]);
     const auto pipelineConfig = caf::config_value::parse(configData).value();
+    BlackBoard::instance().updateSync({}, caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value());
     const auto actors = buildPipeline(system, pipelineConfig);
 
     createDaemonActor(system, actors);
@@ -171,6 +140,7 @@ void caf_main(caf::actor_system& system, const caf::actor_system_config& config)
     for(auto&& actor : actors) {
         caller->send(actor, start_atom_v);
     }
+    CAF_LOG_INFO("ArtinxHub Started");
 }
 
 CAF_MAIN(caf::id_block::ArtinxHub)

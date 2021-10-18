@@ -2,6 +2,7 @@ cmake_minimum_required (VERSION 3.19)
 
 project(artinx_hub)
 set(CMAKE_CXX_STANDARD 17)
+enable_testing()
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	add_compile_definitions("UNICODE")

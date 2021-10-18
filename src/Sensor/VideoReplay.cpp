@@ -1,3 +1,5 @@
+#include "BlackBoard.hpp"
+#include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include <caf/actor_ostream.hpp>
@@ -5,19 +7,32 @@
 #include <cstdint>
 #include <opencv2/videoio.hpp>
 
-class VideoReplay final : public HubHelper<caf::event_based_actor, VideoReplaySettings> {
+struct VideoReplaySettings final {
+    std::string path;
+    double fps;
+};
+
+template <class Inspector>
+bool inspect(Inspector& f, VideoReplaySettings& x) {
+    return f.object(x).fields(f.field("path", x.path),
+                              f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 120.0; }));
+}
+
+class VideoReplay final : public HubHelper<caf::event_based_actor, VideoReplaySettings, image_frame_atom> {
 private:
+    Identifier mKey;
     std::thread mThread;
-    bool mStartFlag;
+    bool mStartFlag = false, mRunFlag = true;
 
 public:
-    VideoReplay(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mStartFlag{ false } {
+    VideoReplay(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ typeid(VideoReplay).hash_code() } {
         mThread = std::thread{ [this] {
             const auto [path, fps] = mConfig;
             while(!mStartFlag)
                 std::this_thread::sleep_for(100ms);
 
-            while(true) {
+            while(mRunFlag) {
                 cv::VideoCapture capture;
                 if(!capture.open(path)) {
                     // TODO: error code
@@ -28,18 +43,26 @@ public:
                 auto now = Clock::now();
                 while(true) {
                     std::this_thread::sleep_until(now);
-                    cv::Mat frame;
-                    if(!capture.read(frame)) {
+
+                    CameraFrame frameData;
+                    frameData.lastUpdate = now;
+                    // TODO: frameData.info
+
+                    if(!capture.read(frameData.frame)) {
                         break;
                     }
-                    sendAll(frame);
+
+                    BlackBoard::instance().updateSync(mKey, std::move(frameData));
+
+                    sendAll(image_frame_atom_v, mKey);
                     now += duration;
                 }
             }
         } };
     }
     ~VideoReplay() {
-        mThread.detach();
+        mRunFlag = false;
+        mThread.join();
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) { mStartFlag = true; } };

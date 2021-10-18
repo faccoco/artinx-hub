@@ -4,7 +4,7 @@
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
 
-class Input final : public HubHelper<caf::event_based_actor, void> {
+class Input final : public HubHelper<caf::event_based_actor, void, int32_t> {
 public:
     Input(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
     caf::behavior make_behavior() override {
