@@ -33,7 +33,7 @@ template <typename T, typename Config, typename... Succeed>
 class HubHelper : public T {
     static_assert(std::is_base_of_v<caf::abstract_actor, T>);
 
-    template <typename T>
+    template <typename Label>
     struct SucceedAddress final {
         std::variant<std::vector<std::string>, std::vector<caf::actor>> val;
     };
@@ -50,9 +50,9 @@ public:
             mConfig = caf::get_as<Config>(config).value();
         }
     }
-    template <typename T, typename... Args>
-    void sendAll(T atom, Args&&... args) {
-        auto& dest = std::get<SucceedAddress<T>>(mDest).val;
+    template <typename Atom, typename... Args>
+    void sendAll(Atom atom, Args&&... args) {
+        auto& dest = std::get<SucceedAddress<Atom>>(mDest).val;
         if(dest.index() == 0)
             dest = detail::parseSucceed(this->system(), std::get<0>(dest));
         for(auto&& address : std::get<1>(dest))
