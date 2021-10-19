@@ -18,3 +18,13 @@ public:
 };
 
 void drawRotatedRect(cv::Mat& img, const cv::RotatedRect& rect, const cv::Scalar& color);
+
+enum class RunStatus { running, normalExit, failureExit };
+
+extern RunStatus globalStatus;
+
+namespace caf {
+    class local_actor;
+}
+
+void terminateSystem(caf::local_actor& actor, bool success);

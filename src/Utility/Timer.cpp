@@ -1,5 +1,6 @@
 #include "Timer.hpp"
 #include "DataDesc.hpp"
+#include "Utility.hpp"
 #include <caf/scoped_actor.hpp>
 
 Timer& Timer::instance() {
@@ -10,7 +11,7 @@ Timer& Timer::instance() {
 Timer::Timer() {
     mThread = std::thread{ [&] {
         using namespace std::chrono_literals;
-        while(mRunFlag) {
+        while(globalStatus == RunStatus::running) {
             if(mTimers.empty()) {
                 std::this_thread::sleep_for(10ms);
                 continue;
@@ -41,12 +42,13 @@ void Timer::bindSystem(caf::actor_system& system) {
 }
 
 Timer::~Timer() {
-    mRunFlag = false;
-    mThread.join();
+    // FIXME: Cannot join the thread
+    mThread.detach();
 }
 
 void Timer::addTimer(caf::actor actor, Duration period) {
     std::lock_guard<std::mutex> guard{ mMutex };
+    mTimers.push({ actor, Clock::now() + period, period });
 }
 
 TimePoint SynchronizedClock::now() {

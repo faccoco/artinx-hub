@@ -3,6 +3,7 @@
 #include "Common.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
+#include "Utility.hpp"
 #include <caf/actor_ostream.hpp>
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
@@ -67,7 +68,7 @@ public:
         mServer.Get("/exit", [this](const httplib::Request& req, httplib::Response& res) {
             mServer.stop();
 
-            std::exit(0);
+            terminateSystem(*this, true);
         });
 
         mListener = std::thread{ [this] { mServer.listen("127.0.0.1", 8080); } };

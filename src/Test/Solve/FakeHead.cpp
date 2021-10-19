@@ -34,7 +34,7 @@ class FakeHead final : public HubHelper<caf::event_based_actor, FakeHeadSettings
     Duration mDelay;
     std::queue<std::tuple<TimePoint, double, double>> mQueue;
 
-    double mTime = 0.0;
+    double mTime = 0.0, mTargetYaw = 0.0, mTargetPitch = 0.0;
     PIDSimulator mYaw, mPitch;
     Identifier mKey;
 
@@ -43,48 +43,55 @@ public:
         : HubHelper{ base, config }, mDelay{ static_cast<Clock::rep>(mConfig.delay * Clock::period::den / Clock::period::num) },
           mYaw{ { mConfig.kp, mConfig.ki, mConfig.kd } }, mPitch{ { mConfig.kp, mConfig.ki, mConfig.kd } }, mKey{
               typeid(FakeHead).hash_code()
-          } {}
+          } {
+        Timer::instance().addTimer(caf::actor_cast<caf::actor>(this->address()), 5ms);
+    }
     caf::behavior make_behavior() override {
-        return { [&](simulator_step_atom, Identifier key) {
-                    const auto data = BlackBoard::instance().get<SimulatorWorldInfo>(key).value();
-
-                    const auto current = data.lastUpdate;
-                    const auto diff = static_cast<double>((current - mCurrent).count()) / Clock::period::den * Clock::period::num;
-                    mCurrent = current;
-
-                    std::optional<std::tuple<TimePoint, double, double>> cur;
-                    while(!mQueue.empty() && current - std::get<0>(mQueue.front()) > mDelay) {
-                        cur = mQueue.front();
-                        mQueue.pop();
-                    }
-
-                    if(!cur.has_value())
-                        return;
-
-                    const auto [_, targetYaw, targetPitch] = cur.value();
-                    auto [yaw, yawSpeed] = mYaw.step(diff, targetYaw, mConfig.headMaxSpeed);
-                    auto [pitch, pitchSpeed] = mPitch.step(diff, targetPitch, mConfig.headMaxSpeed);
-
-                    yaw += glm::gaussRand(0.0, mConfig.headPosStd);
-                    pitch += glm::gaussRand(0.0, mConfig.headPosStd);
-
-                    yawSpeed += glm::gaussRand(0.0, mConfig.headSpeedStd);
-                    pitchSpeed += glm::gaussRand(0.0, mConfig.headSpeedStd);
-
-                    const HeadInfo info{ mCurrent,
-                                         decltype(HeadInfo::transform){
-                                             glm::lookAtRH(glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
-                                                           glm::dvec3{ std::cos(yaw) * std::cos(pitch),
-                                                                       mConfig.headHeightOffset + std::sin(pitch),
-                                                                       std::sin(yaw) * std::cos(pitch) },
-                                                           glm::dvec3{ 0.0, 1.0, 0.0 }) },
-                                         yawSpeed, pitchSpeed };
-
-                    BlackBoard::instance().updateSync(mKey, info);
-                    sendAll(update_head_atom_v, mKey);
+        return { [&](timer_atom) {
+                    mQueue.push({ mCurrent, mTargetYaw, mTargetPitch });
                 },
+                 [&](simulator_step_atom, Identifier key) {
+                     const auto data = BlackBoard::instance().get<SimulatorWorldInfo>(key).value();
+
+                     const auto current = data.lastUpdate;
+                     const auto diff =
+                         static_cast<double>((current - mCurrent).count()) / Clock::period::den * Clock::period::num;
+                     mCurrent = current;
+
+                     std::optional<std::tuple<TimePoint, double, double>> cur;
+                     while(!mQueue.empty() && current - std::get<0>(mQueue.front()) > mDelay) {
+                         cur = mQueue.front();
+                         mQueue.pop();
+                     }
+
+                     if(!cur.has_value())
+                         return;
+
+                     const auto [_, targetYaw, targetPitch] = cur.value();
+                     auto [yaw, yawSpeed] = mYaw.step(diff, targetYaw, mConfig.headMaxSpeed);
+                     auto [pitch, pitchSpeed] = mPitch.step(diff, targetPitch, mConfig.headMaxSpeed);
+
+                     yaw += glm::gaussRand(0.0, mConfig.headPosStd);
+                     pitch += glm::gaussRand(0.0, mConfig.headPosStd);
+
+                     yawSpeed += glm::gaussRand(0.0, mConfig.headSpeedStd);
+                     pitchSpeed += glm::gaussRand(0.0, mConfig.headSpeedStd);
+
+                     const HeadInfo info{ mCurrent,
+                                          decltype(HeadInfo::transform){ glm::lookAtRH(
+                                              glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
+                                              glm::dvec3{ std::cos(yaw - glm::half_pi<double>()) * std::cos(pitch),
+                                                          mConfig.headHeightOffset + std::sin(pitch),
+                                                          std::sin(yaw - glm::half_pi<double>()) * std::cos(pitch) },
+                                              glm::dvec3{ 0.0, 1.0, 0.0 }) },
+                                          yawSpeed, pitchSpeed };
+
+                     BlackBoard::instance().updateSync(mKey, info);
+                     sendAll(update_head_atom_v, mKey);
+                 },
                  [&](set_target_posture_atom, const double yaw, const double pitch) {
-                     mQueue.push({ mCurrent, yaw, pitch });
+                     mTargetYaw = yaw;
+                     mTargetPitch = pitch;
                  },
                  [](start_atom) {} };
     }

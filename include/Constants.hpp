@@ -3,8 +3,8 @@
 #include <glm/gtc/constants.hpp>
 #include <utility>
 
-constexpr double radiusOf42mm = 42.5 * 0.5;
-constexpr double radiusOf17mm = 16.8 * 0.5;
+constexpr double radiusOf42mm = 0.00425 * 0.5;
+constexpr double radiusOf17mm = 0.00168 * 0.5;
 constexpr double massOf42mm = 0.041;
 constexpr double massOf17mm = 0.0032;
 

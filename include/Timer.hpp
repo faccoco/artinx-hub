@@ -27,7 +27,6 @@ class Timer final {
     };
     std::priority_queue<TimerInfo> mTimers;
     std::thread mThread;
-    bool mRunFlag = true;
 
 public:
     Timer();

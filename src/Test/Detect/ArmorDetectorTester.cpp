@@ -30,7 +30,7 @@ class ArmorDetectorTester final
     void next() {
         const auto path = mConfig.path + '/' + std::to_string(mCount) + mConfig.extension;
         if(!fs::exists(path))
-            std::exit(EXIT_SUCCESS);
+            terminateSystem(*this, true);
 
         mCurrentFrame = cv::imread(path);
 

@@ -66,6 +66,6 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 file(COPY ${DAHENG_SDK_PATH}/../../APIDll/Win64/GxIAPI.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
-file(COPY  ${CMAKE_SOURCE_DIR}/misc/caf-application.conf DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
+file(COPY  ${CMAKE_SOURCE_DIR}/config_templates/caf-application.conf DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
 
 add_test(NAME solver_test COMMAND cmd)
