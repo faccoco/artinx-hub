@@ -40,7 +40,7 @@ class ArmorLocatorTester final
 
     void next() {
         if(mCount >= mConfig.count) {
-            std::exit(EXIT_SUCCESS);
+            terminateSystem(*this, true);
         }
 
         const auto center = glm::linearRand(glm::dvec3{ -mConfig.width, -mConfig.height, -mConfig.length },
@@ -111,7 +111,8 @@ public:
                      CAF_LOG_INFO(fmt::format("Error: {:.1f}%", error * 100.0));
 
                      if(error > mConfig.maxError) {
-                         std::exit(EXIT_FAILURE);
+                         terminateSystem(*this, true);
+                         return;
                      }
 
                      next();

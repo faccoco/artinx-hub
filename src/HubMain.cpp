@@ -3,6 +3,7 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "Timer.hpp"
+#include "Utility.hpp"
 #include <caf/actor_registry.hpp>
 #include <caf/actor_system.hpp>
 #include <caf/actor_system_config.hpp>
@@ -10,7 +11,9 @@
 #include <caf/exec_main.hpp>
 #include <caf/logger.hpp>
 #include <caf/scoped_actor.hpp>
+#include <condition_variable>
 #include <fstream>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -110,6 +113,19 @@ std::vector<caf::actor> buildPipeline(caf::actor_system& system, const HubConfig
 
 void createDaemonActor(caf::actor_system& sys, const std::vector<caf::actor>& actors);
 
+RunStatus globalStatus = RunStatus::running;
+static std::mutex globalMutex;
+static std::condition_variable globalCV;
+
+void terminateSystem(caf::local_actor& actor, const bool success) {
+    globalStatus = success ? RunStatus::normalExit : RunStatus::failureExit;
+    /*
+    for(auto& [name, address] : actor.system().registry().named_actors())
+        actor.send_exit(address, caf::make_error(ExitCode::finished));
+    */
+    globalCV.notify_one();
+}
+
 void caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
     CAF_LOG_INFO("Initializing");
     Timer::instance().bindSystem(system);
@@ -134,13 +150,25 @@ void caf_main(caf::actor_system& system, const caf::actor_system_config& config)
 
     createDaemonActor(system, actors);
 
-    std::this_thread::sleep_for(3s);
+    // std::this_thread::sleep_for(3s);
 
-    const caf::scoped_actor caller{ system };
+    caf::scoped_actor caller{ system };
     for(auto&& actor : actors) {
         caller->send(actor, start_atom_v);
     }
     CAF_LOG_INFO("ArtinxHub Started");
+
+    {
+        std::unique_lock<std::mutex> lock{ globalMutex };
+        globalCV.wait(lock, [] { return globalStatus != RunStatus::running; });
+    }
+
+    // system.await_all_actors_done();
+    CAF_LOG_INFO("ArtinxHub Finished");
+
+    std::quick_exit(globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE);
+    // FIXME: stop all actors normally
+    // return globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 CAF_MAIN(caf::id_block::ArtinxHub)

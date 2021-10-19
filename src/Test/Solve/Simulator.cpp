@@ -7,6 +7,7 @@
 #pragma warning(pop)
 #include "HeadInfo.hpp"
 #include "SimulatorWorldInfo.hpp"
+#include "Utility.hpp"
 #include <caf/blocking_actor.hpp>
 #include <cstdlib>
 #include <fmt/format.h>
@@ -42,7 +43,7 @@ struct SimulatorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, SimulatorSettings& x) {
-    return f.object(x).fields(f.field("step", x.step).invariant([](double v) { return v >= 0.0001 && v <= 0.01; }),
+    return f.object(x).fields(f.field("step", x.step).invariant([](double v) { return v >= 0.001 && v <= 0.01; }),
                               f.field("v0", x.v0), f.field("v0Std", x.v0Std), f.field("shootInterval", x.shootInterval),
                               f.field("maxTime", x.maxTime), f.field("bulletCount", x.bulletCount),
                               f.field("vibrationLinearRange", x.vibrationLinearRange),
@@ -165,7 +166,7 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                     break;
             }
 
-            const btRigidBody::btRigidBodyConstructionInfo info{ 0.0, motion.get(), mTargetArmors.back().get() };
+            const btRigidBody::btRigidBodyConstructionInfo info{ 100.0, motion.get(), mTargetArmors.back().get() };
             body = std::make_unique<btRigidBody>(info);
             body->setFlags(btRigidBodyFlags::BT_DISABLE_WORLD_GRAVITY);
             body->setUserPointer(body->getCollisionShape()->getUserPointer());
@@ -193,26 +194,34 @@ public:
         bool runFlag = true;
         bool shoot = false;
         double lastShoot = -2 * mConfig.shootInterval;
-        uint32_t count = 0;
+        uint32_t hitCount = 0;
         uint32_t bulletCount = 0;
         const auto globalSettings = BlackBoard::instance().get<GlobalSettings>({}).value();
         mDynamicWorld->setGravity(btVector3{ 0, static_cast<float>(globalSettings.gForce), 0 });
 
-        std::normal_distribution<double> vGen{ mConfig.v0, mConfig.v0Std };
+        std::normal_distribution<double> vGen{ mConfig.v0, std::fmax(mConfig.v0Std, 1e-3) };
         const auto maxVelocity = mConfig.v0 + 3.0 * mConfig.v0Std;
         const auto minVelocity = mConfig.v0 - 3.0 * mConfig.v0Std;
 
         const auto speedThreshold =
             globalSettings.bullet42mm ? speedThresholdFor42mmA : speedThresholdFor17mm;  // TODO: handle triangle armor
 
+        std::unordered_set<const btRigidBody*> usedBullet;
+        std::unordered_map<const btRigidBody*, btVector3> bulletVelocity;
+
         while(runFlag) {
+            for(auto& [_, p] : mBullets)
+                bulletVelocity[p.get()] = p->getLinearVelocity();
+
             // update drag forces
 
             // step
             mSource.second->step(*mSource.first, mConfig.step);
             std::get<2>(mTarget)->step(*std::get<0>(mTarget), mConfig.step);
-            mDynamicWorld->stepSimulation(static_cast<btScalar>(mConfig.step), 10, 0.0001f);
+            mDynamicWorld->stepSimulation(static_cast<btScalar>(mConfig.step), 10, 0.001f);
             time += mConfig.step;
+
+            CAF_LOG_INFO(fmt::format("Simulator time {:.3f}s bullet count {} hited {}", time, bulletCount, hitCount));
 
             // update world info
             {
@@ -262,27 +271,34 @@ public:
                 auto typeB = manifold->getBody1()->getUserPointer();
                 if(typeA == &bulletId && typeB == &bulletId)
                     continue;
-                auto bodyA = dynamic_cast<const btRigidBody*>(manifold->getBody0());  // armor
-                auto bodyB = dynamic_cast<const btRigidBody*>(manifold->getBody1());  // bullet
+                // NOTICE: RTTI is not available
+                auto bodyA = reinterpret_cast<const btRigidBody*>(manifold->getBody0());  // armor
+                auto bodyB = reinterpret_cast<const btRigidBody*>(manifold->getBody1());  // bullet
 
                 if(typeA == &bulletId) {
                     std::swap(bodyA, bodyB);
-                    std::swap(typeA, typeB);
                 }
 
-                const auto speed = bodyB->getLinearVelocity() - bodyA->getLinearVelocity();
+                if(usedBullet.count(bodyB)) {
+                    continue;
+                }
+
+                const auto speed = bulletVelocity[bodyB];
+                double velocity = 0.0;
 
                 const auto contactsCount = manifold->getNumContacts();
-                bool flag = false;
                 for(int32_t idx = 0; idx < contactsCount; ++idx) {
                     auto& point = manifold->getContactPoint(idx);
-                    if(std::fabs(btDot(point.m_normalWorldOnB, speed)) > speedThreshold) {
-                        flag = true;
-                        break;
-                    }
+                    velocity = std::max(velocity, static_cast<double>(std::fabs(btDot(point.m_normalWorldOnB, speed))));
                 }
-                if(flag) {
-                    ++count;
+
+                if(velocity > speedThreshold) {
+                    ++hitCount;
+
+                    const auto pos = bodyB->getCenterOfMassPosition();
+
+                    CAF_LOG_INFO(fmt::format("Hit at ({:.2f},{:.2f},{:.2f}) vel {:.2f}", pos.x(), pos.y(), pos.z(), velocity));
+                    usedBullet.insert(bodyB);
                 }
             }
 
@@ -303,7 +319,7 @@ public:
                 mSource.first->getWorldTransform(trans);
                 glm::mat4 mat;
                 trans.getOpenGLMatrix(glm::value_ptr(mat));
-                const auto transB = decltype(SimulatorWorldInfo::posture){ mat };
+                const auto transB = decltype(SimulatorWorldInfo::posture){ glm::inverse(mat) };
 
                 const auto transform = transB * transA;
                 glm::mat4 transformMat = transform.rawInverse();
@@ -329,17 +345,17 @@ public:
                 lastShoot = time;
                 ++bulletCount;
             }
-            if(time > mConfig.maxTime) {
+            if(time - mConfig.maxTime > -1e-4) {
                 runFlag = false;
             }
         }
 
-        CAF_LOG_INFO(fmt::format("Expected {} Result {}", mConfig.expectedCount, count));
-        if(count < mConfig.expectedCount) {
+        CAF_LOG_INFO(fmt::format("Expected {} Result {}", mConfig.expectedCount, hitCount));
+        if(hitCount < mConfig.expectedCount) {
             CAF_LOG_ERROR("Test failed");
-            std::quick_exit(EXIT_FAILURE);
+            terminateSystem(*this, false);
         } else
-            std::exit(EXIT_SUCCESS);
+            terminateSystem(*this, true);
     }
 };
 
