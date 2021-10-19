@@ -11,4 +11,5 @@ build-job:
 unit-test-job:
   stage: test
   script:
+    - cd build
     - ctest --build-config Release --output-on-failure -j 8
