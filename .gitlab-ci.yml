@@ -1,15 +1,10 @@
 stages:
-  - build
-  - test
+  - build-test
 
-build-job:
-  stage: build
+build-test-job:
+  stage: build-test
   script:
     - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
-
-unit-test-job:
-  stage: test
-  script:
     - cd build
     - ctest --build-config Release --output-on-failure -j 8
