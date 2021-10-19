@@ -67,5 +67,3 @@ file(COPY ${DAHENG_SDK_PATH}/../../APIDll/Win64/GxIAPI.dll DESTINATION ${CMAKE_C
 endif()
 
 file(COPY  ${CMAKE_SOURCE_DIR}/config_templates/caf-application.conf DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
-
-add_test(NAME solver_test COMMAND cmd)
