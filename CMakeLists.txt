@@ -25,3 +25,4 @@ endif()
 include_directories(BEFORE include)
 
 add_subdirectory(src)
+add_subdirectory(tests)
