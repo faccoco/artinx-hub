@@ -42,8 +42,8 @@ void Timer::bindSystem(caf::actor_system& system) {
 }
 
 Timer::~Timer() {
-    // FIXME: Cannot join the thread
-    mThread.detach();
+    if(mThread.joinable())
+        mThread.join();
 }
 
 void Timer::addTimer(caf::actor actor, Duration period) {

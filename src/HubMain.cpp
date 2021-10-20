@@ -119,16 +119,17 @@ static std::condition_variable globalCV;
 
 void terminateSystem(caf::local_actor& actor, const bool success) {
     globalStatus = success ? RunStatus::normalExit : RunStatus::failureExit;
-    /*
-    for(auto& [name, address] : actor.system().registry().named_actors())
-        actor.send_exit(address, caf::make_error(ExitCode::finished));
-    */
     globalCV.notify_one();
 }
 
-void caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
+int caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
     CAF_LOG_INFO("Initializing");
     Timer::instance().bindSystem(system);
+
+    const fs::path logPath{ "./logs" };
+    if(!fs::exists(logPath)) {
+        fs::create_directory(logPath);
+    }
 
     const auto [argc, argv] = config.c_args_remainder();
     auto args = "Command Arguments: "s;
@@ -140,7 +141,7 @@ void caf_main(caf::actor_system& system, const caf::actor_system_config& config)
 
     if(argc != 2 || !fs::exists(argv[1])) {
         CAF_LOG_ERROR("Bad Config");
-        return;
+        return EXIT_FAILURE;
     }
 
     const auto configData = loadConfig(argv[1]);
@@ -163,12 +164,13 @@ void caf_main(caf::actor_system& system, const caf::actor_system_config& config)
         globalCV.wait(lock, [] { return globalStatus != RunStatus::running; });
     }
 
-    // system.await_all_actors_done();
     CAF_LOG_INFO("ArtinxHub Finished");
 
-    std::quick_exit(globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE);
-    // FIXME: stop all actors normally
-    // return globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE;
+    // NOTICE: ugly but it works
+    while(system.registry().dec_running() != 1)
+        ;
+
+    return globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 CAF_MAIN(caf::id_block::ArtinxHub)
