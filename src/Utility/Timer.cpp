@@ -32,7 +32,7 @@ Timer::Timer() {
             std::this_thread::sleep_until(deadline);
 
             const caf::scoped_actor caller{ *mSystem };
-            caller->send(actor, timer_atom_v);
+            caller->send(caf::actor_cast<caf::actor>(actor), timer_atom_v);
         }
     } };
 }
@@ -46,7 +46,7 @@ Timer::~Timer() {
         mThread.join();
 }
 
-void Timer::addTimer(caf::actor actor, Duration period) {
+void Timer::addTimer(caf::actor_addr actor, Duration period) {
     std::lock_guard<std::mutex> guard{ mMutex };
     mTimers.push({ actor, Clock::now() + period, period });
 }

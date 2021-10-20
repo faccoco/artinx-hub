@@ -44,7 +44,7 @@ public:
           mYaw{ { mConfig.kp, mConfig.ki, mConfig.kd } }, mPitch{ { mConfig.kp, mConfig.ki, mConfig.kd } }, mKey{
               typeid(FakeHead).hash_code()
           } {
-        Timer::instance().addTimer(caf::actor_cast<caf::actor>(this->address()), 5ms);
+        Timer::instance().addTimer(this->address(), 5ms);
     }
     caf::behavior make_behavior() override {
         return { [&](timer_atom) {

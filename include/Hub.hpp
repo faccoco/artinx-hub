@@ -26,7 +26,7 @@ namespace detail {
 #define HUB_REGISTER_CLASS(CLASS_NAME) static detail::HubClassRegister<CLASS_NAME> hubClassRegister##CLASS_NAME
 
     std::vector<std::string> parseSucceed(const HubConfig& config, const std::string& name);
-    std::vector<caf::actor> parseSucceed(caf::actor_system& system, const std::vector<std::string>& succeed);
+    std::vector<caf::actor_addr> parseSucceed(caf::actor_system& system, const std::vector<std::string>& succeed);
 }  // namespace detail
 
 template <typename T, typename Config, typename... Succeed>
@@ -35,7 +35,7 @@ class HubHelper : public T {
 
     template <typename Label>
     struct SucceedAddress final {
-        std::variant<std::vector<std::string>, std::vector<caf::actor>> val;
+        std::variant<std::vector<std::string>, std::vector<caf::actor_addr>> val;
     };
 
     std::tuple<SucceedAddress<Succeed>...> mDest;
@@ -56,6 +56,6 @@ public:
         if(dest.index() == 0)
             dest = detail::parseSucceed(this->system(), std::get<0>(dest));
         for(auto&& address : std::get<1>(dest))
-            this->send(address, atom, args...);
+            this->send(caf::actor_cast<caf::actor>(address), atom, args...);
     }
 };

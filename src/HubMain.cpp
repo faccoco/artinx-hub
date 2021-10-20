@@ -80,18 +80,18 @@ namespace detail {
         }
         return res;
     }
-    std::vector<caf::actor> parseSucceed(caf::actor_system& system, const std::vector<std::string>& succeed) {
+    std::vector<caf::actor_addr> parseSucceed(caf::actor_system& system, const std::vector<std::string>& succeed) {
         const auto& registry = system.registry();
-        std::vector<caf::actor> res;
+        std::vector<caf::actor_addr> res;
         res.reserve(succeed.size());
         for(auto id : succeed) {
-            res.push_back(registry.get<caf::actor>(caf::to_string(id)));
+            res.push_back(registry.get<caf::actor_addr>(caf::to_string(id)));
         }
         return res;
     }
 }  // namespace detail
 
-std::vector<caf::actor> buildPipeline(caf::actor_system& system, const HubConfig& config) {
+std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system& system, const HubConfig& config) {
     const auto nodes = config.to_dictionary().value();
     std::unordered_map<std::string, uint32_t> idMap;
     std::vector<std::tuple<uint32_t, std::string, std::vector<uint32_t>>> reference;
@@ -99,19 +99,19 @@ std::vector<caf::actor> buildPipeline(caf::actor_system& system, const HubConfig
 
     auto&& factory = NodeFactory::get();
 
-    std::vector<caf::actor> actors;
+    std::vector<std::pair<std::string, caf::actor>> actors;
     actors.reserve(nodes.size());
 
     for(auto&& [name, config] : nodes) {
         if(name == "global")
             continue;
-        actors.push_back(factory.buildNode(system, name, nodes.find(name)->second));
+        actors.push_back({ name, factory.buildNode(system, name, nodes.find(name)->second) });
     }
 
     return actors;
 }
 
-void createDaemonActor(caf::actor_system& sys, const std::vector<caf::actor>& actors);
+caf::actor createDaemonActor(caf::actor_system& sys, const std::vector<std::pair<std::string, caf::actor>>& actors);
 
 RunStatus globalStatus = RunStatus::running;
 static std::mutex globalMutex;
@@ -147,28 +147,32 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
     const auto configData = loadConfig(argv[1]);
     const auto pipelineConfig = caf::config_value::parse(configData).value();
     BlackBoard::instance().updateSync({}, caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value());
-    const auto actors = buildPipeline(system, pipelineConfig);
-
-    createDaemonActor(system, actors);
-
-    // std::this_thread::sleep_for(3s);
-
-    caf::scoped_actor caller{ system };
-    for(auto&& actor : actors) {
-        caller->send(actor, start_atom_v);
-    }
-    CAF_LOG_INFO("ArtinxHub Started");
 
     {
-        std::unique_lock<std::mutex> lock{ globalMutex };
-        globalCV.wait(lock, [] { return globalStatus != RunStatus::running; });
+        const auto actors = buildPipeline(system, pipelineConfig);
+        const auto daemon = createDaemonActor(system, actors);
+
+        caf::scoped_actor caller{ system };
+        for(auto&& [name, actor] : actors) {
+            caller->send(actor, start_atom_v);
+        }
+        CAF_LOG_INFO("ArtinxHub Started");
+
+        {
+            std::unique_lock<std::mutex> lock{ globalMutex };
+            globalCV.wait(lock, [] { return globalStatus != RunStatus::running; });
+        }
+
+        CAF_LOG_INFO("ArtinxHub Finished");
+
+        for(auto& [name, actor] : actors) {
+            system.registry().erase(name);
+            caller->send_exit(actor, caf::exit_reason::user_shutdown);
+        }
+        caller->send_exit(daemon, caf::exit_reason::user_shutdown);
     }
 
-    CAF_LOG_INFO("ArtinxHub Finished");
-
-    // NOTICE: ugly but it works
-    while(system.registry().dec_running() != 1)
-        ;
+    system.await_all_actors_done();
 
     return globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE;
 }

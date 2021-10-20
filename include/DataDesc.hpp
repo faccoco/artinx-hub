@@ -28,10 +28,6 @@ struct Identifier final {
     uint64_t val;
 };
 
-enum class ExitCode { finished };
-
-CAF_ERROR_CODE_ENUM(ExitCode);
-
 CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id);
 
 CAF_ADD_ATOM(ArtinxHub, start_atom);
@@ -48,7 +44,6 @@ CAF_ADD_ATOM(ArtinxHub, car_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
 
 CAF_ADD_TYPE_ID(ArtinxHub, (Identifier));
-CAF_ADD_TYPE_ID(ArtinxHub, (ExitCode));
 
 CAF_END_TYPE_ID_BLOCK(ArtinxHub);
 
