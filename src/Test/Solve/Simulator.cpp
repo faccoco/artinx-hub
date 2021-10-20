@@ -186,7 +186,11 @@ public:
 
         initializeTestCase();
 
-        Timer::instance().addTimer(caf::actor_cast<caf::actor>(this->address()), 10ms);
+        Timer::instance().addTimer(this->address(), 10ms);
+    }
+    ~Simulator() {
+        for(int32_t idx = mDynamicWorld->getNumCollisionObjects() - 1; idx >= 0; --idx)
+            mDynamicWorld->removeCollisionObject(mDynamicWorld->getCollisionObjectArray()[idx]);
     }
 
     void act() override {
@@ -298,7 +302,7 @@ public:
                     const auto pos = bodyB->getCenterOfMassPosition();
 
                     CAF_LOG_INFO(fmt::format("Hit at ({:.2f},{:.2f},{:.2f}) vel {:.2f}", pos.x(), pos.y(), pos.z(), velocity));
-                    usedBullet.insert(bodyB);
+                    mDynamicWorld->removeRigidBody(const_cast<btRigidBody*>(bodyB));
                 }
             }
 

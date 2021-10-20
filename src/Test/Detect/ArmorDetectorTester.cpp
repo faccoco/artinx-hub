@@ -49,7 +49,7 @@ public:
         : HubHelper{ base, config }, mKey{ typeid(ArmorDetectorTester).hash_code() } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
-                    Timer::instance().addTimer(caf::actor_cast<caf::actor>(this->address()), 500ms);  // timeout
+                    Timer::instance().addTimer(this->address(), 500ms);  // timeout
                     next();
                 },
                  [&](armor_detect_available_atom, Identifier key) {

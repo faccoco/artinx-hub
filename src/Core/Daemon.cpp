@@ -20,6 +20,11 @@ public:
     }
 };
 
-void createDaemonActor(caf::actor_system& sys, const std::vector<caf::actor>& actors) {
-    sys.spawn<DaemonActor>(actors);
+caf::actor createDaemonActor(caf::actor_system& sys, const std::vector<std::pair<std::string, caf::actor>>& actors) {
+    std::vector<caf::actor> actorAddress;
+    actorAddress.reserve(actors.size());
+    for(auto& [name, actor] : actors)
+        actorAddress.push_back(actor);
+
+    return sys.spawn<DaemonActor>(std::move(actorAddress));
 }

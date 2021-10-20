@@ -1,5 +1,5 @@
 #pragma once
-#include <caf/actor.hpp>
+#include <caf/actor_addr.hpp>
 #include <chrono>
 #include <mutex>
 #include <queue>
@@ -18,7 +18,7 @@ class Timer final {
     caf::actor_system* mSystem = nullptr;
     std::mutex mMutex;
     struct TimerInfo final {
-        caf::actor address;
+        caf::actor_addr address;
         TimePoint deadline;
         Duration duration;
         bool operator<(const TimerInfo& rhs) const noexcept {
@@ -38,6 +38,6 @@ public:
     Timer& operator=(Timer&& rhs) = delete;
 
     void bindSystem(caf::actor_system& system);
-    void addTimer(caf::actor actor, Duration period);
+    void addTimer(caf::actor_addr actor, Duration period);
     static Timer& instance();
 };
