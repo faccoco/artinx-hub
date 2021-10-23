@@ -97,13 +97,14 @@ namespace detail {
         std::vector<caf::actor_addr> res;
         res.reserve(succeed.size());
         for(auto id : succeed) {
-            res.push_back(registry.get<caf::actor_addr>(caf::to_string(id)));
+            res.push_back(registry.get<caf::actor_addr>(id));
         }
         return res;
     }
 }  // namespace detail
 
 std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system& system, const HubConfig& config) {
+    // TODO: verify reference
     const auto nodes = config.to_dictionary().value();
     std::unordered_map<std::string, uint32_t> idMap;
     std::vector<std::tuple<uint32_t, std::string, std::vector<uint32_t>>> reference;
