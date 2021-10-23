@@ -2,3 +2,6 @@ cmake_minimum_required (VERSION 3.19)
 
 add_test_with_conf(SimulatorSelfTest Solve/simulator_self.conf)
 add_test_with_conf(Staic5mTest Solve/static5m.conf)
+add_test_with_conf(ArmorLocator3mTest Solve/armor_locator_3m.conf)
+add_test_with_conf(ArmorLocator10mTest Solve/armor_locator_10m.conf)
+add_test_with_conf(ArmorLocatorFullTest Solve/armor_locator_full.conf)

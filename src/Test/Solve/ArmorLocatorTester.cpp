@@ -11,6 +11,7 @@
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
+#include <queue>
 
 static constexpr double zNear = 0.5;
 static constexpr double zFar = 50.0;
@@ -25,9 +26,9 @@ struct ArmorLocatorTesterSettings final {
 };
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorTesterSettings& x) {
-    return f.object(x).fields(f.field("count", x.count), f.field("fov", x.fov), f.field("imageWidth", x.width),
-                              f.field("imageHeight", x.height), f.field("length", x.length), f.field("width", x.width),
-                              f.field("height", x.height), f.field("noiseStd", x.maxError), f.field("maxError", x.maxError));
+    return f.object(x).fields(f.field("count", x.count), f.field("fov", x.fov), f.field("imageWidth", x.imageWidth),
+                              f.field("imageHeight", x.imageHeight), f.field("length", x.length), f.field("width", x.width),
+                              f.field("height", x.height), f.field("noiseStd", x.noiseStd), f.field("maxError", x.maxError));
 }
 
 // NOTICE: ArmorLocator Only
@@ -35,18 +36,15 @@ class ArmorLocatorTester final
     : public HubHelper<caf::event_based_actor, ArmorLocatorTesterSettings, armor_detect_available_atom> {
     Identifier mKey;
     glm::dmat4 mMat;
-    Point<UnitType::Distance, FrameOfReference::Gun> mExpected{};
+    std::queue<Point<UnitType::Distance, FrameOfReference::Gun>> mExpected{};
     uint32_t mCount = 0;
+    double mMaxError = 0.0;
 
     void next() {
-        if(mCount >= mConfig.count) {
-            terminateSystem(*this, true);
-        }
-
         const auto center = glm::linearRand(glm::dvec3{ -mConfig.width, -mConfig.height, -mConfig.length },
                                             glm::dvec3{ mConfig.width, mConfig.height, -zNear });
-        const auto pitch = glm::linearRand(0.1, 0.9) * glm::pi<double>();
-        const auto yaw = glm::linearRand(-0.5, 0.5) * glm::pi<double>();
+        const auto yaw = glm::linearRand(0.1, 0.9) * glm::pi<double>();
+        const auto pitch = glm::linearRand(-0.45, 0.45) * glm::pi<double>();
 
         const auto forward = glm::dvec3{ std::cos(yaw) * std::cos(pitch), std::sin(pitch), std::sin(yaw) * std::cos(pitch) };
         const auto up = glm::normalize(glm::dvec3{ glm::linearRand(-0.2, 0.2), 1.0, glm::linearRand(-0.2, 0.2) });
@@ -60,8 +58,8 @@ class ArmorLocatorTester final
         };
 
         const auto generateRotatedRect = [&](const glm::dvec3& vecX) {
-            const auto off1 = horizonal * ((widthOfSmallArmor + offset) * 0.5);
-            const auto off2 = horizonal * ((widthOfSmallArmor - offset) * 0.5);
+            const auto off1 = vecX * ((widthOfSmallArmor + offset) * 0.5);
+            const auto off2 = vecX * ((widthOfSmallArmor - offset) * 0.5);
             const auto off3 = vertical * (heightOfSmallArmor * 0.5);
             const auto off4 = vertical * (heightOfSmallArmor * -0.5);
 
@@ -73,27 +71,29 @@ class ArmorLocatorTester final
 
             for(auto& pos : corners) {
                 const auto projected = mMat * glm::dvec4{ pos, 1.0 };
-                const auto posX = projected.x + mConfig.imageWidth * 0.5 + generateNoise();
-                const auto posY = projected.y + mConfig.imageHeight * 0.5 + generateNoise();
+                const auto posX = projected.x / projected.w + mConfig.imageWidth * 0.5 + generateNoise();
+                const auto posY = projected.y / projected.w + mConfig.imageHeight * 0.5 + generateNoise();
                 pts.push_back({ static_cast<float>(posX), static_cast<float>(posY) });
             }
 
             return cv::minAreaRect(pts);
         };
 
-        mExpected = decltype(mExpected){ center };
+        mExpected.push(decltype(mExpected)::value_type{ center });
 
         DetectedArmorsOfCar armors;
+        armors.roi = cv::Rect{ 0, 0, static_cast<int>(mConfig.imageWidth), static_cast<int>(mConfig.imageHeight) };
         armors.armors.push_back({ generateRotatedRect(horizonal), generateRotatedRect(-horizonal) });
 
         DetectedArmorArray res;
-        res.cameraInfo = {};
+        res.cameraInfo = { { Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>{ glm::identity<glm::dmat4>() } },
+                           mConfig.fov,
+                           mConfig.imageWidth,
+                           mConfig.imageHeight };
         res.armors.push_back(std::move(armors));
 
         BlackBoard::instance().updateSync(mKey, std::move(res));
         sendAll(armor_detect_available_atom_v, mKey);
-
-        ++mCount;
     }
 
 public:
@@ -103,19 +103,38 @@ public:
                                     static_cast<double>(mConfig.imageHeight), zNear, zFar)
           } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { next(); },
-                 [&](armor_detect_available_atom, Identifier key) {
+        return { [this](start_atom) {
+                    for(uint32_t idx = 0; idx < mConfig.count; ++idx)
+                        next();
+                },
+                 [&](detect_available_atom, Identifier key) {
                      const auto solved = BlackBoard::instance().get<DetectedTargetArray>(key).value().targets.front().center;
 
-                     const auto error = distance(mExpected, solved).val / glm::length(mExpected.raw());
-                     CAF_LOG_INFO(fmt::format("Error: {:.1f}%", error * 100.0));
+                     const auto expected = mExpected.front();
+                     mExpected.pop();
 
-                     if(error > mConfig.maxError) {
-                         terminateSystem(*this, true);
-                         return;
+                     const auto expectedRaw = expected.raw();
+                     const auto solvedRaw = solved.raw();
+
+                     const auto error = distance(expected, solved).val / glm::length(expected.raw());  // relative error
+                     const auto message =
+                         fmt::format("Error: {:.1f}% Expected {:.2f} {:.2f} {:.2f} Solved {:.2f} {:.2f} {:.2f}", error * 100.0,
+                                     expectedRaw.x, expectedRaw.y, expectedRaw.z, solvedRaw.x, solvedRaw.y, solvedRaw.z);
+                     if(error < mConfig.maxError)
+                         CAF_LOG_INFO(message);
+                     else
+                         CAF_LOG_ERROR(message);
+
+                     mMaxError = std::max(mMaxError, error);
+                     ++mCount;
+
+                     if(mCount >= mConfig.count) {
+                         if(mMaxError < mConfig.maxError)
+                             CAF_LOG_INFO("Test passed");
+                         else
+                             CAF_LOG_ERROR("Test failed");
+                         terminateSystem(*this, mMaxError < mConfig.maxError);
                      }
-
-                     next();
                  } };
     }
 };
