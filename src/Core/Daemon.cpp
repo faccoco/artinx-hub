@@ -1,5 +1,6 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
+#include "Utility.hpp"
 #include <caf/actor_system.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
@@ -10,7 +11,8 @@ public:
         for(auto&& actor : actors)
             this->monitor(actor);
         this->set_down_handler([](const caf::down_msg& msg) {
-            CAF_LOG_ERROR(caf::to_string(msg.reason));
+            if(globalStatus == RunStatus::running)
+                CAF_LOG_ERROR(caf::to_string(msg.reason));
             // TODO: resume actors
         });
     }

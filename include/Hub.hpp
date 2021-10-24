@@ -47,7 +47,13 @@ public:
     HubHelper(caf::actor_config& base, const HubConfig& config)
         : T{ base }, mDest{ SucceedAddress<Succeed>{ detail::parseSucceed(config, typeid(Succeed).name()) }... } {
         if constexpr(!std::is_void_v<Config>) {
-            mConfig = caf::get_as<Config>(config).value();
+            auto configValue = caf::get_as<Config>(config);
+            if(configValue) {
+                mConfig = std::move(configValue.value());
+            } else {
+                CAF_LOG_ERROR("Bad config for " + std::string{ typeid(T).name() });
+                // TODO: terminate & output error
+            }
         }
     }
     template <typename Atom, typename... Args>

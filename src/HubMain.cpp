@@ -11,6 +11,7 @@
 #include <caf/exec_main.hpp>
 #include <caf/logger.hpp>
 #include <caf/scoped_actor.hpp>
+#include <cctype>
 #include <condition_variable>
 #include <fstream>
 #include <mutex>
@@ -27,13 +28,26 @@ static std::string loadConfig(const char* path) {
     return res;
 }
 
+template <typename String>
+static void demangle(String& typeName) {
+#ifdef ARTINXHUB_WINDOWS
+    // For MSVC
+    if(const auto pos = typeName.find_last_of(' '); pos != String::npos)
+        typeName = typeName.substr(pos + 1);
+#else
+    // For GCC/Clang
+    while(std::isdigit(typeName.front())) {
+        typeName = typeName.substr(1);
+    }
+#endif  // ARTINXHUB_WINDOWS
+}
+
 class NodeFactory final : Unmovable {
     std::unordered_map<std::string, std::function<caf::actor(caf::actor_system&, const HubConfig&)>> mClasses{};
 
 public:
     void addNodeType(std::string name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction) {
-        if(name.find("class ") == 0)
-            name = name.substr(6);
+        demangle(name);
         if(!mClasses.emplace(std::move(name), std::move(spawnFunction)).second) {
             const auto error = "Multiple definition of node type " + name;
             CAF_RAISE_ERROR(error.c_str());
@@ -64,9 +78,7 @@ namespace detail {
     }
     std::vector<std::string> parseSucceed(const HubConfig& config, const std::string& name) {
         std::string_view nameNormalized = name;
-        if(const auto pos = nameNormalized.find_last_of(' '); pos != std::string::npos) {
-            nameNormalized = nameNormalized.substr(pos + 1);
-        }
+        demangle(nameNormalized);
         const auto attr = config.to_dictionary().value();
         const auto iter = attr.find(nameNormalized);
         if(iter == attr.cend())
@@ -85,13 +97,14 @@ namespace detail {
         std::vector<caf::actor_addr> res;
         res.reserve(succeed.size());
         for(auto id : succeed) {
-            res.push_back(registry.get<caf::actor_addr>(caf::to_string(id)));
+            res.push_back(registry.get<caf::actor_addr>(id));
         }
         return res;
     }
 }  // namespace detail
 
 std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system& system, const HubConfig& config) {
+    // TODO: verify reference
     const auto nodes = config.to_dictionary().value();
     std::unordered_map<std::string, uint32_t> idMap;
     std::vector<std::tuple<uint32_t, std::string, std::vector<uint32_t>>> reference;
