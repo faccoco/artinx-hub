@@ -2,7 +2,7 @@
 #include <cmath>
 
 std::pair<double, double> PIDSimulator::step(double dt, double target, double maxV) noexcept {
-    const auto error = mCurrent - target;
+    const auto error = target - mCurrent;
     mSumError += error;
     const auto diff = error - mLastError;
     mLastError = error;
