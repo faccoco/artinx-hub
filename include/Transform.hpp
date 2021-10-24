@@ -209,8 +209,8 @@ public:
         return mInverseTransform;
     }
 
-    template <UnitType Unit, typename = std::enable_if_t<HasTranslate>>
-    Point<Unit, B> operator()(const Point<Unit, A> val) const noexcept {
+    template <UnitType Unit>
+    std::enable_if_t<HasTranslate,Point<Unit, B>> operator()(const Point<Unit, A> val) const noexcept {
         return Point<Unit, B>{ glm::dvec3{ mTransform * glm::dvec4{ val.raw(), 1.0 } } };
     }
     template <UnitType Unit>
@@ -221,8 +221,8 @@ public:
         return Normal<B>{ glm::dvec3{ glm::dvec4{ val.raw(), 0.0 } * mInverseTransform }, Normalized{} };
     }
 
-    template <UnitType Unit, typename = std::enable_if_t<HasTranslate>>
-    Point<Unit, A> operator()(const Point<Unit, B> val) const noexcept {
+    template <UnitType Unit>
+    std::enable_if_t<HasTranslate,Point<Unit, A>> operator()(const Point<Unit, B> val) const noexcept {
         return Point<Unit, A>{ glm::dvec3{ mInverseTransform * glm::dvec4{ val.raw(), 1.0 } } };
     }
     template <UnitType Unit>
@@ -244,7 +244,6 @@ public:
         return Transform<B, A, NeedTranslate>{ mInverseTransform, mTransform };
     }
 
-    template <typename = std::enable_if_t<HasTranslate>>
     operator Transform<A, B, false>() const noexcept {
         return Transform<A, B, false>{ mTransform, mInverseTransform };
     }
