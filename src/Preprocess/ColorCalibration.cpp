@@ -15,20 +15,46 @@ bool inspect(Inspector& f, ColorCalibratorSettings& x) {
 
 class ColorCalibrator final : public HubHelper<caf::event_based_actor, ColorCalibratorSettings, image_frame_atom> {
     struct CalibrationData final {
-        // Implement here
+        mutable cv::ccm::ColorCorrectionModel model;
     };
 
     Identifier mKey;
     std::optional<CalibrationData> mCalibratedData;
 
     void detectColorCheckerAndCalibrate(const cv::Mat& frame) {
-        // Implement here
+        cv::Mat detectedFrame;
+        resize(frame, detectedFrame, cv::Size(800, 600));
+        cv::Ptr<cv::mcc::CCheckerDetector> detector = cv::mcc::CCheckerDetector::create();
+        detector->process(detectedFrame, cv::mcc::MCC24, 1, false, cv::mcc::DetectorParameters::create());
+        cv::Ptr<cv::mcc::CChecker> checker = detector->getBestColorChecker();
+        cv::Mat chartsRGB = checker->getChartsRGB();
+        cv::Mat src = chartsRGB.col(1).clone().reshape(3, chartsRGB.rows / 3);
+        src /= 255.0;
+        cv::ccm::ColorCorrectionModel model1(src, cv::ccm::COLORCHECKER_Macbeth);
+        model1.run();
+        double loss = model1.getLoss();
+        if(loss>=8) {
+            std::cout << "loss: " << loss << std::endl;
+            return ;
+        }
+        mCalibratedData->model = model1;
     }
 
     cv::Mat applyCalibration(const cv::Mat& frame) const {
         const auto& data = mCalibratedData.value();
-        // Implement here
-        return frame;
+        cv::Mat img_;
+        cvtColor(frame, img_, cv::COLOR_BGR2RGB);
+        img_.convertTo(img_, CV_64F);
+        const int inp_size = 255;
+        const int out_size = 255;
+        img_ = img_ / inp_size;
+        cv::Mat calibratedImage = data.model.infer(img_);
+        cv::Mat out_ = calibratedImage * out_size;
+        out_.convertTo(out_, CV_8UC3);
+        cv::Mat img_out = min(max(out_, 0), out_size);
+        cv::Mat out_img;
+        cvtColor(img_out, out_img, cv::COLOR_RGB2BGR);
+        return out_img;
     }
 
 public:
