@@ -14,7 +14,10 @@ class PIDSimulator final {
 
 public:
     explicit PIDSimulator(const PIDParameters& params) : mParameters{ params } {}
-    [[nodiscard]] std::pair<double, double> step(double dt, double target, double maxV) noexcept;
+    // period = -1.0: disabled
+    // period > 0.0: domain is [0,period)
+    // return (position,velocity)
+    [[nodiscard]] std::pair<double, double> step(double dt, double target, double maxV, double period = -1.0) noexcept;
 };
 
 void drawRotatedRect(cv::Mat& img, const cv::RotatedRect& rect, const cv::Scalar& color);
