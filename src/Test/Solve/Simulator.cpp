@@ -28,7 +28,7 @@ struct SimulatorSettings final {
 
     double vibrationLinearRange;
     double vibrationAngleRange;  // in degrees
-    double spinningSpeed;        // in circles
+    double spinningSpeed;        // in circles/s
 
     double standardDistance;
     double sourceHeight;
@@ -58,15 +58,7 @@ bool inspect(Inspector& f, SimulatorSettings& x) {
 
 enum class TargetType : uint32_t { Infantry, Hero, BalancedInfantry, Sentry, Outpost, BaseClosed, BaseExpanded, Fans };
 
-enum class TargetMotionType : uint32_t {
-    Static,
-    Spinning,
-    Translate2D,
-    Translate3D,
-    SpinningWithVibrationAndCircle,
-    Fans,
-    Sentry
-};
+enum class TargetMotionType : uint32_t { Static, Spinning, Translate2D, Translate3D, LargeCircle, Fans, Sentry };
 
 enum class SourceMotionType : uint32_t { Static, Vibration, Translate2D, Translate3D, Sentry, UAV };
 
@@ -78,6 +70,42 @@ public:
 class StaticMotionController final : public MotionController {
 public:
     void step(btMotionState& motionState, double) override {}
+};
+
+class SpinMotionController final : public MotionController {
+    double mSpinningSpeed;
+
+public:
+    SpinMotionController(double spinningSpeed) : mSpinningSpeed{ spinningSpeed } {}
+    void step(btMotionState& motionState, const double dt) override {
+        btTransform transform;
+        motionState.getWorldTransform(transform);
+        const auto quat = transform.getRotation();
+        const auto rotated =
+            glm::rotate(glm::quat{ quat.w(), quat.x(), quat.y(), quat.z() },
+                        static_cast<float>(glm::two_pi<double>() * mSpinningSpeed * dt), glm::vec3{ 0.0f, 1.0f, 0.0f });
+        transform.setRotation(btQuaternion{ rotated.x, rotated.y, rotated.z, rotated.w });
+        motionState.setWorldTransform(transform);
+    }
+};
+
+class LargeCircleMotionController final : public MotionController {
+    double mSpinningSpeed;
+
+public:
+    LargeCircleMotionController(double spinningSpeed) : mSpinningSpeed{ spinningSpeed } {}
+    void step(btMotionState& motionState, const double dt) override {
+        btTransform transform;
+        motionState.getWorldTransform(transform);
+        const auto quat = transform.getRotation();
+        const auto angle = static_cast<float>(glm::two_pi<double>() * mSpinningSpeed * dt);
+        const auto rotated =
+            glm::rotate(glm::quat{ quat.w(), quat.x(), quat.y(), quat.z() }, angle, glm::vec3{ 0.0f, 1.0f, 0.0f });
+        transform.setRotation(btQuaternion{ rotated.x, rotated.y, rotated.z, rotated.w });
+        const auto inverse = glm::rotate(glm::identity<glm::quat>(), -angle, glm::vec3{ 0.0f, 1.0f, 0.0f });
+        transform.setOrigin(quatRotate(btQuaternion{ inverse.x, inverse.y, inverse.z, inverse.w }, transform.getOrigin()));
+        motionState.setWorldTransform(transform);
+    }
 };
 
 class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
@@ -137,8 +165,7 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                         const auto yaw = i * glm::half_pi<double>();
                         constexpr auto pitch = angleOfArmorForInfantry;
                         const auto rotateQuat = glm::quat{ glm::quatLookAtRH(
-                            glm::dvec3{ std::cos(yaw) * std::cos(pitch), std::sin(pitch),
-                                        std::sin(yaw) * std::cos(pitch) },
+                            glm::dvec3{ std::cos(yaw) * std::cos(pitch), std::sin(pitch), std::sin(yaw) * std::cos(pitch) },
                             glm::dvec3{ 0.0, 0.0, 1.0 }) };
 
                         const btVector3 base{ static_cast<float>(radiusOfInfantry * std::cos(yaw)), 0.0,
@@ -171,6 +198,12 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
             switch(targetMotionType) {
                 case TargetMotionType::Static: {
                     controller = std::make_unique<StaticMotionController>();
+                } break;
+                case TargetMotionType::Spinning: {
+                    controller = std::make_unique<SpinMotionController>(mConfig.spinningSpeed);
+                } break;
+                case TargetMotionType::LargeCircle: {
+                    controller = std::make_unique<LargeCircleMotionController>(mConfig.spinningSpeed);
                 } break;
                 default:
                     throw NotImplemented{};
