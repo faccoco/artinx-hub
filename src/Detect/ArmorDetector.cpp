@@ -5,164 +5,191 @@
 #include "Hub.hpp"
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
+#include <fmt/format.h>
+#include <magic_enum.hpp>
 #include <string>
 #include <utility>
-
+enum class DetectorRunningType { RELEASE, DEBUG, DATASET_BASED_TEST };
 struct ArmorDetectorSettings final {
-    // Settings issuing color extracting. 颜色提取。
+    std::string runningTypeString;    // One of DetectorRunningType. Reading string from file.
+    DetectorRunningType runningType;  // inspect enum value from string.
+    // Settings issuing color extracting.
     int enemyColor;
     std::vector<std::string> colorName;
-    std::vector<int> colorRangeLeft;
-    std::vector<int> colorRangeRight;
-    std::vector<bool> colorRangeComplement;
-    // Settings issuing suitable armor. 装甲板识别
-    int colorThreshold;   // color threshold for colorImg from substract channels 通道相减的colorImg使用的二值化阈值
-    int brightThreshold;  // color threshold for brightImg 亮度图二值化阈值
-    float minArea;        // min area of light bar 灯条允许的最小面积
-    float maxArea;        // min area of light bar 灯条允许的最小面积
-    float maxAngle;       // max angle of light bar 灯条允许的最大偏角
-    float maxAngleDiff;  // max angle difference between two light bars 两个灯条之间允许的最大角度差
-    float maxLengthDiffRatio;  // max length ratio difference between two light bars 两个灯条之间允许的最大长度差比值
-    float maxDeviationAngle;  // max deviation angle 两灯条最大错位角
-    float maxYDiffRatio;     // max y
-    float maxXDiffRatio;     // max x
-    /// (lzj)
-    float minXDiffRatio;
+    std::vector<int> colorHueRangeLowerBound;
+    std::vector<int> colorHueRangeUpperBound;
+    std::vector<bool> colorHueRangeIsComplemented;
+    // Settings issuing suitable armor.
+    float minArea;             // min area of light bar.
+    float maxArea;             // max area of light bar.
+    float maxAngle;            // max angle of light bar.
+    float maxAngleDiff;        // max angle difference between two light bars.
+    float maxLengthDiffRatio;  // max length ratio difference between two light bars.
+    float maxDeviationAngle;   // max deviation angle.
+    float maxYDiffRatio;       // max light center distance ratio on the Y-axis
+    float maxXDiffRatio;       // max light center distance ratio on the X-axis
+    float minXDiffRatio;       // min light center distance ratio on the X-axis
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorDetectorSettings& x) {
     return f.object(x).fields(
+        f.field("runningTypeString", x.runningTypeString).invariant([&x](const std::string& runningTypeString) {
+            auto e = magic_enum::enum_cast<DetectorRunningType>(runningTypeString);
+            if(e.has_value()) {
+                x.runningType = e.value();
+                return true;
+            }
+            return false;
+        }),
         f.field("enemyColor", x.enemyColor), f.field("colorName", x.colorName),
-        f.field("colorRangeLeft", x.colorRangeLeft), f.field("colorRangeRight", x.colorRangeRight),
-        f.field("colorRangeComplement", x.colorRangeComplement), f.field("colorThreshold", x.colorThreshold),
-        f.field("brightThreshold", x.brightThreshold), f.field("minArea", x.minArea), f.field("maxArea", x.maxArea),
-        f.field("maxAngle", x.maxAngle), f.field("maxAngleDiff", x.maxAngleDiff),
+        f.field("colorHueRangeLowerBound", x.colorHueRangeLowerBound),
+        f.field("colorHueRangeUpperBound", x.colorHueRangeUpperBound),
+        f.field("colorHueRangeIsComplemented", x.colorHueRangeIsComplemented), f.field("minArea", x.minArea),
+        f.field("maxArea", x.maxArea), f.field("maxAngle", x.maxAngle), f.field("maxAngleDiff", x.maxAngleDiff),
         f.field("maxLengthDiffRatio", x.maxLengthDiffRatio), f.field("maxDeviationAngle", x.maxDeviationAngle),
         f.field("maxYDiffRatio", x.maxYDiffRatio), f.field("maxXDiffRatio", x.maxXDiffRatio),
         f.field("minXDiffRatio", x.minXDiffRatio));
 }
 
-#define DEBUG_BY_TESTER  // defined by 叶璨铭, for detector to explain why not detect an armor.
-
 class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetectorSettings, armor_detect_available_atom> {
     Identifier mKey;
-#ifdef _DEBUG
-#ifdef DEBUG_BY_TESTER
-    size_t testingCount = 0;  //被tester测试时，尝试获得当前被测试的图片的编号
-#else
-    size_t mBoxFrameCnt = 0;  //上场debug的时候，200帧输出一次判断的解释
-#endif
-#endif
+    size_t mFrameCnt = 0;
     std::vector<PairedLight> solve(const cv::Mat& image) {
-        using std::cout;
-        using std::endl;
         // Color classification is required.
         const auto monoImage = extractColor(image);
-#ifdef _DEBUG
-#ifdef DEBUG_BY_TESTER
-        std::stringstream ss;
-        testingCount++;
-        assert(monoImage.type() == CV_8U);
-#endif
-#endif
-        auto lights = findLights(monoImage);
-        if(lights.empty()) {
-            CAF_LOG_INFO("light not found.");
-            return {};
+        switch(mConfig.runningType) {
+            case DetectorRunningType::RELEASE: {
+                auto lights = findLights(monoImage);
+                auto result = matchLights(lights);
+                return result;
+            }
+            case DetectorRunningType::DATASET_BASED_TEST:
+                mFrameCnt++;
+            case DetectorRunningType::DEBUG: {  // includes DATASET_BASED_TEST branch
+                if(monoImage.type() != CV_8U)
+                    throw std::runtime_error("mono image not cv_8u");
+                auto lights = findLights(monoImage);
+                if(lights.empty()) {
+                    CAF_LOG_INFO("light not found.");
+                    return {};
+                }
+                CAF_LOG_INFO(fmt::format("{} lights found.", lights.size()));
+                auto result = matchLights(lights);
+                if(!result.empty()) {
+                    CAF_LOG_INFO(fmt::format("succeeded at {}", mFrameCnt));
+                }
+                return result;
+            }
         }
-#ifdef _DEBUG
-        ss << lights.size() << " lights found." << endl;
-#endif
-        auto result = matchLights(lights);
-#ifdef _DEBUG
-        if(!result.empty()) {
-            ss << "succeeded at " << testingCount << endl;
-        }
-        CAF_LOG_INFO(ss.str());
-#endif
-        return result;
     }
 
-    cv::Mat extractColor(const cv::Mat& srcImage) {
-        cv::Mat srcImage_HSV, red_bin_1, red_bin_2;
+    cv::Mat extractColor(const cv::Mat& srcImage) const {
+        cv::Mat srcImage_HSV;
         cv::Mat result = cv::Mat::zeros(srcImage.size(), CV_8UC1);
         cv::cvtColor(srcImage, srcImage_HSV, cv::COLOR_BGR2HSV);
-        int bl_lw_s = 170;
-        int bl_lw_v = 100;
-        int rd_lw_s = 180;
-        int rd_lw_v = 100;
-        if(mConfig.colorRangeComplement[mConfig.enemyColor]) {
-            /// (lzj) red: 0~10, 156~180
-            cv::inRange(srcImage_HSV, cv::Scalar(0, rd_lw_s, rd_lw_v),
-                        cv::Scalar(mConfig.colorRangeLeft[mConfig.enemyColor], 255, 255), red_bin_1);
-            cv::inRange(srcImage_HSV, cv::Scalar(mConfig.colorRangeRight[mConfig.enemyColor], rd_lw_s, rd_lw_v),
-                        cv::Scalar(180, 255, 255), red_bin_2);
-            cv::bitwise_or(red_bin_1, red_bin_2, result);
+        constexpr int blueLowestSaturation = 170;
+        constexpr int blueHighestSaturation = 255;
+        constexpr int blueLowestVue = 46;
+        constexpr int blueHighestVue = 255;
+        constexpr int redLowestSaturation = 180;  // typically 46, but we may need brighter red.
+        constexpr int redHighestSaturation = 255;
+        constexpr int redLowestVue = 100;  // typically 46, but we may need brighter red.
+        constexpr int redHighestVue = 255;
+        if(mConfig.colorHueRangeIsComplemented[mConfig.enemyColor]) {
+            cv::Mat redBinary1, redBinary2;
+            // red like colors have two ranges, for example, red hue range: [0,10], [156,180]. Notice that opencv hsv's h range is
+            // [0,180].
+            // 1.the first range. inRange function can check the first argument, and binarize the according to range and save to
+            // the last argument dst.
+            cv::inRange(srcImage_HSV, cv::Scalar(0, redLowestSaturation, redLowestVue),
+                        cv::Scalar(mConfig.colorHueRangeLowerBound[mConfig.enemyColor], redHighestSaturation, redHighestVue),
+                        redBinary1);
+            // 2.the second range.
+            cv::inRange(srcImage_HSV,
+                        cv::Scalar(mConfig.colorHueRangeUpperBound[mConfig.enemyColor], redLowestSaturation, redLowestVue),
+                        cv::Scalar(180, redHighestSaturation, redHighestVue), redBinary2);
+            cv::bitwise_or(redBinary1, redBinary2, result);  // dst serves as a mask. In this case, we have two range ,and we
+                                                             // combine them together, so we used bitwise or to combine two masks.
         } else {
-            /// (lzj) blue: 100~124
-            cv::inRange(srcImage_HSV, cv::Scalar(mConfig.colorRangeLeft[mConfig.enemyColor], bl_lw_s, bl_lw_v),
-                        cv::Scalar(mConfig.colorRangeRight[mConfig.enemyColor], 255, 255), result);
+            // blue like colors have only one range, for example, blue hue range: [100,124]
+            cv::inRange(srcImage_HSV,
+                        cv::Scalar(mConfig.colorHueRangeLowerBound[mConfig.enemyColor], blueLowestSaturation, blueLowestVue),
+                        cv::Scalar(mConfig.colorHueRangeUpperBound[mConfig.enemyColor], blueHighestSaturation, blueHighestVue),
+                        result);  // simply let the binarized image to be the result.
         }
         cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
-        dilate(result, result, kernel);  // dilate the roiImg_binary which can make the lightBar area more smooth
-        // 对roiIng_binary进行膨胀操作，使得灯条区域更加平滑有衔接
-
+        dilate(result, result, kernel);  // dilate the result which can make the lightBar area more smooth
         return result;
     }
 
-    std::vector<cv::RotatedRect> findLights(const cv::Mat& image) {
-        using namespace std;
-        // 1.find Contours. 找轮廓。不需要嵌套层次的轮廓。可以只要拐点。不需要偏移量。
-        vector<vector<cv::Point2i>> lightContours;
+    std::vector<cv::RotatedRect> findLights(const cv::Mat& image) const {
+        // 1.find Contours.
+        std::vector<std::vector<cv::Point2i>> lightContours;
         cv::findContours(image, lightContours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-        // 2.every contour(set of points) may form a light bar.每一个轮廓形成一个灯条
-        vector<cv::RotatedRect> lights;
+        // 2.every contour(set of points) may form a light bar.
+        std::vector<cv::RotatedRect> lights;
         for(const auto& lightContour : lightContours) {
-            if(lightContour.size() < 6)
+            if(lightContour.size() < 6)  // points are too few to form a light bar.
                 continue;
             auto lightRect = cv::fitEllipse(lightContour);
-            // 2.filter suitable contour. 筛选
-            auto areaInt = lightRect.boundingRect().area();//FIXME: calculate area two times may be slow.
-            auto areaFloat = cv::contourArea(lightContour);//FIXME: 没调查清楚，能不能统一用areaInt去判断。目前先按照原本代码的逻辑来。
-            if(areaFloat < mConfig.minArea || (mConfig.maxArea < areaInt && lightRect.size.width > lightRect.size.height*0.6))
+            // 2.filter suitable contour.
+            // 2.1 the light bar may be too small or too big.
+            const double area = relativeArea(lightRect, image);
+            if(area < mConfig.minArea || (mConfig.maxArea < area && lightRect.size.width > lightRect.size.height * 0.6))
                 continue;
-            if(abs(lightRect.angle) > mConfig.maxAngle)
+            // 2.2 the light bar may be too inclined.
+            if(std::abs(lightRect.angle) > mConfig.maxAngle)
                 continue;
-            if(lightRect.size.width > lightRect.size.height * 1.3f)
+
+            // 2.3 the light bar may be too wide, while it is suspected to be slim and tall.
+            constexpr double maxWidthHeightRatio = widthOfLightBar / heightOfLightBar *
+                9;  // typically, it is 0.147, but the armor dilates and may be very fat. So I prefer to allow 9 times Ratio.
+                    // FIXME: the evidence of 9 times but not 3 times or 10 times is not sound, it is just guessed. need
+                    // experiment or proof.
+            if(lightRect.size.width > lightRect.size.height * maxWidthHeightRatio)
                 continue;
             lights.emplace_back(lightRect);
         }
-        return lights;  // return by moving constructor. 移动构造返回
+        return lights;  // return by moving construction.
+    }
+    static double relativeArea(const cv::RotatedRect& lightRect, const cv::Mat& image) {
+        const double area = lightRect.size.height *
+            lightRect.size.width;  // this is the correct area calculation.
+                                   //  It's the minAreaBoundingRotatedRectangle of the contour, but not the bounding
+                                   //  normal(0°) rectangle of the minAreaBoundingRotatedRectangle.
+        constexpr double configAssumedImageArea =
+            1280 * 1024;  // config experimental deciding are based on the case when camera is         constexpr double
+                          // configAssumedImageArea = 1280 * 1024;//config experimental deciding are based on the case when camera
+                          // and full image is the roi.
+        const double imageArea = static_cast<double>(image.rows) *
+            static_cast<double>(image.cols);  // use double because the calculation may require higher precision to be correct.
+        return area * configAssumedImageArea /
+            imageArea;  // we want to transform the current area in the picture to be the relative area in the configAssumedImage,
+                        // so that we can compare it with the config areas.
     }
 
     std::vector<PairedLight> matchLights(std::vector<cv::RotatedRect>& lights) {
-        using namespace std;
         if(lights.size() < 2)
-            return {};  // A single light can never construct an armor. 一个巴掌拍不响。
-        sort(lights.begin(), lights.end(),
-             [](const cv::RotatedRect& rr1, const cv::RotatedRect& rr2) { return rr1.center.x < rr2.center.x; });
+            return {};  // A single light can not construct an armor.
+        std::sort(lights.begin(), lights.end(),
+                  [](const cv::RotatedRect& rr1, const cv::RotatedRect& rr2) { return rr1.center.x < rr2.center.x; });
         std::vector<IndexedPairedLight> armors;
         for(size_t i = 0; i < lights.size() - 1; i++) {
-            for(size_t j = i + 1; j < lights.size();
-                j++)  // just ensure every two lights be matched once 从左至右，每个灯条与其他灯条一次匹配判断
+            for(size_t j = i + 1; j < lights.size(); j++)  // just ensure every two lights are matched once and only once.
             {
-                IndexedPairedLight armor =
-                    IndexedPairedLight{ PairedLight{ lights[i], lights[j] }, i,
-                                        j };  // construct an armor using the matchable lights 利用左右灯条构建装甲板
-                if(isSuitableArmor(armor.data))
-                // when the armor we constructed just now is a suitable one,set extra information of
-                {
-                    armors.emplace_back(armor);  // push into armors 将匹配好的装甲板push入armors中
+                auto armor = IndexedPairedLight{
+                    PairedLight{ lights[i], lights[j] }, i, j
+                };  // construct an armor using the matchable lights. add the index information for later usages.
+                if(isSuitableArmor(armor.data)) {
+                    armors.emplace_back(armor);  // when the armor we constructed just now is a suitable one, just push it back.
                 }
-#ifdef _DEBUG
-                std::stringstream ss;
-                ss << "At picture" << testingCount << " failed." << std::endl;
-                ss << "The " << i << " and the " << j << " light cannot form a suitable armor." << std::endl;
-                CAF_LOG_INFO(ss.str());
-#endif
+                if(mConfig.runningType == DetectorRunningType::DATASET_BASED_TEST) {
+                    CAF_LOG_INFO(fmt::format("At picture {} failed.\nThe {}'s and the {}'s light cannot form a suitable armor.",
+                                             mFrameCnt, i, j));
+                }
             }
-            eraseErrorRepeatArmor(armors);  // delete the error armor caused by error light 删除游离灯条导致的错误装甲板
+            eraseErrorRepeatArmor(armors);  // delete the error armor caused by error light
         }
         std::vector<PairedLight> pairedLights;
         for(const auto& armor : armors) {
@@ -171,122 +198,110 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
         return pairedLights;
     }
 
-    struct IndexedPairedLight {
+    struct IndexedPairedLight final {
         PairedLight data;
         size_t index1;
         size_t index2;
-        IndexedPairedLight(PairedLight data, size_t index1, size_t index2) : data(std::move(data)), index1(index1), index2(index2) {}
     };
 
-    inline bool isSuitableArmor(const PairedLight& armor) {
-        using std::vector;
-        vector<bool> conditions;
-        conditions.push_back(getAngleDiff(armor) <
-                             mConfig.maxAngleDiff + 3);  //+10 max,  real uac may be higher than you think(ycm changed)
-        // angle difference judge the angleDiff should be less than maxAngleDiff 灯条角度差判断，需小于允许的最大角差
-        conditions.push_back(getDeviationAngle(armor) < mConfig.maxDeviationAngle);
-        // deviation angle judge: the horizon angle of the line of centers of lights 灯条错位度角(两灯条中心连线与水平线夹角)判断
-        conditions.push_back(getDislocationX(armor) < mConfig.maxXDiffRatio);
-        // dislocation judge: the x and y can not be too far 灯条位置差距 两灯条中心x、y方向差距不可偏大（用比值作为衡量依据）
-        conditions.push_back(getDislocationY(armor) < mConfig.maxYDiffRatio + 0.1);
-        // dislocation judge: the x and y can not be too far 灯条位置差距 两灯条中心x、y方向差距不可偏大（用比值作为衡量依据）
-        conditions.push_back(getLengthRatio(armor) < mConfig.maxLengthDiffRatio);
-#ifdef _DEBUG
-#ifdef DEBUG_BY_TESTER
-        std::stringstream ss;
-        int i = 0;
-        vector<std::string> messages;
-        messages.push_back("灯条角度差大于允许的最大角差!");
-        messages.push_back("灯条错位度角(两灯条中心连线与水平线夹角)过大!");
-        messages.push_back("灯条位置差距 两灯条中心x方向差距偏大（用比值作为衡量依据）！");
-        messages.push_back("灯条位置差距 两灯条中心y方向差距偏大（用比值作为衡量依据）！");
-        messages.push_back("左右灯条长度差比值过大！");
-        bool success = true;
-        for(const auto& condition : conditions) {
-            if(!condition) {
-                ss << "Condition" << i << " not satisfied. Error message for that condition is " << messages[i] << std::endl;
-                success = false;
+    bool isSuitableArmor(const PairedLight& armor) {
+        std::vector<bool> conditions;
+        conditions.emplace_back(std::abs(armor.r1.angle - armor.r2.angle) <
+                                mConfig.maxAngleDiff);  // angle difference judge the angleDiff should be less than maxAngleDiff
+        conditions.emplace_back(
+            getDeviationAngle(armor) <
+            mConfig.maxDeviationAngle);  // deviation angle judge: the horizon angle of the line of centers of lights
+        conditions.emplace_back(getDislocationX(armor) <
+                                mConfig.maxXDiffRatio);  // dislocation judge: the x and y can not be too far
+        conditions.emplace_back(getDislocationY(armor) <
+                                mConfig.maxYDiffRatio + 0.1);  // dislocation judge: the x and y can not be too far
+        conditions.emplace_back(getLengthRatio(armor) < mConfig.maxLengthDiffRatio);
+        auto tempRunningType = mConfig.runningType;
+        if(tempRunningType ==
+           DetectorRunningType::DEBUG) {  // In debug mode, the image comes from camera, we put the armor
+                                          // before camera and test whether the config works. So we print the log every 200 frame.
+            if((++mFrameCnt) % 200 == 0)
+                tempRunningType = DetectorRunningType::DATASET_BASED_TEST;
+            else
+                tempRunningType = DetectorRunningType::RELEASE;
+        }
+        switch(tempRunningType) {
+            case DetectorRunningType::RELEASE: {
+                return std::all_of(conditions.begin(), conditions.end(), [](const bool& condition) { return condition; });
             }
-            i++;
+            case DetectorRunningType::DATASET_BASED_TEST: {  // includes DATASET_BASED_TEST branch
+                std::vector<std::string> messages;
+                messages.emplace_back("Angle difference is now bigger than allowed max angle difference!");
+                messages.emplace_back("The horizon angle of the line of centers of lights is too big!");
+                messages.emplace_back("light center distance ratio on the X-axis between the two lights is too far!");
+                messages.emplace_back("light center distance ratio on the Y-axis between the two lights is too far!");
+                messages.emplace_back("the length difference ratio is too big!");
+                bool success = true;
+                int i = 0;
+                for(const auto& condition : conditions) {
+                    if(!condition) {
+                        CAF_LOG_INFO(fmt::format("Armor not suitable At picture {}\nCondition {} not satisfied. Error message "
+                                                 "for that condition is \"{}\"",
+                                                 mFrameCnt, i, messages[i]));
+                        success = false;
+                    }
+                    i++;
+                }
+                return success;
+            }
         }
-        if(!success) {
-            ss << "At picture" << testingCount << " failed." << std::endl;
-        }
-        CAF_LOG_INFO(ss.str());
-#else
-        if((++mBoxFrameCnt) % 200 == 0) {
-            std::stringstream ss;
-            ss << "angle difference judge; "
-               << "deviation angle judge; "
-               << "dislocation judge:x; "
-               << "dislocation judge:y; "
-               << "length difference ration judge; " << std::endl;
-            ss << condition1 << condition2 << condition3 << condition4 << condition5 << std::endl;
-            CAF_LOG_INFO(ss.str());
-        }
-#endif
-#endif
-        for(const auto& condition : conditions)
-            if(!condition)
-                return false;
-        return true;
     }
-
+    // delete the error armor caused by error light
     static void eraseErrorRepeatArmor(std::vector<IndexedPairedLight>& armors) {
+        std::vector<IndexedPairedLight> result;
         const size_t length = armors.size();
-        const auto it = armors.begin();
         for(size_t i = 0; i < length; i++)
             for(size_t j = i + 1; j < length; j++) {
                 if(armors[i].index1 == armors[j].index1 || armors[i].index1 == armors[j].index2 ||
                    armors[i].index2 == armors[j].index1 || armors[i].index2 == armors[j].index2) {
                     if(getDeviationAngle(armors[i].data) > getDeviationAngle(armors[j].data)) {
-                        armors.erase(it + i);
+                        result.emplace_back(armors[j]);  // do not use iterator to erase the original vector, otherwise the
+                                                         // location i, j is wrong for next loop.
                     } else {
-                        armors.erase(it + j);
+                        result.emplace_back(armors[i]);
                     }
                 }
             }
+        armors = std::move(result);  // Use result to moving construct armors again. (it clears armors first.)
     }
 
-    // angle difference: the angle difference of left and right lights 装甲板左右灯条角度差
-    static inline float getAngleDiff(const PairedLight& armor) {
-        const float angleDiff = abs(armor.r1.angle - armor.r2.angle);  // get the abs of angle_diff 灯条的角度差
-        return angleDiff;
-    }
-
-    // deviation angle : the horizon angle of the line of centers of lights 灯条错位度角(两灯条中心连线与水平线夹角)
-    static inline float getDeviationAngle(const PairedLight& armor) {
-        const float deltaX = armor.r2.center.x - armor.r1.center.x;                                         //Δx
-        const float deltaY = armor.r2.center.y - armor.r1.center.y;                                         //Δy
-        const float deviationAngle = 180.0f * std::abs(atan(deltaY / deltaX)) / static_cast<float>(CV_PI);  // tanθ=Δy/Δx
+    // deviation angle : the horizon angle of the line of centers of lights
+    static float getDeviationAngle(const PairedLight& armor) {
+        const float deltaX = armor.r2.center.x - armor.r1.center.x;                                //Δx
+        const float deltaY = armor.r2.center.y - armor.r1.center.y;                                //Δy
+        const float deviationAngle = 180.0f * std::abs(atan(deltaY / deltaX)) / glm::pi<float>();  // tanθ=Δy/Δx
         return deviationAngle;
     }
 
-    static inline float lightLength(const cv::RotatedRect& light) {
+    // widely used in other getXXX functions
+    static float lightLength(const cv::RotatedRect& light) {
         return std::max(light.size.height, light.size.width);
     }
 
-    // dislocation judge X: r-l light center distance ration on the X-axis 灯条位置差距 两灯条中心x方向差距比值
-    static inline float getDislocationX(const PairedLight& armor) {
+    // dislocation judge X: right-left light center distance ratio on the X-axis
+    static float getDislocationX(const PairedLight& armor) {
         const float meanLen = (lightLength(armor.r1) + lightLength(armor.r2)) / 2;
-        const float xDiff =
-            std::abs(armor.r1.center.x - armor.r2.center.x);  // x distance ration x轴方向上的距离比值（y轴距离与灯条平均值的比）
+        const float xDiff = std::abs(armor.r1.center.x - armor.r2.center.x);  // x distance ratio
         const float xDiffRatio = xDiff / meanLen;
         return xDiffRatio;
     }
 
-    // dislocation judge Y: r-l light center distance ration on the Y-axis 灯条位置差距 两灯条中心y方向差距比值
-    static inline float getDislocationY(const PairedLight& armor) {
+    // dislocation judge Y: r-l light center distance ration on the Y-axis
+    static float getDislocationY(const PairedLight& armor) {
         const float meanLen = (lightLength(armor.r1) + lightLength(armor.r2)) / 2;
-        const float yDiff =
-            std::abs(armor.r1.center.y - armor.r2.center.y);  // y distance ration y轴方向上的距离比值（x轴距离与灯条平均值的比）
+        const float yDiff = std::abs(armor.r1.center.y - armor.r2.center.y);  // y distance ratio
         const float yDiffRatio = yDiff / meanLen;
         return yDiffRatio;
     }
 
-    // length difference ration: the length difference ration r-l lights 左右灯条长度差比值
-    static inline float getLengthRatio(const PairedLight& armor) {
-        /// (lzj) match armor : use the smaller one's lengh instead of mean value of the two
+    // length difference ratio: the length difference ratio r-l lights
+    static float getLengthRatio(const PairedLight& armor) {
+        /// (lzj) match armor : use the smaller one's length instead of mean value of the two
         const auto leftArmorLength = lightLength(armor.r1);
         const auto rightArmorLength = lightLength(armor.r2);
         const float lengthDiff = std::abs(leftArmorLength - rightArmorLength);
