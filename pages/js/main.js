@@ -2,17 +2,29 @@ $(document).ready(function () {
     setInterval("updateAll()", 100);
 });
 
-function updateAll() {
-    updateStatus();
-    updateLog();
-    updateFilter();
-}
-
 function randomString(length) {
     const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
     let result = '';
     for (let i = length; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];
     return result;
+}
+
+filters = {};
+images = {};
+updating = false;
+
+function updateAll() {
+    updateImages();
+    updateStatus();
+    updateLog();
+    updateFilter();
+}
+
+function updateImages() {
+    for (let k in images) {
+        if (!filters[k]) continue;
+        images[k].src = "/img/" + k + "/" + randomString();
+    }
 }
 
 function updateLog() {
@@ -42,16 +54,10 @@ function updateStatus() {
         return res.text();
     }).then(data => {
         $("#current_status").html(data);
-        $("#current_image").show();
-        $('#current_image').attr('src', "/imgs?" + randomString(8));
     }).catch(err => {
-        $("#current_status").html(`<p>Error: ${err}<p>`);
-        $("#current_image").hide();
+        $("#current_status").html(`<p>${err}<p>`);
     });
 }
-
-filters = {};
-updating = false;
 
 function updateFilter() {
     fetch("/filter", {
@@ -71,6 +77,8 @@ function updateFilter() {
                 let inner = $("#filter_" + v[0]);
                 inner.change(function () {
                     filters[v[0]] = this.checked;
+                    if (this.checked) $(images[v[0]]).show();
+                    else $(images[v[0]]).hide();
                     fetch("/filter", {
                         method: "POST",
                         body: JSON.stringify(filters)
@@ -78,7 +86,15 @@ function updateFilter() {
                 });
             }
             $("#filter_" + v[0])[0].checked = v[1];
+            if (!images.hasOwnProperty(v[0])) {
+                let img = $("<img class=\"mdui-img-fluid image\" id=\"current_image\" src=\"\" alt=\"\"/>")
+                img[0].src = "/img/" + v[0] + "/" + randomString();
+                images[v[0]] = img[0];
+                $("#images").append(img);
+            }
+
             filters[v[0]] = v[1];
+
         }
     });
 }

@@ -4,30 +4,32 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
-#include <caf/actor_ostream.hpp>
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
 #include <caf/exit_reason.hpp>
-#include <nlohmann/json.hpp>
 #include <cstdint>
-#include <string>
 #include <httplib.h>
+#include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <optional>
+#include <string>
 #ifdef ARTINXHUB_WINDOWS
 #define NOMINMAX
 #include <Windows.h>
 #endif
 
+struct ImageWithFilter {
+    cv::Mat image;
+    bool isEnable{ true };
+};
+
 class HttpServer final : public HubHelper<caf::event_based_actor, void> {
     httplib::Server mServer;
-    cv::Mat mImage;
-    uint64_t mImageFrom = 0;
-    std::unordered_map<uint64_t, bool> mFilter; // false -> being filtered
+    std::unordered_map<uint64_t, ImageWithFilter> mImage;
     std::mutex mMutex;
     std::thread mListener;
 
-    std::streambuf* clogBuffer;
+    std::streambuf* cLogBuffer;
     std::stringstream logStream;
 
     void modifyParameter(std::string path, std::string value) {}
@@ -35,12 +37,24 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
         return "hello world!    clock " + std::to_string(::clock());
     }
 
-    std::optional<std::vector<uchar>> generateImageData(std::string path) {
-        if(mImage.empty() || !mFilter[mImageFrom])
+    std::optional<std::vector<uchar>> generateImageData(const std::string& path) {
+        if(path.empty())
             return std::nullopt;
+
+        uint64_t id;
+        try {
+            id = std::stoull(path);
+        } catch(std::exception& e) {
+            std::clog << e.what() << std::endl;
+            return std::nullopt;
+        }
+
         std::unique_lock<std::mutex> guard{ mMutex };
-        auto img = mImage;
+        if(mImage.find(id) == mImage.end() || !mImage[id].isEnable)
+            return std::nullopt;
+        auto img = mImage[id].image;
         guard.unlock();
+
         std::vector<uchar> data;
         if(!cv::imencode(".jpg", img, data))
             return std::nullopt;
@@ -54,14 +68,15 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
     }
     std::string generateFilterJson() {
         nlohmann::json result = nlohmann::json::array();
-        for (auto &v : mFilter) {
-            result.push_back({std::to_string(v.first), v.second});
+        std::lock_guard<std::mutex> guard{ mMutex };
+        for(const auto& v : mImage) {
+            result.push_back({ std::to_string(v.first), v.second.isEnable });
         }
         return result.dump();
     }
 
 public:
-    HttpServer(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, clogBuffer(std::clog.rdbuf()) {
+    HttpServer(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, cLogBuffer{ std::clog.rdbuf() } {
 
         std::clog.rdbuf(logStream.rdbuf());
 
@@ -76,8 +91,8 @@ public:
         mServer.Get("/parameters", [this](const httplib::Request& req, httplib::Response& res) {
             res.set_content(generateParameterJson(), "text/plain");
         });
-        mServer.Get("/imgs", [this](const httplib::Request& req, httplib::Response& res) {
-            if(auto img = generateImageData("")) {
+        mServer.Get(R"(/img/(\d+)/.*)", [this](const httplib::Request& req, httplib::Response& res) {
+            if(auto img = generateImageData(req.matches[1])) {
                 const auto& data = img.value();
                 res.set_content(reinterpret_cast<const char*>(data.data()), data.size(), "blob");
             }
@@ -87,13 +102,14 @@ public:
             logStream.str("");
         });
         mServer.Post("/filter", [this](const httplib::Request& req, httplib::Response& res) {
-            if (req.body.empty()) {
+            if(req.body.empty()) {
                 res.set_content(generateFilterJson(), "text/plain");
                 return;
             }
             auto j = nlohmann::json::parse(req.body);
-            for (auto &[k, v] : j.items()) {
-                mFilter[std::stoull(k)] = v;
+            std::lock_guard<std::mutex> guard{ mMutex };
+            for(auto& [k, v] : j.items()) {
+                mImage[std::stoull(k)].isEnable = v;
             }
             res.set_content("", "text/plain");
         });
@@ -104,7 +120,7 @@ public:
         mListener = std::thread{ [this] { mServer.listen("localhost", 8080); } };
     }
     ~HttpServer() override {
-        std::clog.rdbuf(clogBuffer);
+        std::clog.rdbuf(cLogBuffer);
         mListener.detach();
     }
     caf::behavior make_behavior() override {
@@ -117,11 +133,7 @@ public:
                 },
                  [this](image_frame_atom, Identifier key) {
                      std::lock_guard<std::mutex> guard{ mMutex };
-                     mImage = BlackBoard::instance().get<CameraFrame>(key).value().frame;
-                     mImageFrom = key.val;
-                     if (mFilter.find(key.val) == mFilter.cend()) {
-                        mFilter[key.val] = true;
-                     }
+                     mImage[key.val].image = BlackBoard::instance().get<CameraFrame>(key).value().frame;
                  } };
     }
 };

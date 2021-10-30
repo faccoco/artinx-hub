@@ -3,5 +3,3 @@ build
 .vscode
 .idea
 config
-cmake-build-release
-cmake-build-debug
