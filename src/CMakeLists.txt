@@ -31,7 +31,7 @@ set(SOURCE
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
-find_package(simdjson CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 find_path(CPP_HTTPLIB_INCLUDE_DIRS "httplib.h")
 find_package(OpenCV CONFIG REQUIRED)
 set(DAHENG_SDK_PATH $ENV{DAHENG_SDK})
@@ -51,7 +51,7 @@ add_executable(ArtinxHub ${SOURCE})
 target_include_directories(ArtinxHub PRIVATE ${InferenceEngine_INCLUDE_DIRS})
 target_include_directories(ArtinxHub PRIVATE ${CAF_INCLUDE_DIRS})
 target_link_libraries(ArtinxHub PRIVATE CAF::core)
-target_link_libraries(ArtinxHub PRIVATE opencv_core opencv_videoio)
+target_link_libraries(ArtinxHub PRIVATE opencv_core opencv_videoio opencv_mcc)
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	target_link_libraries(ArtinxHub PRIVATE Iphlpapi)
 endif()
@@ -64,6 +64,8 @@ target_link_libraries(ArtinxHub PRIVATE LinearMath Bullet3Common BulletDynamics 
 target_link_libraries(ArtinxHub PRIVATE magic_enum::magic_enum)
 target_link_libraries(ArtinxHub PRIVATE fmt::fmt)
 target_link_libraries(ArtinxHub PRIVATE ${InferenceEngine_LIBRARIES})
+target_link_libraries(ArtinxHub PRIVATE nlohmann_json nlohmann_json::nlohmann_json)
+
 
 add_custom_command(TARGET ArtinxHub PRE_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
