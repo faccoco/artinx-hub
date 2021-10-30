@@ -56,15 +56,24 @@ public:
     caf::actor buildNode(caf::actor_system& system, const std::string& name, const HubConfig& config) {
         CAF_LOG_INFO("Build node " + name);
         const auto attr = config.to_dictionary().value();
-        const auto nodeTypeName = caf::to_string(attr.find("type"sv)->second);
+        const auto typeAttr = attr.find("type"sv);
+        if(typeAttr == attr.cend()) {
+            throw std::runtime_error("Node " + name + " is lack of 'type' field.");
+        }
+        const auto nodeTypeName = caf::to_string(typeAttr->second);
         const auto iter = mClasses.find(nodeTypeName);
         if(iter == mClasses.cend()) {
             const auto error = "Undefined Node Type " + nodeTypeName;
             CAF_RAISE_ERROR(error.c_str());
         }
-        auto actor = iter->second(system, config);
-        system.registry().put(name, actor);
-        return actor;
+        try {
+            auto actor = iter->second(system, config);
+            system.registry().put(name, actor);
+            return actor;
+        } catch(const std::exception& e) {
+            CAF_LOG_ERROR(e.what());
+            throw;
+        }
     }
     static NodeFactory& get() {
         static NodeFactory instance;
