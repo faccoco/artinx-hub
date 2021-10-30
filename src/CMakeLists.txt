@@ -92,6 +92,6 @@ endif()
 file(COPY  ${CMAKE_SOURCE_DIR}/config_templates/caf-application.conf DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # fucking Ninja
-add_custom_command(TARGET ArtinxHub POST_BUILD
+add_custom_command(TARGET ArtinxHub PRE_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
                        ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} $<TARGET_FILE_DIR:ArtinxHub>)
