@@ -1,0 +1,33 @@
+#include "BlackBoard.hpp"
+#include "DataDesc.hpp"
+#include "DetectedCar.hpp"
+#include "Hub.hpp"
+#include <caf/actor_ostream.hpp>
+#include <caf/event_based_actor.hpp>
+#include <cstdint>
+#include <filesystem>
+#include <memory>
+
+class CarDetectorDrawer final : public HubHelper<caf::event_based_actor, void, image_frame_atom> {
+private:
+    Identifier mKey;
+
+public:
+    CarDetectorDrawer(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ typeid(CarDetectorDrawer).hash_code() } {}
+    caf::behavior make_behavior() override {
+        return { [this](start_atom) {},
+                 [this](car_detect_available_atom, Identifier key) {
+                     auto res = BlackBoard::instance().get<DetectedCarArray>(key).value();
+                     cv::Scalar green{ 0.0, 255.0, 0.0 };
+                     for(const auto& rect : res.cars) {
+                         cv::rectangle(res.frame.frame, rect, green, 3);
+                     }
+
+                     BlackBoard::instance().updateSync(mKey, std::move(res.frame));
+                     sendAll(image_frame_atom_v, mKey);
+                 } };
+    }
+};
+
+HUB_REGISTER_CLASS(CarDetectorDrawer);
