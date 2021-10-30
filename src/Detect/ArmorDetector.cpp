@@ -139,7 +139,7 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
             if(area < mConfig.minArea || (mConfig.maxArea < area && lightRect.size.width > lightRect.size.height * 0.6))
                 continue;
             // 2.2 the light bar may be too inclined.
-            if(std::abs(lightRect.angle) > mConfig.maxAngle)
+            if(std::fabs(lightRect.angle) > mConfig.maxAngle)
                 continue;
 
             // 2.3 the light bar may be too wide, while it is suspected to be slim and tall.
@@ -205,17 +205,15 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
     };
 
     bool isSuitableArmor(const PairedLight& armor) {
-        std::vector<bool> conditions;
-        conditions.emplace_back(std::abs(armor.r1.angle - armor.r2.angle) <
-                                mConfig.maxAngleDiff);  // angle difference judge the angleDiff should be less than maxAngleDiff
-        conditions.emplace_back(
-            getDeviationAngle(armor) <
-            mConfig.maxDeviationAngle);  // deviation angle judge: the horizon angle of the line of centers of lights
-        conditions.emplace_back(getDislocationX(armor) <
-                                mConfig.maxXDiffRatio);  // dislocation judge: the x and y can not be too far
-        conditions.emplace_back(getDislocationY(armor) <
-                                mConfig.maxYDiffRatio + 0.1);  // dislocation judge: the x and y can not be too far
-        conditions.emplace_back(getLengthRatio(armor) < mConfig.maxLengthDiffRatio);
+        bool conditions[5] = {
+            (std::fabs(armor.r1.angle - armor.r2.angle) <
+             mConfig.maxAngleDiff),  // angle difference judge the angleDiff should be less than maxAngleDiff
+            (getDeviationAngle(armor) <
+             mConfig.maxDeviationAngle),  // deviation angle judge: the horizon angle of the line of centers of lights
+            (getDislocationX(armor) < mConfig.maxXDiffRatio), // dislocation judge: the x and y can not be too far
+            (getDislocationY(armor) < mConfig.maxYDiffRatio + 0.1), // dislocation judge: the x and y can not be too far
+            (getLengthRatio(armor) < mConfig.maxLengthDiffRatio)   // length difference judge: the x and y should have similar length.
+        };
         auto tempRunningType = mConfig.runningType;
         if(tempRunningType ==
            DetectorRunningType::DEBUG) {  // In debug mode, the image comes from camera, we put the armor
@@ -227,15 +225,19 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
         }
         switch(tempRunningType) {
             case DetectorRunningType::RELEASE: {
-                return std::all_of(conditions.begin(), conditions.end(), [](const bool& condition) { return condition; });
+                for(const auto& condition : conditions)
+                    if(!condition)
+                        return false;
+                return true;
             }
             case DetectorRunningType::DATASET_BASED_TEST: {  // includes DATASET_BASED_TEST branch
-                std::vector<std::string> messages;
-                messages.emplace_back("Angle difference is now bigger than allowed max angle difference!");
-                messages.emplace_back("The horizon angle of the line of centers of lights is too big!");
-                messages.emplace_back("light center distance ratio on the X-axis between the two lights is too far!");
-                messages.emplace_back("light center distance ratio on the Y-axis between the two lights is too far!");
-                messages.emplace_back("the length difference ratio is too big!");
+                std::string messages[5] = {
+                    "Angle difference is now bigger than allowed max angle difference!",
+                    "The horizon angle of the line of centers of lights is too big!",
+                    "light center distance ratio on the X-axis between the two lights is too far!",
+                    "light center distance ratio on the Y-axis between the two lights is too far!",
+                    "the length difference ratio is too big!"
+                };
                 bool success = true;
                 int i = 0;
                 for(const auto& condition : conditions) {
@@ -272,21 +274,21 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
 
     // deviation angle : the horizon angle of the line of centers of lights
     static float getDeviationAngle(const PairedLight& armor) {
-        const float deltaX = armor.r2.center.x - armor.r1.center.x;                                //Δx
-        const float deltaY = armor.r2.center.y - armor.r1.center.y;                                //Δy
-        const float deviationAngle = 180.0f * std::abs(atan(deltaY / deltaX)) / glm::pi<float>();  // tanθ=Δy/Δx
+        const float deltaX = armor.r2.center.x - armor.r1.center.x;                                 //Δx
+        const float deltaY = armor.r2.center.y - armor.r1.center.y;                                 //Δy
+        const float deviationAngle = 180.0f * std::fabs(atan(deltaY / deltaX)) / glm::pi<float>();  // tanθ=Δy/Δx
         return deviationAngle;
     }
 
     // widely used in other getXXX functions
     static float lightLength(const cv::RotatedRect& light) {
-        return std::max(light.size.height, light.size.width);
+        return std::fmax(light.size.height, light.size.width);
     }
 
     // dislocation judge X: right-left light center distance ratio on the X-axis
     static float getDislocationX(const PairedLight& armor) {
         const float meanLen = (lightLength(armor.r1) + lightLength(armor.r2)) / 2;
-        const float xDiff = std::abs(armor.r1.center.x - armor.r2.center.x);  // x distance ratio
+        const float xDiff = std::fabs(armor.r1.center.x - armor.r2.center.x);  // x distance ratio
         const float xDiffRatio = xDiff / meanLen;
         return xDiffRatio;
     }
@@ -294,7 +296,7 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
     // dislocation judge Y: r-l light center distance ration on the Y-axis
     static float getDislocationY(const PairedLight& armor) {
         const float meanLen = (lightLength(armor.r1) + lightLength(armor.r2)) / 2;
-        const float yDiff = std::abs(armor.r1.center.y - armor.r2.center.y);  // y distance ratio
+        const float yDiff = std::fabs(armor.r1.center.y - armor.r2.center.y);  // y distance ratio
         const float yDiffRatio = yDiff / meanLen;
         return yDiffRatio;
     }
@@ -304,8 +306,8 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
         /// (lzj) match armor : use the smaller one's length instead of mean value of the two
         const auto leftArmorLength = lightLength(armor.r1);
         const auto rightArmorLength = lightLength(armor.r2);
-        const float lengthDiff = std::abs(leftArmorLength - rightArmorLength);
-        const float lengthDiffRatio = lengthDiff / std::min(leftArmorLength, rightArmorLength);
+        const float lengthDiff = std::fabs(leftArmorLength - rightArmorLength);
+        const float lengthDiffRatio = lengthDiff / std::fmin(leftArmorLength, rightArmorLength);
         return lengthDiffRatio;
     }
 

@@ -8,11 +8,11 @@ constexpr double radiusOf17mm = 0.00168 * 0.5;
 constexpr double massOf42mm = 0.041;
 constexpr double massOf17mm = 0.0032;
 
-constexpr double widthOfLightBar = 135.0*35/535;
-constexpr double heightOfLightBar =
-    135.0 * 238 / 535;  // FIXME: not accurate data directly from user manual, but computed because of lack of documentation.
-                        // computation is currently based on page 46 RoboMaster 2022 机甲大师高校系列赛机器人制作规范手册
-                        // V1.0（20211015）.pdf by counting the number of light pixels compared to armor pixels in the image inside the pdf.
+constexpr double widthOfLightBar = 135.0 * 35 / 535;
+constexpr double heightOfLightBar = 135.0 * 238 /
+    535;  // FIXME: not accurate data directly from user manual, but computed because of lack of documentation.
+          // computation is currently based on page 46 RoboMaster 2022 University Series Robot Manufacture specification manual.
+          // V1.0（20211015）.pdf by counting the number of light pixels compared to armor pixels in the image inside the pdf.
 
 constexpr double thinnessOfArmor = 0.03;
 constexpr double widthOfSmallArmor = 0.135;
