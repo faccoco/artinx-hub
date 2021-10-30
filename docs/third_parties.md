@@ -1,6 +1,6 @@
 DaHeng SDK (Galaxy)
 
-simdjson
+nlohmann_json
 
 caf [modified]
 
