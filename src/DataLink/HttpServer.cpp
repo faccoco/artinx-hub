@@ -29,8 +29,8 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
     std::mutex mMutex;
     std::thread mListener;
 
-    std::streambuf* cLogBuffer;
-    std::stringstream logStream;
+    std::streambuf* mClogBuffer;
+    std::stringstream mLogStream;
 
     void modifyParameter(std::string path, std::string value) {}
     std::string generateParameterJson() {
@@ -45,7 +45,6 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
         try {
             id = std::stoull(path);
         } catch(std::exception& e) {
-            std::clog << e.what() << std::endl;
             return std::nullopt;
         }
 
@@ -76,9 +75,9 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
     }
 
 public:
-    HttpServer(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, cLogBuffer{ std::clog.rdbuf() } {
+    HttpServer(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mClogBuffer{ std::clog.rdbuf() } {
 
-        std::clog.rdbuf(logStream.rdbuf());
+        std::clog.rdbuf(mLogStream.rdbuf());
 
         mServer.set_mount_point("/pages", "./pages");
 
@@ -98,8 +97,8 @@ public:
             }
         });
         mServer.Get("/log", [this](const httplib::Request& req, httplib::Response& res) {
-            res.set_content(logStream.str(), "text/plain");
-            logStream.str("");
+            res.set_content(mLogStream.str(), "text/plain");
+            mLogStream.str("");
         });
         mServer.Post("/filter", [this](const httplib::Request& req, httplib::Response& res) {
             if(req.body.empty()) {
@@ -120,7 +119,7 @@ public:
         mListener = std::thread{ [this] { mServer.listen("localhost", 8080); } };
     }
     ~HttpServer() override {
-        std::clog.rdbuf(cLogBuffer);
+        std::clog.rdbuf(mClogBuffer);
         mListener.detach();
     }
     caf::behavior make_behavior() override {
