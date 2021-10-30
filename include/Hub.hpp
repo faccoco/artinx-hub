@@ -8,7 +8,6 @@
 
 using namespace std::literals;
 
-using Clock = std::chrono::high_resolution_clock;
 using HubConfig = caf::config_value;
 
 namespace detail {

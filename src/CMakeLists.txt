@@ -30,7 +30,7 @@ set(SOURCE
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
-find_package(simdjson CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 find_path(CPP_HTTPLIB_INCLUDE_DIRS "httplib.h")
 find_package(OpenCV CONFIG REQUIRED)
 set(DAHENG_SDK_PATH $ENV{DAHENG_SDK})
@@ -54,6 +54,7 @@ target_link_libraries(ArtinxHub PRIVATE gxiapi)
 target_link_libraries(ArtinxHub PRIVATE LinearMath Bullet3Common BulletDynamics BulletCollision)
 target_link_libraries(ArtinxHub PRIVATE magic_enum::magic_enum)
 target_link_libraries(ArtinxHub PRIVATE fmt::fmt)
+target_link_libraries(ArtinxHub PRIVATE nlohmann_json nlohmann_json::nlohmann_json)
 
 add_custom_command(TARGET ArtinxHub PRE_BUILD
                    COMMAND ${CMAKE_COMMAND} -E copy_directory
