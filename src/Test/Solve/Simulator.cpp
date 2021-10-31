@@ -240,7 +240,7 @@ public:
             std::get<2>(mTarget)->step(*std::get<0>(mTarget), mConfig.step);
             mDynamicWorld->stepSimulation(static_cast<btScalar>(mConfig.step), 10, 0.001f);
             time += mConfig.step;
-
+            
             CAF_LOG_INFO(fmt::format("Simulator time {:.3f}s bullet count {} hited {}", time, bulletCount, hitCount));
 
             // update world info
