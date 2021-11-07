@@ -11,7 +11,6 @@ function randomString(length) {
 
 filters = {};
 images = {};
-updating = false;
 
 function updateAll() {
     updateImages();
@@ -23,11 +22,16 @@ function updateAll() {
 function updateImages() {
     for (let k in images) {
         if (!filters[k]) continue;
-        images[k].src = "/img/" + k + "/" + randomString();
+        images[k].src = "/img/" + k + "/" + randomString(5);
     }
 }
 
 function updateLog() {
+    let logDiv = $("#logs");
+    let keepDown = false;
+    if (logDiv[0].scrollTop + logDiv[0].clientHeight >= logDiv[0].scrollHeight - 0.6) {
+        keepDown = true;
+    }
     fetch("/log").then(res => {
         if (!res.ok) {
             throw new Error(res.status + "");
@@ -44,6 +48,9 @@ function updateLog() {
         }
         this.prev = logs[logs.length - 1];
     });
+    if (keepDown) {
+        logDiv[0].scrollTop = logDiv[0].scrollHeight;
+    }
 }
 
 function updateStatus() {
