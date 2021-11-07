@@ -28,7 +28,7 @@ struct SimulatorSettings final {
 
     double vibrationLinearRange;
     double vibrationAngleRange;  // in degrees
-    double spinningSpeed;        // in circles
+    double spinningSpeed;        // in circles/s
 
     double standardDistance;
     double sourceHeight;
@@ -39,32 +39,26 @@ struct SimulatorSettings final {
     std::string sourceMotionType;
 
     uint32_t expectedCount;
+
+    bool printBulletPos;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, SimulatorSettings& x) {
-    return f.object(x).fields(f.field("step", x.step).invariant([](double v) { return v >= 0.001 && v <= 0.01; }),
-                              f.field("v0", x.v0), f.field("v0Std", x.v0Std), f.field("shootInterval", x.shootInterval),
-                              f.field("maxTime", x.maxTime), f.field("bulletCount", x.bulletCount),
-                              f.field("vibrationLinearRange", x.vibrationLinearRange),
-                              f.field("vibrationAngleRange", x.vibrationAngleRange), f.field("spinningSpeed", x.spinningSpeed),
-                              f.field("standardDistance", x.standardDistance), f.field("sourceHeight", x.sourceHeight),
-                              f.field("targetHeight", x.targetHeight), f.field("targetType", x.targetType),
-                              f.field("targetMotionType", x.targetMotionType), f.field("sourceMotionType", x.sourceMotionType),
-                              f.field("expectedCount", x.expectedCount));
+    return f.object(x).fields(
+        f.field("step", x.step).invariant([](double v) { return v >= 0.001 && v <= 0.01; }), f.field("v0", x.v0),
+        f.field("v0Std", x.v0Std), f.field("shootInterval", x.shootInterval), f.field("maxTime", x.maxTime),
+        f.field("bulletCount", x.bulletCount), f.field("vibrationLinearRange", x.vibrationLinearRange),
+        f.field("vibrationAngleRange", x.vibrationAngleRange), f.field("spinningSpeed", x.spinningSpeed),
+        f.field("standardDistance", x.standardDistance), f.field("sourceHeight", x.sourceHeight),
+        f.field("targetHeight", x.targetHeight), f.field("targetType", x.targetType),
+        f.field("targetMotionType", x.targetMotionType), f.field("sourceMotionType", x.sourceMotionType),
+        f.field("expectedCount", x.expectedCount), f.field("printBulletPos", x.printBulletPos).fallback(false));
 }
 
 enum class TargetType : uint32_t { Infantry, Hero, BalancedInfantry, Sentry, Outpost, BaseClosed, BaseExpanded, Fans };
 
-enum class TargetMotionType : uint32_t {
-    Static,
-    Spinning,
-    Translate2D,
-    Translate3D,
-    SpinningWithVibrationAndCircle,
-    Fans,
-    Sentry
-};
+enum class TargetMotionType : uint32_t { Static, Spinning, Translate2D, Translate3D, LargeCircle, Fans, Sentry };
 
 enum class SourceMotionType : uint32_t { Static, Vibration, Translate2D, Translate3D, Sentry, UAV };
 
@@ -76,6 +70,42 @@ public:
 class StaticMotionController final : public MotionController {
 public:
     void step(btMotionState& motionState, double) override {}
+};
+
+class SpinMotionController final : public MotionController {
+    double mSpinningSpeed;
+
+public:
+    SpinMotionController(double spinningSpeed) : mSpinningSpeed{ spinningSpeed } {}
+    void step(btMotionState& motionState, const double dt) override {
+        btTransform transform;
+        motionState.getWorldTransform(transform);
+        const auto quat = transform.getRotation();
+        const auto rotated =
+            glm::rotate(glm::quat{ quat.w(), quat.x(), quat.y(), quat.z() },
+                        static_cast<float>(glm::two_pi<double>() * mSpinningSpeed * dt), glm::vec3{ 0.0f, 1.0f, 0.0f });
+        transform.setRotation(btQuaternion{ rotated.x, rotated.y, rotated.z, rotated.w });
+        motionState.setWorldTransform(transform);
+    }
+};
+
+class LargeCircleMotionController final : public MotionController {
+    double mSpinningSpeed;
+
+public:
+    LargeCircleMotionController(double spinningSpeed) : mSpinningSpeed{ spinningSpeed } {}
+    void step(btMotionState& motionState, const double dt) override {
+        btTransform transform;
+        motionState.getWorldTransform(transform);
+        const auto quat = transform.getRotation();
+        const auto angle = static_cast<float>(glm::two_pi<double>() * mSpinningSpeed * dt);
+        const auto rotated =
+            glm::rotate(glm::quat{ quat.w(), quat.x(), quat.y(), quat.z() }, angle, glm::vec3{ 0.0f, 1.0f, 0.0f });
+        transform.setRotation(btQuaternion{ rotated.x, rotated.y, rotated.z, rotated.w });
+        const auto inverse = glm::rotate(glm::identity<glm::quat>(), -angle, glm::vec3{ 0.0f, 1.0f, 0.0f });
+        transform.setOrigin(quatRotate(btQuaternion{ inverse.x, inverse.y, inverse.z, inverse.w }, transform.getOrigin()));
+        motionState.setWorldTransform(transform);
+    }
 };
 
 class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
@@ -130,12 +160,20 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                     auto armors = std::make_unique<btCompoundShape>(true, 4);
 
                     for(int32_t i = 0; i < 4; ++i) {
-                        const btQuaternion quat{ static_cast<float>(i * glm::half_pi<double>()),
-                                                 static_cast<float>(angleOfArmorForInfantry), 0 };
-                        const btVector3 base{ static_cast<float>(radiusOfInfantry * std::cos(i * glm::half_pi<double>())), 0.0,
-                                              static_cast<float>(radiusOfInfantry * std::sin(i * glm::half_pi<double>())) };
+                        // const btQuaternion quat{ static_cast<float>(i * glm::half_pi<double>()),
+                        //                         static_cast<float>(angleOfArmorForInfantry), 0 };
+                        const auto yaw = i * glm::half_pi<double>();
+                        constexpr auto pitch = angleOfArmorForInfantry;
+                        const auto rotateQuat = glm::quat{ glm::quatLookAtRH(
+                            glm::dvec3{ std::cos(yaw) * std::cos(pitch), std::sin(pitch), std::sin(yaw) * std::cos(pitch) },
+                            glm::dvec3{ 0.0, 0.0, 1.0 }) };
 
-                        armors->addChildShape(btTransform{ quat, base }, singleArmor);
+                        const btVector3 base{ static_cast<float>(radiusOfInfantry * std::cos(yaw)), 0.0,
+                                              static_cast<float>(radiusOfInfantry * std::sin(yaw)) };
+
+                        armors->addChildShape(
+                            btTransform{ btQuaternion{ rotateQuat.x, rotateQuat.y, rotateQuat.z, rotateQuat.w }, base },
+                            singleArmor);
                     }
 
                     armors->setUserPointer(&armorId);
@@ -160,6 +198,12 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
             switch(targetMotionType) {
                 case TargetMotionType::Static: {
                     controller = std::make_unique<StaticMotionController>();
+                } break;
+                case TargetMotionType::Spinning: {
+                    controller = std::make_unique<SpinMotionController>(mConfig.spinningSpeed);
+                } break;
+                case TargetMotionType::LargeCircle: {
+                    controller = std::make_unique<LargeCircleMotionController>(mConfig.spinningSpeed);
                 } break;
                 default:
                     throw NotImplemented{};
@@ -214,8 +258,13 @@ public:
         std::unordered_map<const btRigidBody*, btVector3> bulletVelocity;
 
         while(runFlag) {
-            for(auto& [_, p] : mBullets)
+            for(auto& [_, p] : mBullets) {
                 bulletVelocity[p.get()] = p->getLinearVelocity();
+                if(mConfig.printBulletPos) {
+                    const auto pos = p->getCenterOfMassPosition();
+                    CAF_LOG_INFO(fmt::format("bullet {:.2f} {:.2f} {:.2f}", pos.x(), pos.y(), pos.z()));
+                }
+            }
 
             // update drag forces
 
@@ -224,7 +273,7 @@ public:
             std::get<2>(mTarget)->step(*std::get<0>(mTarget), mConfig.step);
             mDynamicWorld->stepSimulation(static_cast<btScalar>(mConfig.step), 10, 0.001f);
             time += mConfig.step;
-
+            
             CAF_LOG_INFO(fmt::format("Simulator time {:.3f}s bullet count {} hited {}", time, bulletCount, hitCount));
 
             // update world info
@@ -239,7 +288,7 @@ public:
                     mSource.first->getWorldTransform(trans);
                     glm::mat4 mat;
                     trans.getOpenGLMatrix(glm::value_ptr(mat));
-                    info.posture = decltype(info.posture){ mat };
+                    info.posture = decltype(info.posture){ glm::inverse(mat) };
                 }
 
                 {

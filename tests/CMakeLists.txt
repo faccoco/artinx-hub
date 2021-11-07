@@ -5,3 +5,4 @@ add_test(NAME ${TEST_NAME} COMMAND $<TARGET_FILE:ArtinxHub> ${CMAKE_SOURCE_DIR}/
 endfunction()
 
 add_subdirectory(Solve)
+add_subdirectory(Utility)
