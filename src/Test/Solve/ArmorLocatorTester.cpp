@@ -38,30 +38,31 @@ class ArmorLocatorTester final
     glm::dmat4 mMat;
     std::queue<Point<UnitType::Distance, FrameOfReference::Gun>> mExpected{};
     uint32_t mCount = 0;
-    double mMaxError = 0.0;
+    double mMeanError = 0.0;
 
     void next() {
         const auto center = glm::linearRand(glm::dvec3{ -mConfig.width, -mConfig.height, -mConfig.length },
                                             glm::dvec3{ mConfig.width, mConfig.height, -zNear });
         const auto yaw = glm::linearRand(0.1, 0.9) * glm::pi<double>();
-        const auto pitch = glm::linearRand(-0.45, 0.45) * glm::pi<double>();
+        // const auto pitch = glm::linearRand(-0.45, 0.45) * glm::pi<double>();
+        const auto pitch = 0.0;
 
         const auto forward = glm::dvec3{ std::cos(yaw) * std::cos(pitch), std::sin(pitch), std::sin(yaw) * std::cos(pitch) };
-        const auto up = glm::normalize(glm::dvec3{ glm::linearRand(-0.2, 0.2), 1.0, glm::linearRand(-0.2, 0.2) });
+        // const auto up = glm::normalize(glm::dvec3{ glm::linearRand(-0.2, 0.2), 1.0, glm::linearRand(-0.2, 0.2) });
+        const auto up = glm::dvec3{ 0.0, 1.0, 0.0 };
         const auto horizonal = glm::cross(forward, up);
         const auto vertical = glm::cross(horizonal, forward);
 
-        const auto offset = widthOfSmallArmor / 8;
-
         const auto generateNoise = [&] {
-            return glm::clamp(glm::gaussRand(0.0, mConfig.noiseStd), -mConfig.noiseStd * 3.0, mConfig.noiseStd * 3.0);
+            return 0.0;
+            // return glm::clamp(glm::gaussRand(0.0, mConfig.noiseStd), -mConfig.noiseStd * 3.0, mConfig.noiseStd * 3.0);
         };
 
         const auto generateRotatedRect = [&](const glm::dvec3& vecX) {
-            const auto off1 = vecX * ((widthOfSmallArmor + offset) * 0.5);
-            const auto off2 = vecX * ((widthOfSmallArmor - offset) * 0.5);
-            const auto off3 = vertical * (heightOfSmallArmor * 0.5);
-            const auto off4 = vertical * (heightOfSmallArmor * -0.5);
+            const auto off1 = vecX * (widthOfSmallArmor * 0.5);
+            const auto off2 = vecX * (widthOfSmallArmor * 0.5 - widthOfArmorLightBar);
+            const auto off3 = vertical * (heightOfArmorLightBar * 0.5);
+            const auto off4 = vertical * (heightOfArmorLightBar * -0.5);
 
             const glm::dvec3 corners[4] = { center + off1 + off3, center + off2 + off3, center + off1 + off4,
                                             center + off2 + off4 };
@@ -71,8 +72,8 @@ class ArmorLocatorTester final
 
             for(auto& pos : corners) {
                 const auto projected = mMat * glm::dvec4{ pos, 1.0 };
-                const auto posX = projected.x / projected.w + mConfig.imageWidth * 0.5 + generateNoise();
-                const auto posY = projected.y / projected.w + mConfig.imageHeight * 0.5 + generateNoise();
+                const auto posX = (projected.x / projected.w / 2 + 0.5) * mConfig.imageWidth + generateNoise();
+                const auto posY = (0.5 - projected.y / projected.w / 2) * mConfig.imageHeight + generateNoise();
                 pts.push_back({ static_cast<float>(posX), static_cast<float>(posY) });
             }
 
@@ -99,14 +100,12 @@ class ArmorLocatorTester final
 public:
     ArmorLocatorTester(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(ArmorLocatorTester).hash_code() }, mMat{
-              glm::perspectiveFovRH(mConfig.fov, static_cast<double>(mConfig.imageWidth),
-                                    static_cast<double>(mConfig.imageHeight), zNear, zFar)
+              glm::perspectiveFovRH(glm::radians(mConfig.fov), static_cast<double>(mConfig.imageWidth),
+                                    static_cast<double>(mConfig.imageHeight), zNear, zFar) *
+              glm::lookAtRH(glm::dvec3{ 0.0 }, glm::dvec3{ 0.0, 0.0, -1.0 }, glm::dvec3{ 0.0, 1.0, 0.0 })
           } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {
-                    for(uint32_t idx = 0; idx < mConfig.count; ++idx)
-                        next();
-                },
+        return { [this](start_atom) { next(); },
                  [&](detect_available_atom, Identifier key) {
                      const auto solved = BlackBoard::instance().get<DetectedTargetArray>(key).value().targets.front().center;
 
@@ -124,17 +123,22 @@ public:
                          CAF_LOG_INFO(message);
                      else
                          CAF_LOG_ERROR(message);
-
-                     mMaxError = std::max(mMaxError, error);
-                     ++mCount;
+                     
+                     if(error < 1.0) {
+                         mMeanError += error;
+                         ++mCount;
+                     }
 
                      if(mCount >= mConfig.count) {
-                         if(mMaxError < mConfig.maxError)
+                         mMeanError /= mCount;
+                         CAF_LOG_INFO(fmt::format("Mean error {:.1f}%", mMeanError * 100.0));
+                         if(mMeanError < mConfig.maxError)
                              CAF_LOG_INFO("Test passed");
                          else
                              CAF_LOG_ERROR("Test failed");
-                         terminateSystem(*this, mMaxError < mConfig.maxError);
-                     }
+                         terminateSystem(*this, mMeanError < mConfig.maxError);
+                     } else
+                         next();
                  } };
     }
 };
