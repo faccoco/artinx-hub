@@ -331,7 +331,8 @@ public:
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(armor_detect_available_atom_v, mKey);
-                 } };
+                 } 
+        };
     }
 };
 
