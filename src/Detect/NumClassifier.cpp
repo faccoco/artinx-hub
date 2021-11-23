@@ -8,8 +8,10 @@
 #include "Hub.hpp"
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
+#include <cmath>
 #include <fmt/format.h>
 #include <inference_engine.hpp>
+
 
 struct NumClassifierSettings final {
     int32_t inputWidth;
@@ -51,21 +53,19 @@ class NumClassifier final : public HubHelper<caf::event_based_actor, NumClassifi
 
     }
 
-    int8_t decodeInferResult(IE::Blob::Ptr& outputBlob) {
+    std::tuple<int, double> decodeInferResult(IE::Blob::Ptr& outputBlob) {
         auto outputData = outputBlob->buffer().as<IE::PrecisionTrait<IE::Precision::FP32>::value_type*>();
-        float maxTensor = 0;
+        double maxTensor = 0, sumExp = 0, confidence = 0;
         int8_t resNum = 0;
-        for(int i = 1; i <= numCount; i++) {
-            if(outputData == nullptr) {
-                CAF_LOG_INFO("NumClassifier decode outputBlob failed!");
+        for(int i = 0; i < numCount; i++) {
+            if(outputData[i] > maxTensor) {
+                resNum = i + 1;
+                maxTensor = outputData[i];
+                sumExp += std::exp(outputData[i]);
             }
-            if(*outputData > maxTensor) {
-                resNum = i;
-                maxTensor = *outputData;
-            }
-            outputData++;
         }
-        return resNum;
+        confidence = std::exp(outputData[resNum - 1]) / sumExp;
+        return std::tuple(resNum, confidence);
     }
 
 public:
@@ -85,8 +85,8 @@ public:
 public:
     caf::behavior make_behavior() override {
         return { [this](start_atom) {},
-                 [&](num_classify_available_atom, Identifier key) {
-                     ClassifiedNum res;
+                 [&](num_classify_request_atom, Identifier key) {
+
                      const auto imgData = BlackBoard::instance().get<CameraFrame>(key).value();
 
                      auto request = mExecutableNetwork.CreateInferRequest();
@@ -97,10 +97,11 @@ public:
 
                      request.Infer();
 
-                     res.num = decodeInferResult(outputBlob);
+                     auto [num, confidence] = decodeInferResult(outputBlob);
+                     ClassifiedNum res{num, confidence};
 
-                     BlackBoard::instance().updateSync(mKey, std::move(res));
-                     sendAll(num_classify_available_atom_v, mKey);
+                     sendAll(num_classify_request_atom_v, mKey);
+                     return res;
                  }
         };
     }

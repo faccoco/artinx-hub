@@ -9,6 +9,7 @@ set(SOURCE
 "Sensor/VideoReplay.cpp"
 "Detect/ArmorDetector.cpp"
 "Detect/CarDetector.cpp"
+"Detect/NumClassifier.cpp"
 "Preprocess/ColorCalibration.cpp"
 "Preprocess/IMUFilter.cpp"
 "Preprocess/Undistort.cpp"
@@ -43,7 +44,7 @@ find_package(fmt CONFIG REQUIRED)
 set(InferenceEngine_DIR $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine/share/)
 find_package(InferenceEngine CONFIG REQUIRED)
 
-add_executable(ArtinxHub ${SOURCE} "Detect/NumClassifier.cpp")
+add_executable(ArtinxHub ${SOURCE})
 target_include_directories(ArtinxHub PRIVATE ${InferenceEngine_INCLUDE_DIRS})
 target_include_directories(ArtinxHub PRIVATE ${CAF_INCLUDE_DIRS})
 target_link_libraries(ArtinxHub PRIVATE CAF::core)
