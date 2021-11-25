@@ -25,13 +25,13 @@ namespace IE = InferenceEngine;
 constexpr int8_t numCount = 5;
 
 template<class Inspector>
-bool inspect(Inspector& f, NumClassifierSettings& s) {
+bool inspect(Inspector& f, NumClassifierSettings& x) {
     return f.object(x).fields(f.field("inputWidth", x.inputWidth).fallback(28), f.field("inputHeight", x.inputHeight).fallback(28),
                               f.field("xmlPath", x.xmlPath), f.field("binPath", x.binPath),
                               f.field("deviceName", x.deviceName).fallback("CPU"));
 }
 
-class NumClassifier final : public HubHelper<caf::event_based_actor, NumClassifierSettings, num_classify_request_atom> {
+class NumClassifier final : public HubHelper<caf::event_based_actor, NumClassifierSettings> {
     Identifier mKey;
     IE::Core mInferenceEngine;
     IE::CNNNetwork mNetwork;
@@ -53,9 +53,9 @@ class NumClassifier final : public HubHelper<caf::event_based_actor, NumClassifi
 
     }
 
-    std::tuple<int, double> decodeInferResult(IE::Blob::Ptr& outputBlob) {
+    std::tuple<int8_t, double> decodeInferResult(IE::Blob::Ptr& outputBlob) {
         auto outputData = outputBlob->buffer().as<IE::PrecisionTrait<IE::Precision::FP32>::value_type*>();
-        double maxTensor = -100, sumExp = 0, confidence = 0;
+        double maxTensor = -100, sumExp = 0;
         int8_t resNum = 0;
         for(int i = 0; i < numCount; i++) {
             if(outputData[i] > maxTensor) {
@@ -64,7 +64,7 @@ class NumClassifier final : public HubHelper<caf::event_based_actor, NumClassifi
             }
             sumExp += std::exp(outputData[i]);
         }
-        confidence = std::exp(outputData[resNum - 1]) / sumExp;
+        double confidence = std::exp(outputData[resNum - 1]) / sumExp;
         return std::tuple(resNum, confidence);
     }
 
@@ -99,8 +99,6 @@ public:
 
                      auto [num, confidence] = decodeInferResult(outputBlob);
                      ClassifiedNum res{num, confidence};
-
-                     sendAll(num_classify_request_atom_v, mKey);
                      return res;
                  }
         };
