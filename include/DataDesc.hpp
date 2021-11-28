@@ -1,6 +1,5 @@
 #pragma once
 #include "Constants.hpp"
-#include "ClassifiedNum.hpp"
 #include <caf/allowed_unsafe_message_type.hpp>
 #include <caf/is_error_code_enum.hpp>
 #include <caf/type_id.hpp>
@@ -46,11 +45,8 @@ CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, num_classify_request_atom);
 
 CAF_ADD_TYPE_ID(ArtinxHub, (Identifier));
-CAF_ADD_TYPE_ID(ArtinxHub, (ClassifiedNum));
-
 
 CAF_END_TYPE_ID_BLOCK(ArtinxHub);
 
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(Identifier);
-CAF_ALLOW_UNSAFE_MESSAGE_TYPE(ClassifiedNum);
 
