@@ -22,13 +22,15 @@ struct ArmorLocatorTesterSettings final {
     uint32_t imageWidth, imageHeight;
     double length, width, height;
     double noiseStd;
-    double maxError;  // distance(expected,error) / distance(expected,origin)
+    double maxError;  // distance(expected,error) / distance(expected,origin) or angle
+    bool judgeAngle;
 };
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorTesterSettings& x) {
     return f.object(x).fields(f.field("count", x.count), f.field("fov", x.fov), f.field("imageWidth", x.imageWidth),
                               f.field("imageHeight", x.imageHeight), f.field("length", x.length), f.field("width", x.width),
-                              f.field("height", x.height), f.field("noiseStd", x.noiseStd), f.field("maxError", x.maxError));
+                              f.field("height", x.height), f.field("noiseStd", x.noiseStd), f.field("maxError", x.maxError),
+                              f.field("judgeAngle", x.judgeAngle));
 }
 
 // NOTICE: ArmorLocator Only
@@ -44,7 +46,7 @@ class ArmorLocatorTester final
         const auto center = glm::linearRand(glm::dvec3{ -mConfig.width, -mConfig.height, -mConfig.length },
                                             glm::dvec3{ mConfig.width, mConfig.height, -zNear });
         const auto yaw = glm::linearRand(0.1, 0.9) * glm::pi<double>();
-        // const auto pitch = glm::linearRand(-0.45, 0.45) * glm::pi<double>();
+        // const auto pitch = glm::linearRand(-0.1, 0.1) * glm::pi<double>();
         const auto pitch = 0.0;
 
         const auto forward = glm::dvec3{ std::cos(yaw) * std::cos(pitch), std::sin(pitch), std::sin(yaw) * std::cos(pitch) };
@@ -54,8 +56,7 @@ class ArmorLocatorTester final
         const auto vertical = glm::cross(horizonal, forward);
 
         const auto generateNoise = [&] {
-            return 0.0;
-            // return glm::clamp(glm::gaussRand(0.0, mConfig.noiseStd), -mConfig.noiseStd * 3.0, mConfig.noiseStd * 3.0);
+            return glm::clamp(glm::gaussRand(0.0, mConfig.noiseStd), -mConfig.noiseStd * 3.0, mConfig.noiseStd * 3.0);
         };
 
         const auto generateRotatedRect = [&](const glm::dvec3& vecX) {
@@ -115,15 +116,29 @@ public:
                      const auto expectedRaw = expected.raw();
                      const auto solvedRaw = solved.raw();
 
-                     const auto error = distance(expected, solved).val / glm::length(expected.raw());  // relative error
-                     const auto message =
-                         fmt::format("Error: {:.1f}% Expected {:.2f} {:.2f} {:.2f} Solved {:.2f} {:.2f} {:.2f}", error * 100.0,
-                                     expectedRaw.x, expectedRaw.y, expectedRaw.z, solvedRaw.x, solvedRaw.y, solvedRaw.z);
-                     if(error < mConfig.maxError)
+                     double error;
+                     std::string message;
+                     if(mConfig.judgeAngle) {
+                         const auto expectedDir = glm::normalize(expectedRaw);
+                         const auto solvedDir = glm::normalize(solvedRaw);
+                         const auto angle = std::acos(glm::dot(expectedDir, solvedDir));
+                         error = angle / glm::pi<double>();
+                         message = fmt::format("Error: {:.1f}% (degree {:.2f})", error * 100.0, glm::degrees(angle));
+                     } else {
+                         const auto dist = distance(expected, solved).val;
+                         const auto scale = glm::length(expected.raw());
+                         error = dist / scale;  // relative error
+                         message = fmt::format(
+                             "Error: {:.1f}% ({:.2f}/{:.2f}) Expected {:.2f} {:.2f} {:.2f} Solved {:.2f} {:.2f} {:.2f}",
+                             error * 100.0, dist, scale, expectedRaw.x, expectedRaw.y, expectedRaw.z, solvedRaw.x, solvedRaw.y,
+                             solvedRaw.z);
+                     }
+
+                     if(error < mConfig.maxError * 2.0)
                          CAF_LOG_INFO(message);
                      else
                          CAF_LOG_ERROR(message);
-                     
+
                      if(error < 1.0) {
                          mMeanError += error;
                          ++mCount;
