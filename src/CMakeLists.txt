@@ -15,6 +15,7 @@ set(SOURCE
 "Preprocess/Undistort.cpp"
 "Solve/AngleSolver.cpp"
 "Solve/ArmorLocator.cpp"
+"Strategy/Sentry.cpp"
 "Test/ActorFramework/Test.cpp"
 "Test/Detect/ArmorDetectorTester.cpp"
 "Test/Solve/ArmorLocatorTester.cpp"
