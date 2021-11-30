@@ -3,15 +3,11 @@
 #include "DetectedTarget.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
-#include "ClassifiedNum.hpp"
-#include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/random.hpp>
-#include <queue>
+#include <glm/glm.hpp>
 
-struct sentryStrategySettings final {
+struct SentryStrategySettings final {
     double distanceThreshold;
 };
 
@@ -19,16 +15,16 @@ struct sentryStrategySettings final {
 constexpr int32_t engineerId = 2;
 
 template <class Inspector>
-bool inspect(Inspector& f, sentryStrategySettings& x) {
+bool inspect(Inspector& f, SentryStrategySettings& x) {
     return f.object(x).fields(f.field("distanceThreshold", x.distanceThreshold));
 }
 
-class sentryStrategy final : public HubHelper<caf::event_based_actor, sentryStrategySettings, set_target_atom> {
+class SentryStrategy final : public HubHelper<caf::event_based_actor, SentryStrategySettings, set_target_atom> {
     Identifier mKey;
 
 public:
-    sentryStrategy(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(sentryStrategy).hash_code() } {}
+    SentryStrategy(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ typeid(SentryStrategy).hash_code() } {}
     caf::behavior make_behavior() override {
         return {
             [this](start_atom) {}, [&](detect_available_atom, Identifier key) {
@@ -54,5 +50,5 @@ public:
     }
 };
 
-HUB_REGISTER_CLASS(sentryStrategy);
+HUB_REGISTER_CLASS(SentryStrategy);
 
