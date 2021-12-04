@@ -191,8 +191,6 @@ public:
                      CAF_LOG_INFO(
                          fmt::format("infer time {:.4f}s decode time {:.4f}s", (t1 - t0).count() / 1e9, (t2 - t1).count() / 1e9));
 
-                     // TODO: Color detection
-
                      BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(car_detect_available_atom_v, mKey);
                  } };

@@ -4,6 +4,7 @@
 #include "DetectedArmor.hpp"
 #include "DetectedTarget.hpp"
 #include "Hub.hpp"
+#include "Timer.hpp"
 #include "Utility.hpp"
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
@@ -88,10 +89,13 @@ class ArmorLocatorTester final
         armors.armors.push_back({ generateRotatedRect(horizonal), generateRotatedRect(-horizonal) });
 
         DetectedArmorArray res;
-        res.cameraInfo = { { Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>{ glm::identity<glm::dmat4>() } },
+        res.frame =
+            CameraFrame{ SynchronizedClock::now(),
+                         { { Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>{ glm::identity<glm::dmat4>() } },
                            mConfig.fov,
                            mConfig.imageWidth,
-                           mConfig.imageHeight };
+                           mConfig.imageHeight },
+                         cv::Mat{} };
         res.armors.push_back(std::move(armors));
 
         BlackBoard::instance().updateSync(mKey, std::move(res));
