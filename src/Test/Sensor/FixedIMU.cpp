@@ -1,0 +1,39 @@
+#include "BlackBoard.hpp"
+#include "DataDesc.hpp"
+#include "Hub.hpp"
+#include "PostureData.hpp"
+#include "Timer.hpp"
+#include <caf/actor_ostream.hpp>
+#include <caf/event_based_actor.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+class FixedIMU final : public HubHelper<caf::event_based_actor, void, update_posture_atom> {
+    Identifier mKey;
+
+public:
+    FixedIMU(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ typeid(FixedIMU).hash_code() } {}
+    caf::behavior make_behavior() override {
+        return { [&](timer_atom, Identifier key) {
+                    PostureData posture;
+                    posture.lastUpdate = SynchronizedClock::now();
+                    posture.postureOfRobot =
+                        Transform<FrameOfReference::Ground, FrameOfReference::Robot>{ glm::identity<glm::dmat4>() };
+                    posture.angularAccelerationOfRobot =
+                        Vector<UnitType::AngularAcceleration, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
+                    posture.angularVelocityOfRobot =
+                        Vector<UnitType::AngularVelocity, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
+                    posture.linearAccelerationOfRobot =
+                        Vector<UnitType::LinearAcceleration, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
+                    posture.linearVelocityOfRobot =
+                        Vector<UnitType::LinearVelocity, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
+
+                    BlackBoard::instance().updateSync(mKey, posture);
+                    sendAll(update_posture_atom_v, mKey);
+                },
+                 [this](start_atom) { Timer::instance().addTimer(address(), 100ms); } };
+    }
+};
+
+HUB_REGISTER_CLASS(FixedIMU);

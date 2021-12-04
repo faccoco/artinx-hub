@@ -67,22 +67,23 @@ public:
                  [&](armor_detect_available_atom, Identifier key) {
                      const auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
                      DetectedTargetArray res;
-                     res.lastUpdate = data.lastUpdate;
+                     res.lastUpdate = data.frame.lastUpdate;
+                     const auto& cameraInfo = data.frame.info;
 
                      Transform<FrameOfReference::Gun, FrameOfReference::Camera, true> transform;
-                     if(data.cameraInfo.transform.index() == 0) {
-                         transform = std::get<0>(data.cameraInfo.transform);
+                     if(cameraInfo.transform.index() == 0) {
+                         transform = std::get<0>(cameraInfo.transform);
                      } else {
-                         const auto& trans = std::get<1>(data.cameraInfo.transform);
+                         const auto& trans = std::get<1>(cameraInfo.transform);
                          const auto headTrans = BlackBoard::instance().get<HeadInfo>(mHeadKey).value().transform;
                          transform =
                              static_cast<Transform<FrameOfReference::Gun, FrameOfReference::Robot, true>>(headTrans) * trans;
                      }
 
-                     const auto& info = data.cameraInfo;
                      const cv::Mat cameraMatrix =
-                         (cv::Mat_<double>(3, 3) << info.width / 2 / tan(glm::radians(info.fov) / 2), 0, info.width / 2, 0,
-                          info.height / 2 / tan(glm::radians(info.fov) / 2), info.height / 2, 0, 0, 1);
+                         (cv::Mat_<double>(3, 3) << cameraInfo.width / 2 / tan(glm::radians(cameraInfo.fov) / 2), 0,
+                          cameraInfo.width / 2, 0, cameraInfo.height / 2 / tan(glm::radians(cameraInfo.fov) / 2),
+                          cameraInfo.height / 2, 0, 0, 1);
 
                      for(auto& cars : data.armors) {
                          for(auto& armor : cars.armors) {

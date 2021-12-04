@@ -1,31 +1,31 @@
 #include "BlackBoard.hpp"
 #include "CameraFrame.hpp"
+#include "Common.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include <caf/actor_ostream.hpp>
+#include "Timer.hpp"
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
-#include <opencv2/videoio.hpp>
 
-struct VideoReplaySettings final {
+struct ImageSequenceReplaySettings final {
     std::string path;
+    std::string extension;  // .jpg, .png, etc.
     double fps;
     double fov;
     uint32_t width;
     uint32_t height;
 };
-
 template <class Inspector>
-bool inspect(Inspector& f, VideoReplaySettings& x) {
-    return f.object(x).fields(f.field("path", x.path),
-                              f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 120.0; }),
-                              f.field("fov", x.fov), f.field("width", x.width), f.field("height", x.height));
+bool inspect(Inspector& f, ImageSequenceReplaySettings& x) {
+    return f.object(x).fields(
+        f.field("path", x.path).invariant([](const std::string& path) { return fs::exists(path) && fs::is_directory(path); }),
+        f.field("extension", x.extension),
+        f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 120.0; }), f.field("fov", x.fov),
+        f.field("width", x.width), f.field("height", x.height));
 }
 
-class VideoReplay final : public HubHelper<caf::event_based_actor, VideoReplaySettings, image_frame_atom> {
-private:
-    cv::VideoCapture mCapture;
+class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, ImageSequenceReplaySettings, image_frame_atom> {
     Identifier mKey;
+    uint32_t mCount = 0;
 
     cv::Mat resize(const cv::Mat& frame) const {
         cv::Mat resized;
@@ -34,10 +34,13 @@ private:
     }
 
     void next() {
-        cv::Mat img;
-        if(!mCapture.read(img))
+        const auto path = mConfig.path + '/' + std::to_string(mCount) + mConfig.extension;
+        if(!fs::exists(path)) {
+            mCount = 0;
             return;
+        }
 
+        auto img = cv::imread(path);
         CameraFrame res;
         res.frame = (mConfig.width == img.cols && mConfig.height == img.rows) ? resize(img) : std::move(img);
         res.info.width = mConfig.width;
@@ -47,17 +50,13 @@ private:
 
         BlackBoard::instance().updateSync(mKey, std::move(res));
         sendAll(image_frame_atom_v, mKey);
+
+        ++mCount;
     }
 
 public:
-    VideoReplay(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(VideoReplay).hash_code() } {
-
-        if(!mCapture.open(mConfig.path)) {
-            const auto error = "Failed to load video " + mConfig.path;
-            CAF_RAISE_ERROR(error.c_str());
-        }
-    }
+    ImageSequenceReplay(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ typeid(ImageSequenceReplay).hash_code() } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
                     Timer::instance().addTimer(address(),
@@ -67,4 +66,4 @@ public:
     }
 };
 
-HUB_REGISTER_CLASS(VideoReplay);
+HUB_REGISTER_CLASS(ImageSequenceReplay);

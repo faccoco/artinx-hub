@@ -210,9 +210,10 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
              mConfig.maxAngleDiff),  // angle difference judge the angleDiff should be less than maxAngleDiff
             (getDeviationAngle(armor) <
              mConfig.maxDeviationAngle),  // deviation angle judge: the horizon angle of the line of centers of lights
-            (getDislocationX(armor) < mConfig.maxXDiffRatio), // dislocation judge: the x and y can not be too far
-            (getDislocationY(armor) < mConfig.maxYDiffRatio + 0.1), // dislocation judge: the x and y can not be too far
-            (getLengthRatio(armor) < mConfig.maxLengthDiffRatio)   // length difference judge: the x and y should have similar length.
+            (getDislocationX(armor) < mConfig.maxXDiffRatio),        // dislocation judge: the x and y can not be too far
+            (getDislocationY(armor) < mConfig.maxYDiffRatio + 0.1),  // dislocation judge: the x and y can not be too far
+            (getLengthRatio(armor) <
+             mConfig.maxLengthDiffRatio)  // length difference judge: the x and y should have similar length.
         };
         auto tempRunningType = mConfig.runningType;
         if(tempRunningType ==
@@ -231,13 +232,11 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
                 return true;
             }
             case DetectorRunningType::DATASET_BASED_TEST: {  // includes DATASET_BASED_TEST branch
-                std::string messages[5] = {
-                    "Angle difference is now bigger than allowed max angle difference!",
-                    "The horizon angle of the line of centers of lights is too big!",
-                    "light center distance ratio on the X-axis between the two lights is too far!",
-                    "light center distance ratio on the Y-axis between the two lights is too far!",
-                    "the length difference ratio is too big!"
-                };
+                std::string messages[5] = { "Angle difference is now bigger than allowed max angle difference!",
+                                            "The horizon angle of the line of centers of lights is too big!",
+                                            "light center distance ratio on the X-axis between the two lights is too far!",
+                                            "light center distance ratio on the Y-axis between the two lights is too far!",
+                                            "the length difference ratio is too big!" };
                 bool success = true;
                 int i = 0;
                 for(const auto& condition : conditions) {
@@ -321,8 +320,7 @@ public:
                      const auto data = BlackBoard::instance().get<DetectedCarArray>(key).value();
 
                      DetectedArmorArray res;
-                     res.lastUpdate = data.frame.lastUpdate;
-                     res.cameraInfo = data.frame.info;
+                     res.frame = data.frame;
 
                      for(auto& roi : data.cars) {
                          auto armors = solve(data.frame.frame(roi));
@@ -331,8 +329,7 @@ public:
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(armor_detect_available_atom_v, mKey);
-                 } 
-        };
+                 } };
     }
 };
 
