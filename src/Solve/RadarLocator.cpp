@@ -37,7 +37,7 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
         if(locateSucceed) {
             cv::Mat rotateMat;
             cv::Rodrigues(revc, rotateMat);
-            glm::mat3 rotate{};
+            glm::dmat3 rotate{};
             memcpy(glm::value_ptr(rotate), rotateMat.ptr(), sizeof(double) * 3 * 3);
             glm::dmat4 trans = { rotate };
 
