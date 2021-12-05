@@ -42,10 +42,11 @@ CAF_ADD_ATOM(ArtinxHub, timer_atom);
 CAF_ADD_ATOM(ArtinxHub, image_frame_atom);
 CAF_ADD_ATOM(ArtinxHub, car_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
+CAF_ADD_ATOM(ArtinxHub, radar_locate_succeed_atom);
+CAF_ADD_ATOM(ArtinxHub, radar_locate_request_atom);
 
 CAF_ADD_TYPE_ID(ArtinxHub, (Identifier));
 
 CAF_END_TYPE_ID_BLOCK(ArtinxHub);
 
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(Identifier);
-
