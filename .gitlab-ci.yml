@@ -9,7 +9,9 @@ build-test-job:
     - cd build
     - ctest --build-config Release --output-on-failure -j 8
   artifacts:
+    when: always
     name: "report"
     paths:
       - ./build/testResult.log
     expire_in: 1 month
+    expose_as: "test report"
