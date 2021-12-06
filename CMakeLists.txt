@@ -22,6 +22,10 @@ elseif(CMAKE_COMPILER_IS_GNUCXX)
 	endif()
 endif()
 
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+	add_compile_definitions("ARTINXHUB_DEBUG")
+endif()
+
 include_directories(BEFORE include)
 
 add_subdirectory(src)

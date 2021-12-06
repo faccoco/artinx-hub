@@ -133,13 +133,16 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
             if(lightContour.size() < 6)  // points are too few to form a light bar.
                 continue;
             auto lightRect = cv::fitEllipse(lightContour);
+            rotatedRectNormalize(lightRect);
             // 2.filter suitable contour.
             // 2.1 the light bar may be too small or too big.
             const double area = relativeArea(lightRect, image);
             if(area < mConfig.minArea || (mConfig.maxArea < area && lightRect.size.width > lightRect.size.height * 0.6))
                 continue;
             // 2.2 the light bar may be too inclined.
-            if(std::fabs(lightRect.angle) > mConfig.maxAngle)
+            const auto deviationAngle = positiveFloatMod180(lightRect.angle);
+            const auto complementMaxAngle = 180.f - mConfig.maxAngle;
+            if(mConfig.maxAngle < deviationAngle && deviationAngle < complementMaxAngle)
                 continue;
 
             // 2.3 the light bar may be too wide, while it is suspected to be slim and tall.
@@ -152,6 +155,20 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
             lights.emplace_back(lightRect);
         }
         return lights;  // return by moving construction.
+    }
+    static float positiveFloatMod180(float a) {
+        constexpr float rotationRange = 180.0f;
+        return std::fmod(std::fmod(a, rotationRange)+rotationRange, rotationRange);
+    }
+    //This method does not change the location and geometry of the rotated rectangle, but normalize the size and angle.
+    static void rotatedRectNormalize(cv::RotatedRect& rect){
+        //Firstly, we ensure that width<=height.
+        if (rect.size.width > rect.size.height){
+            std::swap(rect.size.width, rect.size.height);
+            rect.angle+=90;
+        }
+        //Then, the geometry of the rotated rectangle only needs 180 degrees to describe. More degrees are redundant and confusing.
+        rect.angle= positiveFloatMod180(rect.angle);
     }
     static double relativeArea(const cv::RotatedRect& lightRect, const cv::Mat& image) {
         const double area = lightRect.size.height *
@@ -183,8 +200,7 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
                 };  // construct an armor using the matchable lights. add the index information for later usages.
                 if(isSuitableArmor(armor.data)) {
                     armors.emplace_back(armor);  // when the armor we constructed just now is a suitable one, just push it back.
-                }
-                if(mConfig.runningType == DetectorRunningType::DATASET_BASED_TEST) {
+                } else if(mConfig.runningType == DetectorRunningType::DATASET_BASED_TEST) {
                     CAF_LOG_INFO(fmt::format("At picture {} failed.\nThe {}'s and the {}'s light cannot form a suitable armor.",
                                              mFrameCnt, i, j));
                 }
@@ -206,13 +222,14 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
 
     bool isSuitableArmor(const PairedLight& armor) {
         bool conditions[5] = {
-            (std::fabs(armor.r1.angle - armor.r2.angle) <
+            (getAngleDifference(armor) <
              mConfig.maxAngleDiff),  // angle difference judge the angleDiff should be less than maxAngleDiff
             (getDeviationAngle(armor) <
              mConfig.maxDeviationAngle),  // deviation angle judge: the horizon angle of the line of centers of lights
-            (getDislocationX(armor) < mConfig.maxXDiffRatio), // dislocation judge: the x and y can not be too far
-            (getDislocationY(armor) < mConfig.maxYDiffRatio + 0.1), // dislocation judge: the x and y can not be too far
-            (getLengthRatio(armor) < mConfig.maxLengthDiffRatio)   // length difference judge: the x and y should have similar length.
+            (getDislocationX(armor) < mConfig.maxXDiffRatio),        // dislocation judge: the x and y can not be too far
+            (getDislocationY(armor) < mConfig.maxYDiffRatio + 0.1),  // dislocation judge: the x and y can not be too far
+            (getLengthRatio(armor) <
+             mConfig.maxLengthDiffRatio)  // length difference judge: the x and y should have similar length.
         };
         auto tempRunningType = mConfig.runningType;
         if(tempRunningType ==
@@ -232,11 +249,14 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
             }
             case DetectorRunningType::DATASET_BASED_TEST: {  // includes DATASET_BASED_TEST branch
                 std::string messages[5] = {
-                    "Angle difference is now bigger than allowed max angle difference!",
-                    "The horizon angle of the line of centers of lights is too big!",
-                    "light center distance ratio on the X-axis between the two lights is too far!",
-                    "light center distance ratio on the Y-axis between the two lights is too far!",
-                    "the length difference ratio is too big!"
+                    fmt::format("Angle difference ({}) is now bigger than allowed max angle difference!",
+                                std::fabs(armor.r1.angle - armor.r2.angle)),
+                    fmt::format("The horizon angle of the line of centers of lights ({}) is too big!", getDeviationAngle(armor)),
+                    fmt::format("Light center distance ratio on the X-axis between the two lights ({}) is too far!",
+                                getDislocationX(armor)),
+                    fmt::format("Light center distance ratio on the Y-axis between the two lights ({}) is too far!",
+                                getDislocationY(armor)),
+                    fmt::format("The length difference ratio ({}) is too big!", getLengthRatio(armor))
                 };
                 bool success = true;
                 int i = 0;
@@ -255,23 +275,29 @@ class ArmorDetector final : public HubHelper<caf::event_based_actor, ArmorDetect
     }
     // delete the error armor caused by error light
     static void eraseErrorRepeatArmor(std::vector<IndexedPairedLight>& armors) {
-        std::vector<IndexedPairedLight> result;
         const size_t length = armors.size();
+        std::vector<int> remove;
         for(size_t i = 0; i < length; i++)
-            for(size_t j = i + 1; j < length; j++) {
+            for(size_t j = i + 1; j < length; j++)
                 if(armors[i].index1 == armors[j].index1 || armors[i].index1 == armors[j].index2 ||
                    armors[i].index2 == armors[j].index1 || armors[i].index2 == armors[j].index2) {
-                    if(getDeviationAngle(armors[i].data) > getDeviationAngle(armors[j].data)) {
-                        result.emplace_back(armors[j]);  // do not use iterator to erase the original vector, otherwise the
-                                                         // location i, j is wrong for next loop.
-                    } else {
-                        result.emplace_back(armors[i]);
-                    }
+                    getDeviationAngle(armors[i].data) > getDeviationAngle(armors[j].data) ? remove.emplace_back(i) :
+                                                                                            remove.emplace_back(j);
                 }
-            }
-        armors = std::move(result);  // Use result to moving construct armors again. (it clears armors first.)
-    }
 
+        std::sort(remove.begin(), remove.end(), std::greater<>()); //clang says that in std::greater<int>, int is not necessary.
+        remove.erase(std::unique(remove.begin(), remove.end()), remove.end());
+        for(auto& r : remove) {
+            armors.erase(r + armors.begin());
+        }
+    }
+    //angle difference: the angle refers to the acute angle relative to the horizontal axis. In other words, 175 is 5; 10 is 10.
+    static float getAngleDifference(const PairedLight &armor) {
+        if(armor.r1.angle>90 ^ armor.r2.angle>90)
+            return std::fabs(180.f - armor.r2.angle - armor.r1.angle);
+        else
+            return std::fabs(armor.r1.angle - armor.r2.angle);
+    }
     // deviation angle : the horizon angle of the line of centers of lights
     static float getDeviationAngle(const PairedLight& armor) {
         const float deltaX = armor.r2.center.x - armor.r1.center.x;                                 //Δx
@@ -321,8 +347,7 @@ public:
                      const auto data = BlackBoard::instance().get<DetectedCarArray>(key).value();
 
                      DetectedArmorArray res;
-                     res.lastUpdate = data.frame.lastUpdate;
-                     res.cameraInfo = data.frame.info;
+                     res.frame = data.frame;
 
                      for(auto& roi : data.cars) {
                          auto armors = solve(data.frame.frame(roi));

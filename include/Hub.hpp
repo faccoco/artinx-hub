@@ -55,6 +55,7 @@ public:
             }
         }
     }
+    // TODO: static type check
     template <typename Atom, typename... Args>
     void sendAll(Atom atom, Args&&... args) {
         auto& dest = std::get<SucceedAddress<Atom>>(mDest).val;
