@@ -31,3 +31,4 @@ namespace caf {
 }
 
 void terminateSystem(caf::local_actor& actor, bool success);
+void appendTestResult(const std::string& message);
