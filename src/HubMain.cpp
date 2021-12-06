@@ -151,6 +151,8 @@ void terminateSystem(caf::local_actor& actor, const bool success) {
     globalCV.notify_one();
 }
 
+std::string globalConfigName;
+
 int caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
     CAF_LOG_INFO("Initializing");
     Timer::instance().bindSystem(system);
@@ -173,6 +175,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         return EXIT_FAILURE;
     }
 
+    globalConfigName = fs::path{ argv[1] }.filename().string();
     const auto configData = loadConfig(argv[1]);
     const auto pipelineConfig = caf::config_value::parse(configData).value();
     BlackBoard::instance().updateSync({}, caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value());
