@@ -347,8 +347,7 @@ public:
                      const auto data = BlackBoard::instance().get<DetectedCarArray>(key).value();
 
                      DetectedArmorArray res;
-                     res.lastUpdate = data.frame.lastUpdate;
-                     res.cameraInfo = data.frame.info;
+                     res.frame = data.frame;
 
                      for(auto& roi : data.cars) {
                          auto armors = solve(data.frame.frame(roi));

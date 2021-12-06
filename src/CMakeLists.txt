@@ -6,27 +6,33 @@ set(SOURCE
 "Core/PerformanceMonitor.cpp"
 "DataLink/HttpServer.cpp"
 "Sensor/DahengDriver.cpp"
+"Sensor/ImageSequenceReplay.cpp"
 "Sensor/VideoReplay.cpp"
 "Detect/ArmorDetector.cpp"
 "Detect/CarDetector.cpp"
+"Detect/FakeCarDetector.cpp"
+"Detect/NumClassifier.cpp"
 "Preprocess/ColorCalibration.cpp"
 "Preprocess/IMUFilter.cpp"
 "Preprocess/Undistort.cpp"
 "Solve/AngleSolver.cpp"
 "Solve/ArmorLocator.cpp"
+"Strategy/Sentry.cpp"
 "Test/ActorFramework/Test.cpp"
-"Test/Detect/ArmorDetectorTester.cpp"
+"Test/Sensor/FixedIMU.cpp"
 "Test/Solve/ArmorLocatorTester.cpp"
 "Test/Solve/FakeDetector.cpp"
 "Test/Solve/FakeHead.cpp"
 "Test/Solve/FakeIMU.cpp"
 "Test/Solve/SimpleStrategy.cpp"
 "Test/Solve/Simulator.cpp"
+"Test/TestHelper.cpp"
+"Utility/ArmorDetectorDrawer.cpp"
 "Utility/CarDetectorDrawer.cpp"
 "Utility/OpenCVHelper.cpp"
 "Utility/PID.cpp"
 "Utility/Timer.cpp"
-"Utility/VideoRecoder.cpp"
+"Utility/VideoRecorder.cpp"
 "HubMain.cpp")
 
 find_package(CAF REQUIRED COMPONENTS core io)
@@ -47,7 +53,7 @@ add_executable(ArtinxHub ${SOURCE})
 target_include_directories(ArtinxHub PRIVATE ${InferenceEngine_INCLUDE_DIRS})
 target_include_directories(ArtinxHub PRIVATE ${CAF_INCLUDE_DIRS})
 target_link_libraries(ArtinxHub PRIVATE CAF::core)
-target_link_libraries(ArtinxHub PRIVATE opencv_core opencv_videoio opencv_mcc)
+target_link_libraries(ArtinxHub PRIVATE opencv_core opencv_videoio opencv_mcc opencv_calib3d)
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	target_link_libraries(ArtinxHub PRIVATE Iphlpapi)
 endif()
