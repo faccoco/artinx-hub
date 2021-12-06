@@ -8,4 +8,8 @@ build-test-job:
     - cmake --build ./build --config Release
     - cd build
     - ctest --build-config Release --output-on-failure -j 8
-    - Get-Content ./build/testResult.log
+  artifacts:
+    name: "report"
+    paths:
+      - ./build/testResult.log
+    expire_in: 1 month
