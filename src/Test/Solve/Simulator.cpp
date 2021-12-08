@@ -282,6 +282,7 @@ public:
 
                 info.lastUpdate =
                     TimePoint{ static_cast<Duration>(static_cast<Clock::rep>(time * Clock::period::den / Clock::period::num)) };
+                SynchronizedClock::instance().setSimulationTime(info.lastUpdate);
 
                 {
                     btTransform trans;
@@ -401,6 +402,7 @@ public:
             if(time - mConfig.maxTime > -1e-4) {
                 runFlag = false;
             }
+            std::this_thread::sleep_for(1ms);
         }
 
         CAF_LOG_INFO(fmt::format("Expected {} Result {}", mConfig.expectedCount, hitCount));

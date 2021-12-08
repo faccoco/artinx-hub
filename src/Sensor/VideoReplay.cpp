@@ -43,7 +43,7 @@ private:
         res.info.width = mConfig.width;
         res.info.height = mConfig.height;
         res.info.fov = mConfig.fov;
-        res.lastUpdate = SynchronizedClock::now();
+        res.lastUpdate = SynchronizedClock::instance().now();
 
         BlackBoard::instance().updateSync(mKey, std::move(res));
         sendAll(image_frame_atom_v, mKey);

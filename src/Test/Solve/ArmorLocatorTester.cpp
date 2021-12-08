@@ -90,7 +90,7 @@ class ArmorLocatorTester final
 
         DetectedArmorArray res;
         res.frame =
-            CameraFrame{ SynchronizedClock::now(),
+            CameraFrame{ SynchronizedClock::instance().now(),
                          { { Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>{ glm::identity<glm::dmat4>() } },
                            mConfig.fov,
                            mConfig.imageWidth,
