@@ -11,20 +11,22 @@ public:
     ExceptionProbe(const char* file, const char* function, const uint32_t line)
         : mFile{ file }, mFunction{ function }, mLine{ line } {}
     ExceptionProbe(const ExceptionProbe& rhs) = delete;
-    ExceptionProbe operator=(ExceptionProbe&& rhs) = delete;
-    ExceptionProbe(const ExceptionProbe& rhs) = delete;
-    ExceptionProbe operator=(ExceptionProbe&& rhs) = delete;
+    ExceptionProbe& operator=(const ExceptionProbe& rhs) = delete;
+    ExceptionProbe(ExceptionProbe&& rhs) = delete;
+    ExceptionProbe& operator=(ExceptionProbe&& rhs) = delete;
 
     ~ExceptionProbe() {
 #ifdef ARTINXHUB_DEBUG
         if(std::uncaught_exceptions()) {
-            // debug break
-            __asm {
-                int 3
-            }
+#ifdef ARTINXHUB_WINDOWS
+            __debugbreak();
+#endif
         }
 #endif
     }
 };
 
-#define ACTOR_EXCEPTION_PROBE() ExceptionProbe __probe{ __FILE__, __FUNCTION__, __LINE__ };
+#define ACTOR_EXCEPTION_PROBE()          \
+    ExceptionProbe __probe {             \
+        __FILE__, __FUNCTION__, __LINE__ \
+    }

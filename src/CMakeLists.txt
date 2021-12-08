@@ -12,6 +12,7 @@ set(SOURCE
 "Detect/CarDetector.cpp"
 "Detect/FakeCarDetector.cpp"
 "Detect/NumClassifier.cpp"
+"Postprocess/ArmorPredictor.cpp"
 "Preprocess/ColorCalibration.cpp"
 "Preprocess/IMUFilter.cpp"
 "Preprocess/Undistort.cpp"
@@ -54,7 +55,7 @@ add_executable(ArtinxHub ${SOURCE})
 target_include_directories(ArtinxHub PRIVATE ${InferenceEngine_INCLUDE_DIRS})
 target_include_directories(ArtinxHub PRIVATE ${CAF_INCLUDE_DIRS})
 target_link_libraries(ArtinxHub PRIVATE CAF::core)
-target_link_libraries(ArtinxHub PRIVATE opencv_core opencv_videoio opencv_mcc opencv_calib3d)
+target_link_libraries(ArtinxHub PRIVATE opencv_core opencv_videoio opencv_mcc opencv_calib3d opencv_tracking)
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 	target_link_libraries(ArtinxHub PRIVATE Iphlpapi)
 endif()

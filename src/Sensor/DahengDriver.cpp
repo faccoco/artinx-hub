@@ -67,7 +67,7 @@ private:
         if(pFrameData->status != GX_FRAME_STATUS_SUCCESS || !mStartFlag)
             return;
 
-        const auto timeStamp = SynchronizedClock::now();  // TODO: propagation time and internal timer
+        const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer
 
         // TODO: reduce reallocation
         cv::Mat frame{ cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, pixelStorageFormat };
