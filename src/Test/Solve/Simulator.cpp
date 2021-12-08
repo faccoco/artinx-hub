@@ -274,7 +274,8 @@ public:
             mDynamicWorld->stepSimulation(static_cast<btScalar>(mConfig.step), 10, 0.001f);
             time += mConfig.step;
 
-            CAF_LOG_INFO(fmt::format("Simulator time {:.3f}s bullet count {} hited {}", time, bulletCount, hitCount));
+            CAF_LOG_INFO(
+                fmt::format("Simulator time {:.3f}s bullet count {} hited {} shoot {}", time, bulletCount, hitCount, shoot));
 
             // update world info
             {
@@ -402,7 +403,7 @@ public:
             if(time - mConfig.maxTime > -1e-4) {
                 runFlag = false;
             }
-            std::this_thread::sleep_for(1ms);
+            std::this_thread::sleep_for(5ms);
         }
 
         CAF_LOG_INFO(fmt::format("Expected {} Result {}", mConfig.expectedCount, hitCount));
