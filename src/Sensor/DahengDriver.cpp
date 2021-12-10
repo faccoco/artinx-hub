@@ -56,7 +56,7 @@ private:
     static constexpr auto pixelStorageFormat = CV_8UC1;
 
     void newFrame(GX_FRAME_CALLBACK_PARAM* pFrameData) {
-        if(pFrameData->status != GX_FRAME_STATUS_SUCCESS)
+        if(pFrameData->status != GX_FRAME_STATUS_SUCCESS || !mStartFlag)
             return;
 
         const auto timeStamp = SynchronizedClock::now();  // TODO: propagation time and internal timer
@@ -66,8 +66,13 @@ private:
 
         CameraFrame frameData;
         frameData.lastUpdate = timeStamp;
-        cv::cvtColor(frame, frameData.frame, pixelCast);
+        cv::Mat bgr;
+        cv::cvtColor(frame, bgr, pixelCast);
+        cv::resize(bgr,frameData.frame,cv::Size{960,600});
         // TODO: frameData.info;
+        frameData.info.width = 960;
+        frameData.info.height = 600;
+        frameData.info.fov = 49.0;
 
         BlackBoard::instance().updateSync(mKey, std::move(frameData));
         sendAll(image_frame_atom_v, mKey);
@@ -79,10 +84,11 @@ public:
         initLib();
 
         GX_OPEN_PARAM deviceDesc;
-        deviceDesc.accessMode = GX_ACCESS_READONLY;
-        deviceDesc.openMode = GX_OPEN_MODE::GX_OPEN_SN;
-        deviceDesc.pszContent = mConfig.serialNumber.data();
+        deviceDesc.accessMode = GX_ACCESS_CONTROL;
+        deviceDesc.openMode = GX_OPEN_MODE::GX_OPEN_INDEX;
+        deviceDesc.pszContent = "1";
 
+        // checkGXStatus(GXOpenDeviceByIndex(1, &mDevice));
         checkGXStatus(GXOpenDevice(&deviceDesc, &mDevice));
 
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_ACQUISITION_FRAME_RATE_MODE, GX_ACQUISITION_FRAME_RATE_MODE_ON));
@@ -101,7 +107,7 @@ public:
         GX_FLOAT_RANGE range;
         checkGXStatus(GXGetFloatRange(device, GX_FLOAT_EXPOSURE_TIME, &range));
         */
-        checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_EXPOSURE_TIME, 1000000.0 / mConfig.fps));
+        checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_EXPOSURE_TIME, 10000.0 ));
 
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_PIXEL_FORMAT, pixelFormat));
 

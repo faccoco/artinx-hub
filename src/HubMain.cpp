@@ -106,7 +106,11 @@ namespace detail {
         std::vector<caf::actor_addr> res;
         res.reserve(succeed.size());
         for(auto id : succeed) {
-            res.push_back(registry.get<caf::actor_addr>(id));
+            const auto ref = registry.get<caf::actor_addr>(id);
+            if(ref)
+                res.push_back(ref);
+            else
+                throw std::runtime_error{ "Unsafe send" };
         }
         return res;
     }
