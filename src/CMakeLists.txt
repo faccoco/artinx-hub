@@ -31,6 +31,7 @@ set(SOURCE
 "Test/TestHelper.cpp"
 "Utility/ArmorDetectorDrawer.cpp"
 "Utility/CarDetectorDrawer.cpp"
+"Utility/KM.cpp"
 "Utility/OpenCVHelper.cpp"
 "Utility/PID.cpp"
 "Utility/Timer.cpp"

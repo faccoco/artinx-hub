@@ -83,10 +83,10 @@ private:
         frameData.info.height = mConfig.height;
         // TODO: transform
         if(bgr.cols == mConfig.width && bgr.rows == mConfig.height)
+            frameData.frame = bgr;
+        else
             cv::resize(bgr, frameData.frame,
                        cv::Size{ static_cast<int32_t>(mConfig.width), static_cast<int32_t>(mConfig.height) });
-        else
-            frameData.frame = bgr;
 
         BlackBoard::instance().updateSync(mKey, std::move(frameData));
         sendAll(image_frame_atom_v, mKey);

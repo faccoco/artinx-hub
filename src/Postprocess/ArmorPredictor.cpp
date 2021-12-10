@@ -4,6 +4,7 @@
 #include "ExceptionProbe.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
+#include "Utility.hpp"
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
 #include <glm/glm.hpp>
@@ -61,63 +62,6 @@ public:
         return { { px, py, pz }, { vx, vy, vz } };
     }
 };
-
-static std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>& w) {
-    const auto size = std::max(n, m) + 1;
-    std::vector<double> lh(size), rh(size), slack(size);
-    std::vector<uint32_t> pair(size), pre(size);
-    std::vector<bool> flag(size);
-
-    const auto reset = [](auto& c, auto value) { std::fill(c.begin() + 1, c.end(), value); };
-
-    const auto aug = [&](uint32_t s) {
-        reset(flag, false);
-        reset(pre, 0);
-        reset(slack, 1e9);
-        pair[0] = s;
-        uint32_t u = 0;
-        do {
-            uint32_t v = pair[u], nxt;
-            double minh = 1e9;
-            flag[u] = true;
-            for(uint32_t i = 1; i <= m; ++i)
-                if(!flag[i]) {
-                    const auto delta = lh[v] + rh[i] - w[(v - 1) * n + i - 1];
-                    if(delta < slack[i])
-                        slack[i] = delta, pre[i] = u;
-                    if(minh > slack[i])
-                        minh = slack[i], nxt = i;
-                }
-            for(uint32_t i = 0; i <= m; ++i)
-                if(flag[i])
-                    lh[pair[i]] -= minh, rh[i] += minh;
-                else
-                    slack[i] -= minh;
-            u = nxt;
-        } while(pair[u]);
-        while(u) {
-            int p = pre[u];
-            pair[u] = pair[p];
-            u = p;
-        }
-    };
-
-    for(int i = 1; i <= n; ++i) {
-        double maxh = 0;
-        for(int j = 1; j <= m; ++j)
-            maxh = std::fmax(maxh, w[(i - 1) * n + j - 1]);
-        lh[i] = maxh;
-    }
-    reset(rh, 0.0);
-    reset(pair, 0);
-    for(int i = 1; i <= n; ++i)
-        aug(i);
-    std::vector<uint32_t> res(m);
-    for(uint32_t idx = 0; idx < m; ++idx)
-        res[idx] = pair[idx + 1] - 1;
-
-    return res;
-}
 
 class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, detect_available_atom> {
     Identifier mKey;

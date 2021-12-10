@@ -1,6 +1,7 @@
 #pragma once
 #include <opencv2/opencv.hpp>
 #include <utility>
+#include <vector>
 
 struct PIDParameters final {
     double kp, ki, kd;
@@ -32,3 +33,4 @@ namespace caf {
 
 void terminateSystem(caf::local_actor& actor, bool success);
 void appendTestResult(const std::string& message);
+std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>& w);

@@ -23,7 +23,7 @@ function updateAll() {
 function updateImages() {
     for (let k in images) {
         if (!filters[k]) continue;
-        images[k].src = "/img/" + k + "/" + randomString();
+        images[k].src = "/img/" + k + "/" + randomString(5);
     }
 }
 
