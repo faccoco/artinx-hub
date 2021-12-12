@@ -132,11 +132,8 @@ public:
 #endif
                 },
                  [this](image_frame_atom, Identifier key) {
-                     auto img = BlackBoard::instance().get<CameraFrame>(key);
-                     if(img.has_value()) {
-                         std::lock_guard<std::mutex> guard{ mMutex };
-                         mImage[key.val].image = img.value().frame;
-                     }
+                     std::lock_guard<std::mutex> guard{ mMutex };
+                     mImage[key.val].image = BlackBoard::instance().get<CameraFrame>(key).value().frame;
                  } };
     }
 };

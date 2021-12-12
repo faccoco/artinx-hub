@@ -18,7 +18,7 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
     return f.object(x).fields(f.field("precision",x.precision));
 }
 
-class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, shoot_atom, set_target_posture_atom> {
+class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
     Identifier mKey, mIMUKey, mHeadKey;
 
 public:
@@ -79,8 +79,7 @@ public:
                          double prec = 0.001;
                          CAF_LOG_INFO(fmt::format("Prec:{}", prec));
                          bool ifShoot = ( (std::abs(currentPitchAngle - pitchAngle) < prec) && ( (std::abs(currentYawAngle - yawAngle) < prec) || (std::abs(currentYawAngle - glm::half_pi<double>() - yawAngle) < prec) ) );
-                         sendAll(set_target_posture_atom_v, yawAngle, pitchAngle);
-                         sendAll(shoot_atom_v, ifShoot);
+                         sendAll(set_target_info_atom_v, yawAngle, pitchAngle, ifShoot);
                      }
                      
                       

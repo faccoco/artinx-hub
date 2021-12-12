@@ -356,7 +356,7 @@ public:
             }
 
             // update events
-            receive([&](shoot_atom, const bool enableGun) { shoot = enableGun; },
+            receive([&](set_target_atom, const double yaw, const double pitch, bool isFire) { shoot = isFire; },
                     [&](update_head_atom, Identifier key) { mHeadKey = key; }, [&](const caf::down_msg& x) { runFlag = false; },
                     [&](const caf::exit_msg& x) { runFlag = false; }, [&](timer_atom) {});
             // shoot

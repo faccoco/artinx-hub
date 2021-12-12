@@ -28,6 +28,7 @@ set(SOURCE
 "Test/Solve/SimpleStrategy.cpp"
 "Test/Solve/Simulator.cpp"
 "Utility/CarDetectorDrawer.cpp"
+"Utility/Crc.cpp"
 "Utility/OpenCVHelper.cpp"
 "Utility/PID.cpp"
 "Utility/Timer.cpp"
@@ -44,7 +45,7 @@ message(${DAHENG_SDK_PATH})
 find_package(Bullet CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
-find_package(asio CONFIG REQUIRED)
+find_package(Boost REQUIRED system)
 
 set(InferenceEngine_DIR $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine/share/)
 find_package(InferenceEngine CONFIG REQUIRED)
@@ -67,7 +68,6 @@ target_link_libraries(ArtinxHub PRIVATE magic_enum::magic_enum)
 target_link_libraries(ArtinxHub PRIVATE fmt::fmt)
 target_link_libraries(ArtinxHub PRIVATE ${InferenceEngine_LIBRARIES})
 target_link_libraries(ArtinxHub PRIVATE nlohmann_json nlohmann_json::nlohmann_json)
-target_link_libraries(ArtinxHub PRIVATE asio asio::asio)
 
 
 add_custom_command(TARGET ArtinxHub PRE_BUILD

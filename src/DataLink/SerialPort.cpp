@@ -1,6 +1,5 @@
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
-#include "Crc.hpp"
 #include "Hub.hpp"
 #include "Packet.hpp"
 #include "PostureData.hpp"
@@ -10,7 +9,7 @@
 
 struct SerialPortSettings final {
     std::string devPath;
-    unsigned int baudRate;
+    uint32_t baudRate;
 };
 
 template <class Inspector>
@@ -19,11 +18,8 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
 }
 
 class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom> {
-public:
     constexpr static size_t bufferLen = 1024;
     constexpr static size_t headerLen = 5;
-
-private:
 
     BufferedAsyncSerial::Ptr mSerialPort;
     std::thread mThread;
@@ -36,14 +32,6 @@ private:
     std::array<uint8_t, headerLen> mHeaderBuffer;
     size_t mHeaderLen;
     bool mCheckingHeader;
-    bool mStartFlag = false;
-
-    GimbalSetPacket mSetPacket;
-
-    void send() {
-        mSetPacket.serialize();
-        mSerialPort->write(reinterpret_cast<char*>(mSetPacket.buffer.data()), GimbalSetPacket::size());
-    }
 
     void receive() {
         std::vector<char> vec = mSerialPort->read();
@@ -78,8 +66,10 @@ private:
 
     void handlePacket(uint16_t id) {
         switch(id) {
-            case(0x0A): {
-                BlackBoard::instance().updateSync(mKey, GimbalFdbPacket::handle(mPacketBuffer));
+            case(GimbalFdbPacket::id): {
+                BlackBoard::instance().updateSync(mKey, GimbalFdbPacket::receive(mPacketBuffer));
+                sendAll(update_head_atom_v, mKey);
+                sendAll(update_posture_atom_v, mKey);
                 break;
             }
         }
@@ -91,16 +81,10 @@ public:
         : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ typeid(SerialPort).hash_code() },
           mCheckingHeader(false) {
         const auto [devPath, baudRate] = mConfig;
-        BlackBoard::instance().updateSync(mKey, GimbalFdbPacket());
-        BlackBoard::instance().updateSync(mKey, GimbalSetPacket());
         mSerialPort->open(devPath, baudRate);
         mThread = std::thread{ [this]() {
             while(globalStatus == RunStatus::running) {
                 BlackBoard::instance().updateSync(mKey, PostureData());
-                if(mStartFlag) {
-                    sendAll(update_head_atom_v, mKey);
-                    sendAll(update_posture_atom_v, mKey);
-                }
                 receive();
             }
         } };
@@ -112,13 +96,11 @@ public:
     }
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { mStartFlag = true; },
-                 [this](set_target_posture_atom, double yawAngle, double pitchAngle) {
-                     mSetPacket.yaw = static_cast<float>(yawAngle);
-                     mSetPacket.pitch = static_cast<float>(pitchAngle);
-                     send();
-                 },
-                 [this](shoot_atom, bool ifShoot) { mSetPacket.isFire = ifShoot; } };
+        return { [this](start_atom) {},
+                 [this](set_target_info_atom, double yawAngle, double pitchAngle, bool isFire) {
+                     GimbalSetPacket gimbalSetPacket{static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire};
+                     mSerialPort->write(reinterpret_cast<const char*>(gimbalSetPacket.buffer.data()), GimbalSetPacket::size);
+                 } };
     }
 };
 
