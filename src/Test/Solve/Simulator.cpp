@@ -273,8 +273,9 @@ public:
             std::get<2>(mTarget)->step(*std::get<0>(mTarget), mConfig.step);
             mDynamicWorld->stepSimulation(static_cast<btScalar>(mConfig.step), 10, 0.001f);
             time += mConfig.step;
-            
-            CAF_LOG_INFO(fmt::format("Simulator time {:.3f}s bullet count {} hited {}", time, bulletCount, hitCount));
+
+            CAF_LOG_INFO(
+                fmt::format("Simulator time {:.3f}s bullet count {} hited {} shoot {}", time, bulletCount, hitCount, shoot));
 
             // update world info
             {
@@ -282,6 +283,7 @@ public:
 
                 info.lastUpdate =
                     TimePoint{ static_cast<Duration>(static_cast<Clock::rep>(time * Clock::period::den / Clock::period::num)) };
+                SynchronizedClock::instance().setSimulationTime(info.lastUpdate);
 
                 {
                     btTransform trans;
@@ -401,9 +403,13 @@ public:
             if(time - mConfig.maxTime > -1e-4) {
                 runFlag = false;
             }
+            std::this_thread::sleep_for(5ms);
         }
 
         CAF_LOG_INFO(fmt::format("Expected {} Result {}", mConfig.expectedCount, hitCount));
+        appendTestResult(fmt::format("Result {}/{} (Require {}, Shoot {})", hitCount, mConfig.bulletCount, mConfig.expectedCount,
+                                     bulletCount));
+
         if(hitCount < mConfig.expectedCount) {
             CAF_LOG_ERROR("Test failed");
             terminateSystem(*this, false);

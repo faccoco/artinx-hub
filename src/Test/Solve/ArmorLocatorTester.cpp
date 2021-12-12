@@ -4,6 +4,7 @@
 #include "DetectedArmor.hpp"
 #include "DetectedTarget.hpp"
 #include "Hub.hpp"
+#include "Timer.hpp"
 #include "Utility.hpp"
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
@@ -88,10 +89,13 @@ class ArmorLocatorTester final
         armors.armors.push_back({ generateRotatedRect(horizonal), generateRotatedRect(-horizonal) });
 
         DetectedArmorArray res;
-        res.cameraInfo = { { Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>{ glm::identity<glm::dmat4>() } },
+        res.frame =
+            CameraFrame{ SynchronizedClock::instance().now(),
+                         { { Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>{ glm::identity<glm::dmat4>() } },
                            mConfig.fov,
                            mConfig.imageWidth,
-                           mConfig.imageHeight };
+                           mConfig.imageHeight },
+                         cv::Mat{} };
         res.armors.push_back(std::move(armors));
 
         BlackBoard::instance().updateSync(mKey, std::move(res));
@@ -118,23 +122,25 @@ public:
 
                      double error;
                      std::string message;
+                     bool passAbsolute = false;
                      if(mConfig.judgeAngle) {
                          const auto expectedDir = glm::normalize(expectedRaw);
                          const auto solvedDir = glm::normalize(solvedRaw);
                          const auto angle = std::acos(glm::dot(expectedDir, solvedDir));
                          error = angle / glm::pi<double>();
-                         message = fmt::format("Error: {:.1f}% (degree {:.2f})", error * 100.0, glm::degrees(angle));
+                         message = fmt::format("Error: {:.2f}% (degree {:.3f})", error * 100.0, glm::degrees(angle));
                      } else {
                          const auto dist = distance(expected, solved).val;
                          const auto scale = glm::length(expected.raw());
                          error = dist / scale;  // relative error
                          message = fmt::format(
-                             "Error: {:.1f}% ({:.2f}/{:.2f}) Expected {:.2f} {:.2f} {:.2f} Solved {:.2f} {:.2f} {:.2f}",
+                             "Error: {:.2f}% ({:.3f}/{:.3f}) Expected {:.3f} {:.3f} {:.3f} Solved {:.3f} {:.3f} {:.3f}",
                              error * 100.0, dist, scale, expectedRaw.x, expectedRaw.y, expectedRaw.z, solvedRaw.x, solvedRaw.y,
                              solvedRaw.z);
+                         passAbsolute = dist < 0.03;  // 3cm
                      }
 
-                     if(error < mConfig.maxError * 2.0)
+                     if(error < mConfig.maxError * 2.0 || passAbsolute)
                          CAF_LOG_INFO(message);
                      else
                          CAF_LOG_ERROR(message);
@@ -146,11 +152,13 @@ public:
 
                      if(mCount >= mConfig.count) {
                          mMeanError /= mCount;
-                         CAF_LOG_INFO(fmt::format("Mean error {:.1f}%", mMeanError * 100.0));
+                         CAF_LOG_INFO(fmt::format("Mean error {:.2f}%", mMeanError * 100.0));
                          if(mMeanError < mConfig.maxError)
                              CAF_LOG_INFO("Test passed");
                          else
                              CAF_LOG_ERROR("Test failed");
+                         appendTestResult(fmt::format("Mean error {:.2f}% (Require {:.2f}%) {}", mMeanError * 100.0,
+                                                      mConfig.maxError * 100.0, mConfig.judgeAngle ? "Angle" : "Distance"));
                          terminateSystem(*this, mMeanError < mConfig.maxError);
                      } else
                          next();

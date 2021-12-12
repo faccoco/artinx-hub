@@ -126,7 +126,7 @@ public:
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
 #if defined(ARTINXHUB_WINDOWS)
-                    ShellExecuteA(nullptr, "open", "http://127.0.0.1:8080/pages/Main.html", nullptr, nullptr, SW_SHOWNORMAL);
+                    ShellExecuteA(nullptr, "open", "http://localhost:8080/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
 #elif defined(ARTINXHUB_LINUX)
                     ::system("xdg-open http://127.0.0.1:8080/pages/index.html");
 #endif

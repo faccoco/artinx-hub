@@ -1,6 +1,7 @@
 #pragma once
 #include <opencv2/opencv.hpp>
 #include <utility>
+#include <vector>
 
 struct PIDParameters final {
     double kp, ki, kd;
@@ -46,3 +47,6 @@ public:
     static uint16_t Get_CRC16_Check_Sum(uint8_t* pchMessage, uint32_t dwLength, uint16_t wCRC);
     static bool VerifyCrc16CheckSum(uint8_t* pchMessage, uint32_t dwLength);
 };
+
+void appendTestResult(const std::string& message);
+std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>& w);

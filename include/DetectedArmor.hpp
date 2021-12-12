@@ -18,7 +18,6 @@ struct DetectedArmorsOfCar final {
 };
 
 struct DetectedArmorArray final {
-    TimePoint lastUpdate;
-    CameraInfo cameraInfo;
+    CameraFrame frame;
     std::vector<DetectedArmorsOfCar> armors;
 };
