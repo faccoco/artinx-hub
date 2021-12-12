@@ -91,7 +91,7 @@ namespace detail {
         const auto attr = config.to_dictionary().value();
         const auto iter = attr.find(nameNormalized);
         if(iter == attr.cend())
-            CAF_LOG_ERROR("Succeed " + std::string{ nameNormalized } + " is needed");
+            CAF_RAISE_ERROR(("Succeed " + std::string{ nameNormalized } + " is needed").c_str());
 
         const auto succeed = iter->second.to_list().value();
         std::vector<std::string> res;
