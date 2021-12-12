@@ -31,10 +31,9 @@ struct Identifier final {
 CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id);
 
 CAF_ADD_ATOM(ArtinxHub, start_atom);
-CAF_ADD_ATOM(ArtinxHub, shoot_atom);
 CAF_ADD_ATOM(ArtinxHub, detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_atom);
-CAF_ADD_ATOM(ArtinxHub, set_target_posture_atom);
+CAF_ADD_ATOM(ArtinxHub, set_target_info_atom);
 CAF_ADD_ATOM(ArtinxHub, update_posture_atom);
 CAF_ADD_ATOM(ArtinxHub, update_head_atom);
 CAF_ADD_ATOM(ArtinxHub, simulator_step_atom);

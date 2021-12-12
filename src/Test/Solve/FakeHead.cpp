@@ -89,7 +89,7 @@ public:
                      BlackBoard::instance().updateSync(mKey, info);
                      sendAll(update_head_atom_v, mKey);
                  },
-                 [&](set_target_posture_atom, const double yaw, const double pitch) {
+                 [&](set_target_info_atom, const double yaw, const double pitch, bool isFire) {
                      mTargetYaw = yaw;
                      mTargetPitch = pitch;
                  },

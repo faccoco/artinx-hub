@@ -8,6 +8,7 @@
 #include <caf/event_based_actor.hpp>
 #include <caf/exit_reason.hpp>
 #include <cstdint>
+#define CPPHTTPLIB_SEND_FLAGS 0x4000
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
@@ -116,7 +117,7 @@ public:
             mServer.stop();
             terminateSystem(*this, true);
         });
-        mListener = std::thread{ [this] { mServer.listen("localhost", 8080); } };
+        mListener = std::thread{ [this] { mServer.listen("127.0.0.1", 8080); } };
     }
     ~HttpServer() override {
         std::clog.rdbuf(mClogBuffer);
