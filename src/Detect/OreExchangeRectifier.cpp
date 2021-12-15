@@ -124,6 +124,8 @@ class OreExchangeRectifier final
             if(mValidDetectionCount>=mConfig.validDetectionRequired){
                 send(-90);
                 mAutomataState = OFF;
+                angularVelocity = -1;
+                prevTheta = 0;//reset to initial value.
             }
             //if theta is declining, then the sign of velocity is correct.
             //if theta is increasing, then the sign of velocity is wrong.
