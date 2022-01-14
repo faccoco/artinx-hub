@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.19)
 
-set(SOURCE 
+set(SOURCE
 "Core/BlackBoard.cpp"
 "Core/Daemon.cpp"
 "Core/PerformanceMonitor.cpp"
@@ -21,6 +21,7 @@ set(SOURCE
 "Strategy/Sentry.cpp"
 "Test/ActorFramework/Test.cpp"
 "Test/Sensor/FixedIMU.cpp"
+"Test/Detect/FakeSerialPort.cpp"
 "Test/Solve/ArmorLocatorTester.cpp"
 "Test/Solve/FakeDetector.cpp"
 "Test/Solve/FakeHead.cpp"

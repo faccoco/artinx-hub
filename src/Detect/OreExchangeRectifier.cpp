@@ -8,13 +8,13 @@
 #include <cstdint>
 #include <limits>
 #include <opencv2/barcode.hpp>
-#include <opencv2/opencv.hpp>
 struct OreExchangeRectifierSettings final {
     std::string sr_prototxt;
     std::string sr_caffemodel;
     int validDetectionRequired;
     double permissibleAngleRangeOfError;
     double deltaTime;
+    double movingRate;
 };
 template <class Inspector>
 bool inspect(Inspector& f, OreExchangeRectifierSettings& x) {
@@ -27,7 +27,11 @@ bool inspect(Inspector& f, OreExchangeRectifierSettings& x) {
         }),
         f.field("validDetectionRequired", x.validDetectionRequired).invariant([](const int& validDetectionRequired) {
             return validDetectionRequired > 0;
-        }));
+        }),
+        f.field("permissibleAngleRangeOfError", x.permissibleAngleRangeOfError)
+            .invariant([](const double& permissibleAngleRangeOfError) { return permissibleAngleRangeOfError > 0; }),
+        f.field("deltaTime", x.deltaTime).invariant([](const double& deltaTime) { return deltaTime > 0; }),
+        f.field("movingRate", x.movingRate).invariant([](const double& movingRate) { return movingRate > 0; }));
 }
 class OreExchangeRectifier final
     : public HubHelper<caf::event_based_actor, OreExchangeRectifierSettings, ore_detect_available_atom> {
@@ -39,7 +43,7 @@ class OreExchangeRectifier final
         cv::Mat corners;
         if(!mBarcodeDetector.detect(image, corners))
             return {};
-        CV_Assert(corners.cols == 4 && corners.channels() == 2);
+        CAF_ASSERT(corners.cols == 4 && corners.channels() == 2);
         std::vector<cv::Rect> result(corners.rows);
         for(int i = 0; i < corners.rows; ++i) {
             std::vector<cv::Point2f> points(4);
@@ -51,20 +55,16 @@ class OreExchangeRectifier final
         return *std::max_element(result.begin(), result.end(),
                                  [](const cv::Rect& rect1, const cv::Rect& rect2) { return rect1.area() < rect2.area(); });
     }
-    cv::Mat preProcessImage(const cv::Mat& image) const {
-        // TODO
-        return image;
-    }
 
     void off() {
         mValidDetectionCount = 0;
         mMaxHeight = std::numeric_limits<int32_t>::min();
-        angularVelocity = -1;
+        angularVelocity = -mConfig.movingRate;
         prevTheta = 0;  // reset to initial value.
     }
-    std::atomic<int> mValidDetectionCount{ 0 };
+    std::atomic<int> mValidDetectionCount;  // 0
     void finds(const cv::Rect& rect) {
-        send(+1.0);
+        send(+mConfig.movingRate);
         if(rect.empty()) {
             mValidDetectionCount = 0;
             return;
@@ -76,11 +76,11 @@ class OreExchangeRectifier final
             mAutomataState = AutomataStates::LEARNING;
         }
     }
-    std::atomic<int> mMaxHeight{ INT32_MIN };
+    std::atomic<int> mMaxHeight;  // std::numeric_limits<int32_t>::min()
     void learns(const cv::Rect& rect) {
         auto& validMisDetectionCount = mValidDetectionCount;
         const auto& validMisDetectionRequired = mConfig.validDetectionRequired;
-        send(+1.0);
+        send(+mConfig.movingRate);
         if(rect.empty()) {
             validMisDetectionCount++;
             // only when a consecutive image sequence is found not to have bar code, do we go to the next state.
@@ -94,7 +94,7 @@ class OreExchangeRectifier final
         }
     }
     void backFinds(const cv::Rect& rect) {
-        send(-1.0);
+        send(-mConfig.movingRate);
         if(rect.empty()) {
             mValidDetectionCount = 0;
             return;
@@ -106,12 +106,12 @@ class OreExchangeRectifier final
             mAutomataState = AutomataStates::RECTIFYING;
         }
     }
-    double angularVelocity = -1;  //? send velocity or send displacement ?
-    double prevTheta = 0;
+    double angularVelocity;  //-1
+    double prevTheta;        // 0
     void rectifies(const cv::Rect& rect) {
         send(angularVelocity);
         if(rect.empty()) {
-            return;
+            return;  // If some frames don`t find the bar code, it does not matter.
         } else {
             const double theta = glm::acos(rect.height / mMaxHeight);  // we cannot know its direction.
             const double deltaTheta = theta - prevTheta;
@@ -121,6 +121,7 @@ class OreExchangeRectifier final
             if(mValidDetectionCount >= mConfig.validDetectionRequired) {
                 send(-90);
                 mAutomataState = AutomataStates::OFF;
+                return;
             }
             // if theta is declining, then the sign of velocity is correct.
             // if theta is increasing, then the sign of velocity is wrong.
@@ -131,6 +132,7 @@ class OreExchangeRectifier final
     void send(double pitch) {
         sendAll(ore_detect_available_atom_v, pitch);
     }
+
 public:
     OreExchangeRectifier(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(OreExchangeRectifier).hash_code() } {}
@@ -138,6 +140,9 @@ public:
         return {
             [this](start_atom) {},
             [&](ore_instructions_atom, bool /*may be useful*/, Identifier key) {
+                off();  // initialize the values for member variable.
+                // situation 1: OFF rectifier is waked up.
+                // situation 2: ON or other state, someone wants to stop it when some exceptions may be observed.
                 mAutomataState = (mAutomataState == AutomataStates::OFF ? AutomataStates::FINDING : AutomataStates::OFF);
             },
             [&](image_frame_atom, Identifier key) {
@@ -146,7 +151,7 @@ public:
                     return;
                 }
                 const auto rect =
-                    oreBackSurfaceDetect(preProcessImage(BlackBoard::instance().get<CameraFrame>(key).value().frame));
+                    oreBackSurfaceDetect(BlackBoard::instance().get<CameraFrame>(key).value().frame);  // safe and need not copy
                 switch(mAutomataState) {
                     case AutomataStates::FINDING: {
                         finds(rect);
