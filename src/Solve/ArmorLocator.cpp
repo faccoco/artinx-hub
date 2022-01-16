@@ -170,6 +170,19 @@ public:
                              armorLight.r1.center += cv::Point2f{ cars.roi.tl() };
                              armorLight.r2.center += cv::Point2f{ cars.roi.tl() };
 
+
+                             cv::Point2f pts[4];
+                             std::vector<cv::Point2f> pts8;
+                             pts8.reserve(8);
+                             armorLight.r1.points(pts);
+                             pts8.insert(pts8.cend(), pts, pts + 4);
+                             armorLight.r2.points(pts);
+                             pts8.insert(pts8.cend(), pts, pts + 4);
+
+                             const auto total = cv::minAreaRect(pts8);
+//                             CAF_LOG_INFO(fmt::format("A {} {} L {} {} R {} {}",total.size.width,total.size.height, armorLight.r1.size.width,armorLight.r1.size.height,armorLight.r2.size.width,armorLight.r2.size.height));
+
+
                              const auto point = solve(cameraMatrix, armorLight);
 
                              // TODO: projected area

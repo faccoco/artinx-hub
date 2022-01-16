@@ -82,6 +82,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 GimbalFdbPacket fdb(mPacketBuffer);
 //                std::cout << fdb.yaw << " " << fdb.pitch << std::endl;
 //                CAF_LOG_INFO(fmt::format("{}, {}", fdb.yaw, fdb.pitch));
+                fdb.yaw = (fdb.yaw < 0) ? fdb.yaw += 6.2831852 : fdb.yaw;
+                //TODO: transform to -Pi ~ Pi
                 const HeadInfo info {
                     SynchronizedClock::instance().now(),
                     decltype(HeadInfo::transform) {
@@ -140,7 +142,8 @@ public:
                     started = true;
                 },
                  [this](set_target_info_atom, double yawAngle, double pitchAngle, bool isFire) {
-                     CAF_LOG_INFO(fmt::format("yaw: {} pitch: {}", yawAngle, pitchAngle));
+                     HubLogger::print(fmt::format("yaw: {} pitch: {}", (yawAngle > 3.1415926) ? yawAngle - 6.2831852 : yawAngle, pitchAngle), "serial_out", 500);
+//                     CAF_LOG_INFO(fmt::format("yaw: {} pitch: {}", yawAngle, pitchAngle));
                      GimbalSetPacket gimbalSetPacket{ static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire };
                      mSerialPort->write(reinterpret_cast<const char*>(gimbalSetPacket.buffer.data()), GimbalSetPacket::size);
                  } };
