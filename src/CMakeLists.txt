@@ -10,6 +10,7 @@ set(SOURCE
 "Sensor/VideoReplay.cpp"
 "Detect/ArmorDetector.cpp"
 "Detect/CarDetector.cpp"
+"Detect/CarTracker.cpp"
 "Detect/FakeCarDetector.cpp"
 "Detect/NumClassifier.cpp"
 "Preprocess/ColorCalibration.cpp"
