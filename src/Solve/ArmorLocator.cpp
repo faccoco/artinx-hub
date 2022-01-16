@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <opencv2/calib3d.hpp>
+#include <fmt/format.h>
 
 struct ArmorLocatorSettings final {};
 
@@ -143,6 +144,7 @@ public:
         return { [this](start_atom) {},
                  [&](armor_detect_available_atom, Identifier key) {
                      const auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
+//                     CAF_LOG_INFO(data.armors[0].armors.size());
                      DetectedTargetArray res;
                      res.lastUpdate = data.frame.lastUpdate;
                      const auto& cameraInfo = data.frame.info;
@@ -174,6 +176,10 @@ public:
                              res.targets.push_back({ transform(point), 0.0, cars.id });
                          }
                      }
+//                     if (!res.targets.empty()) {
+//                         auto center = res.targets[0].center.raw();
+//                         CAF_LOG_INFO(fmt::format("x: {} y: {} z: {}", center.x, center.y, center.z));
+//                     }
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(detect_available_atom_v, mKey);

@@ -43,6 +43,7 @@ public:
                         }
                     }
                 }
+                if (!selected.center.has_value()) return;
                 BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected);
                 sendAll(set_target_atom_v, mKey);
             }

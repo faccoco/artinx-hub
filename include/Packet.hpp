@@ -7,6 +7,13 @@ struct GimbalFdbPacket {
     static constexpr uint16_t id = 0x0A;
     float yaw, pitch;
     GimbalFdbPacket(float yaw, float pitch) : yaw(yaw), pitch(pitch) {}
+    explicit GimbalFdbPacket(std::array<uint8_t, 1024> &buffer) {
+        uint8_t yawRawData[4], pitchRawData[4];
+        memcpy(yawRawData, buffer.data() + 6, 4);
+        memcpy(pitchRawData, buffer.data() + 10, 4);
+        yaw = *reinterpret_cast<float*>(yawRawData);
+        pitch = *reinterpret_cast<float*>(pitchRawData);
+    }
     static GimbalFdbPacket receive(std::array<uint8_t, 1024> &buffer) {
         uint8_t yawRawData[4], pitchRawData[4];
         memcpy(yawRawData, buffer.data() + 6, 4);
