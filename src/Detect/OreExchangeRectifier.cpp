@@ -3,7 +3,6 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include <algorithm>
-#include <atomic>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
 #include <limits>
@@ -62,7 +61,7 @@ class OreExchangeRectifier final
         angularVelocity = -mConfig.movingRate;
         prevTheta = 0;  // reset to initial value.
     }
-    std::atomic<int> mValidDetectionCount;  // 0
+    int mValidDetectionCount;  // 0
     void finds(const cv::Rect& rect) {
         send(+mConfig.movingRate);
         if(rect.empty()) {
@@ -76,7 +75,7 @@ class OreExchangeRectifier final
             mAutomataState = AutomataStates::LEARNING;
         }
     }
-    std::atomic<int> mMaxHeight;  // std::numeric_limits<int32_t>::min()
+    int mMaxHeight;  // std::numeric_limits<int32_t>::min()
     void learns(const cv::Rect& rect) {
         auto& validMisDetectionCount = mValidDetectionCount;
         const auto& validMisDetectionRequired = mConfig.validDetectionRequired;
@@ -139,7 +138,7 @@ public:
     caf::behavior make_behavior() override {
         return {
             [this](start_atom) {},
-            [&](ore_instructions_atom, bool /*may be useful*/, Identifier key) {
+            [&](ore_instructions_atom, bool y /*may be useful*/, Identifier key) {
                 off();  // initialize the values for member variable.
                 // situation 1: OFF rectifier is waked up.
                 // situation 2: ON or other state, someone wants to stop it when some exceptions may be observed.

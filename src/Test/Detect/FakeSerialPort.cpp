@@ -4,7 +4,7 @@
 #include "Hub.hpp"
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
-class FakeSerialPort final : public HubHelper<caf::event_based_actor, ore_instructions_atom> {
+class FakeSerialPort final : public HubHelper<caf::event_based_actor, void, ore_instructions_atom> {
     Identifier mKey;
 
 public:
