@@ -94,7 +94,7 @@ class ArmorDetector final
                 for(int32_t j = 0; j < src.cols; ++j) {
                     const auto& col = src.at<cv::Vec3b>(i, j);
                     const int32_t b = col[0], g = col[1], r = col[2];
-                    result.at<uchar>(i, j) = (b > minB && g < maxG && r < maxR && b > g + r) ? 255 : 0;
+                    result.at<uchar>(i, j) = (b > minB && g < maxG && r < maxR && b * 3 > g + r) ? 255 : 0;
                 }
         } else {
             const auto minR = mConfig.thresholdForRed[0];
@@ -105,7 +105,7 @@ class ArmorDetector final
                 for(int32_t j = 0; j < src.cols; ++j) {
                     const auto& col = src.at<cv::Vec3b>(i, j);
                     const int32_t b = col[0], g = col[1], r = col[2];
-                    result.at<uchar>(i, j) = (r > minR && b < maxB && g < maxG && r > b + g) ? 255 : 0;
+                    result.at<uchar>(i, j) = (r > minR && b < maxB && g < maxG && r * 3 > b + g) ? 255 : 0;
                 }
         }
         return result;
@@ -154,7 +154,7 @@ class ArmorDetector final
         });*/
 
         std::sort(lights.begin(), lights.end(), [](const auto& lhs, const auto& rhs) { return lhs.center.x < rhs.center.x; });
-
+        //        CAF_LOG_INFO(lights.size());
         return lights;
     }
 
@@ -259,6 +259,8 @@ public:
                          auto armors = solve(data.frame.frame(roi));
                          res.armors.push_back({ roi, 0, std::move(armors) });  // TODO: id
                      }
+
+                     //                     CAF_LOG_INFO(fmt::format("ARMORS: {}", res.armors[0].armors.size()));
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(armor_detect_available_atom_v, mKey);

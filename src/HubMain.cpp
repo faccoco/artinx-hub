@@ -209,4 +209,6 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
     return globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+std::unordered_map<std::string, TimePoint> HubLogger::logs;
+
 CAF_MAIN(caf::id_block::ArtinxHub)

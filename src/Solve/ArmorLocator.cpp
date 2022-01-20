@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <glm/glm.hpp>
 #include <opencv2/calib3d.hpp>
+#include <fmt/format.h>
 
 struct ArmorLocatorSettings final {};
 
@@ -143,6 +144,7 @@ public:
         return { [this](start_atom) {},
                  [&](armor_detect_available_atom, Identifier key) {
                      const auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
+//                     CAF_LOG_INFO(data.armors[0].armors.size());
                      DetectedTargetArray res;
                      res.lastUpdate = data.frame.lastUpdate;
                      const auto& cameraInfo = data.frame.info;
@@ -168,12 +170,29 @@ public:
                              armorLight.r1.center += cv::Point2f{ cars.roi.tl() };
                              armorLight.r2.center += cv::Point2f{ cars.roi.tl() };
 
+
+                             cv::Point2f pts[4];
+                             std::vector<cv::Point2f> pts8;
+                             pts8.reserve(8);
+                             armorLight.r1.points(pts);
+                             pts8.insert(pts8.cend(), pts, pts + 4);
+                             armorLight.r2.points(pts);
+                             pts8.insert(pts8.cend(), pts, pts + 4);
+
+                             const auto total = cv::minAreaRect(pts8);
+//                             CAF_LOG_INFO(fmt::format("A {} {} L {} {} R {} {}",total.size.width,total.size.height, armorLight.r1.size.width,armorLight.r1.size.height,armorLight.r2.size.width,armorLight.r2.size.height));
+
+
                              const auto point = solve(cameraMatrix, armorLight);
 
                              // TODO: projected area
                              res.targets.push_back({ transform(point), 0.0, cars.id });
                          }
                      }
+//                     if (!res.targets.empty()) {
+//                         auto center = res.targets[0].center.raw();
+//                         CAF_LOG_INFO(fmt::format("x: {} y: {} z: {}", center.x, center.y, center.z));
+//                     }
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(detect_available_atom_v, mKey);
