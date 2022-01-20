@@ -8,16 +8,16 @@
 #include <vector>
 #include <cmath>
 
-using MutilTrackers = std::vector<cv::Ptr<cv::TrackerKCF>>;
+using MultiTrackers = std::vector<cv::Ptr<cv::TrackerKCF>>;
 using VectorRect = std::vector<cv::Rect>;
 using Inf = std::numeric_limits<double>;
 
 constexpr int32_t maxNumRobot = 10;
 
 
-class CarTracker final : public HubHelper<caf::event_based_actor, void, car_track_available_atom> {
+class CarTracker final : public HubHelper<caf::event_based_actor, void, car_detect_available_atom> {
 	Identifier mKey;
-	MutilTrackers trackers = MutilTrackers(maxNumRobot, nullptr);
+	MultiTrackers trackers = MultiTrackers(maxNumRobot, nullptr);
 	VectorRect trackedBoxes = VectorRect(maxNumRobot, cv::Rect(0, 0, 0, 0));
 	bool initialFlag = false;
 	int32_t initialisedTrackerNum = 0;
@@ -50,7 +50,7 @@ public:
 					}
 
 					BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes));
-					sendAll(car_track_available_atom_v, mKey);
+					sendAll(car_detect_available_atom_v, mKey);
 				 },
                 [&](car_detect_available_atom, Identifier key) {
                     const auto carDetectedRes = BlackBoard::instance().get<DetectedCarArray>(key).value();
@@ -68,7 +68,7 @@ public:
                         initialFlag = true;
 
                         BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes));
-                        sendAll(car_track_available_atom_v, mKey);
+                        sendAll(car_detect_available_atom_v, mKey);
                     } else {
                         VectorRect trackRectRes;
                         for(int i = 0; i < initialisedTrackerNum; ++i) {
@@ -103,7 +103,7 @@ public:
                         }
 
                         BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes));
-                        sendAll(car_track_available_atom_v, mKey);
+                        sendAll(car_detect_available_atom_v, mKey);
 
                         //Update
                         if(carDetectedRes.cars.size() > trackRectRes.size()) {
