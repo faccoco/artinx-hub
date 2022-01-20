@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    setInterval("updateAll()", 100);
+    setInterval("updateAll()", 1000);
 });
 
 function randomString(length) {
@@ -9,10 +9,12 @@ function randomString(length) {
     return result;
 }
 
-filters = {};
-images = {};
+let filters = {};
+let images = {};
+let isUpdating = false;
 
 function updateAll() {
+    // if (isUpdating) return;
     updateImages();
     updateStatus();
     updateLog();
@@ -23,6 +25,7 @@ function updateImages() {
     for (let k in images) {
         if (!filters[k]) continue;
         images[k].src = "/img/" + k + "/" + randomString(5);
+        // isUpdating = true;
     }
 }
 

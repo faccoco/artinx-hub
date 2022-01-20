@@ -6,6 +6,7 @@
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
 #include <opencv2/opencv.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #pragma warning(push, 0)
 #include <GxIAPI.h>
 #pragma warning(pop)
@@ -29,6 +30,7 @@ bool inspect(Inspector& f, DahengDriverSettings& x) {
         f.field("openMode", x.openMode).invariant([](const std::string& v) { return v == "Index" || v == "SerialNumber"; }),
         f.field("identifier", x.identifier),
         f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 500.0; }), f.field("fov", x.fov),
+        f.field("exposureTime", x.exposureTime),
         f.field("binning", x.binning), f.field("width", x.width), f.field("height", x.height));
 }
 
@@ -82,6 +84,7 @@ private:
         frameData.info.width = mConfig.width;
         frameData.info.height = mConfig.height;
         // TODO: transform
+        frameData.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
         if(bgr.cols == mConfig.width && bgr.rows == mConfig.height)
             frameData.frame = bgr;
         else
@@ -98,14 +101,13 @@ public:
         initLib();
 
         GX_OPEN_PARAM deviceDesc;
-        deviceDesc.accessMode = GX_ACCESS_READONLY;
+        deviceDesc.accessMode = GX_ACCESS_CONTROL;
         deviceDesc.openMode = mConfig.openMode == "Index" ? GX_OPEN_MODE::GX_OPEN_INDEX : GX_OPEN_MODE::GX_OPEN_SN;
         deviceDesc.pszContent = mConfig.identifier.data();
 
         checkGXStatus(GXOpenDevice(&deviceDesc, &mDevice));
 
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_ACQUISITION_FRAME_RATE_MODE, GX_ACQUISITION_FRAME_RATE_MODE_ON));
-
         checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_ACQUISITION_FRAME_RATE, mConfig.fps));
 
         // checkGXStatus(GXSetEnum(device, GX_ENUM_FLAT_FIELD_CORRECTION, GX_ENUM_FLAT_FIELD_CORRECTION_ON));
@@ -116,10 +118,13 @@ public:
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_OFF));
         // checkGXStatus(GXSetEnum(device, GX_ENUM_EXPOSURE_TIME_MODE, GX_EXPOSURE_TIME_MODE_ULTRASHORT));
 
-        /*
+
+
+
         GX_FLOAT_RANGE range;
-        checkGXStatus(GXGetFloatRange(device, GX_FLOAT_EXPOSURE_TIME, &range));
-        */
+        checkGXStatus(GXGetFloatRange(mDevice, GX_FLOAT_EXPOSURE_TIME, &range));
+
+
         checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_EXPOSURE_TIME, 1000000.0 * mConfig.exposureTime));
 
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_PIXEL_FORMAT, pixelFormat));

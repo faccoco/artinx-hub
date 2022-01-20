@@ -77,7 +77,7 @@ public:
                          //CAF_LOG_INFO(fmt::format("CurrentYawAngle: {},CurrentPitchAngle: {}",currentYawAngle, currentPitchAngle));
                          //double prec = mConfig.precision;
                          double prec = 0.001;
-                         CAF_LOG_INFO(fmt::format("Prec:{}", prec));
+//                         CAF_LOG_INFO(fmt::format("Prec:{}", prec));
                          bool ifShoot = ( (std::abs(currentPitchAngle - pitchAngle) < prec) && ( (std::abs(currentYawAngle - yawAngle) < prec) || (std::abs(currentYawAngle - glm::half_pi<double>() - yawAngle) < prec) ) );
                          sendAll(set_target_info_atom_v, yawAngle, pitchAngle, ifShoot);
                      }
