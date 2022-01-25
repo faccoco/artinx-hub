@@ -83,6 +83,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 //                std::cout << fdb.yaw << " " << fdb.pitch << std::endl;
 //                CAF_LOG_INFO(fmt::format("{}, {}", fdb.yaw, fdb.pitch));
                 fdb.yaw = (fdb.yaw < 0) ? fdb.yaw += 6.2831852 : fdb.yaw;
+
+                //fdb.yaw = 0.0;// for standard
+
                 const HeadInfo info {
                     SynchronizedClock::instance().now(),
                     decltype(HeadInfo::transform) {

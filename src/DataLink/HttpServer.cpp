@@ -78,7 +78,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
 public:
     HttpServer(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mClogBuffer{ std::clog.rdbuf() } {
 
-        std::clog.rdbuf(mLogStream.rdbuf());
+        //std::clog.rdbuf(mLogStream.rdbuf());
 
         mServer.set_mount_point("/pages", "./pages");
 

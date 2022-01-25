@@ -47,7 +47,7 @@ class ArmorDetector final
 
     void debugView(const std::string_view& name, const cv::Mat& src, const std::function<void(cv::Mat&)>& func) {
 #ifndef ARTINXHUB_DEBUG
-        return;
+        // return;
 #endif
 
         const auto hash = std::hash<std::string_view>{}(name);
@@ -77,7 +77,7 @@ class ArmorDetector final
         cv::Mat color;
         image.copyTo(color, lightPart);
         debugView("color", color, [](auto&) {});
-        */
+         */
 
         const auto lights = findLights(image, lightPart);
         return matchLights(image, lights);
@@ -111,6 +111,57 @@ class ArmorDetector final
         return result;
     }
 
+    void fixContour(const cv::Mat& color, const cv::Mat& binary, std::vector<cv::Point2i>& contour) {
+        const auto bound = cv::boundingRect(contour);
+
+        const auto subColor = color(bound);
+        const auto subBinary = binary(bound);
+
+        uint8_t maxB = 0;
+        for(int32_t y = 0; y < subColor.rows; ++y) {
+            for(int32_t x = 0; x < subColor.cols; ++x) {
+                if(subBinary.at<cv::uint8_t>(y, x)) {
+                    const auto& col = subColor.at<cv::Vec3b>(y, x);
+                    maxB = std::max(maxB, col[0]);
+                }
+            }
+        }
+
+        const auto threshold = static_cast<uint8_t>(maxB * 0.5);
+        std::vector<cv::Point2i> points;
+        points.reserve(subColor.rows * 2);
+
+        for(int32_t y = 0; y < subColor.rows; ++y) {
+            bool last = false;
+
+            for(int32_t x = 0; x < subColor.cols; ++x) {
+                if(subBinary.at<cv::uint8_t>(y, x)) {
+                    const auto& col = subColor.at<cv::Vec3b>(y, x);
+                    const auto cur = col[0] >= threshold;
+                    if(cur != last) {
+                        last = cur;
+                        points.emplace_back(x + bound.x, y + bound.y);
+                    }
+                }
+            }
+        }
+
+        cv::convexHull(points, contour);
+    }
+
+    cv::RotatedRect correctRectAngle(cv::RotatedRect lightRect) {
+        if(std::fmax(lightRect.size.width, lightRect.size.height) / std::fmin(lightRect.size.width, lightRect.size.height) >
+           1.2) {
+            if((lightRect.size.width > 1.5 * lightRect.size.height) ||
+               (lightRect.size.width > 1.2 * lightRect.size.height &&
+                std::fabs(std::sin(glm::radians(lightRect.angle))) < glm::root_two<double>() * 0.5)) {
+                std::swap(lightRect.size.width, lightRect.size.height);
+                lightRect.angle += 90.0;
+            }
+        }
+        return lightRect;
+    }
+
     std::vector<cv::RotatedRect> findLights(const cv::Mat& color, const cv::Mat& binary) {
         const cv::Rect full = { 0, 0, color.cols, color.rows };
 
@@ -118,23 +169,31 @@ class ArmorDetector final
         std::vector<std::vector<cv::Point2i>> contours;
         cv::findContours(binary, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
         std::vector<cv::RotatedRect> lights;
-        for(const auto& lightContour : contours) {
-            if(lightContour.size() < 6)
+        for(auto& lightContour : contours) {
+            // if(cv::contourArea(lightContour) < 300.0)
+            //     fixContour(color, binary, lightContour);
+            auto lightRect = correctRectAngle(cv::minAreaRect(lightContour));
+
+            if(lightContour.size() >= 6) {
+                const auto rect = correctRectAngle(cv::fitEllipse(lightContour));
+                if(rect.size.area() > 4.0 &&
+                   std::fabs(std::sin(glm::radians(lightRect.angle))) > std::fabs(std::sin(glm::radians(rect.angle))))
+                    lightRect = rect;
+            }
+
+            if(lightRect.size.area() < 4.0)
                 continue;
-            auto lightRect = cv::fitEllipse(lightContour);
 
             const auto rect = lightRect.boundingRect();
             if((rect & full) != rect)
                 continue;
 
+            /*
             if(static_cast<double>(lightRect.size.width) * static_cast<double>(lightRect.size.height) *
                    glm::quarter_pi<double>() >
                mConfig.maxAreaRatio * cv::contourArea(lightContour))
                 continue;
-            if(lightRect.size.width > lightRect.size.height) {
-                std::swap(lightRect.size.width, lightRect.size.height);
-                lightRect.angle += 90.0;
-            }
+            */
 
             if(lightRect.size.height > 2.0 * lightRect.size.width && lightRect.size.width > 2.0 &&
                std::fabs(std::cos(glm::radians(lightRect.angle))) < mConfig.maxLightAngle) {
@@ -148,14 +207,53 @@ class ArmorDetector final
 
         /*
         debugView("contour", color, [&](cv::Mat& src) {
-            cv::drawContours(src, contours, -1, cv::Scalar{ 0, 255, 0 }, 1);
             for(auto& light : lights)
-                cv::ellipse(src, light, cv::Scalar{ 255, 255, 0 }, 2);
-        });*/
+                cv::ellipse(src, light, cv::Scalar{ 255, 0, 255 }, 1);
+            // cv::drawContours(src, contours, -1, cv::Scalar{ 0, 255, 0 }, 1);
+        });
+         */
 
         std::sort(lights.begin(), lights.end(), [](const auto& lhs, const auto& rhs) { return lhs.center.x < rhs.center.x; });
         //        CAF_LOG_INFO(lights.size());
         return lights;
+    }
+
+    cv::Rect2f boundingRect(const PairedLight& armor) {
+        const auto b1 = armor.r1.boundingRect2f();
+        const auto b2 = armor.r2.boundingRect2f();
+        return b1 | b2;
+    }
+
+    std::vector<PairedLight> removeReflected(std::vector<PairedLight> armors) {
+        std::sort(armors.begin(), armors.end(), [](const PairedLight& lhs, const PairedLight& rhs) {
+            return lhs.r1.center.y + lhs.r2.center.y < rhs.r1.center.y + rhs.r2.center.y;
+        });
+
+        std::vector<PairedLight> res;
+        res.reserve(armors.size());
+        std::vector<cv::Rect2f> exceptBounds;
+        exceptBounds.reserve(armors.size());
+        for(auto& armor : armors) {
+            auto bound = boundingRect(armor);
+
+            bool flag = true;
+            for(auto& exceptBound : exceptBounds) {
+                if((bound & exceptBound) == bound) {
+                    flag = false;
+                    break;
+                }
+            }
+            if(!flag)
+                continue;
+
+            bound.x -= bound.width * 0.25f;
+            bound.width *= 1.5f;
+            bound.y -= bound.height * 0.15f;
+            bound.height *= 5.0f;
+            exceptBounds.push_back(bound);
+            res.push_back(armor);
+        }
+        return res;
     }
 
     std::vector<PairedLight> matchLights(const cv::Mat& src, const std::vector<cv::RotatedRect>& lights) {
@@ -174,39 +272,87 @@ class ArmorDetector final
                     std::swap(rect.size.width, rect.size.height);
                     rect.angle += 90.0;
                 }
-                if(rect.size.height < 10.0)
+                if(rect.size.height < 3.0)
+                    continue;
+                {
+                    bool flag = true;
+                    std::vector<cv::Point2f> intersect;
+                    for(uint32_t k = i + 1; k < j; ++k) {
+                        const auto& mid = lights[k];
+                        if(cv::rotatedRectangleIntersection(mid, rect, intersect) !=
+                           cv::RectanglesIntersectTypes::INTERSECT_NONE) {
+                            flag = false;
+                            continue;
+                        }
+                    }
+                    if(!flag)
+                        continue;
+                }
+                constexpr auto largeRatio = widthOfLargeArmor / heightOfArmorLightBar;
+                constexpr auto smallRatio = widthOfSmallArmor / heightOfArmorLightBar;
+
+                const auto ratio = rect.size.aspectRatio();
+                auto diff = std::fabs(ratio - smallRatio) / smallRatio;
+                const auto diffLarge = std::fabs(ratio - largeRatio) / largeRatio;
+                bool largeArmor = false;
+                if(diffLarge < diff) {
+                    diff = diffLarge;
+                    largeArmor = true;
+                }
+
+                if(diff > mConfig.maxArmorRectRatio)
+                    continue;
+                const auto rectAngle = std::atan2(lhs.center.y - rhs.center.y, lhs.center.x - rhs.center.x);
+
+                if(std::fabs(std::cos(rectAngle)) < mConfig.maxArmorAngle)
+                    continue;
+                const auto area1 = lhs.size.area();
+                const auto area2 = rhs.size.area();
+                auto par = std::fmin(area1, area2) / std::fmax(area1, area2);
+
+                if(std::fmax(lhs.size.aspectRatio(), rhs.size.aspectRatio()) < 0.5 && par < 0.1)
                     continue;
 
-                constexpr auto maxScale =
-                    std::max(widthOfLargeArmor / heightOfLargeArmor, widthOfSmallArmor / heightOfSmallArmor);
-
-                if(rect.size.width > mConfig.maxArmorRectRatio * maxScale * rect.size.height)
+                if(area1 + area2 > 0.5 * rect.size.area())
                     continue;
 
-                if(std::fabs(std::cos(glm::radians(rect.angle))) < mConfig.maxArmorAngle)
-                    continue;
+                if(std::fmax(lhs.size.aspectRatio(), rhs.size.aspectRatio()) < 0.5) {
+                    if(std::fabs(std::cos(rectAngle - glm::radians(lhs.angle))) < mConfig.minLightBaseAngle)
+                        continue;
+                    if(std::fabs(std::cos(rectAngle - glm::radians(rhs.angle))) < mConfig.minLightBaseAngle)
+                        continue;
 
-                if(std::fabs(std::cos(glm::radians(rect.angle) - glm::radians(lhs.angle))) < mConfig.minLightBaseAngle)
-                    continue;
+                    par = std::fabs(std::sin(glm::radians(lhs.angle) - glm::radians(rhs.angle)));
 
-                if(std::fabs(std::cos(glm::radians(rect.angle) - glm::radians(rhs.angle))) < mConfig.minLightBaseAngle)
-                    continue;
+                    if(par > mConfig.maxParallelAngle)
+                        continue;
+                    if(par > 0.2 && std::tan(glm::radians(lhs.angle)) * std::tan(glm::radians(rhs.angle)) < 0.0)
+                        continue;
+                }
 
-                const auto par = std::fabs(std::sin(glm::radians(lhs.angle) - glm::radians(rhs.angle)));
-
-                if(par > mConfig.maxParallelAngle)
+                if(std::max(lhs.size.height, rhs.size.height) > 1.2 * rect.size.height)
                     continue;
 
                 if(std::min(lhs.size.height, rhs.size.height) < mConfig.minLightHeightRatio * rect.size.height)
                     continue;
 
-                pairs.push_back({ i, j, par });
+                pairs.emplace_back(i, j, diff + par + (largeArmor ? 1e3 : 0.0));
             }
 
         /*
         debugView("potential", src, [&](cv::Mat& frame) {
-            for(auto& light : lights)
+            uint32_t idx = 0;
+            for(auto& light : lights) {
                 cv::ellipse(frame, light, cv::Scalar{ 255, 255, 0 }, 1);
+                cv::Point2f offset{ -std::sin(glm::radians(light.angle)) * light.size.height,
+                                    std::cos(glm::radians(light.angle)) * light.size.height };
+                const auto p0 = light.center + offset;
+                const auto p1 = light.center - offset;
+                cv::line(frame, p0, p1, cv::Scalar{ 255, 0, 255 });
+                cv::putText(frame, std::to_string(idx++),
+                            { static_cast<int32_t>(light.center.x), static_cast<int32_t>(light.center.y) },
+                            cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 0, 0, 255 });
+            }
             for(auto& [i, j, s] : pairs) {
                 const auto& lhs = lights[i];
                 const auto& rhs = lights[j];
@@ -227,7 +373,7 @@ class ArmorDetector final
                             cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 255 });
             }
         });
-        */
+         */
 
         std::sort(pairs.begin(), pairs.end(),
                   [](const auto& lhs, const auto& rhs) { return std::get<double>(lhs) < std::get<double>(rhs); });
@@ -240,7 +386,8 @@ class ArmorDetector final
             used[i] = used[j] = true;
             res.push_back(PairedLight{ lights[i], lights[j] });
         }
-        return res;
+
+        return removeReflected(std::move(res));
     }
 
 public:

@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    setInterval("updateAll()", 1000);
+    setInterval("updateAll()", 50);
 });
 
 function randomString(length) {
