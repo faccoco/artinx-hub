@@ -15,6 +15,9 @@ class PIDSimulator final {
 
 public:
     explicit PIDSimulator(const PIDParameters& params) : mParameters{ params } {}
+    void reset(double current) {
+        mCurrent = current;
+    }
     // period = -1.0: disabled
     // period > 0.0: domain is [0,period)
     // return (position,velocity)

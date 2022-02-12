@@ -5,8 +5,8 @@
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
-#include <opencv2/opencv.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <opencv2/opencv.hpp>
 #pragma warning(push, 0)
 #include <GxIAPI.h>
 #pragma warning(pop)
@@ -17,9 +17,7 @@ struct DahengDriverSettings final {
     double fps;
     double fov;
     double exposureTime;
-    uint32_t binning;
-    uint32_t width;
-    uint32_t height;
+    uint32_t decimation;
 };
 
 enum class OpenMode { Index, SerialNumber };
@@ -30,8 +28,7 @@ bool inspect(Inspector& f, DahengDriverSettings& x) {
         f.field("openMode", x.openMode).invariant([](const std::string& v) { return v == "Index" || v == "SerialNumber"; }),
         f.field("identifier", x.identifier),
         f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 500.0; }), f.field("fov", x.fov),
-        f.field("exposureTime", x.exposureTime),
-        f.field("binning", x.binning), f.field("width", x.width), f.field("height", x.height));
+        f.field("exposureTime", x.exposureTime), f.field("decimation", x.decimation));
 }
 
 static void checkGXStatus(const GX_STATUS status) {
@@ -69,6 +66,9 @@ private:
         if(pFrameData->status != GX_FRAME_STATUS_SUCCESS || !mStartFlag)
             return;
 
+        //std::cout << "Frame " << (static_cast<double>(Clock::now().time_since_epoch().count()) / Clock::period::den) << " " << pFrameData->nWidth << " x "
+        //          << pFrameData->nHeight << std::endl;
+
         const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer
 
         // TODO: reduce reallocation
@@ -81,15 +81,11 @@ private:
         CameraFrame frameData;
         frameData.lastUpdate = timeStamp;
         frameData.info.fov = mConfig.fov;
-        frameData.info.width = mConfig.width;
-        frameData.info.height = mConfig.height;
+        frameData.info.width = pFrameData->nWidth;
+        frameData.info.height = pFrameData->nHeight;
         // TODO: transform
         frameData.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
-        if(bgr.cols == mConfig.width && bgr.rows == mConfig.height)
-            frameData.frame = bgr;
-        else
-            cv::resize(bgr, frameData.frame,
-                       cv::Size{ static_cast<int32_t>(mConfig.width), static_cast<int32_t>(mConfig.height) });
+        frameData.frame = std::move(bgr);
 
         BlackBoard::instance().updateSync(mKey, std::move(frameData));
         sendAll(image_frame_atom_v, mKey);
@@ -118,22 +114,22 @@ public:
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_OFF));
         // checkGXStatus(GXSetEnum(device, GX_ENUM_EXPOSURE_TIME_MODE, GX_EXPOSURE_TIME_MODE_ULTRASHORT));
 
-
-
-
         GX_FLOAT_RANGE range;
         checkGXStatus(GXGetFloatRange(mDevice, GX_FLOAT_EXPOSURE_TIME, &range));
-
 
         checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_EXPOSURE_TIME, 1000000.0 * mConfig.exposureTime));
 
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_PIXEL_FORMAT, pixelFormat));
 
-        if(mConfig.binning) {
+        if(mConfig.decimation) {
+            /*
             checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BINNING_HORIZONTAL_MODE, GX_BINNING_VERTICAL_MODE_AVERAGE));
             checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BINNING_VERTICAL_MODE, GX_BINNING_VERTICAL_MODE_AVERAGE));
             checkGXStatus(GXSetInt(mDevice, GX_INT_BINNING_HORIZONTAL, mConfig.binning));
             checkGXStatus(GXSetInt(mDevice, GX_INT_BINNING_VERTICAL, mConfig.binning));
+             */
+            checkGXStatus(GXSetInt(mDevice, GX_INT_DECIMATION_HORIZONTAL, mConfig.decimation));
+            checkGXStatus(GXSetInt(mDevice, GX_INT_DECIMATION_VERTICAL, mConfig.decimation));
         }
 
 #ifdef ARTINXHUB_WINDOWS
