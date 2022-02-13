@@ -5,8 +5,8 @@
 enum class MoveDirection { LEFT, RIGHT, STAY, INVALID };
 
 struct Movement final {
-    MoveDirection direction;
-    double distance;
+    MoveDirection direction = MoveDirection::INVALID;
+    double distance = 0.0;
 };
 
 struct OrePosition {
@@ -16,5 +16,5 @@ struct OrePosition {
 struct DetectedOreArray final {
     CameraFrame frame;
     Movement currentMovement;
-    std::vector<OrePosition> orePositionHistory;
+    std::deque<OrePosition> orePositionHistory;
 };

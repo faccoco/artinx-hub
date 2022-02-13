@@ -117,7 +117,7 @@ class OreDetector final : public HubHelper<caf::event_based_actor, OreAlignmentS
 
         findContours(binaryOreFrame, orePointsArray, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-        for(auto singleMine : orePointsArray) {
+        for(const auto& singleMine : orePointsArray) {
             cv::Rect tempRect = boundingRect(singleMine);
             if(settings.minOreArea < tempRect.area() && tempRect.area() < settings.maxOreArea) {
                 cv::rectangle(bgrFrame, tempRect, cv::Scalar(255, 0, 0), 1, cv::LINE_8);
@@ -127,10 +127,10 @@ class OreDetector final : public HubHelper<caf::event_based_actor, OreAlignmentS
         // sort vector<Rect>
         for(int64_t i = 0; i != oreRectArray.size(); ++i) {
             for(int64_t j = 0; j != oreRectArray.size() - i - 1; ++j) {
-                if(oreRectArray.at(j).x > oreRectArray.at(j + 1).x) {
-                    cv::Rect temp = oreRectArray.at(j);
-                    oreRectArray.at(j) = oreRectArray.at(j + 1);
-                    oreRectArray.at(j + 1) = temp;
+                if(oreRectArray[j].x > oreRectArray[j + 1].x) {
+                    cv::Rect temp = oreRectArray[j];
+                    oreRectArray[j] = oreRectArray[j + 1];
+                    oreRectArray[j + 1] = temp;
                 }
             }
         }
@@ -141,14 +141,14 @@ class OreDetector final : public HubHelper<caf::event_based_actor, OreAlignmentS
         cv::Mat lightbarFrame;
         uint64_t index = 0;
         std::vector<std::vector<cv::Point2i>> lightbarPointsArray;
-        for(auto oreRect : oreRectArray) {
+        for(const auto& oreRect : oreRectArray) {
             cv::Mat cutFrame = frame.rowRange(oreRect.y - settings.heightExpand - settings.altitude,
                                               oreRect.y + oreRect.height + settings.heightExpand - settings.altitude);
             cutFrame = cutFrame.colRange(oreRect.x - settings.widthExpand, oreRect.x + oreRect.width + settings.widthExpand);
 
             cv::inRange(cutFrame, settings.lightbarHsvLow, settings.lightbarHsvHigh, lightbarFrame);
             cv::findContours(lightbarFrame, lightbarPointsArray, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-            for(auto singleLightbar : lightbarPointsArray) {
+            for(const auto& singleLightbar : lightbarPointsArray) {
                 tempRect = cv::boundingRect(singleLightbar);
                 if(settings.minLightbarArea < tempRect.area() && tempRect.area() < settings.maxLightbarArea) {
                     ++index;
@@ -164,17 +164,18 @@ class OreDetector final : public HubHelper<caf::event_based_actor, OreAlignmentS
         return OrePosition{ oreRectArray.size(), index };
     }
 
-    void modifyOrePreviousArray(std::vector<OrePosition>& orePositionHistory, const OrePosition& currentPosition,
+    void modifyOrePreviousArray(std::deque<OrePosition>& orePositionHistory, const OrePosition& currentPosition,
                                 const OreAlignmentStettings& settings) {
         if(orePositionHistory.size() < settings.storageFrameCount)
             orePositionHistory.push_back(currentPosition);
         else {
-            orePositionHistory.erase(orePositionHistory.begin());
+            orePositionHistory.pop_front();
             orePositionHistory.push_back(currentPosition);
         }
     }
 
-    double transformToRealDistance(const cv::Rect& rect, const CameraFrame& frame, const OreAlignmentStettings& settings) {
+    double transformToRealDistance(const cv::Rect_<int64_t>& rect, const CameraFrame& frame,
+                                   const OreAlignmentStettings& settings) {
         return (rect.x + rect.width / 2 - frame.info.width) / (frame.info.width / 2 / tan(glm::radians(frame.info.fov))) *
             settings.distanceToOre +
             settings.offset;
