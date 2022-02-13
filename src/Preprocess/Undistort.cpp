@@ -25,8 +25,8 @@ public:
     Undistort(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(Undistort).hash_code() } {
         cv::FileStorage fs(mConfig.ymlPath, cv::FileStorage::READ);
-        fs["Camera_Matrix"] >> cameraMatrix;
-        fs["Distortion_Coefficients"] >> distCoeffs;
+        fs["camera_matrix"] >> cameraMatrix;
+        fs["distortion_coefficients"] >> distCoeffs;
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) {},
@@ -317,7 +317,7 @@ public:
                      if(found) {
                          // improve the found corners' coordinate accuracy for chessboard
                          cv::Mat imgGray;
-                         cv::cvtColor(res.frame, imgGray, cv::COLOR_BGR2BGRA);
+                         cv::cvtColor(res.frame, imgGray, cv::COLOR_BGR2GRAY);
                          cornerSubPix(imgGray, pointBuf, cv::Size(mConfig.winSize, mConfig.winSize), cv::Size(-1, -1),
                                       cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.0001));
                          imagePoints.push_back(pointBuf);
@@ -349,7 +349,6 @@ public:
                          cv::undistort(temp, res.frame, cameraMatrix, distCoeffs);
                      }
 #endif
-
                      // For debugging
                      BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(image_frame_atom_v, mKey);
