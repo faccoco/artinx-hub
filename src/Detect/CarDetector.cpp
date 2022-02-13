@@ -161,7 +161,8 @@ public:
         outputBlob->setPrecision(IE::Precision::FP16);
 
         for(const auto& device : mInferenceEngine.GetAvailableDevices()) {
-            CAF_LOG_INFO("Available inference engine device: " + device);
+            
+            ("Available inference engine device: " + device);
         }
 
         mExecutableNetwork = mInferenceEngine.LoadNetwork(mNetwork, mConfig.deviceName);

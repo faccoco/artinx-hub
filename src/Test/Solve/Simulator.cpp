@@ -108,6 +108,61 @@ public:
     }
 };
 
+class UAVMotionController final : public MotionController {
+    std::default_random_engine generator;
+    std::normal_distribution<double> distribution{ 0, 1 };
+
+    
+    void step(btMotionState& motionState, double dt) override {
+        double xSpeed = distribution(generator);
+        double ySpeed = distribution(generator);
+        double zSpeed = distribution(generator);
+        btTransform transform;
+        motionState.getWorldTransform(transform);
+        transform.setOrigin(btVector3(transform.getOrigin().getX() + xSpeed*dt,transform.getOrigin().getY() + ySpeed*dt ,transform.getOrigin().getZ() - zSpeed * dt));
+        motionState.setWorldTransform(transform);
+    }
+};
+
+class SentryMotionController final : public MotionController {
+    std::default_random_engine generator;
+    std::normal_distribution<double> distribution{ 0, 1 };
+    void step(btMotionState& motionState, double dt) override {
+        double ySpeed = distribution(generator);
+        btTransform transform;
+        motionState.getWorldTransform(transform);
+        transform.setOrigin(btVector3(transform.getOrigin().getX(), transform.getOrigin().getY() + ySpeed * dt,
+                                      transform.getOrigin().getZ()));
+    }
+};
+
+class Translate2DMotionController final : public MotionController {
+    std::default_random_engine generator;
+    std::normal_distribution<double> distribution{ 0, 1 };
+
+    void step(btMotionState& motionState, double dt) override {
+        double ySpeed=distribution(generator);
+        double zSpeed=distribution(generator);
+        btTransform transform;
+        motionState.getWorldTransform(transform);
+        transform.setOrigin(btVector3(transform.getOrigin().getX(), transform.getOrigin().getY() + ySpeed * dt,
+                                      transform.getOrigin().getZ() + zSpeed * dt));
+    }
+};
+
+class VibrationMotionController final : public MotionController {
+    double vibrationRange;
+    double t = 0;
+    public :
+        VibrationMotionController(double range) : vibrationRange { range } {}
+    void step(btMotionState& motionState, double dt) override {
+        btTransform transform;
+        motionState.getWorldTransform(transform);
+        t += dt;
+        transform.setOrigin(btVector3(transform.getOrigin().getX() + vibrationRange * glm::sin(t), transform.getOrigin().getY(),
+                                      transform.getOrigin().getZ()));
+    }
+};
 class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
     Identifier mKey, mHeadKey{};
 
@@ -141,6 +196,18 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
             switch(sourceMotionType) {
                 case SourceMotionType::Static:
                     mSource.second = std::make_unique<StaticMotionController>();
+                    break;
+                case SourceMotionType::UAV:
+                    mSource.second = std::make_unique<UAVMotionController>();
+                    break;
+                case SourceMotionType::Sentry:
+                    mSource.second = std::make_unique<SentryMotionController>();
+                    break;
+                case SourceMotionType::Translate2D:
+                    mSource.second = std::make_unique<Translate2DMotionController>();
+                    break;
+                case SourceMotionType::Vibration:
+                    mSource.second = std::make_unique<VibrationMotionController>(mConfig.vibrationLinearRange);
                     break;
                 default:
                     throw NotImplemented{};
@@ -179,6 +246,35 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                     armors->setUserPointer(&armorId);
                     mTargetArmors.push_back(std::move(armors));
                 } break;
+                case TargetType::Sentry: {
+                    mTargetArmors.push_back(std::make_unique<btBoxShape>(btVector3{
+                        widthOfSmallArmor * 0.5, heightOfSmallArmor * 0.5, thinnessOfArmor * 0.5 }));  // NOTICE: half extents
+                    auto singleArmor = mTargetArmors.back().get();
+
+                    auto armors = std::make_unique<btCompoundShape>(true, 4);
+
+                    for(int32_t i = 0; i < 2; ++i) {
+                        // const btQuaternion quat{ static_cast<float>(i * glm::half_pi<double>()),
+                        //                         static_cast<float>(angleOfArmorForInfantry), 0 };
+                        const auto yaw = i * glm::pi<double>();
+                        constexpr auto pitch = angleOfArmorForSentry;
+                        const auto rotateQuat = glm::quat{ glm::quatLookAtRH(
+                            glm::dvec3{ std::cos(yaw) * std::cos(pitch), std::sin(pitch), std::sin(yaw) * std::cos(pitch) },
+                            glm::dvec3{ 0.0, 0.0, 1.0 }) };
+
+                        const btVector3 base{ static_cast<float>(radiusOfInfantry * std::cos(yaw)), 0.0,
+                                              static_cast<float>(radiusOfInfantry * std::sin(yaw)) };
+
+                        armors->addChildShape(
+                            btTransform{ btQuaternion{ rotateQuat.x, rotateQuat.y, rotateQuat.z, rotateQuat.w }, base },
+                            singleArmor);
+                    }
+
+                    armors->setUserPointer(&armorId);
+                    mTargetArmors.push_back(std::move(armors));
+                } break;
+
+                    
                 default:
                     throw NotImplemented{};
                     break;
@@ -262,7 +358,8 @@ public:
                 bulletVelocity[p.get()] = p->getLinearVelocity();
                 if(mConfig.printBulletPos) {
                     const auto pos = p->getCenterOfMassPosition();
-                    CAF_LOG_INFO(fmt::format("bullet {:.2f} {:.2f} {:.2f}", pos.x(), pos.y(), pos.z()));
+                    
+                    (fmt::format("bullet {:.2f} {:.2f} {:.2f}", pos.x(), pos.y(), pos.z()));
                 }
             }
 
