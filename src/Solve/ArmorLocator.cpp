@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <fmt/format.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/calib3d.hpp>
 
 struct ArmorLocatorSettings final {};
@@ -82,7 +83,7 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
         const auto ratio = distHorizontal / distVertical;
         constexpr auto ratioThreshold = 0.5 * (widthOfLargeArmor + widthOfSmallArmor) / heightOfArmorLightBar;
 
-        //std::cout << (ratio > ratioThreshold ? "large" : "small") << std::endl;
+        // std::cout << (ratio > ratioThreshold ? "large" : "small") << std::endl;
 
         mImagePoint = { lt, lb, rb, rt };
         const auto res = cv::solvePnP(ratio > ratioThreshold ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint, cameraMatrix,
@@ -114,6 +115,11 @@ public:
                              static_cast<Transform<FrameOfReference::Gun, FrameOfReference::Robot, true>>(headTrans) * trans;
                      }
 
+                     /*
+                     transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>{ glm::translate(
+                         glm::identity<glm::dmat4>(), glm::dvec3{ 0.0, 0.1, -0.15 }) };
+                         */
+
                      const cv::Mat cameraMatrix =
                          (cv::Mat_<double>(3, 3) << cameraInfo.width / 2 / tan(glm::radians(cameraInfo.fov) / 2), 0,
                           cameraInfo.width / 2, 0, cameraInfo.height / 2 / tan(glm::radians(cameraInfo.fov) / 2),
@@ -132,12 +138,10 @@ public:
                          }
                      }
 
-                     /*
                      if(!res.targets.empty()) {
                          auto center = res.targets[0].center.raw();
                          std::cout << (fmt::format("x: {} y: {} z: {}", center.x, center.y, center.z)) << std::endl;
                      }
-                      */
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(detect_available_atom_v, mKey);

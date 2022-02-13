@@ -31,7 +31,7 @@ public:
                      const auto dataHeadinfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
                      const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                      const auto globalSettings = BlackBoard::instance().get<GlobalSettings>({}).value();
-                     const double g = -globalSettings.gForce, bulletSpeed = 25.00;
+                     const double g = -globalSettings.gForce, bulletSpeed = 20.00;
                      auto square = [=](double x) { return x * x; };
                      auto cube = [=](double x) { return x * x * x; };
 
@@ -53,12 +53,12 @@ public:
                          forwardVector = { forwardPositionOfReferenceGround.raw().x, -forwardPositionOfReferenceGround.raw().z,
                                            forwardPositionOfReferenceGround.raw().y };
                          //(forward:+y,right:+x)
-                         // CAF_LOG_INFO(fmt::format("transformedposition: {},{},{}", transformedPosition.x ,transformedPosition.y
-                         // ,transformedPosition.z));
+                         // std::cout << fmt::format("transformedposition: {},{},{}", transformedPosition.x ,transformedPosition.y
+                         // ,transformedPosition.z) << std::endl;
                          double horizonalDistance = std::hypot(transformedPosition.x, transformedPosition.y);
-                         double yawAngle = -std::atan2(transformedPosition.y, transformedPosition.x) - glm::half_pi<double>();
-                         if(yawAngle < 0)
-                             yawAngle += glm::two_pi<double>();
+                         double yawAngle = std::atan2(transformedPosition.y, transformedPosition.x) - glm::half_pi<double>();
+                         //                         if(yawAngle < 0)
+                         //                             yawAngle += glm::two_pi<double>();
                          const auto expr1 =
                              std::sqrt(square(bulletSpeed) * square(bulletSpeed) -
                                        2 * g * transformedPosition.z * square(bulletSpeed) - square(horizonalDistance * g)) /
@@ -104,22 +104,26 @@ public:
 
                          bool ifShoot = (std::abs(diffPitch) < prec) && (std::abs(diffYaw) < prec);
 
-                         if(yawAngle > glm::pi<double>())
-                             yawAngle -= glm::two_pi<double>();
+                         //                         if(yawAngle > glm::pi<double>())
+                         //                             yawAngle -= glm::two_pi<double>();
 
                          // std::cout<<"Gun X "<<positionOfReferenceGun.raw().x<<" Y "<<positionOfReferenceGun.raw().y<<" Z
                          // "<<positionOfReferenceGun.raw().z<<std::endl; std::cout<<"Ground X "<<transformedPosition.x<<" Y
                          // "<<transformedPosition.y<<" Z "<<transformedPosition.z<<std::endl;
-                         std::cout << "Yaw:" << glm::degrees(yawAngle) << ", Pitch:" << glm::degrees(pitchAngle) << std::endl;
+                         //                         std::cout << "Yaw:" << glm::degrees(yawAngle) << ", Pitch:" <<
+                         //                         glm::degrees(pitchAngle) << std::endl;
                          // std::cout<<"current Yaw "<<glm::degrees(currentYawAngle)<<" Pitch
                          // "<<glm::degrees(currentPitchAngle)<<std::endl;
-                         std::cout << "Solve "
-                                   << (static_cast<double>(Clock::now().time_since_epoch().count()) / Clock::period::den)
-                                   << std::endl;
+                         //                         std::cout << "Solve "
+                         //                                   << (static_cast<double>(Clock::now().time_since_epoch().count()) /
+                         //                                   Clock::period::den)
+                         //                                   << std::endl;
 
-                         yawAngle += -diffYaw + copysign(std::min(0.03 * rand() / RAND_MAX, std::abs(diffYaw)), diffYaw);
-                         pitchAngle += -diffPitch + copysign(std::min(0.03 * rand() / RAND_MAX, std::abs(diffPitch)), diffPitch);
+                         // yawAngle += -diffYaw + copysign(std::min(0.03 * rand() / RAND_MAX, std::abs(diffYaw)), diffYaw);
+                         // pitchAngle += -diffPitch + copysign(std::min(0.03 * rand() / RAND_MAX, std::abs(diffPitch)),
+                         // diffPitch);
 
+                         //std::cout<<diffYaw<<" "<<diffPitch<<std::endl;
                          sendAll(set_target_info_atom_v, yawAngle, pitchAngle, ifShoot);
                      }
                  },
