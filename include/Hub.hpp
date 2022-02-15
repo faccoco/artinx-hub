@@ -71,6 +71,16 @@ class HubLogger {
     static std::unordered_map<std::string, TimePoint> logs;
 
 public:
+    static std::unordered_map<std::string, std::string> watches;
+
+    static void watch(const std::string& name, const std::string& log) {
+        watches[name] = log;
+    }
+
+    static void removeWatch(const std::string& name) {
+        watches.erase(name);
+    }
+
     static void print(const std::string& log, const std::string& name, const int& interval) {
         if(logs.find(name) != logs.end()) {
             if(std::chrono::duration_cast<std::chrono::milliseconds>(

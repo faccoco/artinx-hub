@@ -11,22 +11,12 @@ function randomString(length) {
 
 let filters = {};
 let images = {};
-let isUpdating = false;
+let watches = {};
 
 function updateAll() {
-    // if (isUpdating) return;
-    updateImages();
-    updateStatus();
     updateLog();
     updateFilter();
-}
-
-function updateImages() {
-    for (let k in images) {
-        if (!filters[k]) continue;
-        images[k].src = "/img/" + k + "/" + randomString(5);
-        // isUpdating = true;
-    }
+    updateWatches();
 }
 
 function updateLog() {
@@ -54,6 +44,22 @@ function updateLog() {
     if (keepDown) {
         logDiv[0].scrollTop = logDiv[0].scrollHeight;
     }
+}
+
+function updateWatches() {
+    fetch("/watch").then(res => res.json()).then(data => {
+        for (let k in data) {
+            if (watches.hasOwnProperty(k)) {
+                watches[k].html(data[k]);
+            } else {
+                let line = $("<tr><td>" + k + "</td></tr>");
+                let val = $("<td>" + data[k] + "</td>");
+                watches[k] = val;
+                line.append(val);
+                $("#watches").append(line);
+            }
+        }
+    })
 }
 
 function updateStatus() {
