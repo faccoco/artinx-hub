@@ -18,7 +18,7 @@ elseif(CMAKE_COMPILER_IS_GNUCXX)
 	if(CMAKE_BUILD_TYPE MATCHES Debug)
 		add_compile_options("-O0" "-fno-omit-frame-pointer")
 	else()
-		add_compile_options("-Ofast")
+		add_compile_options("-O3")
 	endif()
 endif()
 

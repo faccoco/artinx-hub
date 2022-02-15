@@ -172,7 +172,8 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
 
     if(argc != 2 || !fs::exists(argv[1])) {
         CAF_LOG_ERROR("Bad Config");
-        return EXIT_FAILURE;
+        //return EXIT_FAILURE;
+        std::terminate();
     }
 
     globalConfigName = fs::path{ argv[1] }.filename().string();
