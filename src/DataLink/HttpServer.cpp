@@ -33,11 +33,6 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
     std::streambuf* mClogBuffer;
     std::stringstream mLogStream;
 
-    void modifyParameter(std::string path, std::string value) {}
-    std::string generateParameterJson() {
-        return "hello world!    clock " + std::to_string(::clock());
-    }
-
     std::optional<std::vector<uchar>> generateImageData(const std::string& path) {
         if(path.empty())
             return std::nullopt;
@@ -60,12 +55,6 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
             return std::nullopt;
         return data;
     }
-    std::string generateStatusJson() {
-        return "hello world!    clock " + std::to_string(::clock());
-    }
-    std::string generateProfileJson() {
-        return "hello world!    clock " + std::to_string(::clock());
-    }
     std::string generateFilterJson() {
         nlohmann::json result = nlohmann::json::array();
         std::lock_guard<std::mutex> guard{ mMutex };
@@ -82,24 +71,38 @@ public:
 
         mServer.set_mount_point("/pages", "./pages");
 
-        mServer.Get("/status", [this](const httplib::Request&, httplib::Response& res) {
-            res.set_content(generateStatusJson(), "text/plain");
+        mServer.Get("/status", [](const httplib::Request&, httplib::Response& res) {
+            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
         });
-        mServer.Get("/profile", [this](const httplib::Request&, httplib::Response& res) {
-            res.set_content(generateProfileJson(), "text/plain");
-        });
-        mServer.Get("/parameters", [this](const httplib::Request& req, httplib::Response& res) {
-            res.set_content(generateParameterJson(), "text/plain");
-        });
+        //        mServer.Get("/profile", [this](const httplib::Request&, httplib::Response& res) {
+        //            res.set_content("hello world!    clock " + std::to_string(::clock());, "text/plain");
+        //        });
+        //        mServer.Get("/parameters", [this](const httplib::Request& req, httplib::Response& res) {
+        //            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
+        //        });
         mServer.Get(R"(/img/(\d+)/.*)", [this](const httplib::Request& req, httplib::Response& res) {
-            if(auto img = generateImageData(req.matches[1])) {
-                const auto& data = img.value();
-                res.set_content(reinterpret_cast<const char*>(data.data()), data.size(), "blob");
-            }
+            auto path = req.matches[1];
+            res.set_content_provider(
+                "multipart/x-mixed-replace;boundary=MJP",
+                [this, &path](size_t offset, httplib::DataSink& sink) {
+                    if(auto img = generateImageData(path)) {
+                        auto vec = img.value();
+                        sink.os << "--MJP\r\n"
+                                   "Content-Type: image/jpeg\r\n"
+                                   "Content-Length: "
+                                << vec.size() << "\r\n\r\n";
+                        sink.os.write(reinterpret_cast<const char*>(vec.data()), static_cast<long>(vec.size()));
+                    }
+                    return true;
+                },
+                [](bool) {});
         });
         mServer.Get("/log", [this](const httplib::Request& req, httplib::Response& res) {
             res.set_content(mLogStream.str(), "text/plain");
             mLogStream.str("");
+        });
+        mServer.Get("/watch", [](const httplib::Request& req, httplib::Response& res) {
+            res.set_content(nlohmann::json(HubLogger::watches).dump(), "application/json");
         });
         mServer.Post("/filter", [this](const httplib::Request& req, httplib::Response& res) {
             if(req.body.empty()) {
