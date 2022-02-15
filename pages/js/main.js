@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    setInterval("updateAll()", 50);
+    setInterval("updateAll()", 100);
 });
 
 function randomString(length) {
@@ -22,14 +22,14 @@ function updateAll() {
 function updateLog() {
     let logDiv = $("#logs");
     let keepDown = false;
-    if (logDiv[0].scrollTop + logDiv[0].clientHeight >= logDiv[0].scrollHeight - 0.6) {
+    if (logDiv[0].scrollTop + logDiv[0].clientHeight >= logDiv[0].scrollHeight - 200.0) {
         keepDown = true;
     }
     fetch("/log").then(res => {
         if (!res.ok) {
             throw new Error(res.status + "");
         }
-        return res.text()
+        return res.text();
     }).then(data => {
         if (data === "") return;
         if (this.prev) {
@@ -42,7 +42,7 @@ function updateLog() {
         this.prev = logs[logs.length - 1];
     });
     if (keepDown) {
-        logDiv[0].scrollTop = logDiv[0].scrollHeight;
+        logDiv[0].scrollTop = logDiv[0].scrollHeight - logDiv[0].clientHeight;
     }
 }
 
