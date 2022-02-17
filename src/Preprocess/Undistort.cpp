@@ -6,8 +6,6 @@
 #include <opencv2/calib3d.hpp>
 #include <cstdint>
 
-#define CALIBRATIONDEBUG
-
 struct UndistortSettings final {
     std::string ymlPath;
 };
@@ -19,14 +17,14 @@ bool inspect(Inspector& f, UndistortSettings& x) {
 
 class Undistort final : public HubHelper<caf::event_based_actor, UndistortSettings, image_frame_atom> {
     Identifier mKey;
-    cv::Mat cameraMatrix, distCoeffs;
+    cv::Mat mCameraMatrix, mDistCoeffs;
 
 public:
     Undistort(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(Undistort).hash_code() } {
         cv::FileStorage fs(mConfig.ymlPath, cv::FileStorage::READ);
-        fs["camera_matrix"] >> cameraMatrix;
-        fs["distortion_coefficients"] >> distCoeffs;
+        fs["camera_matrix"] >> mCameraMatrix;
+        fs["distortion_coefficients"] >> mDistCoeffs;
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) {},
@@ -35,7 +33,7 @@ public:
 
                      // Implement here
                      const auto temp = res.frame.clone();
-                     cv::undistort(temp, res.frame, cameraMatrix, distCoeffs);
+                     cv::undistort(temp, res.frame, mCameraMatrix, mDistCoeffs);
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(image_frame_atom_v, mKey);
@@ -80,25 +78,27 @@ bool inspect(Inspector& f, UndistortCalibratorSettings& x) {
     );
 }
 
+enum class Status { DETECTION = 0, CAPTURING = 1, CALIBRATED = 2 };
+
 class UndistortCalibrator final : public HubHelper<caf::event_based_actor, UndistortCalibratorSettings, image_frame_atom> {
     Identifier mKey;
-    int32_t flag = 0;
-    float gridWidth;
-    bool releaseObject = false;
-    std::vector<std::vector<cv::Point2f>> imagePoints;
-    cv::Mat cameraMatrix, distCoeffs;
-    cv::Size imageSize;
-    int mode;
+    int32_t mFlag = 0;
+    float mGridWidth;
+    bool mReleaseObject = false;
+    std::vector<std::vector<cv::Point2f>> mImagePoints;
+    cv::Mat mCameraMatrix, mDistCoeffs;
+    cv::Size mImageSize;
+    Status mMode;
 
 void initFlag() {
-        if(mConfig.calibFixPrincipalPoint) flag |= cv::CALIB_FIX_PRINCIPAL_POINT;
-        if(mConfig.calibZeroTangentDist)   flag |= cv::CALIB_ZERO_TANGENT_DIST;
-        if(mConfig.aspectRatio)            flag |= cv::CALIB_FIX_ASPECT_RATIO;
-        if(mConfig.fixK1)                  flag |= cv::CALIB_FIX_K1;
-        if(mConfig.fixK2)                  flag |= cv::CALIB_FIX_K2;
-        if(mConfig.fixK3)                  flag |= cv::CALIB_FIX_K3;
-        if(mConfig.fixK4)                  flag |= cv::CALIB_FIX_K4;
-        if(mConfig.fixK5)                  flag |= cv::CALIB_FIX_K5;
+        if(mConfig.calibFixPrincipalPoint) mFlag |= cv::CALIB_FIX_PRINCIPAL_POINT;
+        if(mConfig.calibZeroTangentDist)   mFlag |= cv::CALIB_ZERO_TANGENT_DIST;
+        if(mConfig.aspectRatio)            mFlag |= cv::CALIB_FIX_ASPECT_RATIO;
+        if(mConfig.fixK1)                  mFlag |= cv::CALIB_FIX_K1;
+        if(mConfig.fixK2)                  mFlag |= cv::CALIB_FIX_K2;
+        if(mConfig.fixK3)                  mFlag |= cv::CALIB_FIX_K3;
+        if(mConfig.fixK4)                  mFlag |= cv::CALIB_FIX_K4;
+        if(mConfig.fixK5)                  mFlag |= cv::CALIB_FIX_K5;
 }
 
 double computeReprojectionErrors(const std::vector<std::vector<cv::Point3f>>& objectPoints, const std::vector<std::vector<cv::Point2f>>& imagePoints,
@@ -114,7 +114,7 @@ double computeReprojectionErrors(const std::vector<std::vector<cv::Point3f>>& ob
         err = cv::norm(imagePoints[i], imagePoints2, cv::NORM_L2);
 
         size_t n = objectPoints[i].size();
-        perViewErrors[i] = (float)std::sqrt(err * err / n);
+        perViewErrors[i] = static_cast<float>(std::sqrt(err * err / n));
         totalErr += err * err;
         totalPoints += n;
     }
@@ -132,28 +132,28 @@ void calcBoardCornerPositions(cv::Size boardSize, float squareSize, std::vector<
 
 bool runCalibration(std::vector<cv::Mat>& rvecs, std::vector<cv::Mat>& tvecs,
                     std::vector<float>& reprojErrs, double& totalAvgErr, std::vector<cv::Point3f>& newObjPoints) {
-    cameraMatrix = cv::Mat::eye(3, 3, CV_64F);
-    if(flag & cv::CALIB_FIX_ASPECT_RATIO)
-        cameraMatrix.at<double>(0, 0) = mConfig.aspectRatio;
-    distCoeffs = cv::Mat::zeros(8, 1, CV_64F);
+    mCameraMatrix = cv::Mat::eye(3, 3, CV_64F);
+    if(mFlag & cv::CALIB_FIX_ASPECT_RATIO)
+        mCameraMatrix.at<double>(0, 0) = mConfig.aspectRatio;
+    mDistCoeffs = cv::Mat::zeros(8, 1, CV_64F);
 
     std::vector<std::vector<cv::Point3f>> objectPoints(1);
     calcBoardCornerPositions(mConfig.boardSize, mConfig.squareSize, objectPoints[0]);
-    objectPoints[0][mConfig.boardSize.width - 1].x = objectPoints[0][0].x + gridWidth;
+    objectPoints[0][mConfig.boardSize.width - 1].x = objectPoints[0][0].x + mGridWidth;
     newObjPoints = objectPoints[0];
 
-    objectPoints.resize(imagePoints.size(), objectPoints[0]);
+    objectPoints.resize(mImagePoints.size(), objectPoints[0]);
 
     // Find intrinsic and extrinsic camera parameters
     double rms;
 
     int iFixedPoint = -1;
-    if(releaseObject)
+    if(mReleaseObject)
         iFixedPoint = mConfig.boardSize.width - 1;
-    rms = cv::calibrateCameraRO(objectPoints, imagePoints, imageSize, iFixedPoint, cameraMatrix, distCoeffs, rvecs, tvecs,
-                                newObjPoints, flag | cv::CALIB_USE_LU);
+    rms = cv::calibrateCameraRO(objectPoints, mImagePoints, mImageSize, iFixedPoint, mCameraMatrix, mDistCoeffs, rvecs, tvecs,
+                                newObjPoints, mFlag | cv::CALIB_USE_LU);
 
-    if(releaseObject) {
+    if(mReleaseObject) {
         CAF_LOG_INFO ("New board corners: ");
         CAF_LOG_INFO(newObjPoints[0]);
         CAF_LOG_INFO(newObjPoints[mConfig.boardSize.width - 1]);
@@ -163,12 +163,12 @@ bool runCalibration(std::vector<cv::Mat>& rvecs, std::vector<cv::Mat>& tvecs,
 
     CAF_LOG_INFO(std::string("Re-projection error reported by calibrateCamera: " + std::to_string(rms)));
 
-    bool ok = cv::checkRange(cameraMatrix) && cv::checkRange(distCoeffs);
+    bool ok = cv::checkRange(mCameraMatrix) && cv::checkRange(mDistCoeffs);
 
     objectPoints.clear();
-    objectPoints.resize(imagePoints.size(), newObjPoints);
-    totalAvgErr = computeReprojectionErrors(objectPoints, imagePoints, rvecs, tvecs, cameraMatrix,
-                                            distCoeffs, reprojErrs);
+    objectPoints.resize(mImagePoints.size(), newObjPoints);
+    totalAvgErr = computeReprojectionErrors(objectPoints, mImagePoints, rvecs, tvecs, mCameraMatrix,
+                                            mDistCoeffs, reprojErrs);
 
     return ok;   
 }
@@ -183,31 +183,18 @@ void saveCameraParams( const std::vector<cv::Mat>& rvecs, const std::vector<cv::
 
     if(!rvecs.empty() || !reprojErrs.empty())
         fs << "nr_of_frames" << (int)std::max(rvecs.size(), reprojErrs.size());
-    fs << "image_width" << imageSize.width;
-    fs << "image_height" << imageSize.height;
+
+    fs << "image_width" << mImageSize.width;
+    fs << "image_height" << mImageSize.height;
     fs << "board_width" << mConfig.boardSize.width;
     fs << "board_height" << mConfig.boardSize.height;
     fs << "square_size" << mConfig.squareSize;
 
-    if(flag & cv::CALIB_FIX_ASPECT_RATIO)
+    if(mFlag & cv::CALIB_FIX_ASPECT_RATIO)
         fs << "fix_aspect_ratio" << mConfig.aspectRatio;
 
-    if(flag) {
-        std::stringstream flagsStringStream;
-        flagsStringStream << "flags:" << (flag & cv::CALIB_USE_INTRINSIC_GUESS ? " +use_intrinsic_guess" : "")
-                            << (flag & cv::CALIB_FIX_ASPECT_RATIO ? " +fix_aspectRatio" : "")
-                            << (flag & cv::CALIB_FIX_PRINCIPAL_POINT ? " +fix_principal_point" : "")
-                            << (flag & cv::CALIB_ZERO_TANGENT_DIST ? " +zero_tangent_dist" : "")
-                            << (flag & cv::CALIB_FIX_K1 ? " +fix_k1" : "") << (flag & cv::CALIB_FIX_K2 ? " +fix_k2" : "")
-                            << (flag & cv::CALIB_FIX_K3 ? " +fix_k3" : "") << (flag & cv::CALIB_FIX_K4 ? " +fix_k4" : "")
-                            << (flag & cv::CALIB_FIX_K5 ? " +fix_k5" : "");
-        fs.writeComment(flagsStringStream.str());
-    }
-
-    fs << "flags" << flag;
-
-    fs << "camera_matrix" << cameraMatrix;
-    fs << "distortion_coefficients" << distCoeffs;
+    fs << "camera_matrix" << mCameraMatrix;
+    fs << "distortion_coefficients" << mDistCoeffs;
 
     fs << "avg_reprojection_error" << totalAvgErr;
     if(mConfig.writeExtrinsics && !reprojErrs.empty())
@@ -242,11 +229,11 @@ void saveCameraParams( const std::vector<cv::Mat>& rvecs, const std::vector<cv::
         fs << "extrinsic_parameters" << bigmat;
     }
 
-    if(mConfig.writePoints && !imagePoints.empty()) {
-        cv::Mat imagePtMat((int)imagePoints.size(), (int)imagePoints[0].size(), CV_32FC2);
-        for(size_t i = 0; i < imagePoints.size(); i++) {
+    if(mConfig.writePoints && !mImagePoints.empty()) {
+        cv::Mat imagePtMat((int)mImagePoints.size(), (int)mImagePoints[0].size(), CV_32FC2);
+        for(size_t i = 0; i < mImagePoints.size(); i++) {
             cv::Mat r = imagePtMat.row(int(i)).reshape(2, imagePtMat.cols);
-            cv::Mat imgpti(imagePoints[i]);
+            cv::Mat imgpti(mImagePoints[i]);
             imgpti.copyTo(r);
         }
         fs << "image_points" << imagePtMat;
@@ -273,19 +260,14 @@ bool runCalibrationAndSave() {
     return ok;
 }
 
-enum {
-    DETECTION = 0,
-    CAPTURING = 1,
-    CALIBRATED = 2
-};
 
 public:
     UndistortCalibrator(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(UndistortCalibrator).hash_code() } {
     
         initFlag();
-        gridWidth = mConfig.squareSize * (mConfig.boardSize.width - 1);
-        mode = CAPTURING;
+        mGridWidth = mConfig.squareSize * (mConfig.boardSize.width - 1);
+        mMode = Status::CAPTURING;
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) {},
@@ -296,14 +278,14 @@ public:
                      CameraFrame res = input;
 
                      //-----  If no more image, or got enough, then stop calibration and show result -------------
-                     if(mode == CAPTURING && imagePoints.size() >= (size_t)mConfig.nrFrames) {
+                     if(mMode == Status::CAPTURING && mImagePoints.size() >= static_cast<size_t>(mConfig.nrFrames)) {
                          if(runCalibrationAndSave())
-                             mode = CALIBRATED;
+                             mMode = Status::CALIBRATED;
                          else
-                             mode = DETECTION;
+                             mMode = Status::DETECTION;
                      }
                                  
-                     imageSize = res.frame.size();
+                     mImageSize = res.frame.size();
                      if(mConfig.flipVertical)
                          cv::flip(res.frame, res.frame, 0);
 
@@ -320,33 +302,33 @@ public:
                          cv::cvtColor(res.frame, imgGray, cv::COLOR_BGR2GRAY);
                          cornerSubPix(imgGray, pointBuf, cv::Size(mConfig.winSize, mConfig.winSize), cv::Size(-1, -1),
                                       cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.0001));
-                         imagePoints.push_back(pointBuf);
+                         mImagePoints.push_back(pointBuf);
                          // Draw the corners
                          cv::drawChessboardCorners(res.frame, mConfig.boardSize, cv::Mat(pointBuf), found);
                      }
 
-#ifdef CALIBRATIONDEBUG
+#ifdef ARTINXHUB_DEBUG
                      //----------------------------- Output Text ------------------------------------------------
                      //! [output_text]
-                     std::string msg = (mode == CAPTURING) ? "100/100" : mode == CALIBRATED ? "Calibrated" : "Deteceted";;
+                     std::string msg = (mMode == Status::CAPTURING) ? "100/100" :(mMode == Status::CALIBRATED) ? "Calibrated" : "Deteceted";
                      int baseLine = 0;
                      cv::Size textSize = cv::getTextSize(msg, 1, 1, 1, &baseLine);
                      cv::Point textOrigin(res.frame.cols - 2 * textSize.width - 10, res.frame.rows - 2 * baseLine - 10);
 
-                     if(mode == CAPTURING) {
+                     if(mMode == Status::CAPTURING) {
                          if(mConfig.showUndistorted)
-                             msg = cv::format("%d/%d Undist", (int)imagePoints.size(), mConfig.nrFrames);
+                             msg = cv::format("%d/%d Undist", (int)mImagePoints.size(), mConfig.nrFrames);
                          else
-                             msg = cv::format("%d/%d", (int)imagePoints.size(), mConfig.nrFrames);
+                             msg = cv::format("%d/%d", (int)mImagePoints.size(), mConfig.nrFrames);
                      }
 
                      cv::putText(res.frame, msg, textOrigin, 1, 1, cv::Scalar(0, 255, 0));
 
                      //-------------------------output  undistorted ------------------------------
                     //! [output_undistorted]
-                     if(mode == CALIBRATED && mConfig.showUndistorted) {
+                     if(mMode == Status::CALIBRATED && mConfig.showUndistorted) {
                          cv::Mat temp = res.frame.clone();
-                         cv::undistort(temp, res.frame, cameraMatrix, distCoeffs);
+                         cv::undistort(temp, res.frame, mCameraMatrix, mDistCoeffs);
                      }
 #endif
                      // For debugging
