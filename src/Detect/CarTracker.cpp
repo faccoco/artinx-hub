@@ -1,4 +1,4 @@
-﻿#include "BlackBoard.hpp"
+#include "BlackBoard.hpp"
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
@@ -6,35 +6,34 @@
 #include <caf/event_based_actor.hpp>
 #include <opencv2/tracking.hpp>
 #include <vector>
-#include <cmath>
+#include <limits>
 
 using MultiTrackers = std::vector<cv::Ptr<cv::TrackerKCF>>;
 using VectorRect = std::vector<cv::Rect>;
-using Inf = std::numeric_limits<double>;
 
+constexpr double infinity = std::numeric_limits<double>::infinity();
 constexpr int32_t maxNumRobot = 10;
 
 
 class CarTracker final : public HubHelper<caf::event_based_actor, void, car_detect_available_atom> {
 	Identifier mKey;
-	MultiTrackers trackers = MultiTrackers(maxNumRobot, nullptr);
-	VectorRect trackedBoxes = VectorRect(maxNumRobot, cv::Rect(0, 0, 0, 0));
-	bool initialFlag = false;
-	int32_t initialisedTrackerNum = 0;
+	MultiTrackers mTrackers = MultiTrackers(maxNumRobot, nullptr);
+	VectorRect mTrackedBoxes = VectorRect(maxNumRobot, cv::Rect(0, 0, 0, 0));
+	bool mInitialFlag = false;
+	int32_t mInitialisedTrackerNum = 0;
 
 public:
 	CarTracker(caf::actor_config& base, const HubConfig& config)
 		: HubHelper{ base, config }, mKey{ typeid(CarTracker).hash_code() } {
 		for(int i = 0; i < maxNumRobot; i++) {
-			trackers[i] = cv::TrackerKCF::create();
+			mTrackers[i] = cv::TrackerKCF::create();
 		}
 	}
 
 	caf::behavior make_behavior() override {
 		return { [this](start_atom) {},
 				 [&](image_frame_atom, Identifier key) { 
-					if(!initialFlag) {
-						CAF_LOG_ERROR("Tracker do not initialise, tracking failed!"); 
+					if(!mInitialFlag) {
 						return;
 					}
 					const auto data = BlackBoard::instance().get<CameraFrame>(key).value();
@@ -42,10 +41,10 @@ public:
 					DetectedCarArray carTrackedRes;
 					carTrackedRes.frame = data;
 					
-					for(int i = 0; i < initialisedTrackerNum; ++i) {
-						const auto ok = trackers[i]->update(carTrackedRes.frame.frame, trackedBoxes[i]);
+					for(int i = 0; i < mInitialisedTrackerNum; ++i) {
+						const auto ok = mTrackers[i]->update(carTrackedRes.frame.frame, mTrackedBoxes[i]);
                         if(ok) {
-                            carTrackedRes.cars.push_back(trackedBoxes[i]);
+                            carTrackedRes.cars.push_back(mTrackedBoxes[i]);
 						}
 					}
 
@@ -58,23 +57,23 @@ public:
                     DetectedCarArray carTrackedRes;
                     carTrackedRes.frame = carDetectedRes.frame;
 
-                    if(!initialFlag) {
+                    if(!mInitialFlag) {
                         for(int i = 0; i < carDetectedRes.cars.size(); ++i) {
-                            trackedBoxes[i] = carDetectedRes.cars[i];
+                            mTrackedBoxes[i] = carDetectedRes.cars[i];
                             carTrackedRes.cars.push_back(carDetectedRes.cars[i]);
-                            trackers[i]->init(carTrackedRes.frame.frame, trackedBoxes[i]);
-                            initialisedTrackerNum++;
+                            mTrackers[i]->init(carTrackedRes.frame.frame, mTrackedBoxes[i]);
+                            mInitialisedTrackerNum++;
                         }
-                        initialFlag = true;
+                        mInitialFlag = true;
 
                         BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes));
                         sendAll(car_detect_available_atom_v, mKey);
                     } else {
                         VectorRect trackRectRes;
-                        for(int i = 0; i < initialisedTrackerNum; ++i) {
-                            const auto ok = trackers[i]->update(carTrackedRes.frame.frame, trackedBoxes[i]);
+                        for(int i = 0; i < mInitialisedTrackerNum; ++i) {
+                            const auto ok = mTrackers[i]->update(carTrackedRes.frame.frame, mTrackedBoxes[i]);
                             if(ok) {
-                                trackRectRes.push_back(trackedBoxes[i]);
+                                trackRectRes.push_back(mTrackedBoxes[i]);
                             }
                         }
 
@@ -84,20 +83,22 @@ public:
 
                         //match algorithm: Match the rectangle closest to the center
                         for(const auto& detectedRect : carDetectedRes.cars) {
-                            carTrackedRes.cars.push_back(detectedRect);
+                            carTrackedRes.cars.push_back(detectedRect);  
                             const auto centerPoint = computeCenterPoint(detectedRect);
-                            auto tmpDist = Inf::max();
+                            auto tmpDist = infinity;
                             auto matchIndex = -1;
                             for(int j = 0; j < trackRectRes.size(); ++j) {
                                 const auto trackedRectCenter = computeCenterPoint(trackRectRes[j]);
-                                const auto dist = std::pow((centerPoint.first - trackedRectCenter.first), 2) +
-                                                  std::pow((centerPoint.second - trackedRectCenter.second), 2);
+                                const auto dist = (centerPoint.first - trackedRectCenter.first) * (centerPoint.first - trackedRectCenter.first) +
+                                                  (centerPoint.second - trackedRectCenter.second) * (centerPoint.first - trackedRectCenter.first);
                                 if(dist < tmpDist) {
                                     tmpDist = dist;
                                     matchIndex = j;
                                 }
                             }
-                            if(tmpDist > std::pow(carDetectedRes.cars[matchIndex].width, 2)) {
+                            //If the mini distance between carTrackRect and the mathced carDetectedRec, 
+                            //I think of this carTrackedRect as the missed dectected car. 
+                            if(tmpDist > carDetectedRes.cars[matchIndex].width * carDetectedRes.cars[matchIndex].width) {
                                 carTrackedRes.cars.push_back(trackRectRes[matchIndex]);
                             }
                         }
@@ -107,14 +108,14 @@ public:
 
                         //Update
                         if(carDetectedRes.cars.size() > trackRectRes.size()) {
-                            trackers.clear();
-                            trackedBoxes.clear();
-                            initialisedTrackerNum = 0;
+                            mTrackers.clear();
+                            mTrackedBoxes.clear();
+                            mInitialisedTrackerNum = 0;
                             for(const auto& detectedRect : carDetectedRes.cars) {
                                 const auto tracker = cv::TrackerKCF::create();
-                                trackers.push_back(tracker);
-                                trackedBoxes.push_back(detectedRect);
-                                tracker->init(carTrackedRes.frame.frame, trackedBoxes[initialisedTrackerNum++]);
+                                mTrackers.push_back(tracker);
+                                mTrackedBoxes.push_back(detectedRect);
+                                tracker->init(carTrackedRes.frame.frame, mTrackedBoxes[mInitialisedTrackerNum++]);
                             }
                         }
 
@@ -127,3 +128,5 @@ public:
 	}
 
 };
+
+HUB_REGISTER_CLASS(CarTracker);
