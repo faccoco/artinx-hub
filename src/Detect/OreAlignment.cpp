@@ -2,9 +2,9 @@
 #include "DataDesc.hpp"
 #include "DetectedOre.hpp"
 #include "Hub.hpp"
+#include <algorithm>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
-#include <fmt/format.h>
 #include <magic_enum.hpp>
 #include <opencv2/opencv.hpp>
 #include <utility>
@@ -42,10 +42,10 @@ bool inspect(Inspector& f, OreAlignmentStettings& x) {
         f.field("distanceToOre", x.distanceToOre), f.field("offset", x.offset), f.field("movingThreshold", x.movingThreshold));
 }
 
-class OreDetector final : public HubHelper<caf::event_based_actor, OreAlignmentStettings, ore_alignment_available_atom> {
+class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignmentStettings, ore_alignment_available_atom> {
     Identifier mKey;
 
-    std::vector<cv::Rect> oreRectArray;
+    std::vector<cv::Rect_<int64_t>> oreRectArray;
     cv::Mat bgrFrame, hsvFrame, binaryOreFrame;
 
     DetectedOreArray solveDirection(DetectedOreArray& oreArray, const OreAlignmentStettings& settings) {
@@ -58,14 +58,14 @@ class OreDetector final : public HubHelper<caf::event_based_actor, OreAlignmentS
                                        settings);
                 uint32_t lightOutFrames = 0;
                 for(uint64_t i = 0; i != oreArray.orePositionHistory.size(); ++i) {
-                    if(oreArray.orePositionHistory.at(i).flashingIndex != oreArray.orePositionHistory.at(i).totalNum)
+                    if(oreArray.orePositionHistory[i].flashingIndex != oreArray.orePositionHistory[i].totalNum)
                         ++lightOutFrames;
                 }
                 if(lightOutFrames / settings.storageFrameCount >= settings.flashThreshold) {
                     for(uint64_t i = oreArray.orePositionHistory.size() - 1; i != -1; --i) {
-                        if(oreArray.orePositionHistory.at(i).flashingIndex != oreArray.orePositionHistory.at(i).totalNum) {
+                        if(oreArray.orePositionHistory[i].flashingIndex != oreArray.orePositionHistory[i].totalNum) {
                             tempMovement.distance = transformToRealDistance(
-                                oreRectArray.at(oreArray.orePositionHistory.at(i).flashingIndex), oreArray.frame, settings);
+                                oreRectArray[oreArray.orePositionHistory[i].flashingIndex], oreArray.frame, settings);
                             if(abs(tempMovement.distance) < settings.movingThreshold)
                                 tempMovement.direction = MoveDirection::STAY;
                             else if(tempMovement.distance > 0)
@@ -83,10 +83,10 @@ class OreDetector final : public HubHelper<caf::event_based_actor, OreAlignmentS
 
             case OreDetectorMode::GOLD_ON_THE_GROUND: {
                 detectOres(oreArray, settings);
-                double minDistance = transformToRealDistance(oreRectArray.at(0), oreArray.frame, settings);
+                double minDistance = transformToRealDistance(oreRectArray[0], oreArray.frame, settings);
                 for(uint64_t i = 1; i != oreRectArray.size(); ++i) {
-                    if(abs(transformToRealDistance(oreRectArray.at(i), oreArray.frame, settings)) < abs(minDistance))
-                        minDistance = abs(transformToRealDistance(oreRectArray.at(i), oreArray.frame, settings));
+                    if(abs(transformToRealDistance(oreRectArray[i], oreArray.frame, settings)) < abs(minDistance))
+                        minDistance = abs(transformToRealDistance(oreRectArray[i], oreArray.frame, settings));
                 }
 
                 if(abs(minDistance) <= settings.movingThreshold)
@@ -118,25 +118,17 @@ class OreDetector final : public HubHelper<caf::event_based_actor, OreAlignmentS
         findContours(binaryOreFrame, orePointsArray, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
         for(const auto& singleMine : orePointsArray) {
-            cv::Rect tempRect = boundingRect(singleMine);
+            cv::Rect_<int64_t> tempRect = boundingRect(singleMine);
             if(settings.minOreArea < tempRect.area() && tempRect.area() < settings.maxOreArea) {
                 cv::rectangle(bgrFrame, tempRect, cv::Scalar(255, 0, 0), 1, cv::LINE_8);
                 oreRectArray.push_back(tempRect);
             }
         }
-        // sort vector<Rect>
-        for(int64_t i = 0; i != oreRectArray.size(); ++i) {
-            for(int64_t j = 0; j != oreRectArray.size() - i - 1; ++j) {
-                if(oreRectArray[j].x > oreRectArray[j + 1].x) {
-                    cv::Rect temp = oreRectArray[j];
-                    oreRectArray[j] = oreRectArray[j + 1];
-                    oreRectArray[j + 1] = temp;
-                }
-            }
-        }
+        std::sort(oreRectArray.begin(), oreRectArray.end(), OreAlignment::rectCompare);
     }
 
-    OrePosition detectLightBar(cv::Mat& frame, const std::vector<cv::Rect>& oreRectArray, const OreAlignmentStettings& settings) {
+    OrePosition detectLightBar(cv::Mat& frame, const std::vector<cv::Rect_<int64_t>>& oreRectArray,
+                               const OreAlignmentStettings& settings) {
         cv::Rect tempRect;
         cv::Mat lightbarFrame;
         uint64_t index = 0;
@@ -181,9 +173,13 @@ class OreDetector final : public HubHelper<caf::event_based_actor, OreAlignmentS
             settings.offset;
     }
 
+    static bool rectCompare(const cv::Rect_<int64_t>& front, const cv::Rect_<int64_t>& back) {
+        return front.x < back.x;
+    }
+
 public:
-    OreDetector(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(OreDetector).hash_code() } {}
+    OreAlignment(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ typeid(OreAlignment).hash_code() } {}
 
     caf::behavior make_behavior() override {
         return { [this](start_atom) {},
@@ -202,4 +198,4 @@ public:
     }
 };
 
-HUB_REGISTER_CLASS(OreDetector);
+HUB_REGISTER_CLASS(OreAlignment);
