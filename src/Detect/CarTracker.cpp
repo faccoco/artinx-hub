@@ -33,6 +33,7 @@ public:
         return {
             [this](start_atom) {},
             [&](image_frame_atom, Identifier key) {
+                CAF_LOG_INFO("image_frame_atom");
                 if(!mInitialFlag) {
                     return;
                 }
@@ -52,6 +53,7 @@ public:
                 sendAll(car_detect_available_atom_v, mKey);
             },
             [&](car_detect_available_atom, Identifier key) {
+                CAF_LOG_INFO("car_detect_available_atom");
                 const auto carDetectedRes = BlackBoard::instance().get<DetectedCarArray>(key).value();
 
                 DetectedCarArray carTrackedRes;
@@ -99,13 +101,10 @@ public:
                         }
                         // If the mini distance between carTrackRect and the mathced carDetectedRec more than one rect width,
                         // I think of this carTrackedRect as the missed dectected car.
-                        if(tmpDist > carDetectedRes.cars[matchIndex].width * carDetectedRes.cars[matchIndex].width) {
+                        if(tmpDist > detectedRect.width * detectedRect.width) {
                             carTrackedRes.cars.push_back(trackRectRes[matchIndex]);
                         }
                     }
-
-                    BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes));
-                    sendAll(car_detect_available_atom_v, mKey);
 
                     // Update
                     if(carDetectedRes.cars.size() > trackRectRes.size()) {
@@ -113,12 +112,16 @@ public:
                         mTrackedBoxes.clear();
                         mInitialisedTrackerNum = 0;
                         for(const auto& detectedRect : carDetectedRes.cars) {
-                            const auto tracker = cv::TrackerKCF::create();
-                            mTrackers.push_back(tracker);
+                            mTrackers.push_back(cv::TrackerKCF::create());
                             mTrackedBoxes.push_back(detectedRect);
-                            tracker->init(carTrackedRes.frame.frame, mTrackedBoxes[mInitialisedTrackerNum++]);
+                            mTrackers[mInitialisedTrackerNum]->init(carTrackedRes.frame.frame, mTrackedBoxes[mInitialisedTrackerNum]);
+                            mInitialisedTrackerNum++;
                         }
                     }
+
+                    BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes));
+                    sendAll(car_detect_available_atom_v, mKey);
+
                 }
             },
 
