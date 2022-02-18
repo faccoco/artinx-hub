@@ -15,6 +15,7 @@ set(SOURCE
 "Detect/CarDetector.cpp"
 "Detect/FakeCarDetector.cpp"
 "Detect/NumClassifier.cpp"
+"Detect/OreAlignment.cpp"
 "Postprocess/ArmorPredictor.cpp"
 "Preprocess/ColorCalibration.cpp"
 "Preprocess/IMUFilter.cpp"
