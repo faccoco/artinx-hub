@@ -1,5 +1,6 @@
 #pragma once
 #include "Common.hpp"
+#include "Timer.hpp"
 #include <caf/actor_system.hpp>
 #include <caf/config_value.hpp>
 #include <chrono>
@@ -63,5 +64,37 @@ public:
             dest = detail::parseSucceed(this->system(), std::get<0>(dest));
         for(auto&& address : std::get<1>(dest))
             this->send(caf::actor_cast<caf::actor>(address), atom, args...);
+    }
+};
+
+class HubLogger {
+    static std::unordered_map<std::string, TimePoint> logs;
+
+public:
+    static std::unordered_map<std::string, std::string> watches;
+
+    static void watch(const std::string& name, const std::string& log) {
+        watches[name] = log;
+    }
+
+    static void removeWatch(const std::string& name) {
+        watches.erase(name);
+    }
+
+    static void print(const std::string& log, const std::string& name, const int& interval) {
+        if(logs.find(name) != logs.end()) {
+            if(std::chrono::duration_cast<std::chrono::milliseconds>(
+                   SynchronizedClock::instance().now() - logs[name]).count() < interval)
+                return;
+        }
+        logs[name] = SynchronizedClock::instance().now();
+        CAF_LOG_INFO(log);
+    }
+
+    static void printDebugOnly(const std::string& log, const std::string& name, const int& interval) {
+#ifndef ARTINXHUB_DEBUG
+        return;
+#endif
+        print(log, name, interval);
     }
 };

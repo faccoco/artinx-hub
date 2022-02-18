@@ -39,11 +39,11 @@ private:
             return;
 
         CameraFrame res;
-        res.frame = (mConfig.width == img.cols && mConfig.height == img.rows) ? resize(img) : std::move(img);
+        res.frame = (mConfig.width == img.cols && mConfig.height == img.rows) ? std::move(img) : resize(img);
         res.info.width = mConfig.width;
         res.info.height = mConfig.height;
         res.info.fov = mConfig.fov;
-        res.lastUpdate = SynchronizedClock::now();
+        res.lastUpdate = SynchronizedClock::instance().now();
 
         BlackBoard::instance().updateSync(mKey, std::move(res));
         sendAll(image_frame_atom_v, mKey);

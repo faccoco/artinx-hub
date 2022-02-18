@@ -5,6 +5,9 @@ set(SOURCE
 "Core/Daemon.cpp"
 "Core/PerformanceMonitor.cpp"
 "DataLink/HttpServer.cpp"
+"DataLink/AsyncSerial/AsyncSerial.cpp"
+"DataLink/AsyncSerial/BufferedAsyncSerial.cpp"
+"DataLink/SerialPort.cpp"
 "Sensor/DahengDriver.cpp"
 "Sensor/ImageSequenceReplay.cpp"
 "Sensor/VideoReplay.cpp"
@@ -13,11 +16,13 @@ set(SOURCE
 "Detect/CarTracker.cpp"
 "Detect/FakeCarDetector.cpp"
 "Detect/NumClassifier.cpp"
+"Postprocess/ArmorPredictor.cpp"
 "Preprocess/ColorCalibration.cpp"
 "Preprocess/IMUFilter.cpp"
 "Preprocess/Undistort.cpp"
 "Solve/AngleSolver.cpp"
 "Solve/ArmorLocator.cpp"
+"Solve/RadarLocator.cpp"
 "Strategy/Sentry.cpp"
 "Test/ActorFramework/Test.cpp"
 "Test/Sensor/FixedIMU.cpp"
@@ -27,8 +32,11 @@ set(SOURCE
 "Test/Solve/FakeIMU.cpp"
 "Test/Solve/SimpleStrategy.cpp"
 "Test/Solve/Simulator.cpp"
+"Test/TestHelper.cpp"
 "Utility/ArmorDetectorDrawer.cpp"
 "Utility/CarDetectorDrawer.cpp"
+"Utility/Crc.cpp"
+"Utility/KM.cpp"
 "Utility/OpenCVHelper.cpp"
 "Utility/PID.cpp"
 "Utility/Timer.cpp"
@@ -45,6 +53,7 @@ message(${DAHENG_SDK_PATH})
 find_package(Bullet CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
+find_package(Boost REQUIRED system)
 
 set(InferenceEngine_DIR $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine/share/)
 find_package(InferenceEngine CONFIG REQUIRED)
