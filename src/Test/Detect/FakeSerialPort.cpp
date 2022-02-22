@@ -13,11 +13,9 @@ public:
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
                     CAF_LOG_INFO("Testing ore detection. ");
-                    sendAll(ore_instructions_atom_v, true); },
-                 [&](ore_detect_available_atom, double angle, Identifier key) {
-                     CAF_LOG_INFO(fmt::format("{}", angle));
-                 }
-        };
+                    sendAll(ore_instructions_atom_v, true);
+                },
+                 [&](ore_detect_available_atom, double angle, Identifier key) { CAF_LOG_INFO(fmt::format("{}", angle)); } };
     }
 };
 HUB_REGISTER_CLASS(FakeSerialPort);

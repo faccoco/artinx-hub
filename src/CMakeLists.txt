@@ -5,17 +5,18 @@ set(SOURCE
         "Core/Daemon.cpp"
         "Core/PerformanceMonitor.cpp"
         "DataLink/HttpServer.cpp"
-        "Sensor/DahengDriver.cpp"
-        "Sensor/ImageSequenceReplay.cpp"
-        "Sensor/VideoReplay.cpp"
         "Detect/ArmorDetector.cpp"
         "Detect/OreExchangeRectifier.cpp"
         "Detect/CarDetector.cpp"
         "Detect/FakeCarDetector.cpp"
         "Detect/NumClassifier.cpp"
+        "HubMain.cpp"
         "Preprocess/ColorCalibration.cpp"
         "Preprocess/IMUFilter.cpp"
         "Preprocess/Undistort.cpp"
+        "Sensor/DahengDriver.cpp"
+        "Sensor/ImageSequenceReplay.cpp"
+        "Sensor/VideoReplay.cpp"
         "Solve/AngleSolver.cpp"
         "Solve/ArmorLocator.cpp"
         "Strategy/Sentry.cpp"
@@ -35,7 +36,7 @@ set(SOURCE
         "Utility/PID.cpp"
         "Utility/Timer.cpp"
         "Utility/VideoRecorder.cpp"
-        "HubMain.cpp")
+        )
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
