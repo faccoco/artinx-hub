@@ -124,7 +124,8 @@ class OreExchangeRectifier final
             }
             // if theta is declining, then the sign of velocity is correct.
             // if theta is increasing, then the sign of velocity is wrong.
-            mAngularVelocity = glm::sign(mAngularVelocity) * (-deltaTheta / mConfig.deltaTime);  // it seems velocity is reasonable.
+            mAngularVelocity =
+                glm::sign(mAngularVelocity) * (-deltaTheta / mConfig.deltaTime);  // it seems velocity is reasonable.
         }
     }
     // TODO: let ore_detect_available_atom (SerialPort.cpp) handle it.
