@@ -11,8 +11,13 @@ public:
     FakeSerialPort(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(FakeSerialPort).hash_code() } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { sendAll(ore_instructions_atom_v, true); },
-                 [&](ore_detect_available_atom, double angle, Identifier key) { CAF_LOG_INFO(fmt::format("{}", angle)); } };
+        return { [this](start_atom) {
+                    CAF_LOG_INFO("Testing ore detection. ");
+                    sendAll(ore_instructions_atom_v, true); },
+                 [&](ore_detect_available_atom, double angle, Identifier key) {
+                     CAF_LOG_INFO(fmt::format("{}", angle));
+                 }
+        };
     }
 };
 HUB_REGISTER_CLASS(FakeSerialPort);
