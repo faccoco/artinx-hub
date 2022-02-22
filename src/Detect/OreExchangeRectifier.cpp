@@ -58,8 +58,8 @@ class OreExchangeRectifier final
     void off() {
         mValidDetectionCount = 0;
         mMaxHeight = std::numeric_limits<int32_t>::min();
-        angularVelocity = -mConfig.movingRate;
-        prevTheta = 0;  // reset to initial value.
+        mAngularVelocity = -mConfig.movingRate;
+        mPrevTheta = 0;  // reset to initial value.
     }
     int mValidDetectionCount;  // 0
     void finds(const cv::Rect& rect) {
@@ -105,16 +105,16 @@ class OreExchangeRectifier final
             mAutomataState = AutomataStates::RECTIFYING;
         }
     }
-    double angularVelocity;  //-1
-    double prevTheta;        // 0
+    double mAngularVelocity;  //-1
+    double mPrevTheta;        // 0
     void rectifies(const cv::Rect& rect) {
-        send(angularVelocity);
+        send(mAngularVelocity);
         if(rect.empty()) {
             return;  // If some frames don`t find the bar code, it does not matter.
         } else {
             const double theta = glm::acos(rect.height / mMaxHeight);  // we cannot know its direction.
-            const double deltaTheta = theta - prevTheta;
-            prevTheta = theta;
+            const double deltaTheta = theta - mPrevTheta;
+            mPrevTheta = theta;
             if(theta < mConfig.permissibleAngleRangeOfError)
                 mValidDetectionCount++;
             if(mValidDetectionCount >= mConfig.validDetectionRequired) {
@@ -124,7 +124,7 @@ class OreExchangeRectifier final
             }
             // if theta is declining, then the sign of velocity is correct.
             // if theta is increasing, then the sign of velocity is wrong.
-            angularVelocity = glm::sign(angularVelocity) * (-deltaTheta / mConfig.deltaTime);  // it seems velocity is reasonable.
+            mAngularVelocity = glm::sign(mAngularVelocity) * (-deltaTheta / mConfig.deltaTime);  // it seems velocity is reasonable.
         }
     }
     // TODO: let ore_detect_available_atom (SerialPort.cpp) handle it.
