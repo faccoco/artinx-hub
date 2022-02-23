@@ -2,3 +2,5 @@
 build
 .vscode
 .idea
+config
+/data_test/
