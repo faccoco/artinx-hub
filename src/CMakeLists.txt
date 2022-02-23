@@ -10,6 +10,7 @@ set(SOURCE
 "DataLink/SerialPort.cpp"
 "Detect/ArmorDetector.cpp"
 "Detect/CarDetector.cpp"
+"Detect/CarTracker.cpp"
 "Detect/FakeCarDetector.cpp"
 "Detect/NumClassifier.cpp"
 "Detect/OreAlignment.cpp"
