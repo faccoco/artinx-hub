@@ -17,7 +17,7 @@ public:
     caf::behavior make_behavior() override {
         return { [&](timer_atom, Identifier key) {
                     PostureData posture;
-                    posture.lastUpdate = SynchronizedClock::now();
+                    posture.lastUpdate = SynchronizedClock::instance().now();
                     posture.postureOfRobot =
                         Transform<FrameOfReference::Ground, FrameOfReference::Robot>{ glm::identity<glm::dmat4>() };
                     posture.angularAccelerationOfRobot =

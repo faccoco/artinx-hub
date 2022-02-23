@@ -172,7 +172,8 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
 
     if(argc != 2 || !fs::exists(argv[1])) {
         CAF_LOG_ERROR("Bad Config");
-        return EXIT_FAILURE;
+        //return EXIT_FAILURE;
+        std::terminate();
     }
 
     globalConfigName = fs::path{ argv[1] }.filename().string();
@@ -208,5 +209,8 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
 
     return globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+
+std::unordered_map<std::string, TimePoint> HubLogger::logs;
+std::unordered_map<std::string, std::string> HubLogger::watches;
 
 CAF_MAIN(caf::id_block::ArtinxHub)

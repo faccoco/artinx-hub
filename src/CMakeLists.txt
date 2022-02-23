@@ -1,42 +1,50 @@
 cmake_minimum_required(VERSION 3.19)
 
-set(SOURCE
-        "Core/BlackBoard.cpp"
-        "Core/Daemon.cpp"
-        "Core/PerformanceMonitor.cpp"
-        "DataLink/HttpServer.cpp"
-        "Detect/ArmorDetector.cpp"
-        "Detect/OreExchangeRectifier.cpp"
-        "Detect/CarDetector.cpp"
-        "Detect/FakeCarDetector.cpp"
-        "Detect/NumClassifier.cpp"
-        "HubMain.cpp"
-        "Preprocess/ColorCalibration.cpp"
-        "Preprocess/IMUFilter.cpp"
-        "Preprocess/Undistort.cpp"
-        "Sensor/DahengDriver.cpp"
-        "Sensor/ImageSequenceReplay.cpp"
-        "Sensor/VideoReplay.cpp"
-        "Solve/AngleSolver.cpp"
-        "Solve/ArmorLocator.cpp"
-        "Strategy/Sentry.cpp"
-        "Test/ActorFramework/Test.cpp"
-        "Test/Sensor/FixedIMU.cpp"
-        "Test/Detect/FakeSerialPort.cpp"
-        "Test/Solve/ArmorLocatorTester.cpp"
-        "Test/Solve/FakeDetector.cpp"
-        "Test/Solve/FakeHead.cpp"
-        "Test/Solve/FakeIMU.cpp"
-        "Test/Solve/SimpleStrategy.cpp"
-        "Test/Solve/Simulator.cpp"
-        "Test/TestHelper.cpp"
-        "Utility/ArmorDetectorDrawer.cpp"
-        "Utility/CarDetectorDrawer.cpp"
-        "Utility/OpenCVHelper.cpp"
-        "Utility/PID.cpp"
-        "Utility/Timer.cpp"
-        "Utility/VideoRecorder.cpp"
-        )
+set(SOURCE 
+"Core/BlackBoard.cpp"
+"Core/Daemon.cpp"
+"Core/PerformanceMonitor.cpp"
+"DataLink/HttpServer.cpp"
+"DataLink/AsyncSerial/AsyncSerial.cpp"
+"DataLink/AsyncSerial/BufferedAsyncSerial.cpp"
+"DataLink/SerialPort.cpp"
+"Detect/ArmorDetector.cpp"
+"Detect/CarDetector.cpp"
+"Detect/FakeCarDetector.cpp"
+"Detect/NumClassifier.cpp"
+"Detect/OreAlignment.cpp"
+"Detect/OreExchangeRectifier.cpp"
+"HubMain.cpp"
+"Postprocess/ArmorPredictor.cpp"
+"Preprocess/ColorCalibration.cpp"
+"Preprocess/IMUFilter.cpp"
+"Preprocess/Undistort.cpp"
+"Sensor/DahengDriver.cpp"
+"Sensor/ImageSequenceReplay.cpp"
+"Sensor/VideoReplay.cpp"
+"Solve/AngleSolver.cpp"
+"Solve/ArmorLocator.cpp"
+"Solve/RadarLocator.cpp"
+"Strategy/Sentry.cpp"
+"Test/ActorFramework/Test.cpp"
+"Test/Detect/FakeSerialPort.cpp"
+"Test/Sensor/FixedIMU.cpp"
+"Test/Solve/ArmorLocatorTester.cpp"
+"Test/Solve/FakeDetector.cpp"
+"Test/Solve/FakeHead.cpp"
+"Test/Solve/FakeIMU.cpp"
+"Test/Solve/SimpleStrategy.cpp"
+"Test/Solve/Simulator.cpp"
+"Test/TestHelper.cpp"
+"Utility/ArmorDetectorDrawer.cpp"
+"Utility/CarDetectorDrawer.cpp"
+"Utility/Crc.cpp"
+"Utility/KM.cpp"
+"Utility/OpenCVHelper.cpp"
+"Utility/PID.cpp"
+"Utility/Timer.cpp"
+"Utility/VideoRecorder.cpp"
+)
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
@@ -48,6 +56,7 @@ message(${DAHENG_SDK_PATH})
 find_package(Bullet CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
+find_package(Boost REQUIRED system)
 
 set(InferenceEngine_DIR $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine/share/)
 find_package(InferenceEngine CONFIG REQUIRED)
@@ -56,7 +65,7 @@ add_executable(ArtinxHub ${SOURCE})
 target_include_directories(ArtinxHub PRIVATE ${InferenceEngine_INCLUDE_DIRS})
 target_include_directories(ArtinxHub PRIVATE ${CAF_INCLUDE_DIRS})
 target_link_libraries(ArtinxHub PRIVATE CAF::core)
-target_link_libraries(ArtinxHub PRIVATE opencv_core opencv_videoio opencv_mcc opencv_calib3d opencv_barcode)
+target_link_libraries(ArtinxHub PRIVATE opencv_core opencv_videoio opencv_mcc opencv_calib3d opencv_barcode opencv_tracking)
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_link_libraries(ArtinxHub PRIVATE Iphlpapi)
 endif ()

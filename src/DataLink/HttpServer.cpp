@@ -8,6 +8,7 @@
 #include <caf/event_based_actor.hpp>
 #include <caf/exit_reason.hpp>
 #include <cstdint>
+#define CPPHTTPLIB_SEND_FLAGS 0x4000
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
@@ -32,11 +33,6 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
     std::streambuf* mClogBuffer;
     std::stringstream mLogStream;
 
-    void modifyParameter(std::string path, std::string value) {}
-    std::string generateParameterJson() {
-        return "hello world!    clock " + std::to_string(::clock());
-    }
-
     std::optional<std::vector<uchar>> generateImageData(const std::string& path) {
         if(path.empty())
             return std::nullopt;
@@ -59,12 +55,6 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
             return std::nullopt;
         return data;
     }
-    std::string generateStatusJson() {
-        return "hello world!    clock " + std::to_string(::clock());
-    }
-    std::string generateProfileJson() {
-        return "hello world!    clock " + std::to_string(::clock());
-    }
     std::string generateFilterJson() {
         nlohmann::json result = nlohmann::json::array();
         std::lock_guard<std::mutex> guard{ mMutex };
@@ -77,28 +67,42 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
 public:
     HttpServer(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mClogBuffer{ std::clog.rdbuf() } {
 
-        std::clog.rdbuf(mLogStream.rdbuf());
+        //std::clog.rdbuf(mLogStream.rdbuf());
 
         mServer.set_mount_point("/pages", "./pages");
 
-        mServer.Get("/status", [this](const httplib::Request&, httplib::Response& res) {
-            res.set_content(generateStatusJson(), "text/plain");
+        mServer.Get("/status", [](const httplib::Request&, httplib::Response& res) {
+            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
         });
-        mServer.Get("/profile", [this](const httplib::Request&, httplib::Response& res) {
-            res.set_content(generateProfileJson(), "text/plain");
-        });
-        mServer.Get("/parameters", [this](const httplib::Request& req, httplib::Response& res) {
-            res.set_content(generateParameterJson(), "text/plain");
-        });
+        //        mServer.Get("/profile", [this](const httplib::Request&, httplib::Response& res) {
+        //            res.set_content("hello world!    clock " + std::to_string(::clock());, "text/plain");
+        //        });
+        //        mServer.Get("/parameters", [this](const httplib::Request& req, httplib::Response& res) {
+        //            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
+        //        });
         mServer.Get(R"(/img/(\d+)/.*)", [this](const httplib::Request& req, httplib::Response& res) {
-            if(auto img = generateImageData(req.matches[1])) {
-                const auto& data = img.value();
-                res.set_content(reinterpret_cast<const char*>(data.data()), data.size(), "blob");
-            }
+            auto path = req.matches[1];
+            res.set_content_provider(
+                "multipart/x-mixed-replace;boundary=MJP",
+                [this, &path](size_t offset, httplib::DataSink& sink) {
+                    if(auto img = generateImageData(path)) {
+                        auto vec = img.value();
+                        sink.os << "--MJP\r\n"
+                                   "Content-Type: image/jpeg\r\n"
+                                   "Content-Length: "
+                                << vec.size() << "\r\n\r\n";
+                        sink.os.write(reinterpret_cast<const char*>(vec.data()), static_cast<long>(vec.size()));
+                    }
+                    return true;
+                },
+                [](bool) {});
         });
         mServer.Get("/log", [this](const httplib::Request& req, httplib::Response& res) {
             res.set_content(mLogStream.str(), "text/plain");
             mLogStream.str("");
+        });
+        mServer.Get("/watch", [](const httplib::Request& req, httplib::Response& res) {
+            res.set_content(nlohmann::json(HubLogger::watches).dump(), "application/json");
         });
         mServer.Post("/filter", [this](const httplib::Request& req, httplib::Response& res) {
             if(req.body.empty()) {
@@ -116,7 +120,7 @@ public:
             mServer.stop();
             terminateSystem(*this, true);
         });
-        mListener = std::thread{ [this] { mServer.listen("localhost", 8080); } };
+        mListener = std::thread{ [this] { mServer.listen("127.0.0.1", 8080); } };
     }
     ~HttpServer() override {
         std::clog.rdbuf(mClogBuffer);
@@ -125,7 +129,7 @@ public:
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
 #if defined(ARTINXHUB_WINDOWS)
-                    ShellExecuteA(nullptr, "open", "http://127.0.0.1:8080/pages/Main.html", nullptr, nullptr, SW_SHOWNORMAL);
+                    ShellExecuteA(nullptr, "open", "http://localhost:8080/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
 #elif defined(ARTINXHUB_LINUX)
                     ::system("xdg-open http://127.0.0.1:8080/pages/index.html");
 #endif

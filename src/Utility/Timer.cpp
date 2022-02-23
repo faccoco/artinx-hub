@@ -51,6 +51,18 @@ void Timer::addTimer(caf::actor_addr actor, Duration period) {
     mTimers.push({ actor, Clock::now() + period, period });
 }
 
-TimePoint SynchronizedClock::now() {
+TimePoint SynchronizedClock::now() const {
+    if(mSimulationTime)
+        return mSimulationTime.value();
+
     return Clock::now();
+}
+
+SynchronizedClock& SynchronizedClock::instance() {
+    static SynchronizedClock clock;
+    return clock;
+}
+
+void SynchronizedClock::setSimulationTime(TimePoint tp) {
+    mSimulationTime = tp;
 }

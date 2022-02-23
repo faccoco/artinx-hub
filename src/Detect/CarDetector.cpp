@@ -2,6 +2,7 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "DetectedCar.hpp"
+#include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
@@ -18,17 +19,17 @@ struct CarDetectorSettings final {
     std::string xmlPath;
     std::string binPath;
     std::string deviceName;
+    uint32_t numClasses;
+    uint32_t carId;
 };
-
-constexpr int32_t numClasses = 5;  // "car", "watcher", "base", "ignore", "armor"
 
 template <class Inspector>
 bool inspect(Inspector& f, CarDetectorSettings& x) {
-    return f.object(x).fields(f.field("nmsThreshold", x.nmsThreshold).fallback(0.45),
-                              f.field("boundingBoxThreshold", x.boundingBoxThreshold).fallback(0.3),
-                              f.field("inputWidth", x.inputWidth), f.field("inputHeight", x.inputHeight),
-                              f.field("xmlPath", x.xmlPath), f.field("binPath", x.binPath),
-                              f.field("deviceName", x.deviceName).fallback("CPU"));
+    return f.object(x).fields(
+        f.field("nmsThreshold", x.nmsThreshold).fallback(0.45),
+        f.field("boundingBoxThreshold", x.boundingBoxThreshold).fallback(0.3), f.field("inputWidth", x.inputWidth),
+        f.field("inputHeight", x.inputHeight), f.field("xmlPath", x.xmlPath), f.field("binPath", x.binPath),
+        f.field("deviceName", x.deviceName).fallback("CPU"), f.field("numClasses", x.numClasses), f.field("carId", x.carId));
 }
 
 class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSettings, car_detect_available_atom> {
@@ -69,7 +70,7 @@ class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSe
 
         const auto generateProposal = [ptr, this, &proposals](const int32_t anchorIdx, const int32_t g0, const int32_t g1,
                                                               const int32_t stride) {
-            const auto basePos = anchorIdx * (numClasses + 5);
+            const auto basePos = anchorIdx * (mConfig.numClasses + 5);
             const auto centerX = (ptr[basePos + 0] + g0) * stride;
             const auto centerY = (ptr[basePos + 1] + g1) * stride;
             const auto w = std::exp(ptr[basePos + 2]) * stride;
@@ -80,7 +81,7 @@ class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSe
             auto maxProb = static_cast<float>(mConfig.boundingBoxThreshold);
             int32_t selected = -1;
 
-            for(int32_t classIdx = 0; classIdx < numClasses; ++classIdx) {
+            for(int32_t classIdx = 0; classIdx < mConfig.numClasses; ++classIdx) {
                 const auto classScore = ptr[basePos + 5 + classIdx];
                 const auto prob = objectness * classScore;
                 if(prob > maxProb) {
@@ -89,7 +90,7 @@ class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSe
                 }
             }
 
-            if(selected == 0) {  // just detect cars
+            if(selected == mConfig.carId) {  // just detect cars
                 const auto x0 = centerX - w * 0.5f;
                 const auto y0 = centerY - h * 0.5f;
                 proposals.push_back({ cv::Rect2f{ cv::Point2f{ x0, y0 }, cv::Size2f{ w, h } }, selected, maxProb });
@@ -155,12 +156,15 @@ class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSe
 public:
     CarDetector(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(CarDetector).hash_code() } {
+        ACTOR_EXCEPTION_PROBE();
+
         mNetwork = mInferenceEngine.ReadNetwork(mConfig.xmlPath, mConfig.binPath);
         auto [outputBlobName, outputBlob] = *mNetwork.getOutputsInfo().begin();
         mOutputBlobName = outputBlobName;
         outputBlob->setPrecision(IE::Precision::FP16);
 
-        for(const auto& device : mInferenceEngine.GetAvailableDevices()) {
+        const auto devices = mInferenceEngine.GetAvailableDevices();
+        for(const auto& device : devices) {
             CAF_LOG_INFO("Available inference engine device: " + device);
         }
 
@@ -171,6 +175,8 @@ public:
     caf::behavior make_behavior() override {
         return { [this](start_atom) {},
                  [&](image_frame_atom, Identifier key) {
+                     ACTOR_EXCEPTION_PROBE();
+
                      DetectedCarArray res;
                      res.frame = BlackBoard::instance().get<CameraFrame>(key).value();
 
