@@ -1,27 +1,63 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
+#include "BlackBoard.hpp"
+#include "CameraFrame.hpp"
+#include "DataDesc.hpp"
+#include "Hub.hpp"
+#include <caf/event_based_actor.hpp>
+#include <cstdint>
+#include <fmt/format.h>
+#include "EnergyDetect.hpp"
+
+struct EnergyDetectorSettings final {
+	int Color;
+	int RotateMode;
+	int smallPredictMode;
+	int bigPredictMode;
+	float armorMinArea;
+	float armorMaxArea;
+	float armorMinWHRatio;
+	float armorMaxWHRatio;
+	float armorMinAreaRatio;
+	float stripMinArea;
+	float stripMaxArea;
+	float stripMinWHRatio;
+	float stripMaxWHRatio;
+	float stripMaxAreaRatio;
+	float noiseArea;
+	float predictAngle;
+	float radius;
+
+    cv::Point2f offset;
+};
 
 
-struct ArmorData {
+template <class Inspector>
+bool inspect(Inspector& f, EnergyDetectorSettings& x) {
+    return f.object(x).fields(f.field("RotateMode", x.RotateMode), f.field("smallPredictMode", x.smallPredictMode),
+                              f.field("bigPredictMode", x.bigPredictMode), f.field("armorMinArea", x.armorMinArea),
+                              f.field("armorMaxArea", x.armorMaxArea), f.field("armorMinWHRatio", x.armorMinWHRatio),
+                              f.field("stripMaxWHRatio", x.stripMaxWHRatio), f.field("stripMaxAreaRatio", x.stripMaxAreaRatio),
+                              f.field("noiseArea", x.noiseArea), f.field("predictAngle", x.predictAngle),
+							  f.field("radius", x.radius), f.field("offset", x.offset) );
+}
+
+class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDetectorSettings, energy_detect_available_atom> {
+
+Identifier mKey;
+
+struct ArmorData final{
 	cv::Point2f armorCenter;
 	cv::Point2f energyCenter;
 	float angle;
 	int quadrant;
-	bool isFind;
-	ArmorData() {
-		armorCenter = cv::Point2f(0, 0);
-		energyCenter = cv::Point2f(0, 0);
-		angle = 0;
-		quadrant = 0;
-		isFind = 0;
-	}
+	bool isFind = false;
 };
 
-static ArmorData lastData;
-bool direction;
-bool dirTested;
-bool velTested;
+ArmorData lastData;
+bool dirTested = false;
+bool velTested = false;
 
 
 bool circleLeastFit(const std::vector<cv::Point2f>& points, cv::Point2f& energyCenter) {
@@ -97,7 +133,7 @@ double getDistance(const cv::Point2f& a, const cv::Point2f& b)
 	return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
 }
 
-bool armorJudge(const std::vector<cv::Point>& contour, const cv::RotatedRect& rotatedRect)
+bool armorJudge(const std::vector<cv::Point>& contour, const cv::RotatedRect& rotatedRect, const EnergyDetectorSettings& settings)
 {
 	cv::Point2f rectPoints[4];
 	rotatedRect.points(rectPoints);
@@ -110,14 +146,14 @@ bool armorJudge(const std::vector<cv::Point>& contour, const cv::RotatedRect& ro
 		rectContour.push_back(rectPoints[i]);
 	}
 	const auto match = matchShapes(contour, rectContour, cv::CONTOURS_MATCH_I1, 0.0);
-	if (area > 900 && area < 2000
-		&& width / height < 3 && width / height>1
-		&& contourArea(contour) / rotatedRect.size.area()>0.8
+	if (area > settings.armorMinArea && area < settings.armorMaxArea
+		&& width / height < settings.armorMaxWHRatio && width / height > settings.armorMinWHRatio
+		&& contourArea(contour) / rotatedRect.size.area()>settings.armorMinAreaRatio
 		&& match < 0.3)
 		return true;
 }
 
-bool stripJudge(const std::vector<cv::Point>& contour, const cv::RotatedRect& rotatedRect)
+bool stripJudge(const std::vector<cv::Point>& contour, const cv::RotatedRect& rotatedRect, const EnergyDetectorSettings& settings)
 {
 	cv::Point2f rectPoints[4];
 	rotatedRect.points(rectPoints);
@@ -125,9 +161,9 @@ bool stripJudge(const std::vector<cv::Point>& contour, const cv::RotatedRect& ro
 	double width = std::max(rotatedRect.size.height, rotatedRect.size.width);
 	double area = contourArea(contour);
 
-	if (height * width > 7500 && height * width < 10000
-		&& width / height < 5 && width / height>1
-		&& contourArea(contour) / rotatedRect.size.area() < 0.7)
+	if (height * width > settings.stripMinArea && height * width < settings.stripMaxArea
+		&& width / height < settings.stripMaxWHRatio && width / height > settings.stripMinWHRatio
+		&& contourArea(contour) / rotatedRect.size.area() < settings.stripMaxAreaRatio)
 		return true;
 }
 
@@ -151,7 +187,7 @@ bool changeAngle(const int quadrant, const float angle, float& tranAngle) {
 	return true;
 }
 
-float angleCalculate(ArmorData data1, ArmorData data2)
+float angleCalculate(ArmorData data1, ArmorData data2,const bool direction)
 {
 	if (direction)
 	{
@@ -192,7 +228,7 @@ float angleCalculate(ArmorData data1, ArmorData data2)
 	}
 }
 
-bool getDirection() {
+bool getDirection(DetectedEnergyArray& detectedEnergyArray) {
 	const int frames = 20;
 	static int times = 0;
 	static std::vector<ArmorData> datas;
@@ -225,12 +261,15 @@ bool getDirection() {
 			}
 		}
 		if (positive > negetive) {
-			direction = true;
+			detectedEnergyArray.direction = true;
 			CAF_LOG_INFO("Clockwise \n");
 		}
 		else if (positive < negetive) {
-			direction = false;
+			detectedEnergyArray.direction = false;
 			CAF_LOG_INFO("Anticlockwise \n");
+		}else{
+			CAF_LOG_INFO("Direction detecteing failed \n");
+			return false;
 		}
 		times = 0;
 		dirTested = true;
@@ -239,10 +278,10 @@ bool getDirection() {
 	}
 }
 
-bool getArmorCenter(const cv::Mat src, const int color, ArmorData& data, cv::Point2f offset)
+bool getArmorCenter(const cv::Mat src, const EnergyDetectorSettings& settings, ArmorData& data)
 {
 	auto binary = src.clone();
-	setBinary(src, binary, color);
+	setBinary(src, binary, settings.Color);
 	auto element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
 	dilate(binary, binary, element);
 	element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(4, 4));
@@ -259,7 +298,7 @@ bool getArmorCenter(const cv::Mat src, const int color, ArmorData& data, cv::Poi
 	std::vector<int> conIndexs;
 	for (int i = 0; i < armorContoursSize; ++i)
 	{
-		if (contourArea(armorContours[i]) > 2500 && armorHierarchy[i][3] == -1)
+		if (contourArea(armorContours[i]) > settings.noiseArea && armorHierarchy[i][3] == -1)
 		{
 			if (stripJudge(armorContours[i], minAreaRect(armorContours[i])))
 			{
@@ -318,9 +357,9 @@ bool getArmorCenter(const cv::Mat src, const int color, ArmorData& data, cv::Poi
 		CAF_LOG_INFO("Armor detect failed \n");
 		return false;
 	}
-	data.armorCenter = finalSqua.center + offset;
+	data.armorCenter = finalSqua.center + settings.offset;
 	const auto finalRrect = minAreaRect(armorContours[index]);
-	const auto arrowCenter = finalRrect.center + offset;
+	const auto arrowCenter = finalRrect.center + settings.offset;
 	const auto min = MIN(finalSqua.size.height, finalSqua.size.width);
 
 	if (getDistance(arrowCenter, data.armorCenter) < min * 0.8) {
@@ -390,26 +429,26 @@ bool getArmorCenter(const cv::Mat src, const int color, ArmorData& data, cv::Poi
 			}
 		}
 		if (data.quadrant == 1) {
-			data.energyCenter.x = data.armorCenter.x - 148 * cos(data.angle * CV_PI / 180);
-			data.energyCenter.y = data.armorCenter.y + 148 * sin(data.angle * CV_PI / 180);
+			data.energyCenter.x = data.armorCenter.x - settings.radius * cos(data.angle * CV_PI / 180);
+			data.energyCenter.y = data.armorCenter.y + settings.radius * sin(data.angle * CV_PI / 180);
 		}
 		else if (data.quadrant == 2) {
-			data.energyCenter.x = data.armorCenter.x + 148 * cos(data.angle * CV_PI / 180);
-			data.energyCenter.y = data.armorCenter.y + 148 * sin(data.angle * CV_PI / 180);
+			data.energyCenter.x = data.armorCenter.x + settings.radius * cos(data.angle * CV_PI / 180);
+			data.energyCenter.y = data.armorCenter.y + settings.radius * sin(data.angle * CV_PI / 180);
 		}
 		else if (data.quadrant == 3) {
-			data.energyCenter.x = data.armorCenter.x + 148 * cos(data.angle * CV_PI / 180);
-			data.energyCenter.y = data.armorCenter.y - 148 * sin(data.angle * CV_PI / 180);
+			data.energyCenter.x = data.armorCenter.x + settings.radius * cos(data.angle * CV_PI / 180);
+			data.energyCenter.y = data.armorCenter.y - settings.radius * sin(data.angle * CV_PI / 180);
 		}
 		else if (data.quadrant == 4) {
-			data.energyCenter.x = data.armorCenter.x - 148 * cos(data.angle * CV_PI / 180);
-			data.energyCenter.y = data.armorCenter.y - 148 * sin(data.angle * CV_PI / 180);
+			data.energyCenter.x = data.armorCenter.x - settings.radius * cos(data.angle * CV_PI / 180);
+			data.energyCenter.y = data.armorCenter.y - settings.radius * sin(data.angle * CV_PI / 180);
 		}
 		data.isFind = true;
 	}
 }
 
-bool predict(const ArmorData data, cv::Point2f& preCenter, const int predictMode, const int direction) {
+bool predict(const ArmorData data, cv::Point2f& preCenter, const float predictAngle, const int predictMode, const int direction, const int radius) {
 	if (predictMode == 0) {
 		static int count = 0;
 		static std::vector<cv::Point2f> armorPoints;
@@ -424,10 +463,10 @@ bool predict(const ArmorData data, cv::Point2f& preCenter, const int predictMode
 			circleLeastFit(armorPoints, center);
 			float preAngle;
 			if (direction == 0) {
-				preAngle = CV_PI / 7.8;
+				preAngle = predictAngle;
 			}
 			else {
-				preAngle = -CV_PI / 7.8;
+				preAngle = -predictAngle;
 			}
 			double x = data.armorCenter.x - center.x;
 			double y = data.armorCenter.y - center.y;
@@ -444,10 +483,10 @@ bool predict(const ArmorData data, cv::Point2f& preCenter, const int predictMode
 
 		float preAngle;
 		if (direction == 0) {
-			preAngle = CV_PI / 7.8;
+			preAngle =predictAngle;
 		}
 		else {
-			preAngle = -CV_PI / 7.8;
+			preAngle = -predictAngle;
 		}
 		const auto x = data.armorCenter.x - data.energyCenter.x;
 		const auto y = data.armorCenter.y - data.energyCenter.y;
@@ -458,8 +497,8 @@ bool predict(const ArmorData data, cv::Point2f& preCenter, const int predictMode
 
 	}
 	else if (predictMode == 2) {
-		const auto preAngle = CV_PI / 7.8;
-		const auto dis = 148 * tan(preAngle);
+		const auto preAngle = predictAngle;
+		const auto dis = radius * tan(preAngle);
 		const auto dis_x = dis * sin(data.angle * CV_PI / 180);
 		const auto dis_y = dis * cos(data.angle * CV_PI / 180);
 
@@ -521,42 +560,41 @@ bool predict(const ArmorData data, cv::Point2f& preCenter, const int predictMode
 	}
 }
 
-void detect(const cv::Mat frame, const int color, const int Mode, cv::Point2f& predictPoint) {
-	cv::Point2f offset = cv::Point2f(0, 0);
+void detect(const DetectedEnergyArray& inputDetectEnergyArray, DetectedEnergyArray outputDetectEnergyArray , const EnergyDetectorSettings& settings) {
 
-	if (Mode == 0) {
+	if (settings.RotateMode == 0) {
 		ArmorData armordata;
-		if (getArmorCenter(frame, color, armordata, offset) == false) {
-			predictPoint = cv::Point2f(0, 0);
+		if (getArmorCenter(inputDetectEnergyArray.frame, settings.Color, armordata, settings.offset) == false) {
+			outputDetectEnergyArray.predictPoint = cv::Point2f(0, 0);
 		}
 		else if (dirTested) {
-			predict(armordata, predictPoint, 1, direction);
+			predict(armordata, inputDetectEnergyArray.predictPoint, settings.smallPredictMode, inputDetectEnergyArray.direction,settings.radius);
 		}
 		lastData = armordata;
 	}
-	else if (Mode == 1) {
+	else if (settings.RotateMode == 1) {
 		ArmorData armordata;
-		if (getArmorCenter(frame, color, armordata, offset) == false) {
-			predictPoint = cv::Point2f(0, 0);
+		if (getArmorCenter(inputDetectEnergyArray.frame, settings.Color, armordata, settings.offset) == false) {
+			outputDetectEnergyArray.predictPoint = cv::Point2f(0, 0);
 		}
-		else {
+		else if(dirTested){
 			cv::Point2f preCenter;
-			if (predict(armordata, preCenter, 2, 0) == false) {
-				predictPoint = cv::Point2f(0, 0);
+			if (predict(armordata, preCenter, settings.bigPredictMode, inputDetectEnergyArray.direction,settings.radius) == false) {
+				outputDetectEnergyArray.predictPoint = cv::Point2f(0, 0);
 			}
 			else {
-				predictPoint = preCenter;
+				outputDetectEnergyArray.predictPoint = preCenter;
 			}
 		}
 		lastData = armordata;
 	}
 	if (!dirTested)
 	{
-		getDirection();
+		 getDirection(outputDetectEnergyArray)
 	}
 }
 
-bool velocityCalculate()
+bool velocityCalculate(DetectedEnergyArray& detectEnergyArray)
 {
 	const int frameNums = 50;
 	static int times = 0;
@@ -578,7 +616,7 @@ bool velocityCalculate()
 		{
 			for (int i = 0; i < 149; ++i)
 			{
-				circleAngle[i] = angleCalculate(datas[i], datas[i + 1]);
+				circleAngle[i] = angleCalculate(datas[i], datas[i + 1],detectEnergyArray.direction);
 			}
 			velTested = true;
 			return false;
@@ -588,4 +626,24 @@ bool velocityCalculate()
 		datas.clear();
 		return true;
 	}
-}
+ }
+
+public:
+    EnergyDetector(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ typeid(EnergyDetector).hash_code() } {}
+    caf::behavior make_behavior() override {
+        return { [this](start_atom) {},
+                 [&](update_posture_atom, Identifier key) {
+                    const auto settings = BlackBoard::instance().get<EnergyDetectorSettings>(key).value();
+                    auto data = BlackBoard::instance().get<DetectedEnergyArray>(key).value();
+                    DetectedEnergyArray res;
+					detect(data,res,settings);
+                    BlackBoard::instance().updateSync(mKey, std::move(res));
+                    sendAll(energy_detect_available_atom_v, mKey);
+                 } };
+    }
+
+};
+
+HUB_REGISTER_CLASS(EnergyDetector);
+
