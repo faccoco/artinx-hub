@@ -41,6 +41,7 @@ CAF_ADD_ATOM(ArtinxHub, timer_atom);
 CAF_ADD_ATOM(ArtinxHub, image_frame_atom);
 CAF_ADD_ATOM(ArtinxHub, car_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
+CAF_ADD_ATOM(ArtinxHub, energy_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, ore_instructions_atom);
 CAF_ADD_ATOM(ArtinxHub, ore_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_succeed_atom);
