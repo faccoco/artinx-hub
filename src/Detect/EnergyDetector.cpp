@@ -55,9 +55,9 @@ struct ArmorData final{
 	bool isFind = false;
 };
 
-ArmorData lastData;
-bool dirTested = false;
-bool velTested = false;
+ArmorData mLastData;
+bool mDirectionTested = false;
+bool mVelocityTested = false;
 
 
 bool circleLeastFit(const std::vector<cv::Point2f>& points, cv::Point2f& energyCenter) {
@@ -130,7 +130,7 @@ bool setBinary(const cv::Mat src, cv::Mat& binary, const int colorMode)
 
 double getDistance(const cv::Point2f& a, const cv::Point2f& b)
 {
-	return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+	return hypot(a.x - b.x, a.y - b.y);
 }
 
 bool armorJudge(const std::vector<cv::Point>& contour, const cv::RotatedRect& rotatedRect, const EnergyDetectorSettings& settings)
@@ -236,8 +236,8 @@ bool getDirection(DetectedEnergyArray& detectedEnergyArray) {
 	int negetive = 0;
 	float angles[frames];
 
-	if (times < frames && lastData.isFind) {
-		datas.push_back(lastData);
+	if (times < frames && mLastData.isFind) {
+		datas.push_back(mLastData);
 		times++;
 		return false;
 	}
@@ -272,7 +272,7 @@ bool getDirection(DetectedEnergyArray& detectedEnergyArray) {
 			return false;
 		}
 		times = 0;
-		dirTested = true;
+		mDirectionTested = true;
 		datas.clear();
 		return true;
 	}
@@ -300,7 +300,7 @@ bool getArmorCenter(const cv::Mat src, const EnergyDetectorSettings& settings, A
 	{
 		if (contourArea(armorContours[i]) > settings.noiseArea && armorHierarchy[i][3] == -1)
 		{
-			if (stripJudge(armorContours[i], minAreaRect(armorContours[i])))
+			if (stripJudge(armorContours[i], minAreaRect(armorContours[i]),settings))
 			{
 				conIndexs.push_back(i);
 			}
@@ -342,7 +342,7 @@ bool getArmorCenter(const cv::Mat src, const EnergyDetectorSettings& settings, A
 	for (size_t i = 0; i < finalContours.size(); ++i) {
 		if (finalHierarchy[i][3] != -1) {
 			cv::RotatedRect squa = minAreaRect(finalContours[i]);
-			if (armorJudge(finalContours[i], squa))
+			if (armorJudge(finalContours[i], squa, settings))
 			{
 				float area = contourArea(finalContours[i]);
 				if (area > maxArea) {
@@ -564,33 +564,34 @@ void detect(const DetectedEnergyArray& inputDetectEnergyArray, DetectedEnergyArr
 
 	if (settings.RotateMode == 0) {
 		ArmorData armordata;
-		if (getArmorCenter(inputDetectEnergyArray.frame, settings.Color, armordata, settings.offset) == false) {
+		if (getArmorCenter(inputDetectEnergyArray.frame.frame, settings, armordata) == false) {
 			outputDetectEnergyArray.predictPoint = cv::Point2f(0, 0);
 		}
-		else if (dirTested) {
-			predict(armordata, inputDetectEnergyArray.predictPoint, settings.smallPredictMode, inputDetectEnergyArray.direction,settings.radius);
+		else if (mDirectionTested) {
+			cv::Point2f preCenter;
+			predict(armordata, preCenter,settings.predictAngle, settings.smallPredictMode, inputDetectEnergyArray.direction,settings.radius);
 		}
-		lastData = armordata;
+		mLastData = armordata;
 	}
 	else if (settings.RotateMode == 1) {
 		ArmorData armordata;
-		if (getArmorCenter(inputDetectEnergyArray.frame, settings.Color, armordata, settings.offset) == false) {
+		if (getArmorCenter(inputDetectEnergyArray.frame.frame, settings, armordata) == false) {
 			outputDetectEnergyArray.predictPoint = cv::Point2f(0, 0);
 		}
-		else if(dirTested){
+		else if(mDirectionTested){
 			cv::Point2f preCenter;
-			if (predict(armordata, preCenter, settings.bigPredictMode, inputDetectEnergyArray.direction,settings.radius) == false) {
+			if (predict(armordata, preCenter,settings.predictAngle, settings.bigPredictMode, inputDetectEnergyArray.direction,settings.radius) == false) {
 				outputDetectEnergyArray.predictPoint = cv::Point2f(0, 0);
 			}
 			else {
 				outputDetectEnergyArray.predictPoint = preCenter;
 			}
 		}
-		lastData = armordata;
+		mLastData = armordata;
 	}
-	if (!dirTested)
+	if (!mDirectionTested)
 	{
-		 getDirection(outputDetectEnergyArray)
+		 getDirection(outputDetectEnergyArray);
 	}
 }
 
@@ -601,8 +602,8 @@ bool velocityCalculate(DetectedEnergyArray& detectEnergyArray)
 	static std::vector<ArmorData> datas;
 	float circleAngle[frameNums];
 	datas.resize(frameNums);
-	if (times < frameNums && lastData.isFind) {
-		datas.insert(datas.begin() + times, lastData);
+	if (times < frameNums && mLastData.isFind) {
+		datas.insert(datas.begin() + times, mLastData);
 		times++;
 		return false;
 	}
@@ -618,11 +619,11 @@ bool velocityCalculate(DetectedEnergyArray& detectEnergyArray)
 			{
 				circleAngle[i] = angleCalculate(datas[i], datas[i + 1],detectEnergyArray.direction);
 			}
-			velTested = true;
+			mVelocityTested = true;
 			return false;
 		}
 		times = 0;
-		dirTested = 1;
+		mDirectionTested = 1;
 		datas.clear();
 		return true;
 	}
