@@ -11,8 +11,8 @@
 #include "EnergyDetect.hpp"
 
 struct EnergyDetectorSettings final {
-	int Color;
-	int RotateMode;
+	int color;
+	int rotateMode;
 	int smallPredictMode;
 	int bigPredictMode;
 	float armorMinArea;
@@ -35,12 +35,12 @@ struct EnergyDetectorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, EnergyDetectorSettings& x) {
-    return f.object(x).fields(f.field("RotateMode", x.RotateMode), f.field("smallPredictMode", x.smallPredictMode),
+    return f.object(x).fields(f.field("rotateMode", x.rotateMode), f.field("smallPredictMode", x.smallPredictMode),
                               f.field("bigPredictMode", x.bigPredictMode), f.field("armorMinArea", x.armorMinArea),
                               f.field("armorMaxArea", x.armorMaxArea), f.field("armorMinWHRatio", x.armorMinWHRatio),
                               f.field("stripMaxWHRatio", x.stripMaxWHRatio), f.field("stripMaxAreaRatio", x.stripMaxAreaRatio),
                               f.field("noiseArea", x.noiseArea), f.field("predictAngle", x.predictAngle),
-							  f.field("radius", x.radius), f.field("offset", x.offset) );
+							  f.field("radius", x.radius), f.field("offsetX", x.offset.x),f.field("offsetY",x.offset.y));
 }
 
 class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDetectorSettings, energy_detect_available_atom> {
@@ -281,7 +281,7 @@ bool getDirection(DetectedEnergyArray& detectedEnergyArray) {
 bool getArmorCenter(const cv::Mat src, const EnergyDetectorSettings& settings, ArmorData& data)
 {
 	auto binary = src.clone();
-	setBinary(src, binary, settings.Color);
+	setBinary(src, binary, settings.color);
 	auto element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(5, 5));
 	dilate(binary, binary, element);
 	element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(4, 4));
@@ -562,7 +562,7 @@ bool predict(const ArmorData data, cv::Point2f& preCenter, const float predictAn
 
 void detect(const DetectedEnergyArray& inputDetectEnergyArray, DetectedEnergyArray outputDetectEnergyArray , const EnergyDetectorSettings& settings) {
 
-	if (settings.RotateMode == 0) {
+	if (settings.rotateMode == 0) {
 		ArmorData armordata;
 		if (getArmorCenter(inputDetectEnergyArray.frame.frame, settings, armordata) == false) {
 			outputDetectEnergyArray.predictPoint = cv::Point2f(0, 0);
@@ -573,7 +573,7 @@ void detect(const DetectedEnergyArray& inputDetectEnergyArray, DetectedEnergyArr
 		}
 		mLastData = armordata;
 	}
-	else if (settings.RotateMode == 1) {
+	else if (settings.rotateMode == 1) {
 		ArmorData armordata;
 		if (getArmorCenter(inputDetectEnergyArray.frame.frame, settings, armordata) == false) {
 			outputDetectEnergyArray.predictPoint = cv::Point2f(0, 0);
