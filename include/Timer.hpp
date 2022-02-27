@@ -2,6 +2,7 @@
 #include <caf/actor_addr.hpp>
 #include <chrono>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <thread>
 
@@ -10,8 +11,12 @@ using TimePoint = Clock::time_point;
 using Duration = Clock::duration;
 
 class SynchronizedClock final {
+    std::optional<TimePoint> mSimulationTime;
+
 public:
-    static TimePoint now();
+    void setSimulationTime(TimePoint tp);
+    TimePoint now() const;
+    static SynchronizedClock& instance();
 };
 
 class Timer final {

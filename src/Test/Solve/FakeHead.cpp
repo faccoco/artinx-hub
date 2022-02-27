@@ -68,7 +68,7 @@ public:
                          return;
 
                      const auto [_, targetYaw, targetPitch] = cur.value();
-                     auto [yaw, yawSpeed] = mYaw.step(diff, targetYaw, mConfig.headMaxSpeed);
+                     auto [yaw, yawSpeed] = mYaw.step(diff, targetYaw, mConfig.headMaxSpeed, glm::two_pi<double>());
                      auto [pitch, pitchSpeed] = mPitch.step(diff, targetPitch, mConfig.headMaxSpeed);
 
                      yaw += glm::gaussRand(0.0, mConfig.headPosStd);
@@ -89,7 +89,7 @@ public:
                      BlackBoard::instance().updateSync(mKey, info);
                      sendAll(update_head_atom_v, mKey);
                  },
-                 [&](set_target_posture_atom, const double yaw, const double pitch) {
+                 [&](set_target_info_atom, const double yaw, const double pitch, bool isFire) {
                      mTargetYaw = yaw;
                      mTargetPitch = pitch;
                  },

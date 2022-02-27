@@ -5,23 +5,30 @@
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
+#include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/opencv.hpp>
 #pragma warning(push, 0)
 #include <GxIAPI.h>
 #pragma warning(pop)
 
 struct DahengDriverSettings final {
-    std::string serialNumber;
+    std::string openMode;
+    std::string identifier;
     double fps;
-    uint32_t width;
-    uint32_t height;
+    double fov;
+    double exposureTime;
+    uint32_t decimation;
 };
+
+enum class OpenMode { Index, SerialNumber };
 
 template <class Inspector>
 bool inspect(Inspector& f, DahengDriverSettings& x) {
-    return f.object(x).fields(f.field("serialNumber", x.serialNumber),
-                              f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 500.0; }),
-                              f.field("width", x.width), f.field("height", x.height));
+    return f.object(x).fields(
+        f.field("openMode", x.openMode).invariant([](const std::string& v) { return v == "Index" || v == "SerialNumber"; }),
+        f.field("identifier", x.identifier),
+        f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 500.0; }), f.field("fov", x.fov),
+        f.field("exposureTime", x.exposureTime), f.field("decimation", x.decimation));
 }
 
 static void checkGXStatus(const GX_STATUS status) {
@@ -49,25 +56,36 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
 private:
     Identifier mKey;
     GX_DEV_HANDLE mDevice;
-    bool mStartFlag;
+    bool mStartFlag = false;
 
     static constexpr auto pixelFormat = GX_PIXEL_FORMAT_BAYER_RG8;
     static constexpr auto pixelCast = cv::COLOR_BayerRG2RGB_EA;
     static constexpr auto pixelStorageFormat = CV_8UC1;
 
     void newFrame(GX_FRAME_CALLBACK_PARAM* pFrameData) {
-        if(pFrameData->status != GX_FRAME_STATUS_SUCCESS)
+        if(pFrameData->status != GX_FRAME_STATUS_SUCCESS || !mStartFlag)
             return;
 
-        const auto timeStamp = SynchronizedClock::now();  // TODO: propagation time and internal timer
+        //std::cout << "Frame " << (static_cast<double>(Clock::now().time_since_epoch().count()) / Clock::period::den) << " " << pFrameData->nWidth << " x "
+        //          << pFrameData->nHeight << std::endl;
 
+        const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer
+
+        // TODO: reduce reallocation
         cv::Mat frame{ cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, pixelStorageFormat };
         memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
+        cv::Mat bgr;
+        cv::cvtColor(frame, bgr, pixelCast);
+        frame.release();
 
         CameraFrame frameData;
         frameData.lastUpdate = timeStamp;
-        cv::cvtColor(frame, frameData.frame, pixelCast);
-        // TODO: frameData.info;
+        frameData.info.fov = mConfig.fov;
+        frameData.info.width = pFrameData->nWidth;
+        frameData.info.height = pFrameData->nHeight;
+        // TODO: transform
+        frameData.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
+        frameData.frame = std::move(bgr);
 
         BlackBoard::instance().updateSync(mKey, std::move(frameData));
         sendAll(image_frame_atom_v, mKey);
@@ -75,18 +93,17 @@ private:
 
 public:
     DahengDriver(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(DahengDriver).hash_code() }, mStartFlag{ false } {
+        : HubHelper{ base, config }, mKey{ typeid(DahengDriver).hash_code() } {
         initLib();
 
         GX_OPEN_PARAM deviceDesc;
-        deviceDesc.accessMode = GX_ACCESS_READONLY;
-        deviceDesc.openMode = GX_OPEN_MODE::GX_OPEN_SN;
-        deviceDesc.pszContent = mConfig.serialNumber.data();
+        deviceDesc.accessMode = GX_ACCESS_CONTROL;
+        deviceDesc.openMode = mConfig.openMode == "Index" ? GX_OPEN_MODE::GX_OPEN_INDEX : GX_OPEN_MODE::GX_OPEN_SN;
+        deviceDesc.pszContent = mConfig.identifier.data();
 
         checkGXStatus(GXOpenDevice(&deviceDesc, &mDevice));
 
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_ACQUISITION_FRAME_RATE_MODE, GX_ACQUISITION_FRAME_RATE_MODE_ON));
-
         checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_ACQUISITION_FRAME_RATE, mConfig.fps));
 
         // checkGXStatus(GXSetEnum(device, GX_ENUM_FLAT_FIELD_CORRECTION, GX_ENUM_FLAT_FIELD_CORRECTION_ON));
@@ -97,18 +114,23 @@ public:
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_EXPOSURE_AUTO, GX_EXPOSURE_AUTO_OFF));
         // checkGXStatus(GXSetEnum(device, GX_ENUM_EXPOSURE_TIME_MODE, GX_EXPOSURE_TIME_MODE_ULTRASHORT));
 
-        /*
         GX_FLOAT_RANGE range;
-        checkGXStatus(GXGetFloatRange(device, GX_FLOAT_EXPOSURE_TIME, &range));
-        */
-        checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_EXPOSURE_TIME, 1000000.0 / mConfig.fps));
+        checkGXStatus(GXGetFloatRange(mDevice, GX_FLOAT_EXPOSURE_TIME, &range));
+
+        checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_EXPOSURE_TIME, 1000000.0 * mConfig.exposureTime));
 
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_PIXEL_FORMAT, pixelFormat));
 
-        checkGXStatus(GXSetInt(mDevice, GX_INT_WIDTH, mConfig.width));
-        checkGXStatus(GXSetInt(mDevice, GX_INT_HEIGHT, mConfig.height));
-        checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_X, 0));
-        checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_Y, 0));
+        if(mConfig.decimation) {
+            /*
+            checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BINNING_HORIZONTAL_MODE, GX_BINNING_VERTICAL_MODE_AVERAGE));
+            checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BINNING_VERTICAL_MODE, GX_BINNING_VERTICAL_MODE_AVERAGE));
+            checkGXStatus(GXSetInt(mDevice, GX_INT_BINNING_HORIZONTAL, mConfig.binning));
+            checkGXStatus(GXSetInt(mDevice, GX_INT_BINNING_VERTICAL, mConfig.binning));
+             */
+            checkGXStatus(GXSetInt(mDevice, GX_INT_DECIMATION_HORIZONTAL, mConfig.decimation));
+            checkGXStatus(GXSetInt(mDevice, GX_INT_DECIMATION_VERTICAL, mConfig.decimation));
+        }
 
 #ifdef ARTINXHUB_WINDOWS
         auto bImplementPacketSize = false;

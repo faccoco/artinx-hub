@@ -10,62 +10,60 @@
 struct VideoReplaySettings final {
     std::string path;
     double fps;
+    double fov;
+    uint32_t width;
+    uint32_t height;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, VideoReplaySettings& x) {
     return f.object(x).fields(f.field("path", x.path),
-                              f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 120.0; }));
+                              f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 120.0; }),
+                              f.field("fov", x.fov), f.field("width", x.width), f.field("height", x.height));
 }
 
 class VideoReplay final : public HubHelper<caf::event_based_actor, VideoReplaySettings, image_frame_atom> {
 private:
+    cv::VideoCapture mCapture;
     Identifier mKey;
-    std::thread mThread;
-    bool mStartFlag = false, mRunFlag = true;
+
+    cv::Mat resize(const cv::Mat& frame) const {
+        cv::Mat resized;
+        cv::resize(frame, resized, cv::Size{ static_cast<int32_t>(mConfig.width), static_cast<int32_t>(mConfig.height) });
+        return resized;
+    }
+
+    void next() {
+        cv::Mat img;
+        if(!mCapture.read(img))
+            return;
+
+        CameraFrame res;
+        res.frame = (mConfig.width == img.cols && mConfig.height == img.rows) ? std::move(img) : resize(img);
+        res.info.width = mConfig.width;
+        res.info.height = mConfig.height;
+        res.info.fov = mConfig.fov;
+        res.lastUpdate = SynchronizedClock::instance().now();
+
+        BlackBoard::instance().updateSync(mKey, std::move(res));
+        sendAll(image_frame_atom_v, mKey);
+    }
 
 public:
     VideoReplay(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(VideoReplay).hash_code() } {
-        mThread = std::thread{ [this] {
-            const auto [path, fps] = mConfig;
-            while(!mStartFlag)
-                std::this_thread::sleep_for(100ms);
 
-            while(mRunFlag) {
-                cv::VideoCapture capture;
-                if(!capture.open(path)) {
-                    // TODO: error code
-                    this->quit(caf::error{});
-                }
-
-                const auto duration = std::chrono::floor<Clock::duration>(static_cast<Clock::duration>(1s) / fps);
-                auto now = Clock::now();
-                while(true) {
-                    std::this_thread::sleep_until(now);
-
-                    CameraFrame frameData;
-                    frameData.lastUpdate = now;
-                    // TODO: frameData.info
-
-                    if(!capture.read(frameData.frame)) {
-                        break;
-                    }
-
-                    BlackBoard::instance().updateSync(mKey, std::move(frameData));
-
-                    sendAll(image_frame_atom_v, mKey);
-                    now += duration;
-                }
-            }
-        } };
-    }
-    ~VideoReplay() {
-        mRunFlag = false;
-        mThread.join();
+        if(!mCapture.open(mConfig.path)) {
+            const auto error = "Failed to load video " + mConfig.path;
+            CAF_RAISE_ERROR(error.c_str());
+        }
     }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { mStartFlag = true; } };
+        return { [this](start_atom) {
+                    Timer::instance().addTimer(address(),
+                                               std::chrono::microseconds{ static_cast<int64_t>(1'000'000 / mConfig.fps) });
+                },
+                 [this](timer_atom) { next(); } };
     }
 };
 

@@ -1,34 +1,52 @@
-cmake_minimum_required (VERSION 3.19)
+cmake_minimum_required(VERSION 3.19)
 
 set(SOURCE 
 "Core/BlackBoard.cpp"
 "Core/Daemon.cpp"
 "Core/PerformanceMonitor.cpp"
 "DataLink/HttpServer.cpp"
-"Sensor/DahengDriver.cpp"
-"Sensor/VideoReplay.cpp"
+"DataLink/AsyncSerial/AsyncSerial.cpp"
+"DataLink/AsyncSerial/BufferedAsyncSerial.cpp"
+"DataLink/SerialPort.cpp"
 "Detect/ArmorDetector.cpp"
 "Detect/CarDetector.cpp"
+"Detect/CarTracker.cpp"
 "Detect/EnergyDetector.cpp"
+"Detect/FakeCarDetector.cpp"
+"Detect/NumClassifier.cpp"
+"Detect/OreAlignment.cpp"
+"Detect/OreExchangeRectifier.cpp"
+"HubMain.cpp"
+"Postprocess/ArmorPredictor.cpp"
 "Preprocess/ColorCalibration.cpp"
 "Preprocess/IMUFilter.cpp"
 "Preprocess/Undistort.cpp"
+"Sensor/DahengDriver.cpp"
+"Sensor/ImageSequenceReplay.cpp"
+"Sensor/VideoReplay.cpp"
 "Solve/AngleSolver.cpp"
 "Solve/ArmorLocator.cpp"
+"Solve/RadarLocator.cpp"
+"Strategy/Sentry.cpp"
 "Test/ActorFramework/Test.cpp"
-"Test/Detect/ArmorDetectorTester.cpp"
+"Test/Detect/FakeSerialPort.cpp"
+"Test/Sensor/FixedIMU.cpp"
 "Test/Solve/ArmorLocatorTester.cpp"
 "Test/Solve/FakeDetector.cpp"
 "Test/Solve/FakeHead.cpp"
 "Test/Solve/FakeIMU.cpp"
 "Test/Solve/SimpleStrategy.cpp"
 "Test/Solve/Simulator.cpp"
+"Test/TestHelper.cpp"
+"Utility/ArmorDetectorDrawer.cpp"
 "Utility/CarDetectorDrawer.cpp"
+"Utility/Crc.cpp"
+"Utility/KM.cpp"
 "Utility/OpenCVHelper.cpp"
 "Utility/PID.cpp"
 "Utility/Timer.cpp"
-"Utility/VideoRecoder.cpp"
-"HubMain.cpp")
+"Utility/VideoRecorder.cpp"
+)
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
@@ -40,6 +58,7 @@ message(${DAHENG_SDK_PATH})
 find_package(Bullet CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
+find_package(Boost REQUIRED system)
 
 set(InferenceEngine_DIR $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine/share/)
 find_package(InferenceEngine CONFIG REQUIRED)
@@ -48,10 +67,10 @@ add_executable(ArtinxHub ${SOURCE})
 target_include_directories(ArtinxHub PRIVATE ${InferenceEngine_INCLUDE_DIRS})
 target_include_directories(ArtinxHub PRIVATE ${CAF_INCLUDE_DIRS})
 target_link_libraries(ArtinxHub PRIVATE CAF::core)
-target_link_libraries(ArtinxHub PRIVATE opencv_core opencv_videoio opencv_mcc)
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-	target_link_libraries(ArtinxHub PRIVATE Iphlpapi)
-endif()
+target_link_libraries(ArtinxHub PRIVATE opencv_core opencv_videoio opencv_mcc opencv_calib3d opencv_barcode opencv_tracking)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    target_link_libraries(ArtinxHub PRIVATE Iphlpapi)
+endif ()
 target_link_libraries(ArtinxHub PRIVATE glm::glm)
 target_include_directories(ArtinxHub PRIVATE ${CPP_HTTPLIB_INCLUDE_DIRS})
 target_include_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/inc)
@@ -65,27 +84,27 @@ target_link_libraries(ArtinxHub PRIVATE nlohmann_json nlohmann_json::nlohmann_js
 
 
 add_custom_command(TARGET ArtinxHub PRE_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy_directory
-                       ${CMAKE_SOURCE_DIR}/pages $<TARGET_FILE_DIR:ArtinxHub>/pages)
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/pages $<TARGET_FILE_DIR:ArtinxHub>/pages)
 add_custom_command(TARGET ArtinxHub PRE_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy_directory
-                       ${CMAKE_SOURCE_DIR}/scripts $<TARGET_FILE_DIR:ArtinxHub>/scripts)
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/scripts $<TARGET_FILE_DIR:ArtinxHub>/scripts)
 add_custom_command(TARGET ArtinxHub PRE_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E copy_directory
-                       ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:ArtinxHub>/data)
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:ArtinxHub>/data)
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${DAHENG_SDK_PATH}/../../APIDll/Win64/GxIAPI.dll $<TARGET_FILE_DIR:ArtinxHub>)
-set(INFERENCE_ENGINE_ROOT $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine)
-file(GLOB INFERENCE_ENGINE_DLLS ${INFERENCE_ENGINE_ROOT}/bin/intel64/${CMAKE_BUILD_TYPE}/*.dll)
-add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy  ${INFERENCE_ENGINE_DLLS} $<TARGET_FILE_DIR:ArtinxHub>)
-file(GLOB_RECURSE INFERENCE_ENGINE_EXTERNAL_DLLS ${INFERENCE_ENGINE_ROOT}/external/*.dll)
-add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy  ${INFERENCE_ENGINE_EXTERNAL_DLLS} $<TARGET_FILE_DIR:ArtinxHub>)
-file(GLOB NGRAPH_DLLS $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/ngraph/lib/*.dll)
-remove(NGRAPH_DLLS $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/ngraph/lib/libprotobuf.dll)
-remove(NGRAPH_DLLS $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/ngraph/lib/libprotobufd.dll)
-add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${NGRAPH_DLLS} $<TARGET_FILE_DIR:ArtinxHub>)
-add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${INFERENCE_ENGINE_ROOT}/bin/intel64/${CMAKE_BUILD_TYPE}/plugins.xml $<TARGET_FILE_DIR:ArtinxHub>)
-endif()
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${DAHENG_SDK_PATH}/../../APIDll/Win64/GxIAPI.dll $<TARGET_FILE_DIR:ArtinxHub>)
+    set(INFERENCE_ENGINE_ROOT $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine)
+    file(GLOB INFERENCE_ENGINE_DLLS ${INFERENCE_ENGINE_ROOT}/bin/intel64/${CMAKE_BUILD_TYPE}/*.dll)
+    add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${INFERENCE_ENGINE_DLLS} $<TARGET_FILE_DIR:ArtinxHub>)
+    file(GLOB_RECURSE INFERENCE_ENGINE_EXTERNAL_DLLS ${INFERENCE_ENGINE_ROOT}/external/*.dll)
+    add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${INFERENCE_ENGINE_EXTERNAL_DLLS} $<TARGET_FILE_DIR:ArtinxHub>)
+    file(GLOB NGRAPH_DLLS $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/ngraph/lib/*.dll)
+    remove(NGRAPH_DLLS $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/ngraph/lib/libprotobuf.dll)
+    remove(NGRAPH_DLLS $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/ngraph/lib/libprotobufd.dll)
+    add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${NGRAPH_DLLS} $<TARGET_FILE_DIR:ArtinxHub>)
+    add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${INFERENCE_ENGINE_ROOT}/bin/intel64/${CMAKE_BUILD_TYPE}/plugins.xml $<TARGET_FILE_DIR:ArtinxHub>)
+endif ()
 
 add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/config_templates/caf-application.conf $<TARGET_FILE_DIR:ArtinxHub>)
