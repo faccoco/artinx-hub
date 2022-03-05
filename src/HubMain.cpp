@@ -55,7 +55,7 @@ public:
     }
     caf::actor buildNode(caf::actor_system& system, const std::string& name, const HubConfig& config) {
         
-        ("Build node " + name);
+        CAF_LOG_INFO("Build node " + name);
         const auto attr = config.to_dictionary().value();
         const auto typeAttr = attr.find("type"sv);
         if(typeAttr == attr.cend()) {

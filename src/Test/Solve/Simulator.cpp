@@ -128,10 +128,11 @@ class SentryMotionController final : public MotionController {
     std::default_random_engine generator;
     std::normal_distribution<double> distribution{ 0, 1 };
     void step(btMotionState& motionState, double dt) override {
-        double ySpeed = distribution(generator);
+        double xSpeed = distribution(generator);
         btTransform transform;
         motionState.getWorldTransform(transform);
-        transform.setOrigin(btVector3(transform.getOrigin().getX(), transform.getOrigin().getY() + ySpeed * dt,
+        transform.setOrigin(
+            btVector3(transform.getOrigin().getX() + ySpeed * dt, transform.getOrigin().getY(),
                                       transform.getOrigin().getZ()));
     }
 };
