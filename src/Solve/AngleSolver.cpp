@@ -218,8 +218,7 @@ public:
                          //    (std::abs(currentPitchAngle - pitchAngle) < prec) &&
                          //    ((std::abs(currentYawAngle - yawAngle) < prec) ||
                          //     (std::abs(currentYawAngle - glm::half_pi<double>() - yawAngle) < prec)));
-                         sendAll(set_target_posture_atom_v, yawAngle, pitchAngle);
-                         sendAll(shoot_atom_v, true);
+                         sendAll(set_target_info_atom_v, yawAngle, pitchAngle, true);
                      }
                  },
                  [this](update_head_atom, Identifier key) { mHeadKey = key; },
