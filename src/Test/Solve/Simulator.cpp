@@ -132,7 +132,7 @@ class SentryMotionController final : public MotionController {
         btTransform transform;
         motionState.getWorldTransform(transform);
         transform.setOrigin(
-            btVector3(transform.getOrigin().getX() + ySpeed * dt, transform.getOrigin().getY(),
+            btVector3(transform.getOrigin().getX() + xSpeed * dt, transform.getOrigin().getY(),
                                       transform.getOrigin().getZ()));
     }
 };
