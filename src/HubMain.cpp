@@ -59,7 +59,8 @@ public:
         const auto attr = config.to_dictionary().value();
         const auto typeAttr = attr.find("type"sv);
         if(typeAttr == attr.cend()) {
-            throw std::runtime_error("Node " + name + " is lack of 'type' field.");
+            const auto error = "Node " + name + " is lack of 'type' field.";
+            CAF_RAISE_ERROR(error.c_str());
         }
         const auto nodeTypeName = caf::to_string(typeAttr->second);
         const auto iter = mClasses.find(nodeTypeName);
@@ -91,8 +92,10 @@ namespace detail {
         demangle(nameNormalized);
         const auto attr = config.to_dictionary().value();
         const auto iter = attr.find(nameNormalized);
-        if(iter == attr.cend())
-            CAF_LOG_ERROR("Succeed " + std::string{ nameNormalized } + " is needed");
+        if(iter == attr.cend()) {
+            const auto error = "Succeed " + std::string{ nameNormalized } + " is needed";
+            CAF_RAISE_ERROR(error.c_str());
+        }
 
         const auto succeed = iter->second.to_list().value();
         std::vector<std::string> res;
@@ -107,14 +110,18 @@ namespace detail {
         std::vector<caf::actor_addr> res;
         res.reserve(succeed.size());
         for(auto id : succeed) {
-            res.push_back(registry.get<caf::actor_addr>(id));
+            if(auto addr = registry.get<caf::actor_addr>(id))
+                res.push_back(addr);
+            else {
+                const auto error = "Undefined actor " + id + " (call sendAll before start_atom?)";
+                CAF_RAISE_ERROR(error.c_str());
+            }
         }
         return res;
     }
 }  // namespace detail
 
 std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system& system, const HubConfig& config) {
-    // TODO: verify reference
     const auto nodes = config.to_dictionary().value();
     std::unordered_map<std::string, uint32_t> idMap;
     std::vector<std::tuple<uint32_t, std::string, std::vector<uint32_t>>> reference;
@@ -145,6 +152,8 @@ void terminateSystem(caf::local_actor& actor, const bool success) {
     globalCV.notify_one();
 }
 
+std::string globalConfigName;
+
 int caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
     CAF_LOG_INFO("Initializing");
     Timer::instance().bindSystem(system);
@@ -164,9 +173,11 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
 
     if(argc != 2 || !fs::exists(argv[1])) {
         CAF_LOG_ERROR("Bad Config");
-        return EXIT_FAILURE;
+        //return EXIT_FAILURE;
+        std::terminate();
     }
 
+    globalConfigName = fs::path{ argv[1] }.filename().string();
     const auto configData = loadConfig(argv[1]);
     const auto pipelineConfig = caf::config_value::parse(configData).value();
     BlackBoard::instance().updateSync({}, caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value());
@@ -199,5 +210,8 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
 
     return globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+
+std::unordered_map<std::string, TimePoint> HubLogger::logs;
+std::unordered_map<std::string, std::string> HubLogger::watches;
 
 CAF_MAIN(caf::id_block::ArtinxHub)

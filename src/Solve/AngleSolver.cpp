@@ -1,25 +1,26 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
-#include "Hub.hpp"
-#include "SelectedTarget.hpp"
 #include "HeadInfo.hpp"
+#include "Hub.hpp"
 #include "PostureData.hpp"
-#include "DataDesc.hpp"
+#include "SelectedTarget.hpp"
+#include "Utility.hpp"
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
 #include <cmath>
 #include <complex>
+#include <cstdint>
 #include <fmt/format.h>
+
 struct AngleSolverSettings final {
     double precision;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
-    return f.object(x).fields(f.field("precision",x.precision));
+    return f.object(x).fields(f.field("precision", x.precision));
 }
 
-class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, shoot_atom, set_target_posture_atom> {
+class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
     Identifier mKey, mIMUKey, mHeadKey;
 
 private:
@@ -120,11 +121,10 @@ public:
                      const auto dataHeadinfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
                      const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                      const auto globalSettings = BlackBoard::instance().get<GlobalSettings>({}).value();
-                     const double g = -globalSettings.gForce, bulletSpeed = 15.00;
+                     const double g = -globalSettings.gForce, bulletSpeed = 25.00;
                      auto square = [=](double x) { return x * x; };
                      auto cube = [=](double x) { return x * x * x; };
 
-                     
                      Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun (data.value().center.value().raw());
                      const auto timeDuration = (data.value().lastUpdate.time_since_epoch().count())/(double)1e9;
                      glm::dvec3 transformedPosition = { 0, 0, 0};
@@ -221,9 +221,6 @@ public:
                          sendAll(set_target_posture_atom_v, yawAngle, pitchAngle);
                          sendAll(shoot_atom_v, true);
                      }
-                     
-                      
-
                  },
                  [this](update_head_atom, Identifier key) { mHeadKey = key; },
                  [this](update_posture_atom, Identifier key) { mIMUKey = key; } };

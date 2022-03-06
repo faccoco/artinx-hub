@@ -31,10 +31,9 @@ struct Identifier final {
 CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id);
 
 CAF_ADD_ATOM(ArtinxHub, start_atom);
-CAF_ADD_ATOM(ArtinxHub, shoot_atom);
 CAF_ADD_ATOM(ArtinxHub, detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_atom);
-CAF_ADD_ATOM(ArtinxHub, set_target_posture_atom);
+CAF_ADD_ATOM(ArtinxHub, set_target_info_atom);
 CAF_ADD_ATOM(ArtinxHub, update_posture_atom);
 CAF_ADD_ATOM(ArtinxHub, update_head_atom);
 CAF_ADD_ATOM(ArtinxHub, simulator_step_atom);
@@ -42,10 +41,16 @@ CAF_ADD_ATOM(ArtinxHub, timer_atom);
 CAF_ADD_ATOM(ArtinxHub, image_frame_atom);
 CAF_ADD_ATOM(ArtinxHub, car_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
+CAF_ADD_ATOM(ArtinxHub, energy_detect_available_atom);
+CAF_ADD_ATOM(ArtinxHub, ore_instructions_atom);
+CAF_ADD_ATOM(ArtinxHub, ore_detect_available_atom);
+CAF_ADD_ATOM(ArtinxHub, radar_locate_succeed_atom);
+CAF_ADD_ATOM(ArtinxHub, radar_locate_request_atom);
+CAF_ADD_ATOM(ArtinxHub, num_classify_request_atom);
+CAF_ADD_ATOM(ArtinxHub, ore_alignment_available_atom);
 
 CAF_ADD_TYPE_ID(ArtinxHub, (Identifier));
 
 CAF_END_TYPE_ID_BLOCK(ArtinxHub);
 
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(Identifier);
-

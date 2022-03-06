@@ -1,6 +1,6 @@
 DaHeng SDK (Galaxy)
 
-nlohmann_json
+nlohmann-json
 
 caf [modified]
 
@@ -28,3 +28,4 @@ OneAPI [Download the Intel® oneAPI Base Toolkit](https://www.intel.com/content/
 
 OpenVINO [Download Intel® Distribution of OpenVINO™ Toolkit](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit-download.html)
 
+boost
