@@ -6,8 +6,8 @@
 #include "PostureData.hpp"
 #include "Utility.hpp"
 #include <caf/event_based_actor.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <fmt/format.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 struct SerialPortSettings final {
     std::string devPath;
@@ -40,10 +40,12 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     bool mCheckingHeader;
 
     void receive() {
-        if (!started) return;
+        if(!started)
+            return;
         std::vector<char> vec = mSerialPort->read();
 #ifdef ARTINXHUB_DEBUG
-        for (auto v : vec) std::cout << v << " ";
+        for(auto v : vec)
+            std::cout << v << " ";
         std::cout << std::endl;
 #endif
         for(uint8_t data : vec) {
@@ -83,22 +85,16 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 //                logInfo(fmt::format("{}, {}", fdb.yaw, fdb.pitch));
                 fdb.yaw = (fdb.yaw < 0) ? fdb.yaw += 6.2831852 : fdb.yaw;
 
-                //fdb.yaw = 0.0;// for standard
+                // fdb.yaw = 0.0;// for standard
 
-                const HeadInfo info {
-                    SynchronizedClock::instance().now(),
-                    decltype(HeadInfo::transform) {
-                        glm::lookAtRH(
-                            glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
-                            glm::dvec3{
-                                std::cos(fdb.yaw - glm::half_pi<double>()) * std::cos(fdb.pitch),
-                                mConfig.headHeightOffset + std::sin(fdb.pitch),
-                                std::sin(fdb.yaw - glm::half_pi<double>()) * std::cos(fdb.pitch)
-                            },
-                            glm::dvec3{ 0.0, 1.0, 0.0 })
-                    },
-                    0.0, 0.0
-                };
+                const HeadInfo info{ SynchronizedClock::instance().now(),
+                                     decltype(HeadInfo::transform){ glm::lookAtRH(
+                                         glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
+                                         glm::dvec3{ std::cos(fdb.yaw + glm::half_pi<double>()) * std::cos(fdb.pitch),
+                                                     mConfig.headHeightOffset + std::sin(fdb.pitch),
+                                                     -std::sin(fdb.yaw + glm::half_pi<double>()) * std::cos(fdb.pitch) },
+                                         glm::dvec3{ 0.0, 1.0, 0.0 }) },
+                                     0.0, 0.0 };
                 BlackBoard::instance().updateSync(mKey, info);
                 PostureData posture;
                 posture.lastUpdate = SynchronizedClock::instance().now();
@@ -139,12 +135,10 @@ public:
     }
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {
-                    started = true;
-                },
+        return { [this](start_atom) { started = true; },
                  [this](set_target_info_atom, double yawAngle, double pitchAngle, bool isFire) {
-                     yawAngle = (yawAngle > 3.1415926) ? yawAngle - 6.2831852 : yawAngle;
-                     HubLogger::print(fmt::format("yaw: {} pitch: {}", yawAngle, pitchAngle), "serial_out", 500);
+                     //                     yawAngle = (yawAngle > 3.1415926) ? yawAngle - 6.2831852 : yawAngle;
+                     // std::cout << fmt::format("yaw: {} pitch: {}", yawAngle, pitchAngle) << std::endl;
                      GimbalSetPacket gimbalSetPacket{ static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire };
                      mSerialPort->write(reinterpret_cast<const char*>(gimbalSetPacket.buffer.data()), GimbalSetPacket::size);
                  } };

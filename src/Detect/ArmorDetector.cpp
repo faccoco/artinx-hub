@@ -150,8 +150,14 @@ class ArmorDetector final
     }
 
     cv::RotatedRect correctRectAngle(cv::RotatedRect lightRect) {
-        if(std::fmax(lightRect.size.width, lightRect.size.height) / std::fmin(lightRect.size.width, lightRect.size.height) >
-           1.2) {
+        if(std::fmax(lightRect.size.width, lightRect.size.height) < 5.0) {
+            if(std::fabs(std::sin(glm::radians(lightRect.angle))) < glm::root_two<double>() * 0.5) {
+                std::swap(lightRect.size.width, lightRect.size.height);
+                lightRect.angle += 90.0;
+            }
+        } else if(std::fmax(lightRect.size.width, lightRect.size.height) /
+                      std::fmin(lightRect.size.width, lightRect.size.height) >
+                  1.2) {
             if((lightRect.size.width > 1.5 * lightRect.size.height) ||
                (lightRect.size.width > 1.2 * lightRect.size.height &&
                 std::fabs(std::sin(glm::radians(lightRect.angle))) < glm::root_two<double>() * 0.5)) {
@@ -181,7 +187,9 @@ class ArmorDetector final
                     lightRect = rect;
             }
 
-            if(lightRect.size.area() < 4.0)
+            if(std::fmax(lightRect.size.width, lightRect.size.height) < 3.0)
+                continue;
+            if(std::fmin(lightRect.size.width, lightRect.size.height) > 50.0)
                 continue;
 
             const auto rect = lightRect.boundingRect();
@@ -195,7 +203,7 @@ class ArmorDetector final
                 continue;
             */
 
-            if(lightRect.size.height > 2.0 * lightRect.size.width && lightRect.size.width > 2.0 &&
+            if(lightRect.size.height > 2.0 * lightRect.size.width &&
                std::fabs(std::cos(glm::radians(lightRect.angle))) < mConfig.maxLightAngle) {
                 continue;
             }

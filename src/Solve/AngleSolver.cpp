@@ -121,7 +121,7 @@ public:
                      const auto dataHeadinfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
                      const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                      const auto globalSettings = BlackBoard::instance().get<GlobalSettings>({}).value();
-                     const double g = -globalSettings.gForce, bulletSpeed = 25.00;
+                     const double g = -globalSettings.gForce, bulletSpeed = 20.00;
                      auto square = [=](double x) { return x * x; };
                      auto cube = [=](double x) { return x * x * x; };
 
