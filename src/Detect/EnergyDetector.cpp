@@ -137,6 +137,7 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
            width / height > settings.armorMinWHRatio &&
            contourArea(contour) / rotatedRect.size.area() > settings.armorMinAreaRatio && match < 0.3)
             return true;
+        return false;
     }
 
     bool stripJudge(const std::vector<cv::Point>& contour, const cv::RotatedRect& rotatedRect,
@@ -151,6 +152,7 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
            width / height < settings.stripMaxWHRatio && width / height > settings.stripMinWHRatio &&
            contourArea(contour) / rotatedRect.size.area() < settings.stripMaxAreaRatio)
             return true;
+        return false;
     }
 
     bool changeAngle(const int quadrant, const float angle, float& tranAngle) {
@@ -378,6 +380,8 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
             }
             data.isFind = true;
         }
+
+        return true;
     }
 
     bool predict(const ArmorData data, cv::Point2f& preCenter, const float predictAngle, const int predictMode,
@@ -477,6 +481,8 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
             }
             return true;
         }
+
+        return false;
     }
 
     void detect(const DetectedEnergyArray& inputDetectEnergyArray, DetectedEnergyArray outputDetectEnergyArray,

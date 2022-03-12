@@ -118,13 +118,14 @@ public:
                      const auto data = BlackBoard::instance().get<SelectedTarget>(key);
                      const auto dataHeadInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
                      const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
-                     const auto globalSettings = BlackBoard::instance().get<GlobalSettings>({}).value();
-                     const double g = -globalSettings.gForce, bulletSpeed = 20.00;
-                     auto square = [=](double x) { return x * x; };
-                     auto cube = [=](double x) { return x * x * x; };
+                     const auto& globalSettings = GlobalSettings::get();
+                     const double g = -globalSettings.gForce, bulletSpeed = globalSettings.bulletSpeed;
+
+                     constexpr auto square = [=](const double x) { return x * x; };
+                     constexpr auto cube = [=](const double x) { return x * x * x; };
 
                      Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.value().center.value().raw());
-                     const auto timeDuration = (data.value().lastUpdate.time_since_epoch().count()) / (double)1e9;
+                     const auto timeDuration = data.value().lastUpdate.time_since_epoch().count() / 1e9;
                      glm::dvec3 transformedPosition = { 0, 0, 0 };
                      glm::dvec3 forwardVector = { 0, 0, -1 };
                      glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
@@ -213,7 +214,7 @@ public:
                          double pitchAngle = std::acos(netHorizontalSpeed / bulletSpeed);
                          pitchAngle = (pitchAngle < glm::quarter_pi<double>() / 4) ? pitchAngle :
                                                                                      (glm::half_pi<double>() / 2 - pitchAngle);
-                         // CAF_LOG_INFO(fmt::format("YawAngle: {},PitchAngle: {}", yawAngle, pitchAngle));
+                         // logInfo(fmt::format("YawAngle: {},PitchAngle: {}", yawAngle, pitchAngle));
                          if(mExceptionPoint[0] >= 7) {
                              pitchAngle = mPreviousPitchAngle;
                              yawAngle = mPreviousYawAngle;
@@ -222,7 +223,7 @@ public:
                              mPreviousYawAngle = yawAngle;
                          }
 
-                         double currentYawAngle = std::atan2(forwardVector.y, forwardVector.x);
+                         double currentYawAngle = std::atan2(forwardVector.y, forwardVector.x) - glm::half_pi<double>();
                          double currentPitchAngle = std::atan2(forwardVector.z, std::hypot(forwardVector.x, forwardVector.y));
                          // CAF_LOG_INFO(fmt::format("CurrentYawAngle: {},CurrentPitchAngle: {}",currentYawAngle,
                          // currentPitchAngle)); double prec = mConfig.precision; double prec = 0.001;
@@ -231,6 +232,7 @@ public:
                          //    (std::abs(currentPitchAngle - pitchAngle) < prec) &&
                          //    ((std::abs(currentYawAngle - yawAngle) < prec) ||
                          //     (std::abs(currentYawAngle - glm::half_pi<double>() - yawAngle) < prec)));
+                         // logInfo(fmt::format("CurrentYawAngle: {},CurrentPitchAngle: {}", currentYawAngle, currentPitchAngle));
                          sendAll(set_target_info_atom_v, yawAngle, pitchAngle, true);
                      }
                  },

@@ -129,11 +129,11 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
         return std::sqrt(totalErr / totalPoints);
     }
 
-    void calcBoardCornerPositions(const cv::Size boardSize, float squareSize, std::vector<cv::Point3f>& corners) {
+    void calcBoardCornerPositions(const cv::Size boardSize, const float squareSize, std::vector<cv::Point3f>& corners) {
         corners.clear();
         for(int i = 0; i < boardSize.height; ++i) {
             for(int j = 0; j < boardSize.width; ++j)
-                corners.emplace_back(j * squareSize, i * squareSize, 0);
+                corners.emplace_back(static_cast<float>(j) * squareSize, static_cast<float>(i) * squareSize, 0.0f);
         }
     }
 

@@ -5,16 +5,28 @@
 #include <caf/type_id.hpp>
 #include <cstdint>
 
+enum class Color { Red, Blue };
+
 struct GlobalSettings final {
     double gForce;
     double dragCoefficient;
     bool bullet42mm;
 
-    double bulletRadius() const noexcept {
+    Color selfColor = Color::Red;
+    double bulletSpeed = 15.00;
+    bool started = false;
+
+    [[nodiscard]] double bulletRadius() const noexcept {
         return bullet42mm ? radiusOf42mm : radiusOf17mm;
     }
-    double bulletMass() const noexcept {
+
+    [[nodiscard]] double bulletMass() const noexcept {
         return bullet42mm ? massOf42mm : massOf17mm;
+    }
+
+    static GlobalSettings& get() {
+        static GlobalSettings settings;
+        return settings;
     }
 };
 

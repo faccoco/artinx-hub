@@ -174,7 +174,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
     globalConfigName = fs::path{ argv[1] }.filename().string();
     const auto configData = loadConfig(argv[1]);
     const auto pipelineConfig = caf::config_value::parse(configData).value();
-    BlackBoard::instance().updateSync({}, caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value());
+    GlobalSettings::get() = caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value();
 
     {
         const auto actors = buildPipeline(system, pipelineConfig);
