@@ -13,6 +13,7 @@ struct OrePosition {
     uint64_t totalNum;
     uint64_t flashingIndex;  // begin with 0
 };
+
 struct DetectedOreArray final {
     CameraFrame frame;
     Movement currentMovement;

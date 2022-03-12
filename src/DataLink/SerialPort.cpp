@@ -81,8 +81,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         switch(id) {
             case(GimbalFdbPacket::id): {
                 GimbalFdbPacket fdb(mPacketBuffer);
-//                std::cout << fdb.yaw << " " << fdb.pitch << std::endl;
-//                logInfo(fmt::format("{}, {}", fdb.yaw, fdb.pitch));
+                //                std::cout << fdb.yaw << " " << fdb.pitch << std::endl;
+                //                logInfo(fmt::format("{}, {}", fdb.yaw, fdb.pitch));
                 fdb.yaw = (fdb.yaw < 0) ? fdb.yaw += 6.2831852 : fdb.yaw;
 
                 // fdb.yaw = 0.0;// for standard

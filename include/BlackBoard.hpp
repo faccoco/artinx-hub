@@ -23,6 +23,7 @@ class BlackBoard final {
     std::pair<std::shared_mutex, std::any>* getImpl(size_t hashValue);
 
 public:
+    // TODO: type safe
     template <typename T>
     std::optional<T> get(Identifier key) {
         if(auto ptr = getImpl(typeid(T).hash_code() ^ key.val)) {
@@ -32,6 +33,7 @@ public:
         return std::nullopt;
     }
 
+    // TODO: type safe
     template <typename T>
     void updateSync(Identifier key, T val) {
         const auto hashCode = typeid(T).hash_code() ^ key.val;

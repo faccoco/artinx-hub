@@ -1,7 +1,5 @@
 #pragma once
 #include "CameraFrame.hpp"
-#include "Timer.hpp"
-#include "Transform.hpp"
 #include <opencv2/opencv.hpp>
 
 struct DetectedEnergyArray final {

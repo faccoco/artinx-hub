@@ -15,7 +15,7 @@ public:
     FixedIMU(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(FixedIMU).hash_code() } {}
     caf::behavior make_behavior() override {
-        return { [&](timer_atom, Identifier key) {
+        return { [&](timer_atom) {
                     PostureData posture;
                     posture.lastUpdate = SynchronizedClock::instance().now();
                     posture.postureOfRobot =

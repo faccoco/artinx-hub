@@ -74,4 +74,3 @@ bool Crc::VerifyCrc16CheckSum(uint8_t* pchMessage, uint32_t dwLength) {
     uint16_t wExpected = Get_CRC16_Check_Sum(pchMessage, dwLength - 2, CRC16_INIT);
     return ((wExpected & 0xff) == pchMessage[dwLength - 2] && ((wExpected >> 8) & 0xff) == pchMessage[dwLength - 1]);
 }
-

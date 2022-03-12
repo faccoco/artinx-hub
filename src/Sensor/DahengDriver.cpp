@@ -66,7 +66,8 @@ private:
         if(pFrameData->status != GX_FRAME_STATUS_SUCCESS || !mStartFlag)
             return;
 
-        //std::cout << "Frame " << (static_cast<double>(Clock::now().time_since_epoch().count()) / Clock::period::den) << " " << pFrameData->nWidth << " x "
+        // std::cout << "Frame " << (static_cast<double>(Clock::now().time_since_epoch().count()) / Clock::period::den) << " " <<
+        // pFrameData->nWidth << " x "
         //          << pFrameData->nHeight << std::endl;
 
         const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer

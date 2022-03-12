@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <limits>
 #include <opencv2/barcode.hpp>
+
 struct OreExchangeRectifierSettings final {
     std::string sr_prototxt;
     std::string sr_caffemodel;
@@ -15,6 +16,7 @@ struct OreExchangeRectifierSettings final {
     double deltaTime;
     double movingRate;
 };
+
 template <class Inspector>
 bool inspect(Inspector& f, OreExchangeRectifierSettings& x) {
     return f.object(x).fields(
@@ -170,7 +172,7 @@ public:
                         return;
                     }
                     default: {
-                        CAF_RAISE_ERROR("Invalid automata state. ");
+                        raiseError("Invalid state.");
                     }
                 }
             },

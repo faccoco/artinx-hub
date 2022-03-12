@@ -112,14 +112,14 @@ class UAVMotionController final : public MotionController {
     std::default_random_engine generator;
     std::normal_distribution<double> distribution{ 0, 1 };
 
-    
     void step(btMotionState& motionState, double dt) override {
         double xSpeed = distribution(generator);
         double ySpeed = distribution(generator);
         double zSpeed = distribution(generator);
         btTransform transform;
         motionState.getWorldTransform(transform);
-        transform.setOrigin(btVector3(transform.getOrigin().getX() + xSpeed*dt,transform.getOrigin().getY() + ySpeed*dt ,transform.getOrigin().getZ() - zSpeed * dt));
+        transform.setOrigin(btVector3(transform.getOrigin().getX() + xSpeed * dt, transform.getOrigin().getY() + ySpeed * dt,
+                                      transform.getOrigin().getZ() - zSpeed * dt));
         motionState.setWorldTransform(transform);
     }
 };
@@ -132,8 +132,7 @@ class SentryMotionController final : public MotionController {
         btTransform transform;
         motionState.getWorldTransform(transform);
         transform.setOrigin(
-            btVector3(transform.getOrigin().getX() + xSpeed * dt, transform.getOrigin().getY(),
-                                      transform.getOrigin().getZ()));
+            btVector3(transform.getOrigin().getX() + xSpeed * dt, transform.getOrigin().getY(), transform.getOrigin().getZ()));
     }
 };
 
@@ -142,8 +141,8 @@ class Translate2DMotionController final : public MotionController {
     std::normal_distribution<double> distribution{ 0, 1 };
 
     void step(btMotionState& motionState, double dt) override {
-        double ySpeed=distribution(generator);
-        double zSpeed=distribution(generator);
+        double ySpeed = distribution(generator);
+        double zSpeed = distribution(generator);
         btTransform transform;
         motionState.getWorldTransform(transform);
         transform.setOrigin(btVector3(transform.getOrigin().getX(), transform.getOrigin().getY() + ySpeed * dt,
@@ -154,8 +153,9 @@ class Translate2DMotionController final : public MotionController {
 class VibrationMotionController final : public MotionController {
     double vibrationRange;
     double t = 0;
-    public :
-        VibrationMotionController(double range) : vibrationRange { range } {}
+
+public:
+    VibrationMotionController(double range) : vibrationRange{ range } {}
     void step(btMotionState& motionState, double dt) override {
         btTransform transform;
         motionState.getWorldTransform(transform);
@@ -275,7 +275,6 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                     mTargetArmors.push_back(std::move(armors));
                 } break;
 
-                    
                 default:
                     throw NotImplemented{};
                     break;
@@ -371,8 +370,7 @@ public:
             mDynamicWorld->stepSimulation(static_cast<btScalar>(mConfig.step), 10, 0.001f);
             time += mConfig.step;
 
-            logInfo(
-                fmt::format("Simulator time {:.3f}s bullet count {} hited {} shoot {}", time, bulletCount, hitCount, shoot));
+            logInfo(fmt::format("Simulator time {:.3f}s bullet count {} hited {} shoot {}", time, bulletCount, hitCount, shoot));
 
             // update world info
             {

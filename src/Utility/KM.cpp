@@ -1,8 +1,13 @@
+#include "Common.hpp"
 #include "Utility.hpp"
 
-//Notation: 1)m >= n,otherwise it will stick in an infinite loop.
+// Notation: 1)m >= n,otherwise it will stick in an infinite loop.
 //          2)res is the result of m match n, if on one match m, the res[m] is (2^32 - 1).
+// TODO: fixme
 std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>& w) {
+    throw NotImplemented{};
+    return {};
+
     const auto size = std::max(n, m) + 1;
     std::vector<double> lh(size), rh(size), slack(size);
     std::vector<uint32_t> pair(size), pre(size);
