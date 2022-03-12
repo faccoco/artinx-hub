@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    setInterval("updateAll()", 50);
+    setInterval("updateAll()", 100);
 });
 
 function randomString(length) {
@@ -11,35 +11,25 @@ function randomString(length) {
 
 let filters = {};
 let images = {};
-let isUpdating = false;
+let watches = {};
 
 function updateAll() {
-    // if (isUpdating) return;
-    updateImages();
-    updateStatus();
     updateLog();
     updateFilter();
-}
-
-function updateImages() {
-    for (let k in images) {
-        if (!filters[k]) continue;
-        images[k].src = "/img/" + k + "/" + randomString(5);
-        // isUpdating = true;
-    }
+    updateWatches();
 }
 
 function updateLog() {
     let logDiv = $("#logs");
     let keepDown = false;
-    if (logDiv[0].scrollTop + logDiv[0].clientHeight >= logDiv[0].scrollHeight - 0.6) {
+    if (logDiv[0].scrollTop + logDiv[0].clientHeight >= logDiv[0].scrollHeight - 200.0) {
         keepDown = true;
     }
     fetch("/log").then(res => {
         if (!res.ok) {
             throw new Error(res.status + "");
         }
-        return res.text()
+        return res.text();
     }).then(data => {
         if (data === "") return;
         if (this.prev) {
@@ -52,8 +42,24 @@ function updateLog() {
         this.prev = logs[logs.length - 1];
     });
     if (keepDown) {
-        logDiv[0].scrollTop = logDiv[0].scrollHeight;
+        logDiv[0].scrollTop = logDiv[0].scrollHeight - logDiv[0].clientHeight;
     }
+}
+
+function updateWatches() {
+    fetch("/watch").then(res => res.json()).then(data => {
+        for (let k in data) {
+            if (watches.hasOwnProperty(k)) {
+                watches[k].html(data[k]);
+            } else {
+                let line = $("<tr><td>" + k + "</td></tr>");
+                let val = $("<td>" + data[k] + "</td>");
+                watches[k] = val;
+                line.append(val);
+                $("#watches").append(line);
+            }
+        }
+    })
 }
 
 function updateStatus() {

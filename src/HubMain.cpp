@@ -206,5 +206,6 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
 }
 
 std::unordered_map<std::string, TimePoint> HubLogger::logs;
+std::unordered_map<std::string, std::string> HubLogger::watches;
 
 CAF_MAIN(caf::id_block::ArtinxHub)
