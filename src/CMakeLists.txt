@@ -34,7 +34,6 @@ set(SOURCE
 "Test/ActorFramework/Availability.cpp"
 "Test/ActorFramework/DaemonTester.cpp"
 "Test/ActorFramework/FrameRateKeeperTester.cpp"
-"Test/ActorFramework/Test.cpp"
 "Test/Detect/FakeSerialPort.cpp"
 "Test/Sensor/FixedIMU.cpp"
 "Test/Solve/ArmorLocatorTester.cpp"
