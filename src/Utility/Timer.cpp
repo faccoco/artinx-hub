@@ -2,13 +2,14 @@
 #include "DataDesc.hpp"
 #include "Utility.hpp"
 #include <caf/scoped_actor.hpp>
+#include <utility>
 
 Timer& Timer::instance() {
     static Timer inst;
     return inst;
 }
 
-Timer::Timer() {
+void Timer::bindSystem(caf::actor_system& system) {
     mThread = std::thread{ [&] {
         using namespace std::chrono_literals;
         while(globalStatus == RunStatus::running) {
@@ -31,24 +32,20 @@ Timer::Timer() {
 
             std::this_thread::sleep_until(deadline);
 
-            const caf::scoped_actor caller{ *mSystem };
+            const caf::scoped_actor caller{ system };
             caller->send(caf::actor_cast<caf::actor>(actor), timer_atom_v);
         }
     } };
 }
 
-void Timer::bindSystem(caf::actor_system& system) {
-    mSystem = &system;
-}
-
-Timer::~Timer() {
+void Timer::stop() {
     if(mThread.joinable())
         mThread.join();
 }
 
 void Timer::addTimer(caf::actor_addr actor, Duration period) {
     std::lock_guard<std::mutex> guard{ mMutex };
-    mTimers.push({ actor, Clock::now() + period, period });
+    mTimers.push({ std::move(actor), Clock::now() + period, period });
 }
 
 TimePoint SynchronizedClock::now() const {

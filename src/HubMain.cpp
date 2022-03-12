@@ -180,7 +180,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         const auto actors = buildPipeline(system, pipelineConfig);
         const auto daemon = createDaemonActor(system, actors);
 
-        caf::scoped_actor caller{ system };
+        const caf::scoped_actor caller{ system };
         for(auto&& [name, actor] : actors) {
             caller->send(actor, start_atom_v);
         }
@@ -200,6 +200,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         caller->send_exit(daemon, caf::exit_reason::user_shutdown);
     }
 
+    Timer::instance().stop();
     system.await_all_actors_done();
 
     return globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE;
