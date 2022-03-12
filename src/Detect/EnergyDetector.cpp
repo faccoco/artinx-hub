@@ -59,47 +59,43 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
     bool mVelocityTested = false;
 
     bool circleLeastFit(const std::vector<cv::Point2f>& points, cv::Point2f& energyCenter) {
-        float center_x = 0.0f;
-        float center_y = 0.0f;
+        float centerX = 0.0f;
+        float centerY = 0.0f;
         float radius = 0.0f;
 
         if(points.size() < 3) {
             return false;
         }
-        double sum_x = 0.0f, sum_y = 0.0f;
-        double sum_x2 = 0.0f, sum_y2 = 0.0f;
-        double sum_x3 = 0.0f, sum_y3 = 0.0f;
-        double sum_xy = 0.0f, sum_x1y2 = 0.0f, sum_x2y1 = 0.0f;
-        int N = points.size();
-        for(int i = 0; i < N; i++) {
-            double x = points[i].x;
-            double y = points[i].y;
-            double x2 = x * x;
-            double y2 = y * y;
-            sum_x += x;
-            sum_y += y;
-            sum_x2 += x2;
-            sum_y2 += y2;
-            sum_x3 += x2 * x;
-            sum_y3 += y2 * y;
-            sum_xy += x * y;
+        double sumX = 0.0f, sumY = 0.0f;
+        double sumX2 = 0.0f, sumY2 = 0.0f;
+        double sumX3 = 0.0f, sumY3 = 0.0f;
+        double sumXy = 0.0f, sum_x1y2 = 0.0f, sumX2Y1 = 0.0f;
+        for(const auto [x, y] : points) {
+            const double x2 = x * x;
+            const double y2 = y * y;
+            sumX += x;
+            sumY += y;
+            sumX2 += x2;
+            sumY2 += y2;
+            sumX3 += x2 * x;
+            sumY3 += y2 * y;
+            sumXy += x * y;
             sum_x1y2 += x * y2;
-            sum_x2y1 += x2 * y;
+            sumX2Y1 += x2 * y;
         }
-        double C, D, E, G, H;
-        double a, b, c;
-        C = N * sum_x2 - sum_x * sum_x;
-        D = N * sum_xy - sum_x * sum_y;
-        E = N * sum_x3 + N * sum_x1y2 - (sum_x2 + sum_y2) * sum_x;
-        G = N * sum_y2 - sum_y * sum_y;
-        H = N * sum_x2y1 + N * sum_y3 - (sum_x2 + sum_y2) * sum_y;
-        a = (H * D - E * G) / (C * G - D * D);
-        b = (H * C - E * D) / (D * D - G * C);
-        c = -(a * sum_x + b * sum_y + sum_x2 + sum_y2) / N;
-        center_x = a / (-2);
-        center_y = b / (-2);
+        const double n = points.size();
+        const auto pC = n * sumX2 - sumX * sumX;
+        const auto pD = n * sumXy - sumX * sumY;
+        const auto pE = n * sumX3 + n * sum_x1y2 - (sumX2 + sumY2) * sumX;
+        const auto pG = n * sumY2 - sumY * sumY;
+        const auto pH = n * sumX2Y1 + n * sumY3 - (sumX2 + sumY2) * sumY;
+        const auto a = (pH * pD - pE * pG) / (pC * pG - pD * pD);
+        const auto b = (pH * pC - pE * pD) / (pD * pD - pG * pC);
+        const auto c = -(a * sumX + b * sumY + sumX2 + sumY2) / n;
+        centerX = a / (-2);
+        centerY = b / (-2);
         radius = sqrt(a * a + b * b - 4 * c) / 2;
-        energyCenter = cv::Point2f(center_x, center_y);
+        energyCenter = cv::Point2f(centerX, centerY);
         return true;
     }
 
@@ -108,11 +104,11 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
         split(binary, imgChannels);
 
         if(colorMode == 0) {
-            const auto energeRed = imgChannels[2] - imgChannels[0];
-            threshold(energeRed, binary, 100, 255, cv::THRESH_BINARY);
+            const auto energyRed = imgChannels[2] - imgChannels[0];
+            threshold(energyRed, binary, 100, 255, cv::THRESH_BINARY);
         } else if(colorMode == 1) {
-            const auto energeBlue = imgChannels[0] - imgChannels[2];
-            threshold(energeBlue, binary, 100, 255, cv::THRESH_BINARY);
+            const auto energyBlue = imgChannels[0] - imgChannels[2];
+            threshold(energyBlue, binary, 100, 255, cv::THRESH_BINARY);
         } else {
             logInfo("Binary failed \n");
             return false;
@@ -133,11 +129,11 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
         const auto area = contourArea(contour);
         std::vector<cv::Point2f> rectContour;
 
-        for(int i = 0; i < 4; i++) {
-            rectContour.push_back(rectPoints[i]);
+        for(auto& rectPoint : rectPoints) {
+            rectContour.push_back(rectPoint);
         }
-        const auto match = matchShapes(contour, rectContour, cv::CONTOURS_MATCH_I1, 0.0);
-        if(area > settings.armorMinArea && area < settings.armorMaxArea && width / height < settings.armorMaxWHRatio &&
+        if(const auto match = matchShapes(contour, rectContour, cv::CONTOURS_MATCH_I1, 0.0); area > settings.armorMinArea &&
+           area < settings.armorMaxArea && width / height < settings.armorMaxWHRatio &&
            width / height > settings.armorMinWHRatio &&
            contourArea(contour) / rotatedRect.size.area() > settings.armorMinAreaRatio && match < 0.3)
             return true;
@@ -147,8 +143,8 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
                     const EnergyDetectorSettings& settings) {
         cv::Point2f rectPoints[4];
         rotatedRect.points(rectPoints);
-        double height = std::min(rotatedRect.size.height, rotatedRect.size.width);
-        double width = std::max(rotatedRect.size.height, rotatedRect.size.width);
+        const double height = std::min(rotatedRect.size.height, rotatedRect.size.width);
+        const double width = std::max(rotatedRect.size.height, rotatedRect.size.width);
         double area = contourArea(contour);
 
         if(height * width > settings.stripMinArea && height * width < settings.stripMaxArea &&
@@ -198,50 +194,48 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
             }
         }
     }
-
+    int mTimes = 0;
+    std::vector<ArmorData> mData;
+    static constexpr int frames = 20;
     bool getDirection(DetectedEnergyArray& detectedEnergyArray) {
-        const int frames = 20;
-        static int times = 0;
-        static std::vector<ArmorData> datas;
-        int positive = 0;
-        int negetive = 0;
-        float angles[frames];
-
-        if(times < frames && mLastData.isFind) {
-            datas.push_back(mLastData);
-            times++;
+        if(mTimes < frames && mLastData.isFind) {
+            mData.push_back(mLastData);
+            mTimes++;
             return false;
         } else {
-            if(int(datas.size()) != frames) {
-                times = 0;
-                datas.clear();
+            float angles[frames];
+            int negative = 0;
+            int positive = 0;
+            if(static_cast<int>(mData.size()) != frames) {
+                mTimes = 0;
+                mData.clear();
                 return false;
             }
             for(int i = 0; i < frames; ++i) {
-                changeAngle(datas[i].quadrant, datas[i].angle, angles[i]);
+                changeAngle(mData[i].quadrant, mData[i].angle, angles[i]);
             }
             for(int j = 1; j < 3; ++j) {
                 for(int i = 0; i < frames - j; ++i) {
                     if((angles[i] - angles[i + j]) > 0 || (angles[i] - angles[i + j]) < -300) {
                         positive++;
                     } else if((angles[i] - angles[i + j]) < 0 || (angles[i] - angles[i + j]) > 300) {
-                        negetive++;
+                        negative++;
                     }
                 }
             }
-            if(positive > negetive) {
+            if(positive > negative) {
                 detectedEnergyArray.direction = true;
                 logInfo("Clockwise");
-            } else if(positive < negetive) {
+            } else if(positive < negative) {
                 detectedEnergyArray.direction = false;
                 logInfo("Anticlockwise");
             } else {
                 logInfo("Direction detecting failed");
                 return false;
             }
-            times = 0;
+            mTimes = 0;
             mDirectionTested = true;
-            datas.clear();
+            mData.clear();
             return true;
         }
     }
@@ -262,8 +256,9 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
             logInfo("Energy detect failed");
             return false;
         }
-        std::vector<int> conIndices;
-        for(int i = 0; i < armorContoursSize; ++i) {
+
+        std::vector<uint32_t> conIndices;
+        for(uint32_t i = 0; i < armorContoursSize; ++i) {
             if(contourArea(armorContours[i]) > settings.noiseArea && armorHierarchy[i][3] == -1) {
                 if(stripJudge(armorContours[i], minAreaRect(armorContours[i]), settings)) {
                     conIndices.push_back(i);
@@ -276,20 +271,19 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
             return false;
         }
 
-        int index = NULL;
-        float minScore = INT_MAX;
+        uint32_t index = std::numeric_limits<uint32_t>::max();
+        double minScore = 1e10;
 
-        for(size_t i = 0; i < conIndices.size(); ++i) {
-            const auto finalLength = arcLength(armorContours[conIndices[i]], true);
-            const auto finalArea = contourArea(armorContours[conIndices[i]]);
-            const auto score = finalArea + finalLength * 10;
+        for(const auto conIndex : conIndices) {
+            const auto finalLength = arcLength(armorContours[conIndex], true);
+            const auto finalArea = contourArea(armorContours[conIndex]);
 
-            if(score < minScore) {
+            if(const auto score = finalArea + finalLength * 10; score < minScore) {
                 minScore = score;
-                index = conIndices[i];
+                index = conIndex;
             }
         }
-        if(index == NULL) {
+        if(index == std::numeric_limits<uint32_t>::max()) {
             logInfo("Strip detect failed: no strip contour \n");
             return false;
         }
@@ -298,7 +292,7 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
         const auto finalRect = boundingRect(armorContours[index]);
         const auto finalROI = binary(finalRect);
         cv::RotatedRect finalSqua;
-        float maxArea = 0;
+        double maxArea = 0;
         std::vector<std::vector<cv::Point> > finalContours;
         std::vector<cv::Vec4i> finalHierarchy;
 
@@ -307,8 +301,7 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
             if(finalHierarchy[i][3] != -1) {
                 cv::RotatedRect squa = minAreaRect(finalContours[i]);
                 if(armorJudge(finalContours[i], squa, settings)) {
-                    float area = contourArea(finalContours[i]);
-                    if(area > maxArea) {
+                    if(const auto area = contourArea(finalContours[i]); area > maxArea) {
                         maxArea = area;
                         finalSqua = squa;
                         findArmor = true;
@@ -323,9 +316,9 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
         data.armorCenter = finalSqua.center + settings.offset;
         const auto finalRrect = minAreaRect(armorContours[index]);
         const auto arrowCenter = finalRrect.center + settings.offset;
-        const auto min = MIN(finalSqua.size.height, finalSqua.size.width);
 
-        if(getDistance(arrowCenter, data.armorCenter) < min * 0.8) {
+        if(const auto minVal = std::min(finalSqua.size.height, finalSqua.size.width);
+           getDistance(arrowCenter, data.armorCenter) < minVal * 0.8) {
             data.isFind = false;
         } else {
             float tranAngle = 0.0;
@@ -490,15 +483,15 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
                 const EnergyDetectorSettings& settings) {
 
         if(settings.rotateMode == 0) {
-            ArmorData armordata;
-            if(getArmorCenter(inputDetectEnergyArray.frame.frame, settings, armordata) == false) {
+            ArmorData armorData;
+            if(getArmorCenter(inputDetectEnergyArray.frame.frame, settings, armorData) == false) {
                 outputDetectEnergyArray.predictPoint = cv::Point2f(0, 0);
             } else if(mDirectionTested) {
                 cv::Point2f preCenter;
-                predict(armordata, preCenter, settings.predictAngle, settings.smallPredictMode, inputDetectEnergyArray.direction,
+                predict(armorData, preCenter, settings.predictAngle, settings.smallPredictMode, inputDetectEnergyArray.direction,
                         settings.radius);
             }
-            mLastData = armordata;
+            mLastData = armorData;
         } else if(settings.rotateMode == 1) {
             ArmorData armordata;
             if(getArmorCenter(inputDetectEnergyArray.frame.frame, settings, armordata) == false) {
@@ -519,7 +512,8 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
         }
     }
 
-    bool velocityCalculate(DetectedEnergyArray& detectEnergyArray) {
+    bool velocityCalculate(const DetectedEnergyArray& detectEnergyArray) {
+        // FIXME: static?
         const int frameNums = 50;
         static int times = 0;
         static std::vector<ArmorData> datas;
@@ -530,7 +524,7 @@ class EnergyDetector final : public HubHelper<caf::event_based_actor, EnergyDete
             times++;
             return false;
         } else {
-            if(int(datas.size()) != frameNums) {
+            if(static_cast<int>(datas.size()) != frameNums) {
                 times = 0;
                 datas.clear();
                 return false;

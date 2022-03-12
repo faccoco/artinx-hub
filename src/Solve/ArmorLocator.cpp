@@ -71,8 +71,8 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
         const cv::Point2d rt = 0.5 * (mImagePoint[1] + mImagePoint[2]);
         const cv::Point2d rb = 0.5 * (mImagePoint[0] + mImagePoint[3]);
 
-        cv::Mat_<double> distCoeff;
-        cv::Mat revc, tvec;
+        const cv::Mat_<double> distCoeff;
+        cv::Mat rvec, tvec;
 
         const auto left = 0.5 * (lt + lb);
         const auto right = 0.5 * (rt + rb);
@@ -87,7 +87,7 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
 
         mImagePoint = { lt, lb, rb, rt };
         const auto res = cv::solvePnP(ratio > ratioThreshold ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint, cameraMatrix,
-                                      distCoeff, revc, tvec, false, cv::SOLVEPNP_IPPE);
+                                      distCoeff, rvec, tvec, false, cv::SOLVEPNP_IPPE);
         const glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
 
         return Point<UnitType::Distance, FrameOfReference::Camera>{ p0 };

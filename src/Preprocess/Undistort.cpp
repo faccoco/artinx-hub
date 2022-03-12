@@ -113,14 +113,14 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
                                      std::vector<float>& perViewErrors) {
         std::vector<cv::Point2f> imagePoints2;
         size_t totalPoints = 0;
-        double err, totalErr = 0;
+        double totalErr = 0;
         perViewErrors.resize(objectPoints.size());
 
         for(size_t i = 0; i < objectPoints.size(); ++i) {
             cv::projectPoints(objectPoints[i], rvecs[i], tvecs[i], cameraMatrix, distCoeffs, imagePoints2);
-            err = cv::norm(imagePoints[i], imagePoints2, cv::NORM_L2);
+            const double err = cv::norm(imagePoints[i], imagePoints2, cv::NORM_L2);
 
-            size_t n = objectPoints[i].size();
+            const size_t n = objectPoints[i].size();
             perViewErrors[i] = static_cast<float>(std::sqrt(err * err / n));
             totalErr += err * err;
             totalPoints += n;
@@ -129,11 +129,11 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
         return std::sqrt(totalErr / totalPoints);
     }
 
-    void calcBoardCornerPositions(cv::Size boardSize, float squareSize, std::vector<cv::Point3f>& corners) {
+    void calcBoardCornerPositions(const cv::Size boardSize, float squareSize, std::vector<cv::Point3f>& corners) {
         corners.clear();
         for(int i = 0; i < boardSize.height; ++i) {
             for(int j = 0; j < boardSize.width; ++j)
-                corners.push_back(cv::Point3f(j * squareSize, i * squareSize, 0));
+                corners.emplace_back(j * squareSize, i * squareSize, 0);
         }
     }
 
@@ -151,14 +151,11 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
 
         objectPoints.resize(mImagePoints.size(), objectPoints[0]);
 
-        // Find intrinsic and extrinsic camera parameters
-        double rms;
-
         int iFixedPoint = -1;
         if(mReleaseObject)
             iFixedPoint = mConfig.boardSize.width - 1;
-        rms = cv::calibrateCameraRO(objectPoints, mImagePoints, mImageSize, iFixedPoint, mCameraMatrix, mDistCoeffs, rvecs, tvecs,
-                                    newObjPoints, mFlag | cv::CALIB_USE_LU);
+        double rms = cv::calibrateCameraRO(objectPoints, mImagePoints, mImageSize, iFixedPoint, mCameraMatrix, mDistCoeffs, rvecs,
+                                           tvecs, newObjPoints, mFlag | cv::CALIB_USE_LU);
 
         if(mReleaseObject) {
             logInfo("New board corners: ");
@@ -170,7 +167,7 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
 
         logInfo("Re-projection error reported by calibrateCamera: " + std::to_string(rms));
 
-        bool ok = cv::checkRange(mCameraMatrix) && cv::checkRange(mDistCoeffs);
+        const bool ok = cv::checkRange(mCameraMatrix) && cv::checkRange(mDistCoeffs);
 
         objectPoints.clear();
         objectPoints.resize(mImagePoints.size(), newObjPoints);
@@ -187,7 +184,7 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
         cv::FileStorage fs(mConfig.outputFileName, cv::FileStorage::WRITE);
 
         if(!rvecs.empty() || !reprojErrs.empty())
-            fs << "nr_of_frames" << (int)std::max(rvecs.size(), reprojErrs.size());
+            fs << "nr_of_frames" << static_cast<int>(std::max(rvecs.size(), reprojErrs.size()));
 
         fs << "image_width" << mImageSize.width;
         fs << "image_height" << mImageSize.height;
@@ -212,8 +209,8 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
             bool needReshapeT = tvecs[0].depth() != 1 ? true : false;
 
             for(size_t i = 0; i < rvecs.size(); i++) {
-                cv::Mat r = bigmat(cv::Range(int(i), int(i + 1)), cv::Range(0, 3));
-                cv::Mat t = bigmat(cv::Range(int(i), int(i + 1)), cv::Range(3, 6));
+                cv::Mat r = bigmat(cv::Range(static_cast<int>(i), static_cast<int>(i + 1)), cv::Range(0, 3));
+                cv::Mat t = bigmat(cv::Range(static_cast<int>(i), static_cast<int>(i + 1)), cv::Range(3, 6));
 
                 if(needReshapeR)
                     rvecs[i].reshape(1, 1).copyTo(r);
@@ -235,11 +232,11 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
         }
 
         if(mConfig.writePoints && !mImagePoints.empty()) {
-            cv::Mat imagePtMat((int)mImagePoints.size(), (int)mImagePoints[0].size(), CV_32FC2);
+            cv::Mat imagePtMat((mImagePoints.size()), (mImagePoints[0].size()), CV_32FC2);
             for(size_t i = 0; i < mImagePoints.size(); i++) {
-                cv::Mat r = imagePtMat.row(int(i)).reshape(2, imagePtMat.cols);
-                cv::Mat imgpti(mImagePoints[i]);
-                imgpti.copyTo(r);
+                cv::Mat r = imagePtMat.row(static_cast<int>(i)).reshape(2, imagePtMat.cols);
+                cv::Mat imgPoint(mImagePoints[i]);
+                imgPoint.copyTo(r);
             }
             fs << "image_points" << imagePtMat;
         }
@@ -255,7 +252,7 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
         double totalAvgErr = 0;
         std::vector<cv::Point3f> newObjPoints;
 
-        bool ok = runCalibration(rvecs, tvecs, reprojErrs, totalAvgErr, newObjPoints);
+        const bool ok = runCalibration(rvecs, tvecs, reprojErrs, totalAvgErr, newObjPoints);
 
         logInfo((ok ? "Calibration succeeded" : "Calibration failed"));
         logInfo("avg re projection error =" + std::to_string(totalAvgErr));
@@ -267,11 +264,10 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
 
 public:
     UndistortCalibrator(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(UndistortCalibrator).hash_code() } {
+        : HubHelper{ base, config }, mKey{ typeid(UndistortCalibrator).hash_code() }, mMode(Status::CAPTURING) {
 
         initFlag();
         mGridWidth = mConfig.squareSize * (mConfig.boardSize.width - 1);
-        mMode = Status::CAPTURING;
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) {},
@@ -316,16 +312,16 @@ public:
                      //! [output_text]
                      std::string msg = (mMode == Status::CAPTURING) ? "100/100" :
                          (mMode == Status::CALIBRATED)              ? "Calibrated" :
-                                                                      "Deteceted";
+                                                                      "Detected";
                      int baseLine = 0;
                      cv::Size textSize = cv::getTextSize(msg, 1, 1, 1, &baseLine);
                      cv::Point textOrigin(res.frame.cols - 2 * textSize.width - 10, res.frame.rows - 2 * baseLine - 10);
 
                      if(mMode == Status::CAPTURING) {
                          if(mConfig.showUndistorted)
-                             msg = cv::format("%d/%d Undist", (int)mImagePoints.size(), mConfig.nrFrames);
+                             msg = cv::format("%d/%d Undistort", static_cast<int>(mImagePoints.size()), mConfig.nrFrames);
                          else
-                             msg = cv::format("%d/%d", (int)mImagePoints.size(), mConfig.nrFrames);
+                             msg = cv::format("%d/%d", static_cast<int>(mImagePoints.size()), mConfig.nrFrames);
                      }
 
                      cv::putText(res.frame, msg, textOrigin, 1, 1, cv::Scalar(0, 255, 0));

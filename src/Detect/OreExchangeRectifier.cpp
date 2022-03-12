@@ -9,8 +9,8 @@
 #include <opencv2/barcode.hpp>
 
 struct OreExchangeRectifierSettings final {
-    std::string sr_prototxt;
-    std::string sr_caffemodel;
+    std::string superResProtoTxt;
+    std::string superResCaffeModel;
     int validDetectionRequired;
     double permissibleAngleRangeOfError;
     double deltaTime;
@@ -20,11 +20,11 @@ struct OreExchangeRectifierSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, OreExchangeRectifierSettings& x) {
     return f.object(x).fields(
-        f.field("sr_prototxt", x.sr_prototxt).invariant([](const std::string& sr_prototxt) {
-            return fs::exists(sr_prototxt) && fs::is_character_file(sr_prototxt);
+        f.field("superResProtoTxt", x.superResProtoTxt).invariant([](const std::string& superResProtoTxt) {
+            return fs::exists(superResProtoTxt) && fs::is_character_file(superResProtoTxt);
         }),
-        f.field("sr_caffemodel", x.sr_caffemodel).invariant([](const std::string& sr_caffemodel) {
-            return fs::exists(sr_caffemodel) && fs::is_regular_file(sr_caffemodel);
+        f.field("superResCaffeModel", x.superResCaffeModel).invariant([](const std::string& superResCaffeModel) {
+            return fs::exists(superResCaffeModel) && fs::is_regular_file(superResCaffeModel);
         }),
         f.field("validDetectionRequired", x.validDetectionRequired).invariant([](const int& validDetectionRequired) {
             return validDetectionRequired > 0;
@@ -37,9 +37,9 @@ bool inspect(Inspector& f, OreExchangeRectifierSettings& x) {
 class OreExchangeRectifier final
     : public HubHelper<caf::event_based_actor, OreExchangeRectifierSettings, ore_detect_available_atom> {
     Identifier mKey;
-    enum class AutomataStates { OFF, FINDING, LEARNING, BACK_FINDING, RECTIFYING };
-    AutomataStates mAutomataState{ AutomataStates::OFF };
-    cv::barcode::BarcodeDetector mBarcodeDetector{ mConfig.sr_prototxt, mConfig.sr_caffemodel };
+    enum class AutomataStates { off, finding, learning, back_finding, rectifying };
+    AutomataStates mAutomataState{ AutomataStates::off };
+    cv::barcode::BarcodeDetector mBarcodeDetector{ mConfig.superResProtoTxt, mConfig.superResCaffeModel };
     cv::Rect oreBackSurfaceDetect(const cv::Mat& image) const {
         cv::Mat corners;
         if(!mBarcodeDetector.detect(image, corners))
@@ -74,7 +74,7 @@ class OreExchangeRectifier final
         // only when a consecutive image sequence is found to have bar code, do we go to the next state.
         if(mValidDetectionCount >= mConfig.validDetectionRequired) {
             mValidDetectionCount = 0;  // reuse for validMisDetectionCount.
-            mAutomataState = AutomataStates::LEARNING;
+            mAutomataState = AutomataStates::learning;
         }
     }
     int mMaxHeight;  // std::numeric_limits<int32_t>::min()
@@ -87,7 +87,7 @@ class OreExchangeRectifier final
             // only when a consecutive image sequence is found not to have bar code, do we go to the next state.
             if(validMisDetectionCount >= validMisDetectionRequired) {
                 validMisDetectionCount = 0;  // reuse for mValidDetectionCount.
-                mAutomataState = AutomataStates::BACK_FINDING;
+                mAutomataState = AutomataStates::back_finding;
             }
         } else {
             validMisDetectionCount = 0;
@@ -104,7 +104,7 @@ class OreExchangeRectifier final
         // only when a consecutive image sequence is found to have bar code, do we go to the next state.
         if(mValidDetectionCount >= mConfig.validDetectionRequired) {
             mValidDetectionCount = 0;
-            mAutomataState = AutomataStates::RECTIFYING;
+            mAutomataState = AutomataStates::rectifying;
         }
     }
     double mAngularVelocity;  //-1
@@ -121,7 +121,7 @@ class OreExchangeRectifier final
                 mValidDetectionCount++;
             if(mValidDetectionCount >= mConfig.validDetectionRequired) {
                 send(-90);
-                mAutomataState = AutomataStates::OFF;
+                mAutomataState = AutomataStates::off;
                 return;
             }
             // if theta is declining, then the sign of velocity is correct.
@@ -145,29 +145,29 @@ public:
                 off();  // initialize the values for member variable.
                 // situation 1: OFF rectifier is waked up.
                 // situation 2: ON or other state, someone wants to stop it when some exceptions may be observed.
-                mAutomataState = (mAutomataState == AutomataStates::OFF ? AutomataStates::FINDING : AutomataStates::OFF);
+                mAutomataState = (mAutomataState == AutomataStates::off ? AutomataStates::finding : AutomataStates::off);
             },
             [&](image_frame_atom, Identifier key) {
-                if(mAutomataState == AutomataStates::OFF) {
+                if(mAutomataState == AutomataStates::off) {
                     off();
                     return;
                 }
                 const auto rect =
                     oreBackSurfaceDetect(BlackBoard::instance().get<CameraFrame>(key).value().frame);  // safe and need not copy
                 switch(mAutomataState) {
-                    case AutomataStates::FINDING: {
+                    case AutomataStates::finding: {
                         finds(rect);
                         return;
                     }
-                    case AutomataStates::LEARNING: {
+                    case AutomataStates::learning: {
                         learns(rect);
                         return;
                     }
-                    case AutomataStates::BACK_FINDING: {
+                    case AutomataStates::back_finding: {
                         backFinds(rect);
                         return;
                     }
-                    case AutomataStates::RECTIFYING: {
+                    case AutomataStates::rectifying: {
                         rectifies(rect);
                         return;
                     }

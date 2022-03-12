@@ -44,7 +44,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             return;
         std::vector<char> vec = mSerialPort->read();
 #ifdef ARTINXHUB_DEBUG
-        for(auto v : vec)
+        for(const auto v : vec)
             std::cout << v << " ";
         std::cout << std::endl;
 #endif

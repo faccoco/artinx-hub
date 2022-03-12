@@ -38,8 +38,7 @@ public:
         : HubHelper{ base, config }, mKey{ typeid(AngleSolver).hash_code() } {}
 
     static std::complex<double> sqrtn(const std::complex<double>& x, double n) {
-        double r = std::hypot(x.real(), x.imag());
-        if(r > 0.0) {
+        if(double r = std::hypot(x.real(), x.imag()); r > 0.0) {
             double a = std::atan2(x.imag(), x.real());
             n = 1.0 / n;
             r = std::pow(r, n);
@@ -57,11 +56,11 @@ public:
         c *= a;
         d *= a;
         e *= a;
-        const auto P = (c * c + 12.0 * e - 3.0 * b * d) / 9.0;
-        const auto Q = (27.0 * d * d + 2.0 * c * c * c + 27.0 * b * b * e - 72.0 * c * e - 9.0 * b * c * d) / 54.0;
-        const auto D = sqrtn(Q * Q - P * P * P, 2.0);
-        std::complex<double> u = Q + D;
-        std::complex<double> v = Q - D;
+        const auto p = (c * c + 12.0 * e - 3.0 * b * d) / 9.0;
+        const auto q = (27.0 * d * d + 2.0 * c * c * c + 27.0 * b * b * e - 72.0 * c * e - 9.0 * b * c * d) / 54.0;
+        const auto D = sqrtn(q * q - p * p * p, 2.0);
+        std::complex<double> u = q + D;
+        std::complex<double> v = q - D;
         if(v.real() * v.real() + v.imag() * v.imag() > u.real() * u.real() + u.imag() * u.imag()) {
             u = sqrtn(v, 3.0);
         } else {
@@ -69,9 +68,9 @@ public:
         }
         std::complex<double> y;
         if(u.real() * u.real() + u.imag() * u.imag() > 0.0) {
-            v = P / u;
-            std::complex<double> o1(-0.5, +0.86602540378443864676372317075294);
-            std::complex<double> o2(-0.5, -0.86602540378443864676372317075294);
+            v = p / u;
+            const std::complex<double> o1(-0.5, +0.86602540378443864676372317075294);
+            const std::complex<double> o2(-0.5, -0.86602540378443864676372317075294);
             std::complex<double>& yMax = x[0];
             double m2 = 0.0;
             double m2Max = 0.0;
@@ -92,9 +91,8 @@ public:
         } else {
             y = c / 3.0;
         }
-        const auto m = sqrtn(b * b + 4.0 * (y - c), 2.0);
-        if(m.real() * m.real() + m.imag() * m.imag() >= DBL_MIN) {
-            std::complex<double> n = (b * y - 2.0 * d) / m;
+        if(const auto m = sqrtn(b * b + 4.0 * (y - c), 2.0); m.real() * m.real() + m.imag() * m.imag() >= DBL_MIN) {
+            const std::complex<double> n = (b * y - 2.0 * d) / m;
             a = sqrtn((b + m) * (b + m) - 8.0 * (y + n), 2.0);
             x[0] = (-(b + m) + a) / 4.0;
             x[1] = (-(b + m) - a) / 4.0;
@@ -107,9 +105,9 @@ public:
             x[2] = x[3] = (-b - a) / 4.0;
         }
         double ans = 0;
-        for(int i = 0; i < 4; ++i) {
-            if(x[i].real() > ans && std::abs(x[i].imag()) < 1e7)
-                ans = x[i].real();
+        for(auto& i : x) {
+            if(i.real() > ans && std::abs(i.imag()) < 1e7)
+                ans = i.real();
         }
         return ans;
     }
@@ -118,7 +116,7 @@ public:
         return { [this](start_atom) {},
                  [this](set_target_atom, Identifier key) {
                      const auto data = BlackBoard::instance().get<SelectedTarget>(key);
-                     const auto dataHeadinfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
+                     const auto dataHeadInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
                      const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                      const auto globalSettings = BlackBoard::instance().get<GlobalSettings>({}).value();
                      const double g = -globalSettings.gForce, bulletSpeed = 20.00;
@@ -132,13 +130,13 @@ public:
                      glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
 
                      Vector<UnitType::Distance, FrameOfReference::Gun> forwardPosition(forwardVector);
-                     if((dataHeadinfo.has_value()) && (dataPosture.has_value())) {
+                     if((dataHeadInfo.has_value()) && (dataPosture.has_value())) {
                          Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot =
-                             dataHeadinfo.value().transform(positionOfReferenceGun);
+                             dataHeadInfo.value().transform(positionOfReferenceGun);
                          Vector<UnitType::Distance, FrameOfReference::Ground> positionOfReferenceGround =
                              dataPosture.value().postureOfRobot(positionOfReferenceRobot);
                          Vector<UnitType::Distance, FrameOfReference::Robot> forwardPositionOfReferenceRobot =
-                             dataHeadinfo.value().transform(forwardPosition);
+                             dataHeadInfo.value().transform(forwardPosition);
                          Vector<UnitType::Distance, FrameOfReference::Ground> forwardPositionOfReferenceGround =
                              dataPosture.value().postureOfRobot(forwardPositionOfReferenceRobot);
                          Vector<UnitType::LinearVelocity, FrameOfReference::Ground> linearVelocity(
@@ -174,37 +172,37 @@ public:
                          // CAF_LOG_INFO(fmt::format("mCnt:{}mPeriod:{} ", mCnt, mPeriod));
                          // if(!(mCnt%10000))
                          // for(int i = 1; i <= mCnt; ++i) {
-                         //    CAF_LOG_INFO(fmt::format("mCnt:{} time: {} transformedposition: {}, mDiff:{}, mPeriod:{} ", i,
+                         //    CAF_LOG_INFO(fmt::format("mCnt:{} time: {} transformed position: {}, mDiff:{}, mPeriod:{} ", i,
                          //    mTimes[i], mPositions[i], mDiff[i], mPeriod));
                          //}
-                         // CAF_LOG_INFO(fmt::format("time: {} transformedposition: {} {} {}", timeDuration, transformedPosition.x
-                         // ,transformedPosition.y ,transformedPosition.z));
-                         double horizonalDistance = std::hypot(transformedPosition.x, transformedPosition.y);
+                         // CAF_LOG_INFO(fmt::format("time: {} transformed position: {} {} {}", timeDuration,
+                         // transformedPosition.x ,transformedPosition.y ,transformedPosition.z));
+                         double horizontalDistance = std::hypot(transformedPosition.x, transformedPosition.y);
                          double yawAngle = std::atan2(transformedPosition.y, transformedPosition.x) - glm::half_pi<double>();
                          if(yawAngle < 0)
                              yawAngle += glm::two_pi<double>();
-                         double netHorizonalSpeed =
-                             Ferrari(-square(horizonalDistance) - square(transformedPosition.z),
-                                     2 * std::cos(yawAngle) * square(horizonalDistance) * transformedLinearVelocity.x +
-                                         2 * std::sin(yawAngle) * square(horizonalDistance) * transformedLinearVelocity.y,
-                                     -g * square(horizonalDistance) * transformedPosition.z +
-                                         square(horizonalDistance) * square(bulletSpeed) -
-                                         square(horizonalDistance) *
+                         double netHorizontalSpeed =
+                             Ferrari(-square(horizontalDistance) - square(transformedPosition.z),
+                                     2 * std::cos(yawAngle) * square(horizontalDistance) * transformedLinearVelocity.x +
+                                         2 * std::sin(yawAngle) * square(horizontalDistance) * transformedLinearVelocity.y,
+                                     -g * square(horizontalDistance) * transformedPosition.z +
+                                         square(horizontalDistance) * square(bulletSpeed) -
+                                         square(horizontalDistance) *
                                              (square(transformedLinearVelocity.x) + square(transformedLinearVelocity.y)),
-                                     0, (-0.25) * square(g) * square(square(horizonalDistance)));
+                                     0, (-0.25) * square(g) * square(square(horizontalDistance)));
                          //
                          //                 CAF_LOG_INFO(fmt::format("mCnt:{} ag:{} ", mCnt,
-                         //                 std::acos(netHorizonalSpeed/bulletSpeed))); const auto expr1 =
+                         //                 std::acos(netHorizontalSpeed/bulletSpeed))); const auto expr1 =
                          //                 std::sqrt(square(bulletSpeed)* square(bulletSpeed) - 2 * g * transformedPosition.z *
-                         //                 square(bulletSpeed) - square(horizonalDistance * g) ) / square(g); const auto expr2 =
+                         //                 square(bulletSpeed) - square(horizontalDistance * g) ) / square(g); const auto expr2 =
                          //                 std::sqrt(square(bulletSpeed / g) - transformedPosition.z / g - expr1); auto expr3 = 2
-                         //                 * glm::root_two<double>() * horizonalDistance * ((-2 * g * transformedPosition.z + 2 *
-                         //                 std::pow(bulletSpeed, 2)) * expr2 - square(g) * cube(expr2)); expr3 /= (double)(4 *
+                         //                 * glm::root_two<double>() * horizontalDistance * ((-2 * g * transformedPosition.z + 2
+                         //                 * std::pow(bulletSpeed, 2)) * expr2 - square(g) * cube(expr2)); expr3 /= (double)(4 *
                          //                 bulletSpeed); expr3 /= (square(transformedPosition.x) + square(transformedPosition.y)
                          //                 +
                          //                           square(transformedPosition.z));
                          //                 auto expr4 = 2 * glm::root_two<double>() *
-                         //                     (-square(horizonalDistance) * g * expr2 + square(transformedPosition.z) * g *
+                         //                     (-square(horizontalDistance) * g * expr2 + square(transformedPosition.z) * g *
                          //                     expr2 -
                          //                      2 * transformedPosition.z * square(bulletSpeed) * expr2 +
                          //                      square(g) * transformedPosition.z * cube(expr2));
@@ -212,7 +210,7 @@ public:
                          //                 expr4 /= (square(transformedPosition.x) + square(transformedPosition.y) +
                          // square(transformedPosition.z));
                          //                 double pitchAngle = std::atan2(expr4, expr3);
-                         double pitchAngle = std::acos(netHorizonalSpeed / bulletSpeed);
+                         double pitchAngle = std::acos(netHorizontalSpeed / bulletSpeed);
                          pitchAngle = (pitchAngle < glm::quarter_pi<double>() / 4) ? pitchAngle :
                                                                                      (glm::half_pi<double>() / 2 - pitchAngle);
                          // CAF_LOG_INFO(fmt::format("YawAngle: {},PitchAngle: {}", yawAngle, pitchAngle));

@@ -39,7 +39,7 @@ class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSe
     IE::ExecutableNetwork mExecutableNetwork;
     std::string mInputBlobName, mOutputBlobName;
 
-    double blobFromImage(const cv::Mat& input, IE::Blob::Ptr& imgBlob) const {
+    double blobFromImage(const cv::Mat& input, const IE::Blob::Ptr& imgBlob) const {
         const auto scale = std::fmin(mConfig.inputWidth / static_cast<double>(input.cols),
                                      mConfig.inputHeight / static_cast<double>(input.rows));
         const auto newWidth = static_cast<int32_t>(scale * input.cols), newHeight = static_cast<int32_t>(scale * input.rows);
@@ -48,7 +48,7 @@ class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSe
         cv::Mat full{ mConfig.inputHeight, mConfig.inputWidth, CV_8UC3, cv::Scalar{ 114, 114, 114 } };
         resized.copyTo(full(cv::Rect{ 0, 0, resized.cols, resized.rows }));
 
-        auto memoryBlob = IE::as<IE::MemoryBlob>(imgBlob);
+        const auto memoryBlob = IE::as<IE::MemoryBlob>(imgBlob);
         const auto mapping = memoryBlob->wmap();
         auto ptr = mapping.as<float*>();
         for(uint32_t channelIdx = 0; channelIdx < 3; ++channelIdx) {
@@ -61,8 +61,8 @@ class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSe
         return scale;
     }
 
-    std::vector<cv::Rect> decodeOutputs(IE::Blob::Ptr& blob, const double scale, const int32_t width, const int32_t height) {
-        auto memoryBlob = IE::as<IE::MemoryBlob>(blob);
+    std::vector<cv::Rect> decodeOutputs(const IE::Blob::Ptr& blob, const double scale, const int32_t width, const int32_t height) {
+        const auto memoryBlob = IE::as<IE::MemoryBlob>(blob);
         const auto mapping = memoryBlob->rmap();
         const auto ptr = mapping.as<float*>();
 
@@ -160,7 +160,7 @@ public:
 
         mNetwork = mInferenceEngine.ReadNetwork(mConfig.xmlPath, mConfig.binPath);
         auto [outputBlobName, outputBlob] = *mNetwork.getOutputsInfo().begin();
-        mOutputBlobName = outputBlobName;
+        mOutputBlobName = outputBlobName;  // NOLINT(cppcoreguidelines-prefer-member-initializer)
         outputBlob->setPrecision(IE::Precision::FP16);
 
         const auto devices = mInferenceEngine.GetAvailableDevices();
@@ -170,7 +170,7 @@ public:
 
         mExecutableNetwork = mInferenceEngine.LoadNetwork(mNetwork, mConfig.deviceName);
         auto [inputBlobName, inputBlob] = *mNetwork.getInputsInfo().begin();
-        mInputBlobName = inputBlobName;
+        mInputBlobName = inputBlobName;  // NOLINT(cppcoreguidelines-prefer-member-initializer)
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) {},
@@ -181,7 +181,7 @@ public:
                      res.frame = BlackBoard::instance().get<CameraFrame>(key).value();
 
                      auto request = mExecutableNetwork.CreateInferRequest();
-                     auto inputBlob = request.GetBlob(mInputBlobName);
+                     const auto inputBlob = request.GetBlob(mInputBlobName);
                      const auto scale = blobFromImage(res.frame.frame, inputBlob);
 
                      const auto t0 = Clock::now();
@@ -190,7 +190,7 @@ public:
 
                      const auto t1 = Clock::now();
 
-                     auto outputBlob = request.GetBlob(mOutputBlobName);
+                     const auto outputBlob = request.GetBlob(mOutputBlobName);
                      res.cars = decodeOutputs(outputBlob, scale, res.frame.frame.cols, res.frame.frame.rows);
                      const auto t2 = Clock::now();
 

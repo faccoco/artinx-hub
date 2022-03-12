@@ -20,7 +20,7 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
     std::vector<cv::Point3f> mObjectPoints = {
         cv::Point3f(1.51, 7.5, 1.12),  // from rival's base,clockwise
         cv::Point3f(12.897, 1.867, 0.6), cv::Point3f(19.195, 8.612, 0.615),  cv::Point3f(19.195, 9.272, 0.615),
-        cv::Point3f(12.03, 10.500, 0.6), cv::Point3f(10.931, 12.546, 1.228),  // gardstation's height unknow, can't find in
+        cv::Point3f(12.03, 10.500, 0.6), cv::Point3f(10.931, 12.546, 1.228),  // gardstation's height unknown, can't find in
                                                                               // manual
         /*coulde add two additional points but may be too many points
          *cv::Point3f(11.446,11.653,0.000),
@@ -30,13 +30,11 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
 
     std::optional<glm::dmat4> locatePosition(const cv::Mat& cameraMatrix, const std::vector<cv::Point2f>& imagePoints,
                                              const Color selfColor) {
-        cv::Mat_<double> distCoeff;
-        cv::Mat revc, tvec;
-        const bool locateSucceed =
-            cv::solvePnP(mObjectPoints, imagePoints, cameraMatrix, distCoeff, revc, tvec, false, cv::SOLVEPNP_ITERATIVE);
-        if(locateSucceed) {
+        const cv::Mat_<double> distCoeff;
+        cv::Mat rvec, tvec;
+        if(cv::solvePnP(mObjectPoints, imagePoints, cameraMatrix, distCoeff, rvec, tvec, false, cv::SOLVEPNP_ITERATIVE)) {
             cv::Mat rotateMat;
-            cv::Rodrigues(revc, rotateMat);
+            cv::Rodrigues(rvec, rotateMat);
             glm::dmat3 rotate{};
             memcpy(glm::value_ptr(rotate), rotateMat.ptr(), sizeof(double) * 3 * 3);
             glm::dmat4 trans = { rotate };

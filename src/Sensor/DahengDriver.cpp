@@ -53,7 +53,6 @@ static void initLib() {
 }
 
 class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriverSettings, image_frame_atom> {
-private:
     Identifier mKey;
     GX_DEV_HANDLE mDevice;
     bool mStartFlag = false;

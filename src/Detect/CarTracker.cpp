@@ -26,11 +26,11 @@ class CarTracker final : public HubHelper<caf::event_based_actor, void, car_dete
 
     std::vector<double> computeIoUAdjacencyMat(const VectorRect& detectRectRes, const VectorRect& trackRectRes) {
         std::vector<double> res(trackRectRes.size() * detectRectRes.size());
-        const auto computeIoU = [](const cv::Rect& rect1, const cv::Rect rect2) {
-            auto distX = abs(rect1.x - rect2.x);
-            auto width = (rect1.x < rect2.x ? rect1.width : rect2.width) - distX;
-            auto distY = abs(rect1.y - rect2.y);
-            auto height = (rect1.y < rect2.y ? rect1.height : rect2.height) - distY;
+        constexpr auto computeIoU = [](const cv::Rect& rect1, const cv::Rect rect2) {
+            const auto distX = abs(rect1.x - rect2.x);
+            const auto width = (rect1.x < rect2.x ? rect1.width : rect2.width) - distX;
+            const auto distY = abs(rect1.y - rect2.y);
+            const auto height = (rect1.y < rect2.y ? rect1.height : rect2.height) - distY;
             auto areaIoU = width * height;
             if(width < 0 && height < 0) {
                 areaIoU *= -1;
@@ -67,8 +67,7 @@ public:
                 carTrackedRes.frame = data;
 
                 for(int i = 0; i < mInitialisedTrackerNum; ++i) {
-                    const auto ok = mTrackers[i]->update(carTrackedRes.frame.frame, mTrackedBoxes[i]);
-                    if(ok) {
+                    if(const auto ok = mTrackers[i]->update(carTrackedRes.frame.frame, mTrackedBoxes[i])) {
                         carTrackedRes.cars.push_back(mTrackedBoxes[i]);
                     }
                 }
@@ -99,8 +98,7 @@ public:
                     VectorRect trackRectRes;
                     std::vector<uint32_t> trackRectIndex;
                     for(int i = 0; i < mInitialisedTrackerNum; ++i) {
-                        const auto ok = mTrackers[i]->update(carTrackedRes.frame.frame, mTrackedBoxes[i]);
-                        if(ok) {
+                        if(const auto ok = mTrackers[i]->update(carTrackedRes.frame.frame, mTrackedBoxes[i])) {
                             trackRectRes.push_back(mTrackedBoxes[i]);
                             trackRectIndex.push_back(i);
                         }

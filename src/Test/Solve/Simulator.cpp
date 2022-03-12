@@ -113,9 +113,9 @@ class UAVMotionController final : public MotionController {
     std::normal_distribution<double> distribution{ 0, 1 };
 
     void step(btMotionState& motionState, double dt) override {
-        double xSpeed = distribution(generator);
-        double ySpeed = distribution(generator);
-        double zSpeed = distribution(generator);
+        const double xSpeed = distribution(generator);
+        const double ySpeed = distribution(generator);
+        const double zSpeed = distribution(generator);
         btTransform transform;
         motionState.getWorldTransform(transform);
         transform.setOrigin(btVector3(transform.getOrigin().getX() + xSpeed * dt, transform.getOrigin().getY() + ySpeed * dt,
@@ -128,7 +128,7 @@ class SentryMotionController final : public MotionController {
     std::default_random_engine generator;
     std::normal_distribution<double> distribution{ 0, 1 };
     void step(btMotionState& motionState, double dt) override {
-        double xSpeed = distribution(generator);
+        const double xSpeed = distribution(generator);
         btTransform transform;
         motionState.getWorldTransform(transform);
         transform.setOrigin(
@@ -141,8 +141,8 @@ class Translate2DMotionController final : public MotionController {
     std::normal_distribution<double> distribution{ 0, 1 };
 
     void step(btMotionState& motionState, double dt) override {
-        double ySpeed = distribution(generator);
-        double zSpeed = distribution(generator);
+        const double ySpeed = distribution(generator);
+        const double zSpeed = distribution(generator);
         btTransform transform;
         motionState.getWorldTransform(transform);
         transform.setOrigin(btVector3(transform.getOrigin().getX(), transform.getOrigin().getY() + ySpeed * dt,
