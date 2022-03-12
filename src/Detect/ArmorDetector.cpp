@@ -222,7 +222,7 @@ class ArmorDetector final
          */
 
         std::sort(lights.begin(), lights.end(), [](const auto& lhs, const auto& rhs) { return lhs.center.x < rhs.center.x; });
-        //        CAF_LOG_INFO(lights.size());
+        //        logInfo(lights.size());
         return lights;
     }
 
@@ -415,7 +415,7 @@ public:
                          res.armors.push_back({ roi, 0, std::move(armors) });  // TODO: id
                      }
 
-                     //                     CAF_LOG_INFO(fmt::format("ARMORS: {}", res.armors[0].armors.size()));
+                     //                     logInfo(fmt::format("ARMORS: {}", res.armors[0].armors.size()));
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(armor_detect_available_atom_v, mKey);

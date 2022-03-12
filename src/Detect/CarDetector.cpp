@@ -165,7 +165,7 @@ public:
 
         const auto devices = mInferenceEngine.GetAvailableDevices();
         for(const auto& device : devices) {
-            CAF_LOG_INFO("Available inference engine device: " + device);
+            logInfo("Available inference engine device: " + device);
         }
 
         mExecutableNetwork = mInferenceEngine.LoadNetwork(mNetwork, mConfig.deviceName);
@@ -194,7 +194,7 @@ public:
                      res.cars = decodeOutputs(outputBlob, scale, res.frame.frame.cols, res.frame.frame.rows);
                      const auto t2 = Clock::now();
 
-                     CAF_LOG_INFO(
+                     logInfo(
                          fmt::format("infer time {:.4f}s decode time {:.4f}s", (t1 - t0).count() / 1e9, (t2 - t1).count() / 1e9));
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));

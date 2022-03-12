@@ -57,7 +57,7 @@ public:
                      if(!mWriter) {
                          if(!fs::create_directories(mConfig.base)) {
                              const auto error = "Failed to create directory " + mConfig.base;
-                             CAF_RAISE_ERROR(error.c_str());
+                             logError(error.c_str());
                          }
                          mWriter = std::make_unique<cv::VideoWriter>(
                              mConfig.base + "/" + std::to_string(Clock::now().time_since_epoch().count()) + ".mp4", mFourcc,

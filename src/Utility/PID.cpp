@@ -52,8 +52,8 @@ public:
                 constexpr auto eps = 1e-3;
                 if(std::fabs(val - expected) > eps && std::fabs(val - expected + period) > eps &&
                    std::fabs(val - expected - period) > eps) {
-                    CAF_LOG_INFO(fmt::format("value {:.3f} expected {:.3f}", val, expected));
-                    CAF_LOG_INFO("Test failed");
+                    logInfo(fmt::format("value {:.3f} expected {:.3f}", val, expected));
+                    logInfo("Test failed");
                     terminateSystem(*this, false);
                 }
             };
