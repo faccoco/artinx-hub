@@ -88,7 +88,10 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
         mImagePoint = { lt, lb, rb, rt };
         const auto res = cv::solvePnP(ratio > ratioThreshold ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint, cameraMatrix,
                                       distCoeff, rvec, tvec, false, cv::SOLVEPNP_IPPE);
-        const glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
+        glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
+
+        if(p0.z > 0.0)
+            p0 = -p0;
 
         return Point<UnitType::Distance, FrameOfReference::Camera>{ p0 };
     }
@@ -125,22 +128,22 @@ public:
                           cameraInfo.width / 2, 0, cameraInfo.height / 2 / tan(glm::radians(cameraInfo.fov) / 2),
                           cameraInfo.height / 2, 0, 0, 1);
 
-                     for(auto& cars : data.armors) {
-                         for(auto& armor : cars.armors) {
+                     for(const auto& [roi, id, armors] : data.armors) {
+                         for(auto& armor : armors) {
                              auto armorLight = armor;
-                             armorLight.r1.center += cv::Point2f{ cars.roi.tl() };
-                             armorLight.r2.center += cv::Point2f{ cars.roi.tl() };
+                             armorLight.r1.center += cv::Point2f{ roi.tl() };
+                             armorLight.r2.center += cv::Point2f{ roi.tl() };
 
                              const auto point = solve(cameraMatrix, armorLight);
 
                              // TODO: projected area
-                             res.targets.push_back({ transform(point), 0.0, cars.id });
+                             res.targets.push_back({ transform(point), 0.0, id });
                          }
                      }
 
                      if(!res.targets.empty()) {
                          auto center = res.targets[0].center.raw();
-                         std::cout << (fmt::format("x: {} y: {} z: {}", center.x, center.y, center.z)) << std::endl;
+                         std::cout << fmt::format("x: {} y: {} z: {}", center.x, center.y, center.z) << std::endl;
                      }
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));
