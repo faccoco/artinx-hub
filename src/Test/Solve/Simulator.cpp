@@ -359,8 +359,7 @@ public:
                 bulletVelocity[p.get()] = p->getLinearVelocity();
                 if(mConfig.printBulletPos) {
                     const auto pos = p->getCenterOfMassPosition();
-                    
-                    (fmt::format("bullet {:.2f} {:.2f} {:.2f}", pos.x(), pos.y(), pos.z()));
+                    logInfo(fmt::format("bullet {:.2f} {:.2f} {:.2f}", pos.x(), pos.y(), pos.z()));
                 }
             }
 
@@ -372,7 +371,7 @@ public:
             mDynamicWorld->stepSimulation(static_cast<btScalar>(mConfig.step), 10, 0.001f);
             time += mConfig.step;
 
-            CAF_LOG_INFO(
+            logInfo(
                 fmt::format("Simulator time {:.3f}s bullet count {} hited {} shoot {}", time, bulletCount, hitCount, shoot));
 
             // update world info
@@ -450,7 +449,7 @@ public:
 
                     const auto pos = bodyB->getCenterOfMassPosition();
 
-                    CAF_LOG_INFO(fmt::format("Hit at ({:.2f},{:.2f},{:.2f}) vel {:.2f}", pos.x(), pos.y(), pos.z(), velocity));
+                    logInfo(fmt::format("Hit at ({:.2f},{:.2f},{:.2f}) vel {:.2f}", pos.x(), pos.y(), pos.z(), velocity));
                     mDynamicWorld->removeRigidBody(const_cast<btRigidBody*>(bodyB));
                 }
             }
@@ -504,12 +503,12 @@ public:
             std::this_thread::sleep_for(5ms);
         }
 
-        CAF_LOG_INFO(fmt::format("Expected {} Result {}", mConfig.expectedCount, hitCount));
+        logInfo(fmt::format("Expected {} Result {}", mConfig.expectedCount, hitCount));
         appendTestResult(fmt::format("Result {}/{} (Require {}, Shoot {})", hitCount, mConfig.bulletCount, mConfig.expectedCount,
                                      bulletCount));
 
         if(hitCount < mConfig.expectedCount) {
-            CAF_LOG_ERROR("Test failed");
+            logError("Test failed");
             terminateSystem(*this, false);
         } else
             terminateSystem(*this, true);

@@ -35,3 +35,8 @@ public:
 };
 
 class NotImplemented final : public std::exception {};
+
+void logInfo(std::string_view message);
+void logWarning(std::string_view message);
+void logError(std::string_view message);
+[[noreturn]] void raiseError(std::string_view message);

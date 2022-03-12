@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.19)
 
 set(SOURCE 
 "Core/BlackBoard.cpp"
+"Core/ChaosMonkey.cpp"
 "Core/Daemon.cpp"
+"Core/Logger.cpp"
 "Core/PerformanceMonitor.cpp"
 "DataLink/HttpServer.cpp"
 "DataLink/AsyncSerial/AsyncSerial.cpp"
@@ -28,7 +30,10 @@ set(SOURCE
 "Solve/ArmorLocator.cpp"
 "Solve/RadarLocator.cpp"
 "Strategy/Sentry.cpp"
-"Test/ActorFramework/Test.cpp"
+"Test/ActorFramework/Actor.cpp"
+"Test/ActorFramework/Availability.cpp"
+"Test/ActorFramework/DaemonTester.cpp"
+"Test/ActorFramework/FrameRateKeeperTester.cpp"
 "Test/Detect/FakeSerialPort.cpp"
 "Test/Sensor/FixedIMU.cpp"
 "Test/Solve/ArmorLocatorTester.cpp"

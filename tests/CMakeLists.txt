@@ -6,3 +6,4 @@ endfunction()
 
 add_subdirectory(Solve)
 add_subdirectory(Utility)
+add_subdirectory(ActorFramework)

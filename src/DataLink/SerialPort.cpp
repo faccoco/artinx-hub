@@ -5,7 +5,6 @@
 #include "Packet.hpp"
 #include "PostureData.hpp"
 #include "Utility.hpp"
-#include <boost/circular_buffer.hpp>
 #include <caf/event_based_actor.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <fmt/format.h>
@@ -81,7 +80,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             case(GimbalFdbPacket::id): {
                 GimbalFdbPacket fdb(mPacketBuffer);
 //                std::cout << fdb.yaw << " " << fdb.pitch << std::endl;
-//                CAF_LOG_INFO(fmt::format("{}, {}", fdb.yaw, fdb.pitch));
+//                logInfo(fmt::format("{}, {}", fdb.yaw, fdb.pitch));
                 fdb.yaw = (fdb.yaw < 0) ? fdb.yaw += 6.2831852 : fdb.yaw;
 
                 //fdb.yaw = 0.0;// for standard

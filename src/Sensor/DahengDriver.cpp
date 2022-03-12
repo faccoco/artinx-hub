@@ -34,7 +34,7 @@ bool inspect(Inspector& f, DahengDriverSettings& x) {
 static void checkGXStatus(const GX_STATUS status) {
     if(status != GX_STATUS_SUCCESS) {
         const auto error = "GX Error: " + std::to_string(status);
-        CAF_RAISE_ERROR(error.c_str());
+        logError(error.c_str());
     }
 }
 
