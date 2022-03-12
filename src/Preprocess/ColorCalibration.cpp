@@ -34,7 +34,7 @@ class ColorCalibrator final : public HubHelper<caf::event_based_actor, ColorCali
         if(!mDetector->process(frame, cv::mcc::MCC24, 1, true))
             return;
 
-        cv::Ptr<cv::mcc::CChecker> checker = mDetector->getBestColorChecker();
+        const cv::Ptr<cv::mcc::CChecker> checker = mDetector->getBestColorChecker();
         const auto chartsRGB = checker->getChartsRGB();
         const auto src = chartsRGB.col(1).clone().reshape(3, chartsRGB.rows / 3);
         src /= 255.0;

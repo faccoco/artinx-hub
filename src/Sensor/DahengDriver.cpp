@@ -34,7 +34,7 @@ bool inspect(Inspector& f, DahengDriverSettings& x) {
 static void checkGXStatus(const GX_STATUS status) {
     if(status != GX_STATUS_SUCCESS) {
         const auto error = "GX Error: " + std::to_string(status);
-        CAF_RAISE_ERROR(error.c_str());
+        logError(error.c_str());
     }
 }
 
@@ -53,7 +53,6 @@ static void initLib() {
 }
 
 class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriverSettings, image_frame_atom> {
-private:
     Identifier mKey;
     GX_DEV_HANDLE mDevice;
     bool mStartFlag = false;
@@ -66,7 +65,8 @@ private:
         if(pFrameData->status != GX_FRAME_STATUS_SUCCESS || !mStartFlag)
             return;
 
-        //std::cout << "Frame " << (static_cast<double>(Clock::now().time_since_epoch().count()) / Clock::period::den) << " " << pFrameData->nWidth << " x "
+        // std::cout << "Frame " << (static_cast<double>(Clock::now().time_since_epoch().count()) / Clock::period::den) << " " <<
+        // pFrameData->nWidth << " x "
         //          << pFrameData->nHeight << std::endl;
 
         const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer

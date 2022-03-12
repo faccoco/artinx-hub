@@ -39,7 +39,7 @@ public:
                     if(!headData.has_value())
                         return;
 
-                    TimePoint current = mQueue.back().lastUpdate;
+                    const TimePoint current = mQueue.back().lastUpdate;
 
                     std::optional<SimulatorWorldInfo> cur;
                     while(!mQueue.empty() && current - mQueue.front().lastUpdate > mDelay) {

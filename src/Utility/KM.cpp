@@ -1,6 +1,13 @@
+#include "Common.hpp"
 #include "Utility.hpp"
 
+// Notation: 1)m >= n,otherwise it will stick in an infinite loop.
+//          2)res is the result of m match n, if on one match m, the res[m] is (2^32 - 1).
+// TODO: fixme
 std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>& w) {
+    throw NotImplemented{};
+    return {};
+
     const auto size = std::max(n, m) + 1;
     std::vector<double> lh(size), rh(size), slack(size);
     std::vector<uint32_t> pair(size), pre(size);
@@ -15,12 +22,12 @@ std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>&
         pair[0] = s;
         uint32_t u = 0;
         do {
-            uint32_t v = pair[u], nxt;
+            uint32_t v = pair[u], nxt = 0;
             double minh = 1e9;
             flag[u] = true;
             for(uint32_t i = 1; i <= m; ++i)
                 if(!flag[i]) {
-                    const auto delta = lh[v] + rh[i] - w[(v - 1) * n + i - 1];
+                    const auto delta = lh[v] + rh[i] - w[(v - 1) * m + i - 1];
                     if(delta < slack[i])
                         slack[i] = delta, pre[i] = u;
                     if(minh > slack[i])
@@ -43,7 +50,7 @@ std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>&
     for(int i = 1; i <= n; ++i) {
         double maxh = 0;
         for(int j = 1; j <= m; ++j)
-            maxh = std::fmax(maxh, w[(i - 1) * n + j - 1]);
+            maxh = std::fmax(maxh, w[(i - 1) * m + j - 1]);
         lh[i] = maxh;
     }
     reset(rh, 0.0);

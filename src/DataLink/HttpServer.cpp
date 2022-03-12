@@ -6,7 +6,6 @@
 #include "Utility.hpp"
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
-#include <caf/exit_reason.hpp>
 #include <cstdint>
 #define CPPHTTPLIB_SEND_FLAGS 0x4000
 #include <httplib.h>
@@ -21,7 +20,7 @@
 
 struct ImageWithFilter {
     cv::Mat image;
-    bool isEnable{ true };
+    bool isEnable = true;
 };
 
 class HttpServer final : public HubHelper<caf::event_based_actor, void> {
@@ -45,7 +44,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
         }
 
         std::unique_lock<std::mutex> guard{ mMutex };
-        if(mImage.find(id) == mImage.end() || !mImage[id].isEnable)
+        if(!mImage.count(id) || !mImage[id].isEnable)
             return std::nullopt;
         auto img = mImage[id].image;
         guard.unlock();
@@ -67,7 +66,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
 public:
     HttpServer(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mClogBuffer{ std::clog.rdbuf() } {
 
-        //std::clog.rdbuf(mLogStream.rdbuf());
+        // std::clog.rdbuf(mLogStream.rdbuf());
 
         mServer.set_mount_point("/pages", "./pages");
 
@@ -85,7 +84,7 @@ public:
             res.set_content_provider(
                 "multipart/x-mixed-replace;boundary=MJP",
                 [this, &path](size_t offset, httplib::DataSink& sink) {
-                    if(auto img = generateImageData(path)) {
+                    if(const auto img = generateImageData(path)) {
                         auto vec = img.value();
                         sink.os << "--MJP\r\n"
                                    "Content-Type: image/jpeg\r\n"

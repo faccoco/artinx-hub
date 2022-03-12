@@ -8,7 +8,6 @@
 #include "Utility.hpp"
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
-#include <cstdlib>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
@@ -48,13 +47,13 @@ class ArmorLocatorTester final
                                             glm::dvec3{ mConfig.width, mConfig.height, -zNear });
         const auto yaw = glm::linearRand(0.1, 0.9) * glm::pi<double>();
         // const auto pitch = glm::linearRand(-0.1, 0.1) * glm::pi<double>();
-        const auto pitch = 0.0;
+        constexpr auto pitch = 0.0;
 
         const auto forward = glm::dvec3{ std::cos(yaw) * std::cos(pitch), std::sin(pitch), std::sin(yaw) * std::cos(pitch) };
         // const auto up = glm::normalize(glm::dvec3{ glm::linearRand(-0.2, 0.2), 1.0, glm::linearRand(-0.2, 0.2) });
-        const auto up = glm::dvec3{ 0.0, 1.0, 0.0 };
-        const auto horizonal = glm::cross(forward, up);
-        const auto vertical = glm::cross(horizonal, forward);
+        constexpr auto up = glm::dvec3{ 0.0, 1.0, 0.0 };
+        const auto horizontal = glm::cross(forward, up);
+        const auto vertical = glm::cross(horizontal, forward);
 
         const auto generateNoise = [&] {
             return glm::clamp(glm::gaussRand(0.0, mConfig.noiseStd), -mConfig.noiseStd * 3.0, mConfig.noiseStd * 3.0);
@@ -76,7 +75,7 @@ class ArmorLocatorTester final
                 const auto projected = mMat * glm::dvec4{ pos, 1.0 };
                 const auto posX = (projected.x / projected.w / 2 + 0.5) * mConfig.imageWidth + generateNoise();
                 const auto posY = (0.5 - projected.y / projected.w / 2) * mConfig.imageHeight + generateNoise();
-                pts.push_back({ static_cast<float>(posX), static_cast<float>(posY) });
+                pts.emplace_back(static_cast<float>(posX), static_cast<float>(posY));
             }
 
             return cv::minAreaRect(pts);
@@ -86,7 +85,7 @@ class ArmorLocatorTester final
 
         DetectedArmorsOfCar armors;
         armors.roi = cv::Rect{ 0, 0, static_cast<int>(mConfig.imageWidth), static_cast<int>(mConfig.imageHeight) };
-        armors.armors.push_back({ generateRotatedRect(horizonal), generateRotatedRect(-horizonal) });
+        armors.armors.push_back({ generateRotatedRect(horizontal), generateRotatedRect(-horizontal) });
 
         DetectedArmorArray res;
         res.frame =
@@ -141,9 +140,9 @@ public:
                      }
 
                      if(error < mConfig.maxError * 2.0 || passAbsolute)
-                         CAF_LOG_INFO(message);
+                         logInfo(message);
                      else
-                         CAF_LOG_ERROR(message);
+                         logError(message);
 
                      if(error < 1.0) {
                          mMeanError += error;
@@ -152,11 +151,11 @@ public:
 
                      if(mCount >= mConfig.count) {
                          mMeanError /= mCount;
-                         CAF_LOG_INFO(fmt::format("Mean error {:.2f}%", mMeanError * 100.0));
+                         logInfo(fmt::format("Mean error {:.2f}%", mMeanError * 100.0));
                          if(mMeanError < mConfig.maxError)
-                             CAF_LOG_INFO("Test passed");
+                             logInfo("Test passed");
                          else
-                             CAF_LOG_ERROR("Test failed");
+                             logError("Test failed");
                          appendTestResult(fmt::format("Mean error {:.2f}% (Require {:.2f}%) {}", mMeanError * 100.0,
                                                       mConfig.maxError * 100.0, mConfig.judgeAngle ? "Angle" : "Distance"));
                          terminateSystem(*this, mMeanError < mConfig.maxError);

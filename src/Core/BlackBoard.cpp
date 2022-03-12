@@ -7,12 +7,12 @@ BlackBoard& BlackBoard::instance() {
 
 std::pair<std::shared_mutex, std::any>* BlackBoard::getImpl(const size_t hashValue) {
     std::shared_lock<std::shared_mutex> guard{ mMutex };
-    if(auto iter = mItems.find(hashValue); iter != mItems.cend())
+    if(const auto iter = mItems.find(hashValue); iter != mItems.cend())
         return &iter->second;
     return nullptr;
 }
 
-void BlackBoard::insertImpl(const size_t hashValue, std::any object) {
+void BlackBoard::insertImpl(const size_t hashValue, std::any val) {
     std::lock_guard<std::shared_mutex> guard{ mMutex };
-    mItems[hashValue].second = std::move(object);
+    mItems[hashValue].second = std::move(val);
 }

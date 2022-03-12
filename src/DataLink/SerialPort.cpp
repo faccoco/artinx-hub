@@ -5,7 +5,6 @@
 #include "Packet.hpp"
 #include "PostureData.hpp"
 #include "Utility.hpp"
-#include <boost/circular_buffer.hpp>
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -45,7 +44,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             return;
         std::vector<char> vec = mSerialPort->read();
 #ifdef ARTINXHUB_DEBUG
-        for(auto v : vec)
+        for(const auto v : vec)
             std::cout << v << " ";
         std::cout << std::endl;
 #endif
@@ -82,8 +81,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         switch(id) {
             case(GimbalFdbPacket::id): {
                 GimbalFdbPacket fdb(mPacketBuffer);
-//                std::cout << fdb.yaw << " " << fdb.pitch << std::endl;
-//                CAF_LOG_INFO(fmt::format("{}, {}", fdb.yaw, fdb.pitch));
+                //                std::cout << fdb.yaw << " " << fdb.pitch << std::endl;
+                //                logInfo(fmt::format("{}, {}", fdb.yaw, fdb.pitch));
                 fdb.yaw = (fdb.yaw < 0) ? fdb.yaw += 6.2831852 : fdb.yaw;
 
                 // fdb.yaw = 0.0;// for standard

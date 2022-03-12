@@ -12,7 +12,6 @@
 #include <utility>
 
 struct ArmorDetectorSettings final {
-    bool isRed;  // TODO: auto detect
     double globalScale;
     std::vector<int32_t> thresholdForBlue;  // minBlue, maxGreen, maxRed
     std::vector<int32_t> thresholdForRed;   // minRed, maxBlue,maxGreen
@@ -28,7 +27,7 @@ struct ArmorDetectorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorDetectorSettings& x) {
-    return f.object(x).fields(f.field("isRed", x.isRed), f.field("globalScale", x.globalScale),
+    return f.object(x).fields(f.field("globalScale", x.globalScale),
                               f.field("thresholdForBlue", x.thresholdForBlue).invariant([](auto& c) { return c.size() == 3; }),
                               f.field("thresholdForRed", x.thresholdForRed).invariant([](auto& c) { return c.size() == 3; }),
                               f.field("maxAreaRatio", x.maxAreaRatio), f.field("maxLightAngle", x.maxLightAngle),
@@ -85,7 +84,7 @@ class ArmorDetector final
 
     cv::Mat binary(const cv::Mat& src) {
         cv::Mat result(src.size(), CV_8U);
-        if(mConfig.isRed) {
+        if(GlobalSettings::get().selfColor == Color::Red) {
             const auto minB = mConfig.thresholdForBlue[0];
             const auto maxG = mConfig.thresholdForBlue[1];
             const auto maxR = mConfig.thresholdForBlue[2];
@@ -222,7 +221,7 @@ class ArmorDetector final
          */
 
         std::sort(lights.begin(), lights.end(), [](const auto& lhs, const auto& rhs) { return lhs.center.x < rhs.center.x; });
-        //        CAF_LOG_INFO(lights.size());
+        //        logInfo(lights.size());
         return lights;
     }
 
@@ -415,7 +414,7 @@ public:
                          res.armors.push_back({ roi, 0, std::move(armors) });  // TODO: id
                      }
 
-                     //                     CAF_LOG_INFO(fmt::format("ARMORS: {}", res.armors[0].armors.size()));
+                     //                     logInfo(fmt::format("ARMORS: {}", res.armors[0].armors.size()));
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(armor_detect_available_atom_v, mKey);

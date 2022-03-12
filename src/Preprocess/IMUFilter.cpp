@@ -23,7 +23,7 @@ public:
                  [&](update_posture_atom, Identifier key) {
                      // Implement here
 
-                     //BlackBoard::instance().updateSync(mKey, std::move(res));
+                     // BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(update_posture_atom_v, mKey);
                  } };
     }

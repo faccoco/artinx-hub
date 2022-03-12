@@ -11,7 +11,6 @@ struct SentryStrategySettings final {
     double distanceThreshold;
 };
 
-
 constexpr int32_t engineerId = 2;
 
 template <class Inspector>
@@ -26,30 +25,29 @@ public:
     SentryStrategy(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(SentryStrategy).hash_code() } {}
     caf::behavior make_behavior() override {
-        return {
-            [this](start_atom) {}, [&](detect_available_atom, Identifier key) {
-                const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
+        return { [this](start_atom) {},
+                 [&](detect_available_atom, Identifier key) {
+                     const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
 
-                SelectedTarget selected;
-                selected.lastUpdate = data.lastUpdate;
+                     SelectedTarget selected;
+                     selected.lastUpdate = data.lastUpdate;
 
-                auto minDistance = std::numeric_limits<double>::max();
-                for(auto& target : data.targets) {
-                    const auto distance = glm::length(target.center.raw());
-                    if(distance > mConfig.distanceThreshold && distance < minDistance) {
-                        if(target.id != engineerId) {
-                            selected.center = target.center;
-                            minDistance = distance;
-                        }
-                    }
-                }
-                if (!selected.center.has_value()) return;
-                BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected);
-                sendAll(set_target_atom_v, mKey);
-            }
-        };
+                     auto minDistance = std::numeric_limits<double>::max();
+                     for(auto& target : data.targets) {
+                         const auto distance = glm::length(target.center.raw());
+                         if(distance > mConfig.distanceThreshold && distance < minDistance) {
+                             if(target.id != engineerId) {
+                                 selected.center = target.center;
+                                 minDistance = distance;
+                             }
+                         }
+                     }
+                     if(!selected.center.has_value())
+                         return;
+                     BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected);
+                     sendAll(set_target_atom_v, mKey);
+                 } };
     }
 };
 
 HUB_REGISTER_CLASS(SentryStrategy);
-
