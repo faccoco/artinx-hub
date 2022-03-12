@@ -99,7 +99,7 @@ public:
         return { [this](start_atom) {},
                  [&](armor_detect_available_atom, Identifier key) {
                      const auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
-                     //                     CAF_LOG_INFO(data.armors[0].armors.size());
+                     //                     logInfo(data.armors[0].armors.size());
                      DetectedTargetArray res;
                      res.lastUpdate = data.frame.lastUpdate;
                      const auto& cameraInfo = data.frame.info;

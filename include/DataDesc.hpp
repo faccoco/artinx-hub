@@ -44,6 +44,9 @@ CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_succeed_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_request_atom);
 CAF_ADD_ATOM(ArtinxHub, num_classify_request_atom);
+CAF_ADD_ATOM(ArtinxHub, monitor_request_atom);
+CAF_ADD_ATOM(ArtinxHub, monitor_response_atom);
+CAF_ADD_ATOM(ArtinxHub, payload_atom);
 
 CAF_ADD_TYPE_ID(ArtinxHub, (Identifier));
 

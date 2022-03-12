@@ -53,7 +53,7 @@ public:
                          forwardVector = { forwardPositionOfReferenceGround.raw().x, -forwardPositionOfReferenceGround.raw().z,
                                            forwardPositionOfReferenceGround.raw().y };
                          //(forward:+y,right:+x)
-                         // CAF_LOG_INFO(fmt::format("transformedposition: {},{},{}", transformedPosition.x ,transformedPosition.y
+                         // logInfo(fmt::format("transformedposition: {},{},{}", transformedPosition.x ,transformedPosition.y
                          // ,transformedPosition.z));
                          double horizonalDistance = std::hypot(transformedPosition.x, transformedPosition.y);
                          double yawAngle = -std::atan2(transformedPosition.y, transformedPosition.x) - glm::half_pi<double>();
@@ -81,16 +81,16 @@ public:
                          double pitchAngle = std::atan2(expr4, expr3);
                          pitchAngle = (pitchAngle < glm::quarter_pi<double>() / 4) ? pitchAngle :
                                                                                      (glm::half_pi<double>() / 2 - pitchAngle);
-                         // CAF_LOG_INFO(fmt::format("YawAngle: {},PitchAngle: {}", yawAngle, pitchAngle));
+                         // logInfo(fmt::format("YawAngle: {},PitchAngle: {}", yawAngle, pitchAngle));
                          double currentYawAngle = std::atan2(forwardVector.x, forwardVector.y);
                          if(currentYawAngle < 0.0)
                              currentYawAngle += glm::two_pi<double>();
                          double currentPitchAngle = std::atan2(forwardVector.z, std::hypot(forwardVector.x, forwardVector.y));
 
-                         // CAF_LOG_INFO(fmt::format("CurrentYawAngle: {},CurrentPitchAngle: {}",currentYawAngle,
+                         // logInfo(fmt::format("CurrentYawAngle: {},CurrentPitchAngle: {}",currentYawAngle,
                          // currentPitchAngle)); double prec = mConfig.precision;
                          double prec = 0.001;
-                         //                         CAF_LOG_INFO(fmt::format("Prec:{}", prec));
+                         //                         logInfo(fmt::format("Prec:{}", prec));
                          double diffPitch = pitchAngle - currentPitchAngle, diffYaw = yawAngle - currentYawAngle;
                          if(diffPitch > glm::pi<double>())
                              diffPitch -= glm::two_pi<double>();

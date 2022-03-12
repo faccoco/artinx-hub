@@ -8,7 +8,6 @@
 #include "Utility.hpp"
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
-#include <cstdlib>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
@@ -141,9 +140,9 @@ public:
                      }
 
                      if(error < mConfig.maxError * 2.0 || passAbsolute)
-                         CAF_LOG_INFO(message);
+                         logInfo(message);
                      else
-                         CAF_LOG_ERROR(message);
+                         logError(message);
 
                      if(error < 1.0) {
                          mMeanError += error;
@@ -152,11 +151,11 @@ public:
 
                      if(mCount >= mConfig.count) {
                          mMeanError /= mCount;
-                         CAF_LOG_INFO(fmt::format("Mean error {:.2f}%", mMeanError * 100.0));
+                         logInfo(fmt::format("Mean error {:.2f}%", mMeanError * 100.0));
                          if(mMeanError < mConfig.maxError)
-                             CAF_LOG_INFO("Test passed");
+                             logInfo("Test passed");
                          else
-                             CAF_LOG_ERROR("Test failed");
+                             logError("Test failed");
                          appendTestResult(fmt::format("Mean error {:.2f}% (Require {:.2f}%) {}", mMeanError * 100.0,
                                                       mConfig.maxError * 100.0, mConfig.judgeAngle ? "Angle" : "Distance"));
                          terminateSystem(*this, mMeanError < mConfig.maxError);

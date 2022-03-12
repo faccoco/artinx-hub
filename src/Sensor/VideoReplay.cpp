@@ -55,7 +55,7 @@ public:
 
         if(!mCapture.open(mConfig.path)) {
             const auto error = "Failed to load video " + mConfig.path;
-            CAF_RAISE_ERROR(error.c_str());
+            logError(error.c_str());
         }
     }
     caf::behavior make_behavior() override {

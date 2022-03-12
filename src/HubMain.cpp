@@ -13,6 +13,7 @@
 #include <caf/scoped_actor.hpp>
 #include <cctype>
 #include <condition_variable>
+#include <fmt/format.h>
 #include <fstream>
 #include <mutex>
 #include <string>
@@ -49,30 +50,28 @@ public:
     void addNodeType(std::string name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction) {
         demangle(name);
         if(!mClasses.emplace(std::move(name), std::move(spawnFunction)).second) {
-            const auto error = "Multiple definition of node type " + name;
-            CAF_RAISE_ERROR(error.c_str());
+            logError("Multiple definition of node type " + name);
         }
     }
     caf::actor buildNode(caf::actor_system& system, const std::string& name, const HubConfig& config) {
-        CAF_LOG_INFO("Build node " + name);
+        logInfo("Build node " + name);
         const auto attr = config.to_dictionary().value();
         const auto typeAttr = attr.find("type"sv);
         if(typeAttr == attr.cend()) {
-            const auto error = "Node " + name + " is lack of 'type' field.";
-            CAF_RAISE_ERROR(error.c_str());
+            raiseError("Node " + name + " is lack of 'type' field.");
         }
         const auto nodeTypeName = caf::to_string(typeAttr->second);
         const auto iter = mClasses.find(nodeTypeName);
         if(iter == mClasses.cend()) {
-            const auto error = "Undefined Node Type " + nodeTypeName;
-            CAF_RAISE_ERROR(error.c_str());
+            raiseError("Undefined Node Type " + nodeTypeName);
         }
+
         try {
             auto actor = iter->second(system, config);
             system.registry().put(name, actor);
             return actor;
         } catch(const std::exception& e) {
-            CAF_LOG_ERROR(e.what());
+            logError(e.what());
             throw;
         }
     }
@@ -92,8 +91,7 @@ namespace detail {
         const auto attr = config.to_dictionary().value();
         const auto iter = attr.find(nameNormalized);
         if(iter == attr.cend()) {
-            const auto error = "Succeed " + std::string{ nameNormalized } + " is needed";
-            CAF_RAISE_ERROR(error.c_str());
+            raiseError(fmt::format("Succeed {} is needed", nameNormalized));
         }
 
         const auto succeed = iter->second.to_list().value();
@@ -112,8 +110,7 @@ namespace detail {
             if(auto addr = registry.get<caf::actor_addr>(id))
                 res.push_back(addr);
             else {
-                const auto error = "Undefined actor " + id + " (call sendAll before start_atom?)";
-                CAF_RAISE_ERROR(error.c_str());
+                logError("Undefined actor " + id + " (call sendAll before start_atom?)");
             }
         }
         return res;
@@ -154,7 +151,7 @@ void terminateSystem(caf::local_actor& actor, const bool success) {
 std::string globalConfigName;
 
 int caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
-    CAF_LOG_INFO("Initializing");
+    logInfo("Initializing");
     Timer::instance().bindSystem(system);
 
     const fs::path logPath{ "./logs" };
@@ -168,12 +165,10 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         args += argv[idx];
         args += ' ';
     }
-    CAF_LOG_INFO(args);
+    logInfo(args);
 
     if(argc != 2 || !fs::exists(argv[1])) {
-        CAF_LOG_ERROR("Bad Config");
-        //return EXIT_FAILURE;
-        std::terminate();
+        logError("Bad Config");
     }
 
     globalConfigName = fs::path{ argv[1] }.filename().string();
@@ -189,14 +184,14 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         for(auto&& [name, actor] : actors) {
             caller->send(actor, start_atom_v);
         }
-        CAF_LOG_INFO("ArtinxHub Started");
+        logInfo("ArtinxHub Started");
 
         {
             std::unique_lock<std::mutex> lock{ globalMutex };
             globalCV.wait(lock, [] { return globalStatus != RunStatus::running; });
         }
 
-        CAF_LOG_INFO("ArtinxHub Finished");
+        logInfo("ArtinxHub Finished");
 
         for(auto& [name, actor] : actors) {
             system.registry().erase(name);

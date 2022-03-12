@@ -47,12 +47,10 @@ public:
     HubHelper(caf::actor_config& base, const HubConfig& config)
         : T{ base }, mDest{ SucceedAddress<Succeed>{ detail::parseSucceed(config, typeid(Succeed).name()) }... } {
         if constexpr(!std::is_void_v<Config>) {
-            auto configValue = caf::get_as<Config>(config);
-            if(configValue) {
+            if(auto configValue = caf::get_as<Config>(config)) {
                 mConfig = std::move(configValue.value());
             } else {
-                CAF_LOG_ERROR("Bad config for " + std::string{ typeid(T).name() });
-                // TODO: terminate & output error
+                logError("Bad config for " + std::string{ typeid(T).name() });
             }
         }
     }
@@ -73,12 +71,12 @@ class HubLogger {
 public:
     static void print(const std::string& log, const std::string& name, const int& interval) {
         if(logs.find(name) != logs.end()) {
-            if(std::chrono::duration_cast<std::chrono::milliseconds>(
-                   SynchronizedClock::instance().now() - logs[name]).count() < interval)
+            if(std::chrono::duration_cast<std::chrono::milliseconds>(SynchronizedClock::instance().now() - logs[name]).count() <
+               interval)
                 return;
         }
         logs[name] = SynchronizedClock::instance().now();
-        CAF_LOG_INFO(log);
+        logInfo(log);
     }
 
     static void printDebugOnly(const std::string& log, const std::string& name, const int& interval) {
