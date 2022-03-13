@@ -182,14 +182,14 @@ public:
                          double yawAngle = std::atan2(transformedPosition.y, transformedPosition.x) - glm::half_pi<double>();
                          if(yawAngle < 0)
                              yawAngle += glm::two_pi<double>();
-                         double netHorizonalSpeed =  Ferrari(-square(horizonalDistance) - square(transformedPosition.z),
-                                 2 * std::cos(yawAngle) * square(horizonalDistance) * transformedLinearVelocity.x +
-                                     2 * std::sin(yawAngle) * square(horizonalDistance) * transformedLinearVelocity.y,
-                                 -g * square(horizonalDistance) * transformedPosition.z +
-                                     square(horizonalDistance) * square(bulletSpeed) -
-                                     square(horizonalDistance) *
+                         double netHorizonalSpeed =  Ferrari(-square(horizontalDistance) - square(transformedPosition.z),
+                                 2 * std::cos(yawAngle) * square(horizontalDistance) * transformedLinearVelocity.x +
+                                     2 * std::sin(yawAngle) * square(horizontalDistance) * transformedLinearVelocity.y,
+                                 -g * square(horizontalDistance) * transformedPosition.z +
+                                     square(horizontalDistance) * square(bulletSpeed) -
+                                     square(horizontalDistance) *
                                          (square(transformedLinearVelocity.x) + square(transformedLinearVelocity.y)),
-                                 0, (-0.25) * square(g) * square(square(horizonalDistance)));
+                                 0, (-0.25) * square(g) * square(square(horizontalDistance)));
         //
         //                 CAF_LOG_INFO(fmt::format("mCnt:{} ag:{} ", mCnt, std::acos(netHorizonalSpeed/bulletSpeed)));
         //                 const auto expr1 = std::sqrt(square(bulletSpeed)* square(bulletSpeed) - 2 * g * transformedPosition.z * square(bulletSpeed) - square(horizonalDistance * g) ) / square(g);
@@ -206,7 +206,7 @@ public:
         //                 expr4 /= (square(transformedPosition.x) + square(transformedPosition.y) +
 								//square(transformedPosition.z));
         //                 double pitchAngle = std::atan2(expr4, expr3);
-                         double airDuration = horizonalDistance / netHorizonalSpeed;
+                         double airDuration = horizontalDistance / netHorizonalSpeed;
                          double netVerticalSpeed = transformedPosition.z / airDuration + g * airDuration / 2;
                          double pitchAngle = std::asin(netVerticalSpeed / bulletSpeed);
                          pitchAngle = (pitchAngle < glm::quarter_pi<double>() / 4) ? pitchAngle : (glm::half_pi<double>() / 2 - pitchAngle);
