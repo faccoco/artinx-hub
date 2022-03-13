@@ -3,8 +3,10 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
 #include <opencv2/calib3d.hpp>
+#include <cstdint>
+
+#define CALIBRATIONDEBUG
 
 struct UndistortSettings final {
     std::string ymlPath;

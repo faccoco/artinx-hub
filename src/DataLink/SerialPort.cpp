@@ -5,9 +5,11 @@
 #include "Packet.hpp"
 #include "PostureData.hpp"
 #include "Utility.hpp"
+#include <boost/circular_buffer.hpp>
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <pthread.h>
 
 struct SerialPortSettings final {
     std::string devPath;
@@ -24,6 +26,9 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
 class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom> {
     constexpr static size_t bufferLen = 1024;
     constexpr static size_t headerLen = 5;
+    constexpr static size_t sendBufferLen = 1024;
+
+    GimbalSetPacket gimbalSetPacket{0.0f, 0.0f, false};
 
     BufferedAsyncSerial::Ptr mSerialPort;
     std::thread mThread;
@@ -38,16 +43,17 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     std::array<uint8_t, headerLen> mHeaderBuffer;
     size_t mHeaderLen;
     bool mCheckingHeader;
+    std::array<uint8_t, sendBufferLen> mSendBuffer;
+    size_t mSendBufferLen;
+
+    std::chrono::steady_clock::time_point lastSend;
+    float testYaw = 0.0f, testPitch = 0.0f;
+    bool testStart = false;
 
     void receive() {
         if(!started)
             return;
         std::vector<char> vec = mSerialPort->read();
-#ifdef ARTINXHUB_DEBUG
-        for(const auto v : vec)
-            std::cout << v << " ";
-        std::cout << std::endl;
-#endif
         for(uint8_t data : vec) {
             if(mPacketLen < bufferLen) {
                 mPacketBuffer[mPacketLen++] = data;
@@ -81,8 +87,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         switch(id) {
             case(GimbalFdbPacket::id): {
                 GimbalFdbPacket fdb(mPacketBuffer);
-                //                std::cout << fdb.yaw << " " << fdb.pitch << std::endl;
-                //                logInfo(fmt::format("{}, {}", fdb.yaw, fdb.pitch));
+                //                std::cout << "yaw: " << fdb.yaw << " pitch: " << fdb.pitch << std::endl;
+                //                HubLogger::watch("yaw", fdb.yaw);
+                //                HubLogger::watch("pitch", fdb.pitch);
                 fdb.yaw = (fdb.yaw < 0) ? fdb.yaw += 6.2831852 : fdb.yaw;
 
                 // fdb.yaw = 0.0;// for standard
@@ -116,6 +123,20 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         }
     }
 
+
+
+    void sendPacket() {
+        if(mSendBufferLen > sendBufferLen)
+            mSendBufferLen = 0;
+        if(mSendBufferLen == 0)
+            return;
+//        auto now = SynchronizedClock::instance().now();
+//        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(now - lastSend).count() << std::endl;
+//        lastSend = now;
+        mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
+        mSendBufferLen = 0;
+    }
+
 public:
     SerialPort(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ typeid(SerialPort).hash_code() },
@@ -123,9 +144,16 @@ public:
         const auto [devPath, baudRate, offset] = mConfig;
         mSerialPort->open(devPath, baudRate);
         mThread = std::thread{ [this]() {
+
             while(globalStatus == RunStatus::running) {
                 receive();
+                sendPacket();
+                std::this_thread::sleep_for(0.5ms);
+                memcpy(mSendBuffer.data() + mSendBufferLen, gimbalSetPacket.buffer.data(), GimbalSetPacket::size);
+                mSendBufferLen += GimbalSetPacket::size;
             }
+
+
         } };
     }
 
@@ -137,10 +165,34 @@ public:
     caf::behavior make_behavior() override {
         return { [this](start_atom) { started = true; },
                  [this](set_target_info_atom, double yawAngle, double pitchAngle, bool isFire) {
-                     //                     yawAngle = (yawAngle > 3.1415926) ? yawAngle - 6.2831852 : yawAngle;
-                     // std::cout << fmt::format("yaw: {} pitch: {}", yawAngle, pitchAngle) << std::endl;
-                     GimbalSetPacket gimbalSetPacket{ static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire };
-                     mSerialPort->write(reinterpret_cast<const char*>(gimbalSetPacket.buffer.data()), GimbalSetPacket::size);
+                     //
+                     //#     identifier = "KE0200080465"
+                     std::cout << yawAngle << " " << pitchAngle << std::endl;
+//                     HubLogger::watch("targetYaw", yawAngle);
+//                     HubLogger::watch("targetPitch", pitchAngle);
+                     gimbalSetPacket = { static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire };
+                     //                     GimbalSetPacket gimbalSetPacket{ static_cast<float>(testYaw),
+                     //                     static_cast<float>(testPitch), isFire };
+                     //
+                     //                     auto now = SynchronizedClock::instance().now();
+                     //                     if ( static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(now -
+                     //                     lastSend).count()) > 500) {
+                     //                         lastSend = now;
+                     //                         return;
+                     //                     }
+                     ////                     std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(now -
+                     /// lastSend).count() * 0.001 <<std::endl;
+                     //                     testYaw += std::chrono::duration_cast<std::chrono::milliseconds>(now -
+                     //                     lastSend).count() * 0.001 * 0.1; testYaw = testYaw > glm::half_pi<float>() / 2.0f ?
+                     //                     glm::half_pi<float>()/ 2.0f : testYaw; mSerialPort->write(reinterpret_cast<const
+                     //                     char*>(gimbalSetPacket.buffer.data()), GimbalSetPacket::size);
+//                     std::cout << "send "
+//                               << "yaw: " << yawAngle << " pitch: " << pitchAngle << std::endl;
+                     // lastSend = now;
+                     //                     mSerialPort->write(reinterpret_cast<const char*>(gimbalSetPacket.buffer.data()),
+                     //                     GimbalSetPacket::size); auto now = SynchronizedClock::instance().now(); std::clog <<
+                     //                     std::chrono::duration_cast<std::chrono::milliseconds>( now - lastSend).count() <<
+                     //                     std::endl; lastSend = now;
                  } };
     }
 };
