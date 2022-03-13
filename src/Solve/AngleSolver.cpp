@@ -148,18 +148,20 @@ public:
                              mDiff[mCnt - 1] = (mPositions[mCnt] - mPositions[mCnt - 1]) - (mTimes[mCnt] - mTimes[mCnt - 1]);
                          }
                          if(mCnt >= 3) {
-                             if(std::abs(mDiff[mCnt - 1] - mDiff[mCnt - 2]) > 0.2 && std::abs(mDiff[mCnt - 1] - mDiff[mCnt]) > 0.2) {
+                             if(std::abs(mDiff[mCnt - 1] - mDiff[mCnt - 2]) > 0.2 &&
+                                std::abs(mDiff[mCnt - 1] - mDiff[mCnt]) > 0.2) {
                                  mExceptionPoint[++mExceptionPoint[0]] = mCnt - 1;
-                                 if(mExceptionPoint[0]>=2) {
+                                 if(mExceptionPoint[0] >= 2) {
                                      if(mExceptionPoint[0] == 2)
                                          mPeriod = mTimes[mExceptionPoint[2]] - mTimes[mExceptionPoint[1]];
                                      else {
-                                         mPeriod = (mPeriod * (mExceptionPoint[0] - 2) + mTimes[mExceptionPoint[mExceptionPoint[0]]] - mTimes[mExceptionPoint[mExceptionPoint[0] - 1]]) /
+                                         mPeriod =
+                                             (mPeriod * (mExceptionPoint[0] - 2) + mTimes[mExceptionPoint[mExceptionPoint[0]]] -
+                                              mTimes[mExceptionPoint[mExceptionPoint[0] - 1]]) /
                                              (mExceptionPoint[0] - 1);
                                      }
                                  }
-                             }
-                                 
+                             } 
                          }
                           
                          //CAF_LOG_INFO(fmt::format("mCnt:{}mPeriod:{} ", mCnt, mPeriod));
@@ -196,7 +198,9 @@ public:
         //                 expr4 /= (square(transformedPosition.x) + square(transformedPosition.y) +
 								//square(transformedPosition.z));
         //                 double pitchAngle = std::atan2(expr4, expr3);
-                         double pitchAngle = std::acos(netHorizonalSpeed / bulletSpeed);
+                         double airDuration = horizonalDistance / netHorizonalSpeed;
+                            double netVerticalSpeed = transformedPosition.z / airDuration + g * airDuration / 2;
+                         double pitchAngle = std::asin(netVerticalSpeed / bulletSpeed);
                          pitchAngle = (pitchAngle < glm::quarter_pi<double>() / 4) ? pitchAngle : (glm::half_pi<double>() / 2 - pitchAngle);
                          //CAF_LOG_INFO(fmt::format("YawAngle: {},PitchAngle: {}", yawAngle, pitchAngle));
                          if(mExceptionPoint[0] >= 7 ) {
