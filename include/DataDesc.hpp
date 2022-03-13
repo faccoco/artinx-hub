@@ -5,16 +5,28 @@
 #include <caf/type_id.hpp>
 #include <cstdint>
 
+enum class Color { Red, Blue };
+
 struct GlobalSettings final {
     double gForce;
     double dragCoefficient;
     bool bullet42mm;
 
-    double bulletRadius() const noexcept {
+    Color selfColor = Color::Red;
+    double bulletSpeed = 15.00;
+    bool started = false;
+
+    [[nodiscard]] double bulletRadius() const noexcept {
         return bullet42mm ? radiusOf42mm : radiusOf17mm;
     }
-    double bulletMass() const noexcept {
+
+    [[nodiscard]] double bulletMass() const noexcept {
         return bullet42mm ? massOf42mm : massOf17mm;
+    }
+
+    static GlobalSettings& get() {
+        static GlobalSettings settings;
+        return settings;
     }
 };
 
@@ -31,10 +43,9 @@ struct Identifier final {
 CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id);
 
 CAF_ADD_ATOM(ArtinxHub, start_atom);
-CAF_ADD_ATOM(ArtinxHub, shoot_atom);
 CAF_ADD_ATOM(ArtinxHub, detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_atom);
-CAF_ADD_ATOM(ArtinxHub, set_target_posture_atom);
+CAF_ADD_ATOM(ArtinxHub, set_target_info_atom);
 CAF_ADD_ATOM(ArtinxHub, update_posture_atom);
 CAF_ADD_ATOM(ArtinxHub, update_head_atom);
 CAF_ADD_ATOM(ArtinxHub, simulator_step_atom);
@@ -42,10 +53,19 @@ CAF_ADD_ATOM(ArtinxHub, timer_atom);
 CAF_ADD_ATOM(ArtinxHub, image_frame_atom);
 CAF_ADD_ATOM(ArtinxHub, car_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
+CAF_ADD_ATOM(ArtinxHub, energy_detect_available_atom);
+CAF_ADD_ATOM(ArtinxHub, ore_instructions_atom);
+CAF_ADD_ATOM(ArtinxHub, ore_detect_available_atom);
+CAF_ADD_ATOM(ArtinxHub, radar_locate_succeed_atom);
+CAF_ADD_ATOM(ArtinxHub, radar_locate_request_atom);
+CAF_ADD_ATOM(ArtinxHub, num_classify_request_atom);
+CAF_ADD_ATOM(ArtinxHub, monitor_request_atom);
+CAF_ADD_ATOM(ArtinxHub, monitor_response_atom);
+CAF_ADD_ATOM(ArtinxHub, payload_atom);
+CAF_ADD_ATOM(ArtinxHub, ore_alignment_available_atom);
 
 CAF_ADD_TYPE_ID(ArtinxHub, (Identifier));
 
 CAF_END_TYPE_ID_BLOCK(ArtinxHub);
 
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(Identifier);
-

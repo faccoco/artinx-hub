@@ -19,7 +19,7 @@ public:
         return { [this](start_atom) {},
                  [this](car_detect_available_atom, Identifier key) {
                      auto res = BlackBoard::instance().get<DetectedCarArray>(key).value();
-                     cv::Scalar green{ 0.0, 255.0, 0.0 };
+                     const cv::Scalar green{ 0.0, 255.0, 0.0 };
                      for(const auto& rect : res.cars) {
                          cv::rectangle(res.frame.frame, rect, green, 3);
                      }

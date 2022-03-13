@@ -7,4 +7,11 @@ build-test-job:
     - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
     - cd build
-    - ctest --build-config Release --output-on-failure -j 8
+    - ctest --build-config Release -j 8
+  artifacts:
+    when: always
+    name: "report"
+    paths:
+      - ./build/testResult.log
+    expire_in: 1 month
+    expose_as: "test report"

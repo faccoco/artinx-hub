@@ -8,8 +8,6 @@ namespace fs = std::filesystem;
 #define ARTINXHUB_WINDOWS
 #elif __linux__ && !__ANDROID__
 #define ARTINXHUB_LINUX
-//#elif __APPLE__
-//#define ANIMGUI_MACOS
 #else
 #error "Unsupported platform"
 #endif
@@ -35,3 +33,8 @@ public:
 };
 
 class NotImplemented final : public std::exception {};
+
+void logInfo(std::string_view message);
+void logWarning(std::string_view message);
+void logError(std::string_view message);
+[[noreturn]] void raiseError(std::string_view message);

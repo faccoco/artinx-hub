@@ -76,7 +76,7 @@ class SpinMotionController final : public MotionController {
     double mSpinningSpeed;
 
 public:
-    SpinMotionController(double spinningSpeed) : mSpinningSpeed{ spinningSpeed } {}
+    explicit SpinMotionController(const double spinningSpeed) : mSpinningSpeed{ spinningSpeed } {}
     void step(btMotionState& motionState, const double dt) override {
         btTransform transform;
         motionState.getWorldTransform(transform);
@@ -93,7 +93,7 @@ class LargeCircleMotionController final : public MotionController {
     double mSpinningSpeed;
 
 public:
-    LargeCircleMotionController(double spinningSpeed) : mSpinningSpeed{ spinningSpeed } {}
+    explicit LargeCircleMotionController(const double spinningSpeed) : mSpinningSpeed{ spinningSpeed } {}
     void step(btMotionState& motionState, const double dt) override {
         btTransform transform;
         motionState.getWorldTransform(transform);
@@ -112,58 +112,70 @@ class UAVMotionController final : public MotionController {
     std::default_random_engine generator;
     std::normal_distribution<double> distribution{ 0, 1 };
 
-    
     void step(btMotionState& motionState, double dt) override {
-        double xSpeed = distribution(generator);
-        double ySpeed = distribution(generator);
-        double zSpeed = distribution(generator);
+        const double xSpeed = distribution(generator);
+        const double ySpeed = distribution(generator);
+        const double zSpeed = distribution(generator);
         btTransform transform;
         motionState.getWorldTransform(transform);
-        transform.setOrigin(btVector3(transform.getOrigin().getX() + xSpeed*dt,transform.getOrigin().getY() + ySpeed*dt ,transform.getOrigin().getZ() - zSpeed * dt));
+        transform.setOrigin(btVector3(transform.getOrigin().getX() + xSpeed * dt, transform.getOrigin().getY() + ySpeed * dt,
+                                      transform.getOrigin().getZ() - zSpeed * dt));
         motionState.setWorldTransform(transform);
     }
 };
 
 class SentryMotionController final : public MotionController {
-    std::default_random_engine generator;
-    std::normal_distribution<double> distribution{ 0, 1 };
-    void step(btMotionState& motionState, double dt) override {
-        double xSpeed = distribution(generator);
+    bool mMovingDirection = false;
+
+    void step(btMotionState& motionState, const double dt) override {
         btTransform transform;
         motionState.getWorldTransform(transform);
-        transform.setOrigin(
-            btVector3(transform.getOrigin().getX() + xSpeed * dt, transform.getOrigin().getY(),
-                                      transform.getOrigin().getZ()));
+        const auto x = transform.getOrigin().getX();
+        constexpr auto speed = 0.5;
+        if(x > 2.0f)
+            mMovingDirection = false;
+        else if(x < -2.0f)
+            mMovingDirection = true;
+
+        transform.setOrigin(btVector3(x + static_cast<float>((mMovingDirection ? speed : -speed) * dt),
+                                      transform.getOrigin().getY(), transform.getOrigin().getZ()));
+        motionState.setWorldTransform(transform);
     }
 };
 
+// FIXME
 class Translate2DMotionController final : public MotionController {
     std::default_random_engine generator;
     std::normal_distribution<double> distribution{ 0, 1 };
 
     void step(btMotionState& motionState, double dt) override {
-        double ySpeed=distribution(generator);
-        double zSpeed=distribution(generator);
+        const double ySpeed = distribution(generator);
+        const double zSpeed = distribution(generator);
         btTransform transform;
         motionState.getWorldTransform(transform);
         transform.setOrigin(btVector3(transform.getOrigin().getX(), transform.getOrigin().getY() + ySpeed * dt,
                                       transform.getOrigin().getZ() + zSpeed * dt));
+        motionState.setWorldTransform(transform);
     }
 };
 
+// FIXME
 class VibrationMotionController final : public MotionController {
     double vibrationRange;
     double t = 0;
-    public :
-        VibrationMotionController(double range) : vibrationRange { range } {}
+
+public:
+    VibrationMotionController(double range) : vibrationRange{ range } {}
     void step(btMotionState& motionState, double dt) override {
         btTransform transform;
         motionState.getWorldTransform(transform);
         t += dt;
         transform.setOrigin(btVector3(transform.getOrigin().getX() + vibrationRange * glm::sin(t), transform.getOrigin().getY(),
                                       transform.getOrigin().getZ()));
+        motionState.setWorldTransform(transform);
     }
 };
+
 class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
     Identifier mKey, mHeadKey{};
 
@@ -184,7 +196,7 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
     void initializeTestCase() {
         {
             // Source
-            const auto globalSettings = BlackBoard::instance().get<GlobalSettings>({}).value();
+            const auto& globalSettings = GlobalSettings::get();
 
             mBulletShape = std::make_unique<btSphereShape>(static_cast<float>(globalSettings.bulletRadius()));
         }
@@ -193,8 +205,7 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
             // SourceMotion
             mSource.first = std::make_unique<btDefaultMotionState>(
                 btTransform{ btQuaternion::getIdentity(), btVector3{ 0.0, static_cast<float>(mConfig.sourceHeight), 0.0 } });
-            const auto sourceMotionType = magic_enum::enum_cast<SourceMotionType>(mConfig.sourceMotionType).value();
-            switch(sourceMotionType) {
+            switch(magic_enum::enum_cast<SourceMotionType>(mConfig.sourceMotionType).value()) {
                 case SourceMotionType::Static:
                     mSource.second = std::make_unique<StaticMotionController>();
                     break;
@@ -212,14 +223,12 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                     break;
                 default:
                     throw NotImplemented{};
-                    break;
             }
         }
 
         // Target
         {
-            const auto targetType = magic_enum::enum_cast<TargetType>(mConfig.targetType).value();
-            switch(targetType) {
+            switch(magic_enum::enum_cast<TargetType>(mConfig.targetType).value()) {
                 case TargetType::Infantry: {
                     mTargetArmors.push_back(std::make_unique<btBoxShape>(btVector3{
                         widthOfSmallArmor * 0.5, heightOfSmallArmor * 0.5, thinnessOfArmor * 0.5 }));  // NOTICE: half extents
@@ -275,10 +284,8 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                     mTargetArmors.push_back(std::move(armors));
                 } break;
 
-                    
                 default:
                     throw NotImplemented{};
-                    break;
             }
         }
 
@@ -304,7 +311,6 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                 } break;
                 default:
                     throw NotImplemented{};
-                    break;
             }
 
             const btRigidBody::btRigidBodyConstructionInfo info{ 100.0, motion.get(), mTargetArmors.back().get() };
@@ -329,7 +335,7 @@ public:
 
         Timer::instance().addTimer(this->address(), 10ms);
     }
-    ~Simulator() {
+    ~Simulator() override {
         for(int32_t idx = mDynamicWorld->getNumCollisionObjects() - 1; idx >= 0; --idx)
             mDynamicWorld->removeCollisionObject(mDynamicWorld->getCollisionObjectArray()[idx]);
     }
@@ -341,9 +347,10 @@ public:
         double lastShoot = -2 * mConfig.shootInterval;
         uint32_t hitCount = 0;
         uint32_t bulletCount = 0;
-        const auto globalSettings = BlackBoard::instance().get<GlobalSettings>({}).value();
+        auto& globalSettings = GlobalSettings::get();
         mDynamicWorld->setGravity(btVector3{ 0, static_cast<float>(globalSettings.gForce), 0 });
 
+        globalSettings.bulletSpeed = mConfig.v0;
         std::normal_distribution<double> vGen{ mConfig.v0, std::fmax(mConfig.v0Std, 1e-3) };
         const auto maxVelocity = mConfig.v0 + 3.0 * mConfig.v0Std;
         const auto minVelocity = mConfig.v0 - 3.0 * mConfig.v0Std;
@@ -359,8 +366,7 @@ public:
                 bulletVelocity[p.get()] = p->getLinearVelocity();
                 if(mConfig.printBulletPos) {
                     const auto pos = p->getCenterOfMassPosition();
-                    
-                    (fmt::format("bullet {:.2f} {:.2f} {:.2f}", pos.x(), pos.y(), pos.z()));
+                    logInfo(fmt::format("bullet {:.2f} {:.2f} {:.2f}", pos.x(), pos.y(), pos.z()));
                 }
             }
 
@@ -371,8 +377,8 @@ public:
             std::get<2>(mTarget)->step(*std::get<0>(mTarget), mConfig.step);
             mDynamicWorld->stepSimulation(static_cast<btScalar>(mConfig.step), 10, 0.001f);
             time += mConfig.step;
-            
-            CAF_LOG_INFO(fmt::format("Simulator time {:.3f}s bullet count {} hited {}", time, bulletCount, hitCount));
+
+            logInfo(fmt::format("Simulator time {:.3f}s bullet count {} hit {} shoot {}", time, bulletCount, hitCount, shoot));
 
             // update world info
             {
@@ -380,6 +386,7 @@ public:
 
                 info.lastUpdate =
                     TimePoint{ static_cast<Duration>(static_cast<Clock::rep>(time * Clock::period::den / Clock::period::num)) };
+                SynchronizedClock::instance().setSimulationTime(info.lastUpdate);
 
                 {
                     btTransform trans;
@@ -448,13 +455,13 @@ public:
 
                     const auto pos = bodyB->getCenterOfMassPosition();
 
-                    CAF_LOG_INFO(fmt::format("Hit at ({:.2f},{:.2f},{:.2f}) vel {:.2f}", pos.x(), pos.y(), pos.z(), velocity));
+                    logInfo(fmt::format("Hit at ({:.2f},{:.2f},{:.2f}) vel {:.2f}", pos.x(), pos.y(), pos.z(), velocity));
                     mDynamicWorld->removeRigidBody(const_cast<btRigidBody*>(bodyB));
                 }
             }
 
             // update events
-            receive([&](shoot_atom, const bool enableGun) { shoot = enableGun; },
+            receive([&](set_target_info_atom, const double, const double, const bool isFire) { shoot = isFire; },
                     [&](update_head_atom, Identifier key) { mHeadKey = key; }, [&](const caf::down_msg& x) { runFlag = false; },
                     [&](const caf::exit_msg& x) { runFlag = false; }, [&](timer_atom) {});
             // shoot
@@ -491,7 +498,7 @@ public:
                 body->applyCentralImpulse({ impulse.x, impulse.y, impulse.z });
                 mDynamicWorld->addRigidBody(body.get());
                 body->setUserPointer(&bulletId);
-                mBullets.push_back(std::make_pair(std::move(motion), std::move(body)));
+                mBullets.emplace_back(std::move(motion), std::move(body));
 
                 lastShoot = time;
                 ++bulletCount;
@@ -499,11 +506,15 @@ public:
             if(time - mConfig.maxTime > -1e-4) {
                 runFlag = false;
             }
+            std::this_thread::sleep_for(5ms);
         }
 
-        CAF_LOG_INFO(fmt::format("Expected {} Result {}", mConfig.expectedCount, hitCount));
+        logInfo(fmt::format("Expected {} Result {}", mConfig.expectedCount, hitCount));
+        appendTestResult(fmt::format("Result {}/{} (Require {}, Shoot {})", hitCount, mConfig.bulletCount, mConfig.expectedCount,
+                                     bulletCount));
+
         if(hitCount < mConfig.expectedCount) {
-            CAF_LOG_ERROR("Test failed");
+            logError("Test failed");
             terminateSystem(*this, false);
         } else
             terminateSystem(*this, true);
