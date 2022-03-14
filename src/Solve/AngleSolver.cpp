@@ -161,7 +161,8 @@ public:
                                              (mExceptionPoint[0] - 1);
                                      }
                                  }
-                             } 
+                             } else
+                                 mExceptionPoint[0] = 0;
                          }
                           
                          //CAF_LOG_INFO(fmt::format("mCnt:{}mPeriod:{} ", mCnt, mPeriod));
