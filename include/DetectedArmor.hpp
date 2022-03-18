@@ -1,7 +1,5 @@
 #pragma once
 #include "CameraFrame.hpp"
-#include "Timer.hpp"
-#include "Transform.hpp"
 #include <opencv2/opencv.hpp>
 
 // Origin: left-top corner of the car's ROI
@@ -18,7 +16,6 @@ struct DetectedArmorsOfCar final {
 };
 
 struct DetectedArmorArray final {
-    TimePoint lastUpdate;
-    CameraInfo cameraInfo;
+    CameraFrame frame;
     std::vector<DetectedArmorsOfCar> armors;
 };

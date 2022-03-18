@@ -57,7 +57,8 @@ class Vector final {
 public:
     Vector() = default;
     explicit Vector(const glm::dvec3 val) : mValue{ val } {}
-    glm::dvec3 raw() const noexcept {
+
+    [[nodiscard]] glm::dvec3 raw() const noexcept {
         return mValue;
     }
     Vector operator+(Vector rhs) const noexcept {
@@ -111,7 +112,8 @@ class Point final {
 public:
     Point() = default;
     explicit Point(const glm::dvec3 val) : mValue{ val } {}
-    glm::dvec3 raw() const noexcept {
+
+    [[nodiscard]] glm::dvec3 raw() const noexcept {
         return mValue;
     }
 
@@ -162,7 +164,7 @@ public:
         return { -mValue, Normalized{} };
     }
 
-    glm::dvec3 raw() const noexcept {
+    [[nodiscard]] glm::dvec3 raw() const noexcept {
         return mValue;
     }
 };
@@ -201,16 +203,16 @@ public:
     explicit Transform(const glm::dmat4& transform, const glm::dmat4& inverseTransform)
         : mTransform{ transform }, mInverseTransform{ inverseTransform } {}
 
-    const glm::dmat4& raw() const noexcept {
+    [[nodiscard]] const glm::dmat4& raw() const noexcept {
         return mTransform;
     }
 
-    const glm::dmat4& rawInverse() const noexcept {
+    [[nodiscard]] const glm::dmat4& rawInverse() const noexcept {
         return mInverseTransform;
     }
 
     template <UnitType Unit>
-    std::enable_if_t<HasTranslate,Point<Unit, B>> operator()(const Point<Unit, A> val) const noexcept {
+    std::enable_if_t<HasTranslate, Point<Unit, B>> operator()(const Point<Unit, A> val) const noexcept {
         return Point<Unit, B>{ glm::dvec3{ mTransform * glm::dvec4{ val.raw(), 1.0 } } };
     }
     template <UnitType Unit>
@@ -222,7 +224,7 @@ public:
     }
 
     template <UnitType Unit>
-    std::enable_if_t<HasTranslate,Point<Unit, A>> operator()(const Point<Unit, B> val) const noexcept {
+    std::enable_if_t<HasTranslate, Point<Unit, A>> operator()(const Point<Unit, B> val) const noexcept {
         return Point<Unit, A>{ glm::dvec3{ mInverseTransform * glm::dvec4{ val.raw(), 1.0 } } };
     }
     template <UnitType Unit>

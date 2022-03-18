@@ -13,6 +13,7 @@
 #include <caf/scoped_actor.hpp>
 #include <cctype>
 #include <condition_variable>
+#include <fmt/format.h>
 #include <fstream>
 #include <mutex>
 #include <string>
@@ -49,30 +50,28 @@ public:
     void addNodeType(std::string name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction) {
         demangle(name);
         if(!mClasses.emplace(std::move(name), std::move(spawnFunction)).second) {
-            const auto error = "Multiple definition of node type " + name;
-            CAF_RAISE_ERROR(error.c_str());
+            logError("Multiple definition of node type " + name);
         }
     }
     caf::actor buildNode(caf::actor_system& system, const std::string& name, const HubConfig& config) {
-        
-        CAF_LOG_INFO("Build node " + name);
+        logInfo("Build node " + name);
         const auto attr = config.to_dictionary().value();
         const auto typeAttr = attr.find("type"sv);
         if(typeAttr == attr.cend()) {
-            throw std::runtime_error("Node " + name + " is lack of 'type' field.");
+            raiseError("Node " + name + " is lack of 'type' field.");
         }
         const auto nodeTypeName = caf::to_string(typeAttr->second);
         const auto iter = mClasses.find(nodeTypeName);
         if(iter == mClasses.cend()) {
-            const auto error = "Undefined Node Type " + nodeTypeName;
-            CAF_RAISE_ERROR(error.c_str());
+            raiseError("Undefined Node Type " + nodeTypeName);
         }
+
         try {
             auto actor = iter->second(system, config);
             system.registry().put(name, actor);
             return actor;
         } catch(const std::exception& e) {
-            CAF_LOG_ERROR(e.what());
+            logError(e.what());
             throw;
         }
     }
@@ -91,8 +90,9 @@ namespace detail {
         demangle(nameNormalized);
         const auto attr = config.to_dictionary().value();
         const auto iter = attr.find(nameNormalized);
-        if(iter == attr.cend())
-            CAF_LOG_ERROR("Succeed " + std::string{ nameNormalized } + " is needed");
+        if(iter == attr.cend()) {
+            raiseError(fmt::format("Succeed {} is needed", nameNormalized));
+        }
 
         const auto succeed = iter->second.to_list().value();
         std::vector<std::string> res;
@@ -107,14 +107,17 @@ namespace detail {
         std::vector<caf::actor_addr> res;
         res.reserve(succeed.size());
         for(auto id : succeed) {
-            res.push_back(registry.get<caf::actor_addr>(id));
+            if(auto addr = registry.get<caf::actor_addr>(id))
+                res.push_back(addr);
+            else {
+                logError("Undefined actor " + id + " (call sendAll before start_atom?)");
+            }
         }
         return res;
     }
 }  // namespace detail
 
 std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system& system, const HubConfig& config) {
-    // TODO: verify reference
     const auto nodes = config.to_dictionary().value();
     std::unordered_map<std::string, uint32_t> idMap;
     std::vector<std::tuple<uint32_t, std::string, std::vector<uint32_t>>> reference;
@@ -145,8 +148,10 @@ void terminateSystem(caf::local_actor& actor, const bool success) {
     globalCV.notify_one();
 }
 
+std::string globalConfigName;
+
 int caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
-    CAF_LOG_INFO("Initializing");
+    logInfo("Initializing");
     Timer::instance().bindSystem(system);
 
     const fs::path logPath{ "./logs" };
@@ -160,33 +165,33 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         args += argv[idx];
         args += ' ';
     }
-    CAF_LOG_INFO(args);
+    logInfo(args);
 
     if(argc != 2 || !fs::exists(argv[1])) {
-        CAF_LOG_ERROR("Bad Config");
-        return EXIT_FAILURE;
+        logError("Bad Config");
     }
 
+    globalConfigName = fs::path{ argv[1] }.filename().string();
     const auto configData = loadConfig(argv[1]);
     const auto pipelineConfig = caf::config_value::parse(configData).value();
-    BlackBoard::instance().updateSync({}, caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value());
+    GlobalSettings::get() = caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value();
 
     {
         const auto actors = buildPipeline(system, pipelineConfig);
         const auto daemon = createDaemonActor(system, actors);
 
-        caf::scoped_actor caller{ system };
+        const caf::scoped_actor caller{ system };
         for(auto&& [name, actor] : actors) {
             caller->send(actor, start_atom_v);
         }
-        CAF_LOG_INFO("ArtinxHub Started");
+        logInfo("ArtinxHub Started");
 
         {
             std::unique_lock<std::mutex> lock{ globalMutex };
             globalCV.wait(lock, [] { return globalStatus != RunStatus::running; });
         }
 
-        CAF_LOG_INFO("ArtinxHub Finished");
+        logInfo("ArtinxHub Finished");
 
         for(auto& [name, actor] : actors) {
             system.registry().erase(name);
@@ -195,9 +200,13 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         caller->send_exit(daemon, caf::exit_reason::user_shutdown);
     }
 
+    Timer::instance().stop();
     system.await_all_actors_done();
 
     return globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+
+std::unordered_map<std::string, TimePoint> HubLogger::logs;
+std::unordered_map<std::string, std::string> HubLogger::watches;
 
 CAF_MAIN(caf::id_block::ArtinxHub)
