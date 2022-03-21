@@ -216,8 +216,8 @@ Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.va
                          double airDuration = horizonalDistance / netHorizonalSpeed;
                          double netVerticalSpeed = transformedPosition.z / airDuration + g * airDuration / 2;
                          double pitchAngle = std::asin(netVerticalSpeed / bulletSpeed);
-                         pitchAngle = ((pitchAngle < glm::quarter_pi<double>() / 4) && (pitchAngle > 0)) ? pitchAngle : (glm::half_pi<double>() / 2 -pitchAngle); 
-                         //CAF_LOG_INFO(fmt::format("YawAngle: {},PitchAngle: {}", yawAngle, pitchAngle));
+                         pitchAngle = (pitchAngle > glm::quarter_pi<double>()) ? (glm::half_pi<double>() - pitchAngle) : pitchAngle; 
+                         CAF_LOG_INFO(fmt::format("YawAngle: {},PitchAngle: {}", yawAngle, pitchAngle));
                           if(mExceptionPoint[0] >= 7 ) {
                              pitchAngle = mPreviousPitchAngle;
                              yawAngle = mPreviousYawAngle;
