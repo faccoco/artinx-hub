@@ -121,16 +121,28 @@ public:
 
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_PIXEL_FORMAT, pixelFormat));
 
+        /*
         if(mConfig.decimation) {
-            /*
             checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BINNING_HORIZONTAL_MODE, GX_BINNING_VERTICAL_MODE_AVERAGE));
             checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BINNING_VERTICAL_MODE, GX_BINNING_VERTICAL_MODE_AVERAGE));
-            checkGXStatus(GXSetInt(mDevice, GX_INT_BINNING_HORIZONTAL, mConfig.binning));
-            checkGXStatus(GXSetInt(mDevice, GX_INT_BINNING_VERTICAL, mConfig.binning));
-             */
-            checkGXStatus(GXSetInt(mDevice, GX_INT_DECIMATION_HORIZONTAL, mConfig.decimation));
-            checkGXStatus(GXSetInt(mDevice, GX_INT_DECIMATION_VERTICAL, mConfig.decimation));
+            checkGXStatus(GXSetInt(mDevice, GX_INT_BINNING_HORIZONTAL, mConfig.decimation));
+            checkGXStatus(GXSetInt(mDevice, GX_INT_BINNING_VERTICAL, mConfig.decimation));
+            //checkGXStatus(GXSetInt(mDevice, GX_INT_DECIMATION_HORIZONTAL, mConfig.decimation));
+            //checkGXStatus(GXSetInt(mDevice, GX_INT_DECIMATION_VERTICAL, mConfig.decimation));
         }
+         */
+
+        uint32_t targetWidth=640,targetHeight=480;
+
+        int64_t width,height;
+        checkGXStatus(GXGetInt(mDevice,GX_INT_WIDTH_MAX,&width));
+        checkGXStatus(GXGetInt(mDevice,GX_INT_HEIGHT_MAX,&height));
+        checkGXStatus(GXSetInt(mDevice,GX_INT_WIDTH,targetWidth));
+        checkGXStatus(GXSetInt(mDevice,GX_INT_HEIGHT,targetHeight));
+        checkGXStatus(GXSetInt(mDevice,GX_INT_OFFSET_X,(width-targetWidth)/2));
+        checkGXStatus(GXSetInt(mDevice,GX_INT_OFFSET_Y,(height-targetHeight)/2));
+
+        //checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BINNING_HORIZONTAL_MODE, GX_BINNING_VERTICAL_MODE_AVERAGE));
 
 #ifdef ARTINXHUB_WINDOWS
         auto bImplementPacketSize = false;
