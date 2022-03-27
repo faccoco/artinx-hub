@@ -24,11 +24,11 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
     Identifier mKey, mIMUKey, mHeadKey;
 
 private:
-    double mPositions[50005] = {};
-    double mTimes[50005] = {};
-    double mDiff[50005] = {};
+    double mPositions[1005] = {};
+    double mTimes[1005] = {};
+    double mDiff[1005] = {};
     double mPeriod = 0;
-    int mExceptionPoint[50005] = {};
+    int mExceptionPoint[1005] = {};
     int mCnt = 0;
     double mPreviousYawAngle;
     double mPreviousPitchAngle;
@@ -150,25 +150,25 @@ Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.va
                                            forwardPositionOfReferenceGround.raw().y };
                          transformedLinearVelocity = { linearVelocity.raw().x, -linearVelocity.raw().z, linearVelocity.raw().y };
                          //(forward:+y,right:+x)
-                         mTimes[++mCnt] = timeDuration;
-                         mPositions[mCnt] = transformedPosition.x;
+                         mTimes[(++mCnt)%1000] = timeDuration;
+                         mPositions[(mCnt)%1000] = transformedPosition.x;
                          if(mCnt >= 2) {
-                             mDiff[mCnt - 1] = (mPositions[mCnt] - mPositions[mCnt - 1]) - (mTimes[mCnt] - mTimes[mCnt - 1]);
+                             mDiff[(mCnt - 1)%1000] = (mPositions[mCnt%1000] - mPositions[(mCnt - 1)%1000]) - (mTimes[mCnt%1000] - mTimes[(mCnt - 1)%1000]);
                          }
                          if(mCnt >= 3) {
-                             if(std::abs(mDiff[mCnt - 1] - mDiff[mCnt - 2]) > 0.2 &&
-                                std::abs(mDiff[mCnt - 1] - mDiff[mCnt]) > 0.2) {
-                                 mExceptionPoint[++mExceptionPoint[0]] = mCnt - 1;
-                                 if(mExceptionPoint[0] >= 2) {
-                                     if(mExceptionPoint[0] == 2)
-                                         mPeriod = mTimes[mExceptionPoint[2]] - mTimes[mExceptionPoint[1]];
-                                     else {
-                                         mPeriod =
-                                             (mPeriod * (mExceptionPoint[0] - 2) + mTimes[mExceptionPoint[mExceptionPoint[0]]] -
-                                              mTimes[mExceptionPoint[mExceptionPoint[0] - 1]]) /
-                                             (mExceptionPoint[0] - 1);
-                                     }
-                                 }
+                             if(std::abs(mDiff[(mCnt - 1)%1000] - mDiff[(mCnt - 2)%1000]) > 0.2 &&
+                                std::abs(mDiff[(mCnt - 1)%1000] - mDiff[mCnt%1000]) > 0.2) {
+                                 mExceptionPoint[(++mExceptionPoint[0])%1000] = (mCnt - 1)%1000;
+                                 //if(mExceptionPoint[0] >= 2) {
+                                 //    if(mExceptionPoint[0] == 2)
+                                 //        mPeriod = mTimes[mExceptionPoint[2]] - mTimes[mExceptionPoint[1]];
+                                 //    else {
+                                 //        mPeriod =
+                                 //            (mPeriod * (mExceptionPoint[0] - 2) + mTimes[mExceptionPoint[mExceptionPoint[0]]] -
+                                 //             mTimes[mExceptionPoint[mExceptionPoint[0] - 1]]) /
+                                 //            (mExceptionPoint[0] - 1);
+                                 //    }
+                                 //}
                              } else mExceptionPoint[0] = 0;
                          }
 
