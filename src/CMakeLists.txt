@@ -58,8 +58,14 @@ find_package(glm CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_path(CPP_HTTPLIB_INCLUDE_DIRS "httplib.h")
 find_package(OpenCV CONFIG REQUIRED)
+
+if(DEFINED ENV{DAHENG_ROOT})
+set(DAHENG_SDK_PATH $ENV{DAHENG_ROOT}/sdk)
+else()
 set(DAHENG_SDK_PATH $ENV{DAHENG_SDK})
+endif()
 message(${DAHENG_SDK_PATH})
+
 find_package(Bullet CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
@@ -78,15 +84,21 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 endif ()
 target_link_libraries(ArtinxHub PRIVATE glm::glm)
 target_include_directories(ArtinxHub PRIVATE ${CPP_HTTPLIB_INCLUDE_DIRS})
+if(DEFINED ENV{DAHENG_ROOT})
+target_compile_definitions(ArtinxHub PRIVATE "ARTINX_DAHENG_USB2")
+target_include_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/include)
+target_link_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/lib/pub)
+else()
 target_include_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/inc)
 target_link_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/lib/x64)
+endif()
+
 target_link_libraries(ArtinxHub PRIVATE gxiapi)
 target_link_libraries(ArtinxHub PRIVATE LinearMath Bullet3Common BulletDynamics BulletCollision)
 target_link_libraries(ArtinxHub PRIVATE magic_enum::magic_enum)
 target_link_libraries(ArtinxHub PRIVATE fmt::fmt)
 target_link_libraries(ArtinxHub PRIVATE ${InferenceEngine_LIBRARIES})
 target_link_libraries(ArtinxHub PRIVATE nlohmann_json nlohmann_json::nlohmann_json)
-
 
 add_custom_command(TARGET ArtinxHub PRE_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
