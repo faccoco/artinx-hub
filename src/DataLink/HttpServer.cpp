@@ -79,12 +79,13 @@ public:
         //        mServer.Get("/parameters", [this](const httplib::Request& req, httplib::Response& res) {
         //            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
         //        });
-        mServer.Get(R"(/img/(\d+)/.*)", [this](const httplib::Request& req, httplib::Response& res) {
+        mServer.Get(R"(/img/(\d+).*)", [this](const httplib::Request& req, httplib::Response& res) {
             auto path = req.matches[1];
+            std::string p = path;
             res.set_content_provider(
                 "multipart/x-mixed-replace;boundary=MJP",
-                [this, &path](size_t offset, httplib::DataSink& sink) {
-                    if(const auto img = generateImageData(path)) {
+                [this, p](size_t offset, httplib::DataSink& sink) {
+                    if(const auto img = generateImageData(p)) {
                         auto vec = img.value();
                         sink.os << "--MJP\r\n"
                                    "Content-Type: image/jpeg\r\n"
