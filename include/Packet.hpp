@@ -46,9 +46,9 @@ struct GimbalSetPacket {
         memcpy(buffer.data() + 10, &pitch, 4);
         memcpy(buffer.data() + 14, &downYaw, 4);
         memcpy(buffer.data() + 18, &downPitch, 4);
-        buffer[19] = isFire;
-        buffer[20] = downIsFire;
-        uint16_t crc16Result = Crc::Get_CRC16_Check_Sum(buffer.data(), 15, Crc::CRC16_INIT);
-        memcpy(buffer.data() + 21, &crc16Result, 2);
+        buffer[22] = isFire;
+        buffer[23] = downIsFire;
+        uint16_t crc16Result = Crc::Get_CRC16_Check_Sum(buffer.data(), 24, Crc::CRC16_INIT);
+        memcpy(buffer.data() + 24, &crc16Result, 2);
     }
 };

@@ -194,7 +194,7 @@ public:
             while(mRunning) {
                 std::this_thread::sleep_until(current);
                 GXGetImage(mDevice, &data, 100);
-                if(data.nStatus == GX_FRAME_STATUS_SUCCESS) {
+                if(data.nStatus == GX_FRAME_STATUS_SUCCESS && mStartFlag) {
                     const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer
 
                     // TODO: reduce reallocation

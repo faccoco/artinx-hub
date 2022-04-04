@@ -83,8 +83,16 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         if(id == FdbPacket::id) {
             FdbPacket fdb(mPacketBuffer);
             //                std::cout << "yaw: " << fdb.yaw << " pitch: " << fdb.pitch << std::endl;
-            //                HubLogger::watch("yaw", fdb.yaw);
-            //                HubLogger::watch("pitch", fdb.pitch);
+            HubLogger::watch("yaw", fdb.yaw);
+            HubLogger::watch("pitch", fdb.pitch);
+            HubLogger::watch("yaw2", fdb.downYaw);
+            HubLogger::watch("pitch2", fdb.downPitch);
+            HubLogger::watch("spd", fdb.bulletSpeed);
+            HubLogger::watch("color", fdb.color);
+            HubLogger::watch("shooter", fdb.shooterId);
+
+            GlobalSettings::get().selfColor = (fdb.color == 0 ? Color::Red : Color::Blue);
+
             fdb.yaw = (fdb.yaw < 0) ? fdb.yaw += 6.2831852 : fdb.yaw;
 
             // fdb.yaw = 0.0;// for standard
@@ -133,7 +141,7 @@ public:
             while(globalStatus == RunStatus::running) {
                 receive();
                 sendPacket();
-                std::this_thread::sleep_for(0.5ms);
+                std::this_thread::sleep_for(1ms);
                 memcpy(mSendBuffer.data() + mSendBufferLen, gimbalSetPacket.buffer.data(), GimbalSetPacket::size);
                 mSendBufferLen += GimbalSetPacket::size;
             }
