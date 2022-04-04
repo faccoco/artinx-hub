@@ -75,6 +75,11 @@ public:
         watches[name] = log;
     }
 
+    template <typename T>
+    static void watch(const std::string& name, const T& log) {
+        watches[name] = std::to_string(log);
+    }
+
     static void removeWatch(const std::string& name) {
         watches.erase(name);
     }

@@ -143,7 +143,7 @@ public:
 
                      if(!res.targets.empty()) {
                          auto center = res.targets[0].center.raw();
-                         std::cout << fmt::format("x: {} y: {} z: {}", center.x, center.y, center.z) << std::endl;
+//                         std::cout << fmt::format("x: {} y: {} z: {}", center.x, center.y, center.z) << std::endl;
                      }
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));

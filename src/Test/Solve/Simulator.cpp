@@ -126,7 +126,6 @@ class UAVMotionController final : public MotionController {
 
 class SentryMotionController final : public MotionController {
     bool mMovingDirection = false;
-
     void step(btMotionState& motionState, const double dt) override {
         btTransform transform;
         motionState.getWorldTransform(transform);
