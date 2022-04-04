@@ -17,8 +17,9 @@ struct VideoReplaySettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, VideoReplaySettings& x) {
-    return f.object(x).fields(f.field("path", x.path),
-                              f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 120.0; }),
+    return f.object(x).fields(f.field("path", x.path), f.field("fps", x.fps).fallback(30.0).invariant([](const double v) {
+        return v >= 1.0 && v <= 120.0;
+    }),
                               f.field("fov", x.fov), f.field("width", x.width), f.field("height", x.height));
 }
 
@@ -35,8 +36,11 @@ private:
 
     void next() {
         cv::Mat img;
-        if(!mCapture.read(img))
+        if(!mCapture.read(img)) {
+            mCapture.release();
+            mCapture.open(mConfig.path);
             return;
+        }
 
         CameraFrame res;
         res.frame = (mConfig.width == img.cols && mConfig.height == img.rows) ? std::move(img) : resize(img);
