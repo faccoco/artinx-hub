@@ -4,6 +4,7 @@
 #include "DetectedTarget.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
+#include "Utility.hpp"
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
 #include <fmt/format.h>
@@ -33,32 +34,6 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
         { +widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
     };
     std::vector<cv::Point2f> mImagePoint{ 4 };
-
-    // width < height
-    // angle = 0
-    // 1 width 2
-    // height  height
-    // 0 width 3
-    // angle = 90
-    // 0 height 1
-    // width    width
-    // 3 height 2
-
-    void boxRect(std::vector<cv::Point2f>& res, const cv::RotatedRect& rect) {
-        rect.points(res.data());
-
-        uint32_t selectedIdx = 0;
-        double minX = 1e5;
-
-        for(uint32_t idx = 0; idx < 4; ++idx)
-            if(res[idx].x < minX && res[idx].y > res[(idx + 2) % 4].y) {
-                selectedIdx = idx;
-                minX = res[idx].x;
-            }
-
-        if(selectedIdx)
-            std::rotate(res.begin(), res.begin() + selectedIdx, res.begin() + 4);
-    }
 
     Point<UnitType::Distance, FrameOfReference::Camera> solve(const cv::Mat& cameraMatrix, const PairedLight& armor) {
         boxRect(mImagePoint, armor.r1);
@@ -143,7 +118,8 @@ public:
 
                      if(!res.targets.empty()) {
                          auto center = res.targets[0].center.raw();
-//                         std::cout << fmt::format("x: {} y: {} z: {}", center.x, center.y, center.z) << std::endl;
+                         //                         std::cout << fmt::format("x: {} y: {} z: {}", center.x, center.y, center.z) <<
+                         //                         std::endl;
                      }
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));

@@ -5,6 +5,7 @@
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
+#include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/videoio.hpp>
 
 struct VideoReplaySettings final {
@@ -47,6 +48,7 @@ private:
         res.info.width = mConfig.width;
         res.info.height = mConfig.height;
         res.info.fov = mConfig.fov;
+        res.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
         res.lastUpdate = SynchronizedClock::instance().now();
 
         BlackBoard::instance().updateSync(mKey, std::move(res));

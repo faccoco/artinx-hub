@@ -17,16 +17,26 @@ bool inspect(Inspector& f, InfantryStrategySettings& x) {
 
 class InfantryStrategy final : public HubHelper<caf::event_based_actor, InfantryStrategySettings, set_target_atom> {
     Identifier mKey;
+    bool mEnergyMode = false;
 
 public:
     InfantryStrategy(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(InfantryStrategy).hash_code() } {}
     caf::behavior make_behavior() override {
-        return { [](start_atom) {},
+        return { [](start_atom) {}, [&](energy_detector_control_atom, bool enable) { mEnergyMode = enable; },
                  [&](energy_detect_available_atom, Identifier key) {
-
+                     if(!mEnergyMode)
+                         return;
+                     const auto data = BlackBoard::instance().get<DetectedEnergyInfo>(key).value();
+                     SelectedTarget selected;
+                     selected.lastUpdate = data.lastUpdate;
+                     selected.center = data.point;
+                     BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected);
+                     sendAll(set_target_atom_v, mKey);
                  },
                  [&](detect_available_atom, Identifier key) {
+                     if(mEnergyMode)
+                         return;
                      const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
 
                      SelectedTarget selected;

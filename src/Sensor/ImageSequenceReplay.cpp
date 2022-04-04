@@ -5,6 +5,7 @@
 #include "Hub.hpp"
 #include "Timer.hpp"
 #include <caf/event_based_actor.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 struct ImageSequenceReplaySettings final {
     std::string path;
@@ -46,6 +47,7 @@ class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, Image
         res.info.width = mConfig.width;
         res.info.height = mConfig.height;
         res.info.fov = mConfig.fov;
+        res.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
         res.lastUpdate = SynchronizedClock::instance().now();
 
         BlackBoard::instance().updateSync(mKey, std::move(res));

@@ -24,7 +24,7 @@ public:
     [[nodiscard]] std::pair<double, double> step(double dt, double target, double maxV, double period = -1.0) noexcept;
 };
 
-void drawRotatedRect(cv::Mat& img, const cv::RotatedRect& rect, const cv::Scalar& color);
+void drawRotatedRect(cv::Mat& img, const cv::RotatedRect& rect, const cv::Scalar& color, int thickness = 1);
 
 enum class RunStatus { running, normalExit, failureExit };
 
@@ -53,3 +53,15 @@ public:
 
 void appendTestResult(const std::string& message);
 std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>& w);
+
+// width < height
+// angle = 0
+// 1 width 2
+// height  height
+// 0 width 3
+// angle = 90
+// 0 height 1
+// width    width
+// 3 height 2
+
+void boxRect(std::vector<cv::Point2f>& res, const cv::RotatedRect& rect);
