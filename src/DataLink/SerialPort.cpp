@@ -9,7 +9,6 @@
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
-#include <pthread.h>
 
 struct SerialPortSettings final {
     std::string devPath;
