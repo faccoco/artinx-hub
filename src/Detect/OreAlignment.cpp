@@ -189,9 +189,7 @@ public:
 
                      data.frame.frame.convertTo(bgrFrame, CV_32FC3, 1.0 / 255.0);
                      cv::cvtColor(bgrFrame, hsvFrame, cv::COLOR_BGR2HSV_FULL);
-
-                     auto res = solveDirection(data, settings);
-                     BlackBoard::instance().updateSync(mKey, std::move(res));
+                     BlackBoard::instance().updateSync(mKey, std::move(solveDirection(data, settings)));
                      sendAll(ore_alignment_available_atom_v, mKey);
                  } };
     }
