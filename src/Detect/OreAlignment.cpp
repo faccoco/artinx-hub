@@ -1,3 +1,4 @@
+#pragma once
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedOre.hpp"
@@ -9,37 +10,39 @@
 #include <opencv2/opencv.hpp>
 #include <utility>
 
-enum class OreDetectorMode { GOLD_OVER_HEAD, GOLD_ON_THE_GROUND };
-
 struct OreAlignmentSettings final {
-    OreDetectorMode detectMode;
-    std::vector<double> oreHsvLow;
-    std::vector<double> oreHsvHigh;
+    // HSV range
+    std::vector<double> goldOreHsvLow;
+    std::vector<double> goldOreHsvHigh;
+    std::vector<double> silverOreHsvLow;
+    std::vector<double> silverOreHsvHigh;
     std::vector<double> lightBarHsvLow;
     std::vector<double> lightBarHsvHigh;
-    int32_t minOreArea;
-    int32_t maxOreArea;
-    int32_t minLightBarArea;
-    int32_t maxLightBarArea;
-    int32_t altitude;      // between ore and light bar
-    int32_t widthExpand;   // expand search range on width
+    // area range(pixel,[low value, high value])
+    std::vector<uint32_t> overGoldAreaRange;
+    std::vector<uint32_t> groundGoldAreaRange;
+    std::vector<uint32_t> groundSilverAreaRange;
+    std::vector<uint32_t> lightbarAreaRange;
+
+    int32_t altitude;      // between ore and light bar(pixel)
+    int32_t widthExpand;   // expand search range on width(pixel)
     int32_t heightExpand;  //...
-    int32_t storageFrameCount;
-    double flashThreshold;
+    int32_t historyFrameCount;
+    double flashFrequencyLimit;  // double in [0,1.0]
     double distanceToOre;
-    double offset;  // positive when camera is at the right of the car center axis
-    double movingThreshold;
+    double offset;  // positive when camera is at the right of the car center axis(meter)
+    double limitMovementDistance;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, OreAlignmentSettings& x) {
     return f.object(x).fields(
-        f.field("mode", x.detectMode), f.field("oreHsvLow", x.oreHsvLow), f.field("oreHsvHigh", x.oreHsvHigh),
-        f.field("lightbarHsvLow", x.lightBarHsvLow), f.field("lightbarHsvHigh", x.lightBarHsvHigh),
-        f.field("minOreArea", x.minOreArea), f.field("minLightbarArea", x.minLightBarArea), f.field("altitude", x.altitude),
-        f.field("widthExpand", x.widthExpand), f.field("heightExpand", x.heightExpand),
-        f.field("storageFrameCount", x.storageFrameCount), f.field("flashThreshold", x.flashThreshold),
-        f.field("distanceToOre", x.distanceToOre), f.field("offset", x.offset), f.field("movingThreshold", x.movingThreshold));
+        f.field("overGoldAreaRange", x.overGoldAreaRange), f.field("groundGoldAreaRange", x.groundGoldAreaRange),
+        f.field("groundSilverAreaRange", x.groundSilverAreaRange), f.field("lightbarAreaRange", x.lightbarAreaRange),
+        f.field("altitude", x.altitude), f.field("widthExpand", x.widthExpand), f.field("heightExpand", x.heightExpand),
+        f.field("historyFrameCount", x.historyFrameCount), f.field("flashFrequencyLimit", x.flashFrequencyLimit),
+        f.field("distanceToOre", x.distanceToOre), f.field("offset", x.offset),
+        f.field("limitMovementDistance", x.limitMovementDistance));
 }
 
 class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignmentSettings, ore_alignment_available_atom> {
@@ -47,84 +50,83 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
 
     std::vector<cv::Rect_<int64_t>> oreRectArray;
     cv::Mat bgrFrame, hsvFrame, binaryOreFrame;
+    std::deque<OrePosition> orePositionHistory;
 
-    DetectedOreArray solveDirection(DetectedOreArray& oreArray, const OreAlignmentSettings& settings) {
-        Movement tempMovement;
+    OreAlignmentMessage solveDirection(OreAlignmentMessage& oreMessage, const OreAlignmentSettings& settings) {
+        double tempDistance;
 
-        switch(settings.detectMode) {
-            case OreDetectorMode::GOLD_OVER_HEAD: {
-                detectOres(oreArray, settings);
-                modifyOrePreviousArray(oreArray.orePositionHistory, detectLightBar(oreArray.frame.frame, oreRectArray, settings),
-                                       settings);
+        switch(oreMessage.detectMode) {
+            case OreDetectorMode::GOLD_OVER: {
+                detectOres(oreMessage, { settings.goldOreHsvLow, settings.goldOreHsvHigh }, settings.overGoldAreaRange);
+                addToHistory(detectLightBar(oreMessage.frame.frame, oreRectArray, settings), oreMessage.lastMode,
+                             settings);  // todo:fix this for the no need of the history strategy
                 uint32_t lightOutFrames = 0;
-                for(uint64_t i = 0; i != oreArray.orePositionHistory.size(); ++i) {
-                    if(oreArray.orePositionHistory[i].flashingIndex != oreArray.orePositionHistory[i].totalNum)
-                        ++lightOutFrames;
-                }
-                if(lightOutFrames / settings.storageFrameCount >= settings.flashThreshold) {
-                    for(uint64_t i = oreArray.orePositionHistory.size() - 1; i != -1; --i) {
-                        if(oreArray.orePositionHistory[i].flashingIndex != oreArray.orePositionHistory[i].totalNum) {
-                            tempMovement.distance = transformToRealDistance(
-                                oreRectArray[oreArray.orePositionHistory[i].flashingIndex], oreArray.frame, settings);
-                            if(abs(tempMovement.distance) < settings.movingThreshold)
-                                tempMovement.direction = MoveDirection::STAY;
-                            else if(tempMovement.distance > 0)
-                                tempMovement.direction = MoveDirection::RIGHT;
-                            else
-                                tempMovement.direction = MoveDirection::LEFT;
-                        }
-                    }
+                std::for_each(orePositionHistory.begin(), orePositionHistory.end(), [&lightOutFrames](OrePosition& temp) {
+                    lightOutFrames += (temp.flashingIndex == temp.totalNum) ? 0 : 1;
+                });
+                if(lightOutFrames / settings.historyFrameCount >= settings.flashFrequencyLimit) {
+                    std::for_each(orePositionHistory.rbegin(), orePositionHistory.rend(), [&](const OrePosition& atom) {
+                        if(atom.flashingIndex != atom.totalNum)
+                            tempDistance = transformToRealDistance(oreRectArray[atom.flashingIndex], oreMessage.frame, settings);
+                    });
                 } else {
-                    tempMovement.direction = MoveDirection::STAY;
-                    tempMovement.distance = 0.0;
+                    tempDistance = NAN;
                 }
-                break;
-            }
+            } break;
 
-            case OreDetectorMode::GOLD_ON_THE_GROUND: {
-                detectOres(oreArray, settings);
-                double minDistance = transformToRealDistance(oreRectArray[0], oreArray.frame, settings);
-                for(uint64_t i = 1; i != oreRectArray.size(); ++i) {
-                    if(abs(transformToRealDistance(oreRectArray[i], oreArray.frame, settings)) < abs(minDistance))
-                        minDistance = abs(transformToRealDistance(oreRectArray[i], oreArray.frame, settings));
+            case OreDetectorMode::GOLD_GROUND: {
+                detectOres(oreMessage, { settings.goldOreHsvLow, settings.goldOreHsvHigh }, settings.groundGoldAreaRange);
+                tempDistance = transformToRealDistance(oreRectArray[0], oreMessage.frame, settings);
+                for(auto& atom : oreRectArray) {
+                    tempDistance = (transformToRealDistance(atom, oreMessage.frame, settings) < abs(tempDistance)) ?
+                        transformToRealDistance(atom, oreMessage.frame, settings) :
+                        tempDistance;
                 }
+            } break;
 
-                if(abs(minDistance) <= settings.movingThreshold)
-                    tempMovement.direction = MoveDirection::STAY;
-                else if(minDistance < 0)
-                    tempMovement.direction = MoveDirection::LEFT;
-                else
-                    tempMovement.direction = MoveDirection::RIGHT;
-                tempMovement.distance = minDistance;
-
-                break;
-            }
+            case OreDetectorMode::SILVER_GROUND: {
+                detectOres(oreMessage, { settings.silverOreHsvLow, settings.silverOreHsvHigh }, settings.groundSilverAreaRange);
+                tempDistance = transformToRealDistance(oreRectArray[0], oreMessage.frame, settings);
+                for(auto& atom : oreRectArray) {
+                    tempDistance = (transformToRealDistance(atom, oreMessage.frame, settings) < abs(tempDistance)) ?
+                        transformToRealDistance(atom, oreMessage.frame, settings) :
+                        tempDistance;
+                }
+            } break;
 
             default:
-                tempMovement = Movement{ MoveDirection::INVALID, 0.0 };
+                tempDistance = NAN;
                 break;
         }
-        return DetectedOreArray{ oreArray.frame, tempMovement, oreArray.orePositionHistory };
+        return OreAlignmentMessage{ oreMessage.frame, OreDetectorMode::NONE, oreMessage.detectMode, tempDistance };
     }
 
-    void detectOres(DetectedOreArray& oreArray, const OreAlignmentSettings& settings) {
+    void detectOres(OreAlignmentMessage& message, const std::vector<std::vector<double>>& hsvRange,
+                    const std::vector<uint32_t>& areaRange) {
         std::vector<std::vector<cv::Point2i>> orePointsArray;
-
-        inRange(hsvFrame, settings.oreHsvLow, settings.oreHsvHigh, binaryOreFrame);
-
-        cv::Mat tempMat = binaryOreFrame.clone();
-        dilate(tempMat, binaryOreFrame, std::vector<int32_t>{ 1, 1, 1, 1, 1, 1, 1, 1, 1 });  // todo
+        switch(message.detectMode) {
+            case OreDetectorMode::SILVER_GROUND:
+                inRange(hsvFrame, hsvRange[0], hsvRange[1], binaryOreFrame);
+                break;
+            default:
+                inRange(hsvFrame, hsvRange[0], hsvRange[1], binaryOreFrame);
+                break;
+        }
+        // cv::Mat tempMat = binaryOreFrame.clone();
+        // dilate(tempMat, binaryOreFrame, std::vector<int32_t>{ 1, 1, 1, 1, 1, 1, 1, 1, 1 });  // todo:improve ore's shape
 
         findContours(binaryOreFrame, orePointsArray, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
         for(const auto& singleMine : orePointsArray) {
+
             cv::Rect_<int64_t> tempRect = boundingRect(singleMine);
-            if(settings.minOreArea < tempRect.area() && tempRect.area() < settings.maxOreArea) {
-                cv::rectangle(bgrFrame, tempRect, cv::Scalar(255, 0, 0), 1, cv::LINE_8);
+            if(areaRange[0] < tempRect.area() && areaRange[1] > tempRect.area()) {
                 oreRectArray.push_back(tempRect);
+                cv::rectangle(bgrFrame, tempRect, cv::Scalar(255, 0, 0), 1, cv::LINE_8);
             }
         }
-        std::sort(oreRectArray.begin(), oreRectArray.end(), OreAlignment::rectCompare);
+        std::sort(oreRectArray.begin(), oreRectArray.end(),
+                  [](const cv::Rect_<int64_t>& front, const cv::Rect_<int64_t>& back) { return front.x < back.x; });
     }
 
     OrePosition detectLightBar(cv::Mat& frame, const std::vector<cv::Rect_<int64_t>>& oreRectArray,
@@ -139,12 +141,12 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
 
             cv::inRange(cutFrame, settings.lightBarHsvLow, settings.lightBarHsvHigh, lightBarFrame);
             cv::findContours(lightBarFrame, lightBarPointsArray, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-            for(const auto& singleLightBar : lightBarPointsArray) {
-                if(cv::Rect tempRect = cv::boundingRect(singleLightBar);
-                   settings.minLightBarArea < tempRect.area() && tempRect.area() < settings.maxLightBarArea) {
-                    ++index;
 
-                    // draw on frame, could be removed
+            for(const auto& singleLightBar : lightBarPointsArray) {
+                cv::Rect tempRect = cv::boundingRect(singleLightBar);
+                if(settings.lightbarAreaRange[0] < tempRect.area() && tempRect.area() < settings.lightbarAreaRange[1]) {
+                    ++index;
+                    // draw the signal light on frame, could be removed
                     tempRect = cv::Rect(cv::Point2i(tempRect.x + oreRect.x - settings.widthExpand,
                                                     tempRect.y + oreRect.y - settings.heightExpand),
                                         tempRect.size());
@@ -155,14 +157,17 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
         return OrePosition{ oreRectArray.size(), index };
     }
 
-    void modifyOrePreviousArray(std::deque<OrePosition>& orePositionHistory, const OrePosition& currentPosition,
-                                const OreAlignmentSettings& settings) {
-        if(orePositionHistory.size() < settings.storageFrameCount)
-            orePositionHistory.push_back(currentPosition);
-        else {
-            orePositionHistory.pop_front();
-            orePositionHistory.push_back(currentPosition);
-        }
+    void addToHistory(const OrePosition& currentPosition, OreDetectorMode lastMode, const OreAlignmentSettings& settings) {
+        if(lastMode != OreDetectorMode::GOLD_OVER && !orePositionHistory.empty()) {
+            orePositionHistory.clear();
+        } else {
+            if(orePositionHistory.size() < settings.historyFrameCount)
+                orePositionHistory.push_back(currentPosition);
+            else {
+                orePositionHistory.pop_front();
+                orePositionHistory.push_back(currentPosition);
+            }
+        }  // todo:add frame filter
     }
 
     double transformToRealDistance(const cv::Rect_<int64_t>& rect, const CameraFrame& frame,
@@ -170,11 +175,7 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
         return (rect.x + rect.width / 2 - frame.info.width) / (frame.info.width / 2 / tan(glm::radians(frame.info.fov))) *
             settings.distanceToOre +
             settings.offset;
-    }
-
-    static bool rectCompare(const cv::Rect_<int64_t>& front, const cv::Rect_<int64_t>& back) {
-        return front.x < back.x;
-    }
+    }  // todo:may don't have enough precision!!!
 
 public:
     OreAlignment(caf::actor_config& base, const HubConfig& config)
@@ -184,13 +185,12 @@ public:
         return { [this](start_atom) {},
                  [&](ore_alignment_available_atom, Identifier key) {
                      const auto settings = BlackBoard::instance().get<OreAlignmentSettings>(key).value();
-                     auto data = BlackBoard::instance().get<DetectedOreArray>(key).value();
+                     auto data = BlackBoard::instance().get<OreAlignmentMessage>(key).value();
 
                      data.frame.frame.convertTo(bgrFrame, CV_32FC3, 1.0 / 255.0);
                      cv::cvtColor(bgrFrame, hsvFrame, cv::COLOR_BGR2HSV_FULL);
 
-                     DetectedOreArray res;
-                     res = solveDirection(data, settings);
+                     auto res = solveDirection(data, settings);
                      BlackBoard::instance().updateSync(mKey, std::move(res));
                      sendAll(ore_alignment_available_atom_v, mKey);
                  } };
