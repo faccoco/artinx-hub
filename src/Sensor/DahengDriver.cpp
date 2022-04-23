@@ -65,6 +65,11 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         cv::Mat bgr;
         cv::cvtColor(frame, bgr, pixelCast);
 
+        // test only
+        cv::Mat tmp;
+        cv::flip(bgr, tmp, -1);
+        bgr = tmp;
+
         CameraFrame frameData;
         frameData.lastUpdate = timeStamp;
         frameData.info.fov = mConfig.fov;

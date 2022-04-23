@@ -82,19 +82,18 @@ class EnergyDetector final
         std::vector<cv::Mat> imgChannels;
         cv::split(src, imgChannels);
 
-        /*
-        constexpr auto threshold = 175;
+        constexpr auto threshold = 50;
         if(GlobalSettings::get().selfColor == Color::Red) {
             const auto energyRed = imgChannels[2] - imgChannels[0];
             cv::threshold(energyRed, binary, threshold, 255, cv::THRESH_BINARY);
         } else {
             const auto energyBlue = imgChannels[0] - imgChannels[2];
             cv::threshold(energyBlue, binary, threshold, 255, cv::THRESH_BINARY);
-        }*/
+        }
 
         // only for test
-        constexpr auto threshold = 200;
-        binary = imgChannels[0] > threshold & imgChannels[1] > threshold & imgChannels[2] > threshold;
+        // constexpr auto threshold = 200;
+        // binary = imgChannels[0] > threshold & imgChannels[1] > threshold & imgChannels[2] > threshold;
     }
 
     bool stripJudge(const std::vector<cv::Point>& contour, const cv::RotatedRect& rotatedRect) const {
@@ -120,7 +119,7 @@ class EnergyDetector final
         // element = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(6, 6));
         // erode(binary, binary, element);
 
-        // debugView("binary", binary, [](cv::Mat&) {});
+        debugView("binary", binary, [](cv::Mat&) {});
 
         std::vector<std::vector<cv::Point> > armorContours;
         std::vector<cv::Vec4i> armorHierarchy;
@@ -154,7 +153,7 @@ class EnergyDetector final
         });*/
 
         uint32_t index = std::numeric_limits<uint32_t>::max();
-        double minScore = 0.03;
+        double minScore = 0.15;
 
         for(const auto conIndex : conIndices) {
             // const auto finalLength = arcLength(armorContours[conIndex], true);
@@ -219,15 +218,19 @@ class EnergyDetector final
     }
 
     const std::vector<cv::Point3d> mObjectPointsLarge = {
-        { -widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-        { -widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
+        { -widthOfLargeArmor / 2, +heightOfLargeArmor / 2, 0.0 },
+        { -widthOfLargeArmor / 2, -heightOfLargeArmor / 2, 0.0 },
+        { +widthOfLargeArmor / 2, -heightOfLargeArmor / 2, 0.0 },
+        { +widthOfLargeArmor / 2, +heightOfLargeArmor / 2, 0.0 },
     };
     std::vector<cv::Point2f> mImagePoint{ 4 };
 
     Point<UnitType::Distance, FrameOfReference::Camera> solve(const cv::Mat& cameraMatrix, const cv::RotatedRect& armor) {
-        armor.points(mImagePoint.data());
+        // armor.points(mImagePoint.data());
+        boxRect(mImagePoint, armor);
+        if(std::hypot(mImagePoint[0].x - mImagePoint[1].x, mImagePoint[0].y, mImagePoint[1].y) >
+           std::hypot(mImagePoint[2].x - mImagePoint[1].x, mImagePoint[2].y, mImagePoint[1].y))
+            std::rotate(mImagePoint.begin(), mImagePoint.begin() + 1, mImagePoint.end());
 
         const cv::Mat_<double> distCoeff;
         cv::Mat rvec, tvec;
