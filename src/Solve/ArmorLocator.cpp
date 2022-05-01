@@ -110,6 +110,7 @@ public:
                              armorLight.r2.center += cv::Point2f{ roi.tl() };
 
                              const auto point = solve(cameraMatrix, armorLight);
+                             std::cout << distance(point, {}).val << std::endl;
 
                              // TODO: projected area
                              res.targets.push_back({ transform(point), 0.0, id });
