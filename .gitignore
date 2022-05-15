@@ -4,4 +4,4 @@ build
 .idea
 config
 /data_test/
-cmake*
+
