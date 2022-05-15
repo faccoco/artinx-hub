@@ -52,11 +52,11 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         if(!started)
             return;
         std::vector<char> vec = mSerialPort->read();
-        //        if (!vec.empty()) {
-        //            for (auto &v : vec)
-        //                std::cout << std::hex << static_cast<int>(v) << " ";
-        //            std::cout << std::endl;
-        //        }
+//        if(!vec.empty()) {
+//            for(auto& v : vec)
+//                std::cout << std::hex << static_cast<int>(v) << " ";
+//            std::cout << std::endl;
+//        }
         for(uint8_t data : vec) {
             if(mPacketLen < bufferLen) {
                 mPacketBuffer[mPacketLen++] = data;
@@ -167,7 +167,7 @@ public:
             while(globalStatus == RunStatus::running) {
                 receive();
                 sendPacket();
-                std::this_thread::sleep_for(1ms);
+                std::this_thread::sleep_for(0.75ms);
                 gimbalSetPacket.buffer.copyToSendBuffer(mSendBuffer.data() + mSendBufferLen);
                 mSendBufferLen += gimbalSetPacket.buffer.size();
             }
@@ -183,10 +183,10 @@ public:
         return { [this](start_atom) { started = true; },
                  [this](set_target_info_atom, double yawAngle, double pitchAngle, bool isFire) {
                      //#     identifier = "KE0200080465"
-                     std::cout << yawAngle << " " << pitchAngle << std::endl;
+                     std::cout << yawAngle << " " << -pitchAngle << std::endl;
                      //                     HubLogger::watch("targetYaw", yawAngle);
                      //                     HubLogger::watch("targetPitch", pitchAngle);
-                     gimbalSetPacket = GimbalSetPacket(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
+                     gimbalSetPacket = GimbalSetPacket(static_cast<float>(-yawAngle), static_cast<float>(-pitchAngle), isFire);
                  } };
     }
 };
