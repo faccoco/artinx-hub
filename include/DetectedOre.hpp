@@ -2,7 +2,7 @@
 #include "CameraFrame.hpp"
 #include <opencv2/opencv.hpp>
 
-enum class OreDetectorMode { GOLD_OVER, GOLD_GROUND, SILVER_GROUND, NONE };
+enum class OreDetectorMode final { GOLD_OVER, GOLD_GROUND, SILVER_GROUND, NONE };
 
 struct OrePosition {
     // begin with 0

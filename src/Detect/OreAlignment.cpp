@@ -1,4 +1,3 @@
-#pragma once
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedOre.hpp"
@@ -61,16 +60,15 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
                 addToHistory(detectLightBar(oreMessage.frame.frame, oreRectArray, settings), oreMessage.lastMode,
                              settings);  // todo:fix this for the no need of the history strategy
                 uint32_t lightOutFrames = 0;
-                std::for_each(orePositionHistory.begin(), orePositionHistory.end(), [&lightOutFrames](OrePosition& temp) {
-                    lightOutFrames += (temp.flashingIndex == temp.totalNum) ? 0 : 1;
-                });
+                for(auto& atom : orePositionHistory)
+                    lightOutFrames += (atom.flashingIndex == atom.totalNum) ? 0 : 1;
                 if(lightOutFrames / settings.historyFrameCount >= settings.flashFrequencyLimit) {
                     std::for_each(orePositionHistory.rbegin(), orePositionHistory.rend(), [&](const OrePosition& atom) {
                         if(atom.flashingIndex != atom.totalNum)
                             tempDistance = transformToRealDistance(oreRectArray[atom.flashingIndex], oreMessage.frame, settings);
                     });
                 } else {
-                    tempDistance = NAN;
+                    tempDistance =INFINITY ;
                 }
             } break;
 
@@ -95,7 +93,7 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
             } break;
 
             default:
-                tempDistance = NAN;
+                tempDistance = INFINITY;
                 break;
         }
         return OreAlignmentMessage{ oreMessage.frame, OreDetectorMode::NONE, oreMessage.detectMode, tempDistance };
