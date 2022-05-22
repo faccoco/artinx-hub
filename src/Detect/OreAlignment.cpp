@@ -8,6 +8,7 @@
 #include <magic_enum.hpp>
 #include <opencv2/opencv.hpp>
 #include <utility>
+#include <limits>
 
 struct OreAlignmentSettings final {
     // HSV range
@@ -68,7 +69,7 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
                             tempDistance = transformToRealDistance(oreRectArray[atom.flashingIndex], oreMessage.frame, settings);
                     });
                 } else {
-                    tempDistance =INFINITY ;
+                    tempDistance =std::numeric_limits<double>::infinity() ;
                 }
             } break;
 
@@ -93,7 +94,7 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
             } break;
 
             default:
-                tempDistance = INFINITY;
+                tempDistance = std::numeric_limits<double>::infinity();
                 break;
         }
         return OreAlignmentMessage{ oreMessage.frame, OreDetectorMode::NONE, oreMessage.detectMode, tempDistance };

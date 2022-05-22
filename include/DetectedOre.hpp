@@ -4,7 +4,7 @@
 
 enum class OreDetectorMode final { GOLD_OVER, GOLD_GROUND, SILVER_GROUND, NONE };
 
-struct OrePosition {
+struct OrePosition final{
     // begin with 0
     uint64_t totalNum;
     uint64_t flashingIndex;
