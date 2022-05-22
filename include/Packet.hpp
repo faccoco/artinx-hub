@@ -1,54 +1,37 @@
 #pragma once
 
-#include "Utility.hpp"
 #include <cstdint>
+#include "PacketHelper.hpp"
 
 struct FdbPacket {
     static constexpr uint16_t id = 0x0A;
-    float yaw, pitch, downYaw, downPitch, bulletSpeed;
+    float yaw, pitch, downYaw, downPitch, bulletSpeed, speedX, speedY;
     uint8_t color, shooterId;
     explicit FdbPacket(std::array<uint8_t, 1024>& buffer) {
-        uint8_t rawFloatData[4];
-        memcpy(rawFloatData, buffer.data() + 6, 4);
-        yaw = *reinterpret_cast<float*>(rawFloatData);
-        memcpy(rawFloatData, buffer.data() + 10, 4);
-        pitch = *reinterpret_cast<float*>(rawFloatData);
-        memcpy(rawFloatData, buffer.data() + 14, 4);
-        downYaw = *reinterpret_cast<float*>(rawFloatData);
-        memcpy(rawFloatData, buffer.data() + 18, 4);
-        downPitch = *reinterpret_cast<float*>(rawFloatData);
-        color = buffer[22];
-        shooterId = buffer[23];
-        memcpy(rawFloatData, buffer.data() + 24, 4);
-        bulletSpeed = *reinterpret_cast<float*>(rawFloatData);
+        PacketReader<1024> reader(buffer);
+        yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
+        pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
+        downYaw = reader.readCompressedFloat(-4.0f, 0.0005f);
+        downPitch = reader.readCompressedFloat(-4.0f, 0.0005f);
+        speedX = reader.readCompressedFloat(-20.0f, 0.01f);
+        speedY = reader.readCompressedFloat(-20.0f, 0.01f);
+        auto tmp = reader.read();
+        color = tmp & 1;
+        shooterId = tmp >> 1;
+        bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
     }
 };
 
 struct GimbalSetPacket {
-    static constexpr size_t size = 26;
     static constexpr uint16_t id = 0x0F;
-    float yaw, pitch, downYaw{}, downPitch{};
-    uint8_t isFire, downIsFire{};
-    std::array<uint8_t, size> buffer;
+    PacketBuffer<9, id> buffer{};
 
-    GimbalSetPacket(float yaw, float pitch, bool isFire, float downYaw = 0.0f, float downPitch = 0.0f, bool downIsFire = false)
-        : yaw{ yaw }, pitch{ pitch }, isFire{ isFire }, downYaw{ downYaw }, downPitch{ downPitch },
-          downIsFire{ downIsFire }, buffer{} {
-        serialize();
-    }
-
-    void serialize() {
-        // Header: magicNumber, dataLen(2 float and 1 uint8_t), seq,seq, pre_calculated crc8, id
-        buffer = { 0xA5, 18, 0, 0 };
-        buffer[4] = Crc::Get_CRC8_Check_Sum(buffer.data(), 4, Crc::CRC8_INIT);
-        buffer[5] = id;
-        memcpy(buffer.data() + 6, &yaw, 4);
-        memcpy(buffer.data() + 10, &pitch, 4);
-        memcpy(buffer.data() + 14, &downYaw, 4);
-        memcpy(buffer.data() + 18, &downPitch, 4);
-        buffer[22] = isFire;
-        buffer[23] = downIsFire;
-        uint16_t crc16Result = Crc::Get_CRC16_Check_Sum(buffer.data(), 24, Crc::CRC16_INIT);
-        memcpy(buffer.data() + 24, &crc16Result, 2);
+    GimbalSetPacket(float yaw, float pitch, bool isFire, float downYaw = 0.0f, float downPitch = 0.0f, bool downIsFire = false) {
+        buffer.serialize(yaw, -4.0f, 0.0005f);
+        buffer.serialize(pitch, -4.0f, 0.0005f);
+        buffer.serialize(downYaw, -4.0f, 0.0005f);
+        buffer.serialize(downPitch, -4.0f, 0.0005f);
+        buffer.serialize(static_cast<uint8_t>(isFire | (downIsFire << 1)));
+        buffer.serializeCrc16();
     }
 };

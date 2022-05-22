@@ -8,16 +8,15 @@
 #include <caf/event_based_actor.hpp>
 #include <cmath>
 #include <complex>
-#include <cstdint>
-#include <fmt/format.h>
 
 struct AngleSolverSettings final {
     double precision;
+    double delay;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
-    return f.object(x).fields(f.field("precision", x.precision));
+    return f.object(x).fields(f.field("precision", x.precision),f.field("delay", x.delay));
 }
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
@@ -128,6 +127,9 @@ public:
 
 Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.value().center.value().raw());
                      const auto timeDuration = data.value().lastUpdate.time_since_epoch().count() / 1e9;
+
+                     const auto delayTime = -mConfig.delay;
+
                      glm::dvec3 transformedPosition = { 0, 0, 0 };
                      glm::dvec3 forwardVector = { 0, 0, -1 };
                      glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
@@ -149,6 +151,9 @@ Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.va
                          forwardVector = { forwardPositionOfReferenceGround.raw().x, -forwardPositionOfReferenceGround.raw().z,
                                            forwardPositionOfReferenceGround.raw().y };
                          transformedLinearVelocity = { linearVelocity.raw().x, -linearVelocity.raw().z, linearVelocity.raw().y };
+
+                         transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x, transformedPosition.y + delayTime * transformedLinearVelocity.y,
+                                                 transformedPosition.z + delayTime * transformedLinearVelocity.z};
                          //(forward:+y,right:+x)
                          mTimes[(++mCnt)%1000] = timeDuration;
                          mPositions[(mCnt)%1000] = transformedPosition.x;

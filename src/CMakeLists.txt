@@ -29,6 +29,7 @@ set(SOURCE
 "Solve/AngleSolver.cpp"
 "Solve/ArmorLocator.cpp"
 "Solve/RadarLocator.cpp"
+"Strategy/Infantry.cpp"
 "Strategy/Sentry.cpp"
 "Test/ActorFramework/Actor.cpp"
 "Test/ActorFramework/Availability.cpp"

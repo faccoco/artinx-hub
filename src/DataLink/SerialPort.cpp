@@ -45,10 +45,18 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     std::array<uint8_t, sendBufferLen> mSendBuffer;
     size_t mSendBufferLen;
 
+    float lastSpeedX = 0.0f, lastSpeedY = 0.0f;
+    TimePoint lastReceivedTime;
+
     void receive() {
         if(!started)
             return;
         std::vector<char> vec = mSerialPort->read();
+//        if(!vec.empty()) {
+//            for(auto& v : vec)
+//                std::cout << std::hex << static_cast<int>(v) << " ";
+//            std::cout << std::endl;
+//        }
         for(uint8_t data : vec) {
             if(mPacketLen < bufferLen) {
                 mPacketBuffer[mPacketLen++] = data;
@@ -80,19 +88,24 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
     void handlePacket(uint16_t id) {
         if(id == FdbPacket::id) {
+            GlobalSettings::get().bulletSpeed = 20.0f;
+
             FdbPacket fdb(mPacketBuffer);
-            //                std::cout << "yaw: " << fdb.yaw << " pitch: " << fdb.pitch << std::endl;
+            fdb.speedX *= -1.0f;
+
             HubLogger::watch("yaw", fdb.yaw);
             HubLogger::watch("pitch", fdb.pitch);
             HubLogger::watch("yaw2", fdb.downYaw);
             HubLogger::watch("pitch2", fdb.downPitch);
-            HubLogger::watch("spd", fdb.bulletSpeed);
+            HubLogger::watch("speed x", fdb.speedX);
+            HubLogger::watch("shoot spd", fdb.bulletSpeed);
             HubLogger::watch("color", fdb.color);
             HubLogger::watch("shooter", fdb.shooterId);
 
             GlobalSettings::get().selfColor = (fdb.color == 0 ? Color::Red : Color::Blue);
 
             fdb.yaw = (fdb.yaw < 0) ? fdb.yaw += 6.2831852 : fdb.yaw;
+
 
             // fdb.yaw = 0.0;// for standard
 
@@ -112,9 +125,18 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 Vector<UnitType::AngularAcceleration, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
             posture.angularVelocityOfRobot =
                 Vector<UnitType::AngularVelocity, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
+            float deltaTime = static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                     lastReceivedTime - SynchronizedClock::instance().now())
+                                                     .count()) / 1000.0f;
             posture.linearAccelerationOfRobot =
-                Vector<UnitType::LinearAcceleration, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
-            posture.linearVelocityOfRobot = Vector<UnitType::LinearVelocity, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
+                Vector<UnitType::LinearAcceleration, FrameOfReference::Ground>{
+                    { (fdb.speedX - lastSpeedX) / deltaTime, (fdb.speedY - lastSpeedY) / deltaTime, 0.0f } };
+            HubLogger::watch("acc", (fdb.speedX - lastSpeedX) / deltaTime);
+            lastReceivedTime = SynchronizedClock::instance().now();
+            lastSpeedX = fdb.speedX;
+            lastSpeedY = fdb.speedY;
+            posture.linearVelocityOfRobot =
+                Vector<UnitType::LinearVelocity, FrameOfReference::Ground>{ { fdb.speedX, fdb.speedY, 0.0f } };
             BlackBoard::instance().updateSync(mKey, posture);
             sendAll(update_posture_atom_v, mKey);
             sendAll(update_head_atom_v, mKey);
@@ -126,6 +148,10 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             mSendBufferLen = 0;
         if(mSendBufferLen == 0)
             return;
+//        for (int i = 0; i < mSendBufferLen; i++) {
+//            std::cout << std::hex << static_cast<int>(mSendBuffer[i]) << " ";
+//        }
+//        std::cout << std::endl;
         mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen = 0;
     }
@@ -136,13 +162,14 @@ public:
           mCheckingHeader(false) {
         const auto [devPath, baudRate, offset] = mConfig;
         mSerialPort->open(devPath, baudRate);
+        lastReceivedTime = SynchronizedClock::instance().now();
         mThread = std::thread{ [this]() {
             while(globalStatus == RunStatus::running) {
                 receive();
                 sendPacket();
-                std::this_thread::sleep_for(1ms);
-                memcpy(mSendBuffer.data() + mSendBufferLen, gimbalSetPacket.buffer.data(), GimbalSetPacket::size);
-                mSendBufferLen += GimbalSetPacket::size;
+                std::this_thread::sleep_for(0.75ms);
+                gimbalSetPacket.buffer.copyToSendBuffer(mSendBuffer.data() + mSendBufferLen);
+                mSendBufferLen += gimbalSetPacket.buffer.size();
             }
         } };
     }
@@ -156,10 +183,10 @@ public:
         return { [this](start_atom) { started = true; },
                  [this](set_target_info_atom, double yawAngle, double pitchAngle, bool isFire) {
                      //#     identifier = "KE0200080465"
-                     std::cout << yawAngle << " " << pitchAngle << std::endl;
+                     std::cout << yawAngle << " " << -pitchAngle << std::endl;
                      //                     HubLogger::watch("targetYaw", yawAngle);
                      //                     HubLogger::watch("targetPitch", pitchAngle);
-                     gimbalSetPacket = { static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire };
+                     gimbalSetPacket = GimbalSetPacket(static_cast<float>(-yawAngle), static_cast<float>(-pitchAngle), isFire);
                  } };
     }
 };
