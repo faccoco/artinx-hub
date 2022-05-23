@@ -12,7 +12,6 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/opencv.hpp>
 
-
 struct EnergyDetectorSettings final {
     int smallPredictMode;
     int bigPredictMode;
@@ -29,7 +28,7 @@ struct EnergyDetectorSettings final {
     float noiseArea;
     float predictAngle;
     float radius;
-   
+
     cv::Point2f offset;
 };
 
@@ -245,88 +244,89 @@ class EnergyDetector final
 
         return Point<UnitType::Distance, FrameOfReference::Camera>{ p0 };
     }
-    
-    cv::Mat circleLeastFit(const cv::Mat& armorPoints, glm::dvec3& energyCenter,double& radius){
-         const auto num = armorPoints.rows;
-         const auto dim = armorPoints.cols;
-         const auto L1 = cv::Mat::ones(num,1,CV_32F);
-         cv::Mat Inv;
-         cv::invert(armorPoints.t()*armorPoints,Inv,0);
-         cv::Mat  A = Inv*armorPoints.t()*L1;
-         cv::Mat  B = cv::Mat::zeros(static_cast<int>((num-1)*num/2),3,CV_32F);
-         int count = 0;
-         for(int i=0; i<num-1;++i){
-             for(int j=1; j<num;++j ){
-                count++;
-                cv::Mat a= armorPoints.row(j)- armorPoints.row(i);  
-                a.copyTo(B.row(count));  
-             }
-         }
 
-         cv::Mat L2 = cv::Mat::zeros(static_cast<int>((num-1)*num/2),1,CV_32F);
-         count=0;
-          for(int i=0; i<num-1;++i){
-             for(int j=1; j<num;++j ){
+    cv::Mat circleLeastFit(const cv::Mat& armorPoints, glm::dvec3& energyCenter, double& radius) {
+        const auto num = armorPoints.rows;
+        const auto dim = armorPoints.cols;
+        const auto L1 = cv::Mat::ones(num, 1, CV_32F);
+        cv::Mat Inv;
+        cv::invert(armorPoints.t() * armorPoints, Inv, 0);
+        cv::Mat A = Inv * armorPoints.t() * L1;
+        cv::Mat B = cv::Mat::zeros(static_cast<int>((num - 1) * num / 2), 3, CV_32F);
+        int count = 0;
+        for(int i = 0; i < num - 1; ++i) {
+            for(int j = 1; j < num; ++j) {
                 count++;
-                const auto a=std::hypot(armorPoints.at<double>(j,0),armorPoints.at<double>(j,1),armorPoints.at<double>(j,2));
-                const auto b=std::hypot(armorPoints.at<double>(i,0),armorPoints.at<double>(i,1),armorPoints.at<double>(i,2));
-                L2.at<double>(count,0)=(a*a-b*b)/2;
-             }
-         }
+                cv::Mat a = armorPoints.row(j) - armorPoints.row(i);
+                a.copyTo(B.row(count));
+            }
+        }
 
-         cv::Mat D = cv::Mat::zeros(4,4,CV_32F);
-         cv::Mat E = B.t()*B;
-         for(int i=0; i<4; ++i){
-             for(int j=0;j<4;++j){
-                 if(i<3&&j<3){
-                     D.at<double>(i,j)=E.at<double>(i,j);
-                 }else if(i<3||j<3){
-                      D.at<double>(i,j)=A.at<double>(std::min(i,j),0);
+        cv::Mat L2 = cv::Mat::zeros(static_cast<int>((num - 1) * num / 2), 1, CV_32F);
+        count = 0;
+        for(int i = 0; i < num - 1; ++i) {
+            for(int j = 1; j < num; ++j) {
+                count++;
+                const auto a =
+                    std::hypot(armorPoints.at<double>(j, 0), armorPoints.at<double>(j, 1), armorPoints.at<double>(j, 2));
+                const auto b =
+                    std::hypot(armorPoints.at<double>(i, 0), armorPoints.at<double>(i, 1), armorPoints.at<double>(i, 2));
+                L2.at<double>(count, 0) = (a * a - b * b) / 2;
+            }
+        }
+
+        cv::Mat D = cv::Mat::zeros(4, 4, CV_32F);
+        cv::Mat E = B.t() * B;
+        for(int i = 0; i < 4; ++i) {
+            for(int j = 0; j < 4; ++j) {
+                if(i < 3 && j < 3) {
+                    D.at<double>(i, j) = E.at<double>(i, j);
+                } else if(i < 3 || j < 3) {
+                    D.at<double>(i, j) = A.at<double>(std::min(i, j), 0);
                 }
             }
         }
-         cv::Mat L3= cv::Mat::ones(4,1,CV_32F);
-         cv::Mat F = B.t()*L2;
-         L3.at<double>(0,0)=F.at<double>(0,0);
-         L3.at<double>(1,0)=F.at<double>(1,0);
-         L3.at<double>(2,0)=F.at<double>(2,0);
-         cv::Mat Dt;
-         cv::invert(D.t(),Dt,0);
-         cv::Mat C = Dt*L3;
-         energyCenter= glm::dvec3{C.at<double>(0,0),C.at<double>(1,0),C.at<double>(2,0)};
-         const cv::Mat C1 = (cv::Mat_<double>(1, 3) << C.at<double>(0,0),C.at<double>(1,0),C.at<double>(2,0));
-         radius=0;
-         for(int i=0; i<num; ++i){
-             cv::Mat a= armorPoints.row(i)- C1.row(0);  
-             cv::Mat tem= cv::Mat(a);
-             radius+=std::hypot(tem.at<double>(0,0),tem.at<double>(0,1),tem.at<double>(0,2));
+        cv::Mat L3 = cv::Mat::ones(4, 1, CV_32F);
+        cv::Mat F = B.t() * L2;
+        L3.at<double>(0, 0) = F.at<double>(0, 0);
+        L3.at<double>(1, 0) = F.at<double>(1, 0);
+        L3.at<double>(2, 0) = F.at<double>(2, 0);
+        cv::Mat Dt;
+        cv::invert(D.t(), Dt, 0);
+        cv::Mat C = Dt * L3;
+        energyCenter = glm::dvec3{ C.at<double>(0, 0), C.at<double>(1, 0), C.at<double>(2, 0) };
+        const cv::Mat C1 = (cv::Mat_<double>(1, 3) << C.at<double>(0, 0), C.at<double>(1, 0), C.at<double>(2, 0));
+        radius = 0;
+        for(int i = 0; i < num; ++i) {
+            cv::Mat a = armorPoints.row(i) - C1.row(0);
+            cv::Mat tem = cv::Mat(a);
+            radius += std::hypot(tem.at<double>(0, 0), tem.at<double>(0, 1), tem.at<double>(0, 2));
         }
-        radius/=num;
+        radius /= num;
         return A;
     }
 
-    Point<UnitType::Distance, FrameOfReference::Gun> predict(const cv::Mat armorPoints,const glm::dvec3 data, int direction) {
-			glm::dvec3 energyCenter;
-            double radius;
-			const auto normalVector=circleLeastFit(armorPoints, energyCenter,radius);
-			float preAngle;
-			if (direction == 0) {
-				preAngle = mConfig.predictAngle;
-			}
-			else {
-				preAngle = -mConfig.predictAngle;
-			}
-			const auto x = data.x - energyCenter.x;
-			const auto y = data.y - energyCenter.y;
-            const auto z = data.z - energyCenter.z;
-            const cv::Mat r = (cv::Mat_<double>(3,1)<< x,y,z);
-            const auto orthoVector = normalVector.cross(r);
-            glm::dvec3& preCenter = glm::dvec3{r.at<double>(0,0) * cos(preAngle) + orthoVector.at<double>(0,0) * sin(preAngle) + energyCenter.x,
-                                               r.at<double>(1,0) * cos(preAngle) + orthoVector.at<double>(1,0) * sin(preAngle) + energyCenter.y,
-                                               r.at<double>(2,0) * cos(preAngle) + orthoVector.at<double>(2,0) * sin(preAngle) + energyCenter.z};
-            return Point<UnitType::Distance, FrameOfReference::Gun>{ preCenter };                                  
-		}
-
+    Point<UnitType::Distance, FrameOfReference::Gun> predict(const cv::Mat armorPoints, const glm::dvec3 data, int direction) {
+        glm::dvec3 energyCenter;
+        double radius;
+        const auto normalVector = circleLeastFit(armorPoints, energyCenter, radius);
+        float preAngle;
+        if(direction == 0) {
+            preAngle = mConfig.predictAngle;
+        } else {
+            preAngle = -mConfig.predictAngle;
+        }
+        const auto x = data.x - energyCenter.x;
+        const auto y = data.y - energyCenter.y;
+        const auto z = data.z - energyCenter.z;
+        const cv::Mat r = (cv::Mat_<double>(3, 1) << x, y, z);
+        const auto orthoVector = normalVector.cross(r);
+        glm::dvec3& preCenter =
+            glm::dvec3{ r.at<double>(0, 0) * cos(preAngle) + orthoVector.at<double>(0, 0) * sin(preAngle) + energyCenter.x,
+                        r.at<double>(1, 0) * cos(preAngle) + orthoVector.at<double>(1, 0) * sin(preAngle) + energyCenter.y,
+                        r.at<double>(2, 0) * cos(preAngle) + orthoVector.at<double>(2, 0) * sin(preAngle) + energyCenter.z };
+        return Point<UnitType::Distance, FrameOfReference::Gun>{ preCenter };
+    }
 
 public:
     EnergyDetector(caf::actor_config& base, const HubConfig& config)
@@ -370,16 +370,16 @@ public:
                      const auto raw = res.point.raw();
                      std::cout << raw.x << " " << raw.y << " " << raw.z << std::endl;
                      static int count = 0;
-		             static cv::Mat armorPoints= cv::Mat::zeros(12, 3, CV_32F);
-		             if (count < 12) {
-			              armorPoints.at<double>(count,0)=raw.x;
-                          armorPoints.at<double>(count,1)=raw.y;
-			              armorPoints.at<double>(count,2)=raw.z;
-			              count++;
-		             }else{
-                          res.prePoint = predict(armorPoints,raw,0);
+                     static cv::Mat armorPoints = cv::Mat::zeros(12, 3, CV_32F);
+                     if(count < 12) {
+                         armorPoints.at<double>(count, 0) = raw.x;
+                         armorPoints.at<double>(count, 1) = raw.y;
+                         armorPoints.at<double>(count, 2) = raw.z;
+                         count++;
+                     } else {
+                         res.prePoint = predict(armorPoints, raw, 0);
                      }
-                     
+
                      BlackBoard::instance().updateSync(mKey, res);
                      sendAll(energy_detect_available_atom_v, mKey);
                  } };
