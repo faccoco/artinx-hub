@@ -16,7 +16,7 @@ struct AngleSolverSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
-    return f.object(x).fields(f.field("precision", x.precision),f.field("delay", x.delay));
+    return f.object(x).fields(f.field("precision", x.precision), f.field("delay", x.delay));
 }
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
@@ -91,7 +91,7 @@ public:
         } else {
             y = c / 3.0;
         }
-    if(const auto m = sqrtn(b * b + 4.0 * (y - c), 2.0); m.real() * m.real() + m.imag() * m.imag() >= DBL_MIN) {
+        if(const auto m = sqrtn(b * b + 4.0 * (y - c), 2.0); m.real() * m.real() + m.imag() * m.imag() >= DBL_MIN) {
             const std::complex<double> n = (b * y - 2.0 * d) / m;
 
             a = sqrtn((b + m) * (b + m) - 8.0 * (y + n), 2.0);
@@ -121,11 +121,11 @@ public:
                      const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                      const auto& globalSettings = GlobalSettings::get();
                      const double g = -globalSettings.gForce, bulletSpeed = globalSettings.bulletSpeed;
-                     
+
                      constexpr auto square = [=](const double x) { return x * x; };
                      constexpr auto cube = [=](const double x) { return x * x * x; };
 
-Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.value().center.value().raw());
+                     Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.value().center.value().raw());
                      const auto timeDuration = data.value().lastUpdate.time_since_epoch().count() / 1e9;
 
                      const auto delayTime = -mConfig.delay;
@@ -140,6 +140,8 @@ Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.va
                              dataHeadInfo.value().transform(positionOfReferenceGun);
                          Vector<UnitType::Distance, FrameOfReference::Ground> positionOfReferenceGround =
                              dataPosture.value().postureOfRobot(positionOfReferenceRobot);
+                         HubLogger::watch("z", positionOfReferenceGround.raw().z);
+
                          Vector<UnitType::Distance, FrameOfReference::Robot> forwardPositionOfReferenceRobot =
                              dataHeadInfo.value().transform(forwardPosition);
                          Vector<UnitType::Distance, FrameOfReference::Ground> forwardPositionOfReferenceGround =
@@ -152,29 +154,33 @@ Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.va
                                            forwardPositionOfReferenceGround.raw().y };
                          transformedLinearVelocity = { linearVelocity.raw().x, -linearVelocity.raw().z, linearVelocity.raw().y };
 
-                         transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x, transformedPosition.y + delayTime * transformedLinearVelocity.y,
-                                                 transformedPosition.z + delayTime * transformedLinearVelocity.z};
+                         transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x,
+                                                 transformedPosition.y + delayTime * transformedLinearVelocity.y,
+                                                 transformedPosition.z + delayTime * transformedLinearVelocity.z };
                          //(forward:+y,right:+x)
-                         mTimes[(++mCnt)%1000] = timeDuration;
-                         mPositions[(mCnt)%1000] = transformedPosition.x;
+                         mTimes[(++mCnt) % 1000] = timeDuration;
+                         mPositions[(mCnt) % 1000] = transformedPosition.x;
                          if(mCnt >= 2) {
-                             mDiff[(mCnt - 1)%1000] = (mPositions[mCnt%1000] - mPositions[(mCnt - 1)%1000]) - (mTimes[mCnt%1000] - mTimes[(mCnt - 1)%1000]);
+                             mDiff[(mCnt - 1) % 1000] = (mPositions[mCnt % 1000] - mPositions[(mCnt - 1) % 1000]) -
+                                 (mTimes[mCnt % 1000] - mTimes[(mCnt - 1) % 1000]);
                          }
                          if(mCnt >= 3) {
-                             if(std::abs(mDiff[(mCnt - 1)%1000] - mDiff[(mCnt - 2)%1000]) > 0.2 &&
-                                std::abs(mDiff[(mCnt - 1)%1000] - mDiff[mCnt%1000]) > 0.2) {
-                                 mExceptionPoint[(++mExceptionPoint[0])%1000] = (mCnt - 1)%1000;
-                                 //if(mExceptionPoint[0] >= 2) {
-                                 //    if(mExceptionPoint[0] == 2)
-                                 //        mPeriod = mTimes[mExceptionPoint[2]] - mTimes[mExceptionPoint[1]];
-                                 //    else {
-                                 //        mPeriod =
-                                 //            (mPeriod * (mExceptionPoint[0] - 2) + mTimes[mExceptionPoint[mExceptionPoint[0]]] -
-                                 //             mTimes[mExceptionPoint[mExceptionPoint[0] - 1]]) /
-                                 //            (mExceptionPoint[0] - 1);
-                                 //    }
-                                 //}
-                             } else mExceptionPoint[0] = 0;
+                             if(std::abs(mDiff[(mCnt - 1) % 1000] - mDiff[(mCnt - 2) % 1000]) > 0.2 &&
+                                std::abs(mDiff[(mCnt - 1) % 1000] - mDiff[mCnt % 1000]) > 0.2) {
+                                 mExceptionPoint[(++mExceptionPoint[0]) % 1000] = (mCnt - 1) % 1000;
+                                 // if(mExceptionPoint[0] >= 2) {
+                                 //     if(mExceptionPoint[0] == 2)
+                                 //         mPeriod = mTimes[mExceptionPoint[2]] - mTimes[mExceptionPoint[1]];
+                                 //     else {
+                                 //         mPeriod =
+                                 //             (mPeriod * (mExceptionPoint[0] - 2) + mTimes[mExceptionPoint[mExceptionPoint[0]]]
+                                 //             -
+                                 //              mTimes[mExceptionPoint[mExceptionPoint[0] - 1]]) /
+                                 //             (mExceptionPoint[0] - 1);
+                                 //     }
+                                 // }
+                             } else
+                                 mExceptionPoint[0] = 0;
                          }
 
                          // CAF_LOG_INFO(fmt::format("mCnt:{}mPeriod:{} ", mCnt, mPeriod));
@@ -221,18 +227,19 @@ Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.va
                          double airDuration = horizonalDistance / netHorizonalSpeed;
                          double netVerticalSpeed = transformedPosition.z / airDuration + g * airDuration / 2;
                          double pitchAngle = std::asin(netVerticalSpeed / bulletSpeed);
-                         pitchAngle = (pitchAngle > glm::quarter_pi<double>()) ? (glm::half_pi<double>() - pitchAngle) : pitchAngle; 
-                         CAF_LOG_INFO(fmt::format("YawAngle: {},PitchAngle: {}", yawAngle, pitchAngle));
-                          if(mExceptionPoint[0] >= 7 ) {
+                         pitchAngle =
+                             (pitchAngle > glm::quarter_pi<double>()) ? (glm::half_pi<double>() - pitchAngle) : pitchAngle;
+
+                         if(mExceptionPoint[0] >= 7) {
                              pitchAngle = mPreviousPitchAngle;
                              yawAngle = mPreviousYawAngle;
                          } else {
-                            mPreviousPitchAngle = pitchAngle;
-                            mPreviousYawAngle = yawAngle;
+                             mPreviousPitchAngle = pitchAngle;
+                             mPreviousYawAngle = yawAngle;
                          }
 
-                         double currentYawAngle = std::atan2(forwardVector.y, forwardVector.x) - glm::half_pi<double>();
-                         double currentPitchAngle = std::atan2(forwardVector.z, std::hypot(forwardVector.x, forwardVector.y));
+                         //double currentYawAngle = std::atan2(forwardVector.y, forwardVector.x) - glm::half_pi<double>();
+                         //double currentPitchAngle = std::atan2(forwardVector.z, std::hypot(forwardVector.x, forwardVector.y));
                          // CAF_LOG_INFO(fmt::format("CurrentYawAngle: {},CurrentPitchAngle: {}",currentYawAngle,
                          // currentPitchAngle)); double prec = mConfig.precision; double prec = 0.001;
                          // CAF_LOG_INFO(fmt::format("Prec:{}", prec));
@@ -240,7 +247,7 @@ Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.va
                          //    (std::abs(currentPitchAngle - pitchAngle) < prec) &&
                          //    ((std::abs(currentYawAngle - yawAngle) < prec) ||
                          //     (std::abs(currentYawAngle - glm::half_pi<double>() - yawAngle) < prec)));
-                         sendAll(set_target_info_atom_v, yawAngle, pitchAngle, true);
+                         sendAll(set_target_info_atom_v, data->lastUpdate.time_since_epoch().count(), yawAngle, pitchAngle, true);
                      }
                  },
                  [this](update_head_atom, Identifier key) { mHeadKey = key; },

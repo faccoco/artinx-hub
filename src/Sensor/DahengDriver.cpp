@@ -2,7 +2,6 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
 #include <glm/gtc/matrix_transform.hpp>
@@ -17,7 +16,8 @@ struct DahengDriverSettings final {
     double fps;
     double fov;
     double exposureTime;
-    uint32_t decimation;
+    bool flip;
+    glm::dvec3 offset;
 };
 
 enum class OpenMode { Index, SerialNumber };
@@ -28,7 +28,8 @@ bool inspect(Inspector& f, DahengDriverSettings& x) {
         f.field("openMode", x.openMode).invariant([](const std::string& v) { return v == "Index" || v == "SerialNumber"; }),
         f.field("identifier", x.identifier),
         f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 500.0; }), f.field("fov", x.fov),
-        f.field("exposureTime", x.exposureTime), f.field("decimation", x.decimation));
+        f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false), f.field("dx", x.offset.x).fallback(0.0),
+        f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0));
 }
 
 static void checkGXStatus(const GX_STATUS status) {
@@ -61,22 +62,39 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
     static constexpr auto pixelCast = cv::COLOR_BayerRG2RGB_EA;
     static constexpr auto pixelStorageFormat = CV_8UC1;
 
+    std::deque<Clock::rep> mLastFrames;
+
+    void reportFrameRate(Clock::time_point timeStamp) {
+        const auto current = timeStamp.time_since_epoch().count();
+        mLastFrames.push_back(current);
+
+        while(current - mLastFrames.front() > 1'000'000'000)
+            mLastFrames.pop_front();
+
+        const auto delta = std::max(static_cast<Clock::rep>(1), current - mLastFrames.front());
+        const auto fps = (static_cast<double>(mLastFrames.size()) - 1.0) * 1e9 / static_cast<double>(delta);
+        HubLogger::watch("fps", static_cast<uint32_t>(fps));
+    }
+
     void newFrameImpl(Clock::time_point timeStamp, const cv::Mat& frame, uint32_t width, uint32_t height) {
         cv::Mat bgr;
         cv::cvtColor(frame, bgr, pixelCast);
 
-        // test only
-        cv::Mat tmp;
-        cv::flip(bgr, tmp, -1);
-        bgr = tmp;
+        if(mConfig.flip) {
+            cv::Mat flipped;
+            cv::flip(bgr, flipped, -1);
+            std::swap(bgr, flipped);
+        }
+
+        reportFrameRate(timeStamp);
 
         CameraFrame frameData;
         frameData.lastUpdate = timeStamp;
         frameData.info.fov = mConfig.fov;
         frameData.info.width = width;
         frameData.info.height = height;
-        // TODO: transform
-        frameData.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
+        frameData.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(
+            glm::translate(glm::identity<glm::dmat4>(), -mConfig.offset));
         frameData.frame = std::move(bgr);
 
         BlackBoard::instance().updateSync(mKey, std::move(frameData));
@@ -92,10 +110,6 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
     void newFrame(GX_FRAME_CALLBACK_PARAM* pFrameData) {
         if(pFrameData->status != GX_FRAME_STATUS_SUCCESS || !mStartFlag)
             return;
-
-        // std::cout << "Frame " << (static_cast<double>(Clock::now().time_since_epoch().count()) / Clock::period::den) << " " <<
-        // pFrameData->nWidth << " x "
-        //          << pFrameData->nHeight << std::endl;
 
         const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer
 
@@ -153,17 +167,18 @@ public:
         }
          */
 
-        uint32_t targetWidth = 640, targetHeight = 480;
-
         int64_t width, height;
         checkGXStatus(GXGetInt(mDevice, GX_INT_WIDTH_MAX, &width));
         checkGXStatus(GXGetInt(mDevice, GX_INT_HEIGHT_MAX, &height));
+
 #ifndef ARTINX_DAHENG_USB2
+        uint32_t targetWidth = width, targetHeight = height;
         checkGXStatus(GXSetInt(mDevice, GX_INT_WIDTH, targetWidth));
         checkGXStatus(GXSetInt(mDevice, GX_INT_HEIGHT, targetHeight));
         checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_X, (width - targetWidth) / 2));
         checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_Y, (height - targetHeight) / 2));
 #endif
+
         // checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BINNING_HORIZONTAL_MODE, GX_BINNING_VERTICAL_MODE_AVERAGE));
 
 #ifdef ARTINXHUB_WINDOWS

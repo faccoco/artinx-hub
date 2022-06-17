@@ -460,7 +460,7 @@ public:
             }
 
             // update events
-            receive([&](set_target_info_atom, const double, const double, const bool isFire) { shoot = isFire; },
+            receive([&](set_target_info_atom, Clock::rep, const double, const double, const bool isFire) { shoot = isFire; },
                     [&](update_head_atom, Identifier key) { mHeadKey = key; }, [&](const caf::down_msg& x) { runFlag = false; },
                     [&](const caf::exit_msg& x) { runFlag = false; }, [&](timer_atom) {});
             // shoot
