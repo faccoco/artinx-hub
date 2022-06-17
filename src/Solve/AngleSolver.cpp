@@ -238,8 +238,8 @@ public:
                              mPreviousYawAngle = yawAngle;
                          }
 
-                         double currentYawAngle = std::atan2(forwardVector.y, forwardVector.x) - glm::half_pi<double>();
-                         double currentPitchAngle = std::atan2(forwardVector.z, std::hypot(forwardVector.x, forwardVector.y));
+                         //double currentYawAngle = std::atan2(forwardVector.y, forwardVector.x) - glm::half_pi<double>();
+                         //double currentPitchAngle = std::atan2(forwardVector.z, std::hypot(forwardVector.x, forwardVector.y));
                          // CAF_LOG_INFO(fmt::format("CurrentYawAngle: {},CurrentPitchAngle: {}",currentYawAngle,
                          // currentPitchAngle)); double prec = mConfig.precision; double prec = 0.001;
                          // CAF_LOG_INFO(fmt::format("Prec:{}", prec));
@@ -247,7 +247,7 @@ public:
                          //    (std::abs(currentPitchAngle - pitchAngle) < prec) &&
                          //    ((std::abs(currentYawAngle - yawAngle) < prec) ||
                          //     (std::abs(currentYawAngle - glm::half_pi<double>() - yawAngle) < prec)));
-                         sendAll(set_target_info_atom_v, yawAngle, pitchAngle, true);
+                         sendAll(set_target_info_atom_v, data->lastUpdate.time_since_epoch().count(), yawAngle, pitchAngle, true);
                      }
                  },
                  [this](update_head_atom, Identifier key) { mHeadKey = key; },

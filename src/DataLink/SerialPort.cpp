@@ -52,11 +52,6 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         if(!started)
             return;
         std::vector<char> vec = mSerialPort->read();
-        //        if(!vec.empty()) {
-        //            for(auto& v : vec)
-        //                std::cout << std::hex << static_cast<int>(v) << " ";
-        //            std::cout << std::endl;
-        //        }
         for(uint8_t data : vec) {
             if(mPacketLen < bufferLen) {
                 mPacketBuffer[mPacketLen++] = data;
@@ -182,7 +177,9 @@ public:
 
     caf::behavior make_behavior() override {
         return { [this](start_atom) { started = true; },
-                 [this](set_target_info_atom, double yawAngle, double pitchAngle, bool isFire) {
+                 [this](set_target_info_atom, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire) {
+                     const auto current = Clock::now();
+                     HubLogger::watch("latency", (current.time_since_epoch().count() - begin) / 1'000'000);
                      HubLogger::watch("tgtyaw", yawAngle);
                      HubLogger::watch("tgtpitch", pitchAngle);
 
