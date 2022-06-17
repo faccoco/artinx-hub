@@ -70,13 +70,14 @@ class ArmorDetector final
 
     std::vector<PairedLight> solve(const cv::Mat& image) {
         const cv::Mat scaled = image * mConfig.globalScale;
+        //debugView("scaled",scaled,[](auto&){});
         const auto lightPart = binary(scaled);
 
         /*
         cv::Mat color;
         image.copyTo(color, lightPart);
         debugView("color", color, [](auto&) {});
-         */
+        */
 
         const auto lights = findLights(image, lightPart);
         return matchLights(image, lights);
