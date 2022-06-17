@@ -77,7 +77,8 @@ public:
 
     template <typename T>
     static void watch(const std::string& name, const T& log) {
-        if constexpr(std::is_convertible_v<std::decay_t<T>, std::string>)
+        if constexpr(std::is_convertible_v<std::decay_t<T>, std::string> ||
+                     std::is_convertible_v<std::decay_t<T>, std::string_view>)
             watches[name] = log;
         else
             watches[name] = std::to_string(log);

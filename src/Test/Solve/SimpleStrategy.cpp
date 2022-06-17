@@ -26,7 +26,7 @@ public:
                     for(auto& target : data.targets) {
                         const auto distance = glm::length(target.center.raw());
                         if(minDistance > distance) {
-                            selected.center = target.center;
+                            selected.selected = target;
                             minDistance = distance;
                         }
                     }

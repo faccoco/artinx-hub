@@ -37,12 +37,12 @@ public:
                          const auto distance = glm::length(target.center.raw());
                          if(distance > mConfig.distanceThreshold && distance < minDistance) {
                              if(target.id != engineerId) {
-                                 selected.center = target.center;
+                                 selected.selected = target;
                                  minDistance = distance;
                              }
                          }
                      }
-                     if(!selected.center.has_value())
+                     if(!selected.selected.has_value())
                          return;
                      BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected);
                      sendAll(set_target_atom_v, mKey);

@@ -180,7 +180,7 @@ public:
                  [this](set_target_info_atom, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire) {
                      const auto current = Clock::now();
                      HubLogger::watch("latency", (current.time_since_epoch().count() - begin) / 1'000'000);
-                     HubLogger::watch("tgtyaw", yawAngle);
+                     HubLogger::watch("tgtyaw", yawAngle > glm::pi<double>() ? (yawAngle - glm::two_pi<double>()) : yawAngle);
                      HubLogger::watch("tgtpitch", pitchAngle);
 
                      gimbalSetPacket = GimbalSetPacket(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
