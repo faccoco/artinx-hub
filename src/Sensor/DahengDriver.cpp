@@ -64,11 +64,11 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
     void newFrameImpl(Clock::time_point timeStamp, const cv::Mat& frame, uint32_t width, uint32_t height) {
         cv::Mat bgr;
         cv::cvtColor(frame, bgr, pixelCast);
-
-        // test only
-        cv::Mat tmp;
-        cv::flip(bgr, tmp, -1);
-        bgr = tmp;
+//
+//        // test only
+//        cv::Mat tmp;
+//        cv::flip(bgr, tmp, -1);
+//        bgr = tmp;
 
         CameraFrame frameData;
         frameData.lastUpdate = timeStamp;
@@ -102,6 +102,7 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         // TODO: reduce reallocation
         cv::Mat frame{ cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, pixelStorageFormat };
         memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
+//        cv::flip(frame, frame, -1);
         newFrameImpl(timeStamp, frame, pFrameData->nWidth, pFrameData->nHeight);
     }
 #endif

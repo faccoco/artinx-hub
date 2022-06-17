@@ -77,7 +77,10 @@ public:
 
     template <typename T>
     static void watch(const std::string& name, const T& log) {
-        watches[name] = std::to_string(log);
+        if constexpr(std::is_convertible_v<std::decay_t<T>, std::string>)
+            watches[name] = log;
+        else
+            watches[name] = std::to_string(log);
     }
 
     static void removeWatch(const std::string& name) {
