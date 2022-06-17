@@ -30,7 +30,8 @@ public:
                      const auto data = BlackBoard::instance().get<DetectedEnergyInfo>(key).value();
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
-                     selected.center = data.point;
+                     selected.selected = { data.point, 0.0, 1, ArmorType::Small,
+                                           Vector<UnitType::LinearVelocity, FrameOfReference::Gun>{ glm::zero<glm::dvec3>() } };
                      BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected);
                      sendAll(set_target_atom_v, mKey);
                  },
@@ -46,11 +47,11 @@ public:
                      for(auto& target : data.targets) {
                          const auto distance = glm::length(target.center.raw());
                          if(distance < minDistance) {
-                             selected.center = target.center;
+                             selected.selected = target;
                              minDistance = distance;
                          }
                      }
-                     if(!selected.center.has_value())
+                     if(!selected.selected.has_value())
                          return;
                      BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected);
                      sendAll(set_target_atom_v, mKey);
