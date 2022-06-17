@@ -3,10 +3,13 @@
 #include "Transform.hpp"
 #include <vector>
 
+enum class ArmorType { Small, Large };
+
 struct DetectedTarget final {
     Point<UnitType::Distance, FrameOfReference::Gun> center;
     double area;
     int32_t id;
+    ArmorType type;
     Vector<UnitType::LinearVelocity, FrameOfReference::Gun> velocity;
 };
 

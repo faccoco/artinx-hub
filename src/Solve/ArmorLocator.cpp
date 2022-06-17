@@ -35,7 +35,8 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
     };
     std::vector<cv::Point2f> mImagePoint{ 4 };
 
-    Point<UnitType::Distance, FrameOfReference::Camera> solve(const cv::Mat& cameraMatrix, const PairedLight& armor) {
+    std::pair<Point<UnitType::Distance, FrameOfReference::Camera>, ArmorType> solve(const cv::Mat& cameraMatrix,
+                                                                                    const PairedLight& armor) {
         boxRect(mImagePoint, armor.r1);
 
         const cv::Point2d lt = 0.5 * (mImagePoint[1] + mImagePoint[2]);
@@ -58,8 +59,6 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
         const auto ratio = distHorizontal / distVertical;
         constexpr auto ratioThreshold = 0.5 * (widthOfLargeArmor + widthOfSmallArmor) / heightOfArmorLightBar;
 
-        // std::cout << (ratio > ratioThreshold ? "large" : "small") << std::endl;
-
         mImagePoint = { lt, lb, rb, rt };
         const auto res = cv::solvePnP(ratio > ratioThreshold ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint, cameraMatrix,
                                       distCoeff, rvec, tvec, false, cv::SOLVEPNP_IPPE);
@@ -68,7 +67,8 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
         if(p0.z > 0.0)
             p0 = -p0;
 
-        return Point<UnitType::Distance, FrameOfReference::Camera>{ p0 };
+        return { Point<UnitType::Distance, FrameOfReference::Camera>{ p0 },
+                 ratio > ratioThreshold ? ArmorType::Large : ArmorType::Small };
     }
 
 public:
@@ -109,17 +109,11 @@ public:
                              armorLight.r1.center += cv::Point2f{ roi.tl() };
                              armorLight.r2.center += cv::Point2f{ roi.tl() };
 
-                             const auto point = solve(cameraMatrix, armorLight);
+                             const auto [point, type] = solve(cameraMatrix, armorLight);
 
                              // TODO: projected area
-                             res.targets.push_back({ transform(point), 0.0, id });
+                             res.targets.push_back({ transform(point), 0.0, id, type });
                          }
-                     }
-
-                     if(!res.targets.empty()) {
-                         auto center = res.targets[0].center.raw();
-                         //                         std::cout << fmt::format("x: {} y: {} z: {}", center.x, center.y, center.z) <<
-                         //                         std::endl;
                      }
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));
