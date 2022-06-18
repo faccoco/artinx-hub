@@ -5,7 +5,7 @@ cd */artinx-hub/cmake-build-release/src
 # rember to use absolute path as *
 ./ArtinxHub ../../config/angleSolver.conf
 ```
-2. Create ArtinxHub.service at `/lib/systemd/sysetm` and write these
+2. Create ArtinxHub.service at `/lib/systemd/system` and write these
 ```
 [Uint]
 Description=ArtinxHub-service
@@ -18,7 +18,7 @@ KillMode=none
 WantedBy=multi-user.target
 Alias=ArtinxHub_autostart_service
 ```
-3. use`systemctl enable ArtinxHub.serivec` in bash
+3. use`systemctl enable ArtinxHub.service` in bash
 ---
 如果串口寄了(permision denied)  
 - ~~use `groups ${USER}` to check groups~~
