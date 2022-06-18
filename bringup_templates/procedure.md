@@ -1,13 +1,11 @@
-# Procedure to set up boot service
-1. Write a shell script
-```shell
+# Procedure to set up boot service 1. Write a shell script ```shell
 cd */artinx-hub/cmake-build-release/src
 # rember to use absolute path as *
 ./ArtinxHub ../../config/angleSolver.conf
 ```
 2. Create ArtinxHub.service at `/lib/systemd/sysetm` and write these
 ```
-[Uint]
+[Unit]
 Description=ArtinxHub-service
 [Service]
 ExecStart=bash /*the shell script you have written*/
