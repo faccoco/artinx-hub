@@ -1,0 +1,36 @@
+[Unit]
+Description=Artinx Hub Service
+After=network.target
+
+[Service]
+# doesn't work: (reason: didn't source openvino, so cannot use the shared lib)
+#ExecStartPre=.
+#ExecStart=/home/artinx-004/workspace/codes/artinx-hub/cmake-build-release-default/src/ArtinxHub /home/artinx-004/workspace/codes/artinx-hub/config/angleSolver.conf
+# work
+# start is the 开机 action, stop is the 关机 action
+ExecStart=/bin/bash /home/artinx-004/workspace/codes/artinx-hub/bringup_templates/bringup.bash
+ExecReload=/bin/kill -HUP $MAINPID
+Type=simple
+
+KillMode=control-group
+#process：只杀主进程
+
+Restart=on-failure
+ #on-failure：非正常退出时（退出状态码非0），包括被信号终止和超时，才会重启
+ # on-abort：只有在收到没有捕捉到的信号终止时，才会重启
+
+RestartSec=3s
+
+[Install]
+WantedBy=multi-user.target
+
+# Guidance:
+#  To deploy this service,
+#     cp ArtinxHub.service /usr/lib/systemd/system/
+#     sudo systemctl enable ArtinxHub.service
+#  Check whether this service is successfully added:
+#    systemctl list-unit-files --type=service
+
+# Reference:
+#   https://www.ruanyifeng.com/blog/2016/03/systemd-tutorial-commands.html
+#   https://ruanyifeng.com/blog/2016/03/systemd-tutorial-part-two.html
