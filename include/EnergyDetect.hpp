@@ -5,4 +5,5 @@
 struct DetectedEnergyInfo final {
     TimePoint lastUpdate;
     Point<UnitType::Distance, FrameOfReference::Gun> point;
+    Point<UnitType::Distance, FrameOfReference::Gun> prePoint;
 };
