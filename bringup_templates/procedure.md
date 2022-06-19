@@ -12,7 +12,9 @@ Description=ArtinxHub-service
 [Service]
 ExecStart=bash /*the shell script you have written*/
 Restart=always
-RestartSec=0
+RestartSec=1
+StartLimitIntervalSec=0
+StartLImitBurst=999999999
 KillMode=none
 [Install]
 WantedBy=multi-user.target
