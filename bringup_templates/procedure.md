@@ -7,7 +7,7 @@ cd */artinx-hub/cmake-build-release/src
 ```
 2. Create ArtinxHub.service at `/lib/systemd/system` and write these
 ```
-[Uint]
+[Unit]
 Description=ArtinxHub-service
 [Service]
 ExecStart=bash /*the shell script you have written*/
