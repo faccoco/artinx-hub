@@ -321,7 +321,7 @@ class EnergyDetector final
         const auto z = data.z - energyCenter.z;
         const cv::Mat r = (cv::Mat_<double>(3, 1) << x, y, z);
         const auto orthoVector = normalVector.cross(r);
-        glm::dvec3 preCenter =
+        const auto preCenter =
             glm::dvec3{ r.at<double>(0, 0) * cos(preAngle) + orthoVector.at<double>(0, 0) * sin(preAngle) + energyCenter.x,
                         r.at<double>(1, 0) * cos(preAngle) + orthoVector.at<double>(1, 0) * sin(preAngle) + energyCenter.y,
                         r.at<double>(2, 0) * cos(preAngle) + orthoVector.at<double>(2, 0) * sin(preAngle) + energyCenter.z };
