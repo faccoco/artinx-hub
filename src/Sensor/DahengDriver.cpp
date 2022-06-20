@@ -129,9 +129,7 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         }
 
         frameData.frame = std::move(bgr);
-
-        BlackBoard::instance().updateSync(mKey, std::move(frameData));
-        sendAll(image_frame_atom_v, mKey);
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData)));
     }
 
 #ifdef ARTINX_DAHENG_USB2
@@ -277,7 +275,10 @@ public:
         checkGXStatus(GXCloseDevice(mDevice));
     }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { mStartFlag = true; } };
+        return { [this](start_atom) {
+            ACTOR_PROTOCOL_CHECK(start_atom);
+            mStartFlag = true;
+        } };
     }
 };
 

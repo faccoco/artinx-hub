@@ -106,7 +106,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                                                  -std::sin(fdb.yaw + glm::half_pi<double>()) * std::cos(fdb.pitch) },
                                      glm::dvec3{ 0.0, 1.0, 0.0 }) },
                                  0.0, 0.0 };
-            BlackBoard::instance().updateSync(mKey, info);
+
             PostureData posture;
             posture.lastUpdate = SynchronizedClock::instance().now();
             posture.postureOfRobot = Transform<FrameOfReference::Ground, FrameOfReference::Robot>{ glm::identity<glm::dmat4>() };
@@ -126,9 +126,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             lastSpeedY = fdb.speedY;
             posture.linearVelocityOfRobot =
                 Vector<UnitType::LinearVelocity, FrameOfReference::Ground>{ { fdb.speedX, fdb.speedY, 0.0f } };
-            BlackBoard::instance().updateSync(mKey, posture);
-            sendAll(update_posture_atom_v, mKey);
-            sendAll(update_head_atom_v, mKey);
+
+            sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
+            sendAll(update_head_atom_v, BlackBoard::instance().updateSync(mKey, info));
         }
     }
 
@@ -166,8 +166,13 @@ public:
     }
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { started = true; },
+        return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
+                    started = true;
+                },
                  [this](set_target_info_atom, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire) {
+                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, Clock::rep, double, double, bool);
+
                      const auto current = Clock::now();
 
                      HubLogger::watch("latency", (current.time_since_epoch().count() - begin) / 1'000'000);

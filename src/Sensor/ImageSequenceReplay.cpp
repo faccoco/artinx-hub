@@ -54,8 +54,7 @@ class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, Image
         res.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
         res.lastUpdate = SynchronizedClock::instance().now();
 
-        BlackBoard::instance().updateSync(mKey, std::move(res));
-        sendAll(image_frame_atom_v, mKey);
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
 
         ++mCount;
     }
@@ -65,10 +64,14 @@ public:
         : HubHelper{ base, config }, mKey{ typeid(ImageSequenceReplay).hash_code() } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
                     Timer::instance().addTimer(address(),
                                                std::chrono::microseconds{ static_cast<int64_t>(1'000'000 / mConfig.fps) });
                 },
-                 [this](timer_atom) { next(); } };
+                 [this](timer_atom) {
+                     ACTOR_PROTOCOL_CHECK(timer_atom);
+                     next();
+                 } };
     }
 };
 

@@ -16,16 +16,16 @@ public:
     CarDetectorDrawer(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(CarDetectorDrawer).hash_code() } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](car_detect_available_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(car_detect_available_atom, TypedIdentifier<DetectedCarArray>);
                      auto res = BlackBoard::instance().get<DetectedCarArray>(key).value();
                      const cv::Scalar green{ 0.0, 255.0, 0.0 };
                      for(const auto& rect : res.cars) {
                          cv::rectangle(res.frame.frame, rect, green, 3);
                      }
 
-                     BlackBoard::instance().updateSync(mKey, std::move(res.frame));
-                     sendAll(image_frame_atom_v, mKey);
+                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res.frame)));
                  } };
     }
 };

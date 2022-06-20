@@ -8,3 +8,5 @@ struct HeadInfo final {
     double yawSpeed;
     double pitchSpeed;
 };
+
+ACTOR_PROTOCOL_DEFINE(update_head_atom, TypedIdentifier<HeadInfo>);

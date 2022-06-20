@@ -10,7 +10,7 @@ struct CameraInfo final {
         transform;
     std::string identifier;
     cv::Mat cameraMatrix;
-    cv::Mat distCoefficients;
+    cv::Mat distCoefficients; // TODO: unused
     uint32_t width;
     uint32_t height;
 };
@@ -20,3 +20,5 @@ struct CameraFrame final {
     CameraInfo info;
     cv::Mat frame;
 };
+
+ACTOR_PROTOCOL_DEFINE(image_frame_atom, TypedIdentifier<CameraFrame>);

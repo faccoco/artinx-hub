@@ -2,7 +2,6 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
 #include <glm/gtc/matrix_transform.hpp>
@@ -55,8 +54,7 @@ private:
         res.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
         res.lastUpdate = SynchronizedClock::instance().now();
 
-        BlackBoard::instance().updateSync(mKey, std::move(res));
-        sendAll(image_frame_atom_v, mKey);
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
     }
 
 public:
@@ -70,10 +68,14 @@ public:
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
                     Timer::instance().addTimer(address(),
                                                std::chrono::microseconds{ static_cast<int64_t>(1'000'000 / mConfig.fps) });
                 },
-                 [this](timer_atom) { next(); } };
+                 [this](timer_atom) {
+                     ACTOR_PROTOCOL_CHECK(timer_atom);
+                     next();
+                 } };
     }
 };
 

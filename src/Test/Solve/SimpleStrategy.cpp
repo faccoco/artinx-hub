@@ -18,6 +18,7 @@ public:
         : HubHelper{ base, config }, mKey{ typeid(SimpleStrategy).hash_code() } {}
     caf::behavior make_behavior() override {
         return { [&](detect_available_atom, Identifier key) {
+                    ACTOR_PROTOCOL_CHECK(detect_available_atom, TypedIdentifier<DetectedTargetArray>);
                     const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
 
                     SelectedTarget selected;
@@ -30,10 +31,10 @@ public:
                             minDistance = distance;
                         }
                     }
-                    BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected);
-                    sendAll(set_target_atom_v, mKey);
+
+                    sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                 },
-                 [](start_atom) {} };
+                 [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); } };
     }
 };
 
