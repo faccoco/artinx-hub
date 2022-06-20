@@ -21,7 +21,7 @@ loadCalibration(bool disableUndistort, const std::string &identifier, const uint
     const auto inputFileName = "./data/camera_calibration/" + identifier + ".xml";
 
     cv::FileStorage fs(inputFileName, cv::FileStorage::READ);
-    if (fs.isOpened() && !disableUndistort) {
+    if (std::filesystem::exists(inputFileName) && fs.isOpened() && !disableUndistort) {
         fs["camera_matrix"] >> cameraMatrix;
         fs["distortion_coefficients"] >> distCoefficients;
         undistort = true;
