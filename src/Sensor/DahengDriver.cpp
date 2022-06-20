@@ -7,24 +7,30 @@
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/opencv.hpp>
+
 #pragma warning(push, 0)
+
 #include <GxIAPI.h>
+
 #pragma warning(pop)
 
-static void loadCalibration(const std::string& identifier, const uint32_t width, const uint32_t height, const double fallbackFov,
-                            cv::Mat& cameraMatrix, cv::Mat& distCoefficients, bool& undistort) {
-    const auto inputFileName = "./data/camera_calibration/" + identifier + ".yml";
+static void
+loadCalibration(bool disableUndistort, const std::string &identifier, const uint32_t width, const uint32_t height,
+                const double fallbackFov,
+                cv::Mat &cameraMatrix, cv::Mat &distCoefficients, bool &undistort) {
+    const auto inputFileName = "./data/camera_calibration/" + identifier + ".xml";
 
     cv::FileStorage fs(inputFileName, cv::FileStorage::READ);
-    if(fs.isOpened()) {
+    if (std::filesystem::exists(inputFileName) && fs.isOpened() && !disableUndistort) {
         fs["camera_matrix"] >> cameraMatrix;
         fs["distortion_coefficients"] >> distCoefficients;
         undistort = true;
     } else {
         logWarning(
-            fmt::format("Failed to get calibration info for S/N {}. Use fallback fov {} instead.", identifier, fallbackFov));
+                fmt::format("Failed to get calibration info for S/N {}. Use fallback fov {} instead.", identifier,
+                            fallbackFov));
         cameraMatrix = (cv::Mat_<double>(3, 3) << width / 2 / tan(glm::radians(fallbackFov) / 2), 0, width / 2, 0,
-                        height / 2 / tan(glm::radians(fallbackFov) / 2), height / 2, 0, 0, 1);
+                height / 2 / tan(glm::radians(fallbackFov) / 2), height / 2, 0, 0, 1);
         distCoefficients = cv::Mat{};
         undistort = false;
     }
@@ -37,23 +43,30 @@ struct DahengDriverSettings final {
     double fov;
     double exposureTime;
     bool flip;
+    bool disableUndistort;
     glm::dvec3 offset;
 };
 
-enum class OpenMode { Index, SerialNumber };
+enum class OpenMode {
+    Index, SerialNumber
+};
 
-template <class Inspector>
-bool inspect(Inspector& f, DahengDriverSettings& x) {
+template<class Inspector>
+bool inspect(Inspector &f, DahengDriverSettings &x) {
     return f.object(x).fields(
-        f.field("openMode", x.openMode).invariant([](const std::string& v) { return v == "Index" || v == "SerialNumber"; }),
-        f.field("identifier", x.identifier),
-        f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 500.0; }), f.field("fov", x.fov),
-        f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false), f.field("dx", x.offset.x).fallback(0.0),
-        f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0));
+            f.field("openMode", x.openMode).invariant(
+                    [](const std::string &v) { return v == "Index" || v == "SerialNumber"; }),
+            f.field("identifier", x.identifier),
+            f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 500.0; }),
+            f.field("fov", x.fov),
+            f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
+            f.field("disableUndistort", x.disableUndistort).fallback(false),
+            f.field("dx", x.offset.x).fallback(0.0),
+            f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0));
 }
 
 static void checkGXStatus(const GX_STATUS status) {
-    if(status != GX_STATUS_SUCCESS) {
+    if (status != GX_STATUS_SUCCESS) {
         const auto error = "GX Error: " + std::to_string(status);
         logError(error.c_str());
     }
@@ -64,6 +77,7 @@ public:
     DahengLibGuard() {
         checkGXStatus(GXInitLib());
     }
+
     ~DahengLibGuard() {
         checkGXStatus(GXCloseLib());
     }
@@ -93,7 +107,7 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         const auto current = timeStamp.time_since_epoch().count();
         mLastFrames.push_back(current);
 
-        while(current - mLastFrames.front() > 1'000'000'000)
+        while (current - mLastFrames.front() > 1'000'000'000)
             mLastFrames.pop_front();
 
         const auto delta = std::max(static_cast<Clock::rep>(1), current - mLastFrames.front());
@@ -101,11 +115,11 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         HubLogger::watch("fps", static_cast<uint32_t>(fps));
     }
 
-    void newFrameImpl(Clock::time_point timeStamp, const cv::Mat& frame, uint32_t width, uint32_t height) {
+    void newFrameImpl(Clock::time_point timeStamp, const cv::Mat &frame, uint32_t width, uint32_t height) {
         cv::Mat bgr;
         cv::cvtColor(frame, bgr, pixelCast);
 
-        if(mConfig.flip) {
+        if (mConfig.flip) {
             cv::Mat flipped;
             cv::flip(bgr, flipped, -1);
             std::swap(bgr, flipped);
@@ -121,9 +135,9 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         frameData.info.width = width;
         frameData.info.height = height;
         frameData.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(
-            glm::translate(glm::identity<glm::dmat4>(), -mConfig.offset));
+                glm::translate(glm::identity<glm::dmat4>(), -mConfig.offset));
 
-        if(mDoUndistort) {
+        if (mDoUndistort) {
             auto src = bgr.clone();
             cv::undistort(src, bgr, mCameraMatrix, mDistCoefficients, frameData.info.cameraMatrix);
         }
@@ -138,22 +152,24 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
 
     void acquireOneFrame() {}
 #else
-    void newFrame(GX_FRAME_CALLBACK_PARAM* pFrameData) {
-        if(pFrameData->status != GX_FRAME_STATUS_SUCCESS || !mStartFlag)
+
+    void newFrame(GX_FRAME_CALLBACK_PARAM *pFrameData) {
+        if (pFrameData->status != GX_FRAME_STATUS_SUCCESS || !mStartFlag)
             return;
 
         const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer
 
         // TODO: reduce reallocation
-        cv::Mat frame{ cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, pixelStorageFormat };
+        cv::Mat frame{cv::Size{pFrameData->nWidth, pFrameData->nHeight}, pixelStorageFormat};
         memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
         newFrameImpl(timeStamp, frame, pFrameData->nWidth, pFrameData->nHeight);
     }
+
 #endif
 
 public:
-    DahengDriver(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(DahengDriver).hash_code() } {
+    DahengDriver(caf::actor_config &base, const HubConfig &config)
+            : HubHelper{base, config}, mKey{typeid(DahengDriver).hash_code()} {
         initLib();
 
         GX_OPEN_PARAM deviceDesc;
@@ -215,7 +231,9 @@ public:
         checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_Y, (height - targetHeight) / 2));
 #endif
 
-        loadCalibration(mCameraSN, width, height, mConfig.fov, mCameraMatrix, mDistCoefficients, mDoUndistort);
+        loadCalibration(mConfig.disableUndistort, mCameraSN, width, height, mConfig.fov, mCameraMatrix,
+                        mDistCoefficients,
+                        mDoUndistort);
 
 #ifdef ARTINXHUB_WINDOWS
         auto bImplementPacketSize = false;
@@ -228,8 +246,8 @@ public:
 #endif
 
 #ifndef ARTINX_DAHENG_USB2
-        checkGXStatus(GXRegisterCaptureCallback(mDevice, this, [](GX_FRAME_CALLBACK_PARAM* pFrameData) {
-            static_cast<DahengDriver*>(pFrameData->pUserParam)->newFrame(pFrameData);
+        checkGXStatus(GXRegisterCaptureCallback(mDevice, this, [](GX_FRAME_CALLBACK_PARAM *pFrameData) {
+            static_cast<DahengDriver *>(pFrameData->pUserParam)->newFrame(pFrameData);
         }));
 #endif
 
@@ -263,6 +281,7 @@ public:
         });
 #endif
     }
+
     ~DahengDriver() override {
 #ifdef ARTINX_DAHENG_USB2
         mRunning = false;
@@ -274,6 +293,7 @@ public:
 #endif
         checkGXStatus(GXCloseDevice(mDevice));
     }
+
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
             ACTOR_PROTOCOL_CHECK(start_atom);

@@ -56,7 +56,7 @@ struct UndistortCalibratorSettings final {
     bool writePoints;             // Write detected feature points
     bool writeExtrinsics;         // Write extrinsic parameters
     bool writeGrid;               // Write refined 3D target grid points
-    bool showUndistorted;         // Show undistorted images after calibration
+    bool showUndistorted;         // Show undstorted images after calibration
     bool fixK1;                   // fix K1 distortion coefficient
     bool fixK2;                   // fix K2 distortion coefficient
     bool fixK3;                   // fix K3 distortion coefficient
@@ -181,7 +181,7 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
     void saveCameraParams(const std::string& identifier, const std::vector<cv::Mat>& rvecs, const std::vector<cv::Mat>& tvecs,
                           const std::vector<float>& reprojErrs, double totalAvgErr,
                           const std::vector<cv::Point3f>& newObjPoints) {
-        const auto outputFileName = "./data/camera_calibration/" + identifier + ".yml";
+        const auto outputFileName = "./data/camera_calibration/" + identifier + ".xml";
 
         cv::FileStorage fs(outputFileName, cv::FileStorage::WRITE);
 
@@ -306,7 +306,6 @@ public:
                          cv::drawChessboardCorners(res.frame, mConfig.boardSize, cv::Mat(pointBuf), found);
                      }
 
-#ifdef ARTINXHUB_DEBUG
                      //----------------------------- Output Text ------------------------------------------------
                      //! [output_text]
                      std::string msg = (mMode == Status::CAPTURING) ? "100/100" :
@@ -331,7 +330,6 @@ public:
                          cv::Mat temp = res.frame.clone();
                          cv::undistort(temp, res.frame, mCameraMatrix, mDistCoeffs);
                      }
-#endif
                      // For debugging
                      sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
