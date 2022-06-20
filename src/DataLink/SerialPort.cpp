@@ -137,7 +137,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             mSendBufferLen = 0;
         if(mSendBufferLen == 0)
             return;
-        std::cout << mSendBufferLen << std::endl;
+        // std::cout << mSendBufferLen << std::endl;
         mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen = 0;
     }
