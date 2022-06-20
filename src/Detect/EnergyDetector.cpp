@@ -74,8 +74,7 @@ class EnergyDetector final
         CameraFrame frame;
         frame.frame = std::move(res);
 
-        BlackBoard::instance().updateSync(newKey, std::move(frame));
-        sendAll(image_frame_atom_v, newKey);
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame)));
     }
 
     static void setBinary(const cv::Mat& src, cv::Mat& binary) {
@@ -333,18 +332,21 @@ public:
         : HubHelper{ base, config }, mKey{ typeid(EnergyDetector).hash_code() } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
                     reset();
                     // only for test
                     mEnabled = true;
                     mRotateMode = 0;
                 },
                  [&](energy_detector_control_atom, bool enable, int mode) {
+                     ACTOR_PROTOCOL_CHECK(energy_detector_control_atom, bool, int);
                      if(mEnabled != enable || mRotateMode != mode)
                          reset();
                      mEnabled = enable;
                      mRotateMode = mode;
                  },
                  [&](image_frame_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      if(!mEnabled)
                          return;
                      auto data = BlackBoard::instance().get<CameraFrame>(key).value();
@@ -376,8 +378,7 @@ public:
                          res.prePoint = predict(armorPoints, raw, 0);
                      }
 
-                     BlackBoard::instance().updateSync(mKey, res);
-                     sendAll(energy_detect_available_atom_v, mKey);
+                     sendAll(energy_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, res));
                  } };
     }
 };

@@ -182,15 +182,15 @@ public:
         : HubHelper{ base, config }, mKey{ typeid(OreAlignment).hash_code() } {}
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](ore_alignment_available_atom, Identifier key) {
-                     const auto settings = BlackBoard::instance().get<OreAlignmentSettings>(key).value();
+                     ACTOR_PROTOCOL_CHECK(ore_alignment_available_atom, TypedIdentifier<OreAlignmentMessage>);
                      auto data = BlackBoard::instance().get<OreAlignmentMessage>(key).value();
 
                      data.frame.frame.convertTo(bgrFrame, CV_32FC3, 1.0 / 255.0);
                      cv::cvtColor(bgrFrame, hsvFrame, cv::COLOR_BGR2HSV_FULL);
-                     BlackBoard::instance().updateSync(mKey, std::move(solveDirection(data, settings)));
-                     sendAll(ore_alignment_available_atom_v, mKey);
+                     sendAll(ore_alignment_available_atom_v,
+                             BlackBoard::instance().updateSync(mKey, std::move(solveDirection(data, mConfig))));
                  } };
     }
 };

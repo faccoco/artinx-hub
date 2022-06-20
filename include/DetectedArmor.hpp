@@ -19,3 +19,5 @@ struct DetectedArmorArray final {
     CameraFrame frame;
     std::vector<DetectedArmorsOfCar> armors;
 };
+
+ACTOR_PROTOCOL_DEFINE(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);

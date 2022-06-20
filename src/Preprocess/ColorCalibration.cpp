@@ -78,8 +78,10 @@ public:
     ColorCalibrator(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(ColorCalibrator).hash_code() } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+
                      auto res = BlackBoard::instance().get<CameraFrame>(key).value();
 
                      if(mCalibratedData.has_value()) {
@@ -88,8 +90,7 @@ public:
                          detectColorCheckerAndCalibrate(res.frame);
                      }
 
-                     BlackBoard::instance().updateSync(mKey, std::move(res));
-                     sendAll(image_frame_atom_v, mKey);
+                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
 };

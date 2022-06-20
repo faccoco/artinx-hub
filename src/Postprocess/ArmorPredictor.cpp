@@ -76,8 +76,9 @@ public:
         mTimeStep = static_cast<int64_t>(mConfig.step * timeScale);
     }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](detect_available_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(detect_available_atom, TypedIdentifier<DetectedTargetArray>);
                      ACTOR_EXCEPTION_PROBE();
 
                      auto res = BlackBoard::instance().get<DetectedTargetArray>(key).value();
@@ -129,8 +130,7 @@ public:
                          if(!use[idx])
                              mTargets.erase(mTargets.cbegin() + idx);
 
-                     BlackBoard::instance().updateSync(mKey, std::move(res));
-                     sendAll(detect_available_atom_v, mKey);
+                     sendAll(detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
 };

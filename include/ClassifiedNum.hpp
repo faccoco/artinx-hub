@@ -14,3 +14,5 @@ CAF_ADD_TYPE_ID(ClassifiedNum, (ClassifiedNum));
 CAF_END_TYPE_ID_BLOCK(ClassifiedNum);
 
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(ClassifiedNum);
+
+ACTOR_PROTOCOL_DEFINE(num_classify_request_atom, TypedIdentifier<CameraFrame>);

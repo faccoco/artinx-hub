@@ -38,7 +38,25 @@ class HubHelper : public T {
         std::variant<std::vector<std::string>, std::vector<caf::actor_addr>> val;
     };
 
+    template <typename Arg>
+    static const Arg& wrap(const Arg& arg) noexcept {
+        return arg;
+    }
+
+    template <typename Arg>
+    static const Identifier& wrap(const TypedIdentifier<Arg>& arg) noexcept {
+        return static_cast<const Identifier&>(arg);
+    }
+
     std::tuple<SucceedAddress<Succeed>...> mDest;
+
+    template <typename Atom>
+    const auto& getDest() {
+        auto& dest = std::get<SucceedAddress<Atom>>(mDest).val;
+        if(dest.index() == 0)
+            dest = detail::parseSucceed(this->system(), std::get<0>(dest));
+        return std::get<1>(dest);
+    }
 
 protected:
     std::conditional_t<std::is_void_v<Config>, char, Config> mConfig;
@@ -54,14 +72,19 @@ public:
             }
         }
     }
-    // TODO: static type check
+
     template <typename Atom, typename... Args>
     void sendAll(Atom atom, Args&&... args) {
-        auto& dest = std::get<SucceedAddress<Atom>>(mDest).val;
-        if(dest.index() == 0)
-            dest = detail::parseSucceed(this->system(), std::get<0>(dest));
-        for(auto&& address : std::get<1>(dest))
-            this->send(caf::actor_cast<caf::actor>(address), atom, args...);
+        ACTOR_PROTOCOL_CHECK(Atom, std::decay_t<Args>...);
+        for(auto&& address : getDest<Atom>())
+            this->send(caf::actor_cast<caf::actor>(address), atom, wrap(std::forward<Args>(args))...);
+    }
+
+    template <typename Atom, typename... Args>
+    void sendMasked(Atom atom, GroupMask mask, Args&&... args) {
+        ACTOR_PROTOCOL_CHECK(Atom, GroupMask, std::decay_t<Args>...);
+        // for(auto&& address : getDest<Atom>())
+        //     this->send(caf::actor_cast<caf::actor>(address), atom, wrap(std::forward<Args>(args))...);
     }
 };
 
