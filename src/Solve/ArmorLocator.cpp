@@ -107,10 +107,10 @@ public:
                          }
                      }
 
-                     sendAll(detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
+                     sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  },
-                 [&](update_head_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(update_head_atom, TypedIdentifier<HeadInfo>);
+                 [&](update_head_atom, GroupMask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
                      mHeadKey = key;
                  } };
     }

@@ -77,8 +77,8 @@ public:
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [&](detect_available_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(detect_available_atom, TypedIdentifier<DetectedTargetArray>);
+                 [&](detect_available_atom, GroupMask mask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
                      ACTOR_EXCEPTION_PROBE();
 
                      auto res = BlackBoard::instance().get<DetectedTargetArray>(key).value();
@@ -130,7 +130,7 @@ public:
                          if(!use[idx])
                              mTargets.erase(mTargets.cbegin() + idx);
 
-                     sendAll(detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
+                     sendAll(detect_available_atom_v, mask, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
 };

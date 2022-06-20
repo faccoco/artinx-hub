@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstdint>
 #include "PacketHelper.hpp"
+#include <cstdint>
 
 struct FdbPacket {
     static constexpr uint16_t id = 0x0A;
@@ -31,7 +31,7 @@ struct GimbalSetPacket {
         buffer.serialize(pitch, -4.0f, 0.0005f);
         buffer.serialize(downYaw, -4.0f, 0.0005f);
         buffer.serialize(downPitch, -4.0f, 0.0005f);
-        buffer.serialize(static_cast<uint8_t>(isFire | (downIsFire << 1)));
+        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | (static_cast<uint8_t>(downIsFire) << 1)));
         buffer.serializeCrc16();
     }
 };

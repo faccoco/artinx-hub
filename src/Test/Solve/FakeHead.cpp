@@ -88,10 +88,10 @@ public:
                                               glm::dvec3{ 0.0, 1.0, 0.0 }) },
                                           yawSpeed, pitchSpeed };
 
-                     sendAll(update_head_atom_v, BlackBoard::instance().updateSync(mKey, info));
+                     sendAll(update_head_atom_v, 1U, BlackBoard::instance().updateSync(mKey, info));
                  },
-                 [&](set_target_info_atom, Clock::rep, const double yaw, const double pitch, bool isFire) {
-                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, Clock::rep, double, double, bool);
+                 [&](set_target_info_atom, GroupMask, Clock::rep, const double yaw, const double pitch, bool isFire) {
+                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);
                      mTargetYaw = yaw;
                      mTargetPitch = pitch;
                  },

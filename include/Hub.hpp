@@ -26,7 +26,8 @@ namespace detail {
 #define HUB_REGISTER_CLASS(CLASS_NAME) static detail::HubClassRegister<CLASS_NAME> hubClassRegister##CLASS_NAME
 
     std::vector<std::string> parseSucceed(const HubConfig& config, const std::string& name);
-    std::vector<caf::actor_addr> parseSucceed(caf::actor_system& system, const std::vector<std::string>& succeed);
+    std::vector<std::pair<caf::actor_addr, GroupMask>> parseSucceed(caf::actor_system& system,
+                                                                    const std::vector<std::string>& succeed);
 }  // namespace detail
 
 template <typename T, typename Config, typename... Succeed>
@@ -35,7 +36,7 @@ class HubHelper : public T {
 
     template <typename Label>
     struct SucceedAddress final {
-        std::variant<std::vector<std::string>, std::vector<caf::actor_addr>> val;
+        std::variant<std::vector<std::string>, std::vector<std::pair<caf::actor_addr, GroupMask>>> val;
     };
 
     template <typename Arg>
@@ -60,6 +61,7 @@ class HubHelper : public T {
 
 protected:
     std::conditional_t<std::is_void_v<Config>, char, Config> mConfig;
+    GroupMask mGroupMask;
 
 public:
     HubHelper(caf::actor_config& base, const HubConfig& config)
@@ -71,24 +73,32 @@ public:
                 logError("Bad config for " + std::string{ typeid(T).name() });
             }
         }
+
+        const auto& dict = config.to_dictionary();
+        if(const auto iter = dict->find("group_id"); iter != dict->cend()) {
+            mGroupMask = 1U << static_cast<uint32_t>(iter->second.to_integer().value());
+        } else {
+            mGroupMask = 1U;
+        }
     }
 
     template <typename Atom, typename... Args>
     void sendAll(Atom atom, Args&&... args) {
         ACTOR_PROTOCOL_CHECK(Atom, std::decay_t<Args>...);
-        for(auto&& address : getDest<Atom>())
+        for(auto&& [address, mask] : getDest<Atom>())
             this->send(caf::actor_cast<caf::actor>(address), atom, wrap(std::forward<Args>(args))...);
     }
 
     template <typename Atom, typename... Args>
     void sendMasked(Atom atom, GroupMask mask, Args&&... args) {
-        ACTOR_PROTOCOL_CHECK(Atom, GroupMask, std::decay_t<Args>...);
-        // for(auto&& address : getDest<Atom>())
-        //     this->send(caf::actor_cast<caf::actor>(address), atom, wrap(std::forward<Args>(args))...);
+        ACTOR_PROTOCOL_CHECK(Atom, std::decay_t<Args>...);
+        for(auto&& [address, maskRhs] : getDest<Atom>())
+            if(mask & maskRhs)
+                this->send(caf::actor_cast<caf::actor>(address), atom, wrap(std::forward<Args>(args))...);
     }
 };
 
-class HubLogger {
+class HubLogger final {
     static std::unordered_map<std::string, TimePoint> logs;
 
 public:

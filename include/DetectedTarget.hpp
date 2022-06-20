@@ -18,4 +18,4 @@ struct DetectedTargetArray final {
     std::vector<DetectedTarget> targets;
 };
 
-ACTOR_PROTOCOL_DEFINE(detect_available_atom, TypedIdentifier<DetectedTargetArray>);
+ACTOR_PROTOCOL_DEFINE(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);

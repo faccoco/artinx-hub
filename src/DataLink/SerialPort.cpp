@@ -13,13 +13,15 @@
 struct SerialPortSettings final {
     std::string devPath;
     uint32_t baudRate;
-    double headHeightOffset;
+    double headHeightOffset1;
+    double headHeightOffset2;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, SerialPortSettings& x) {
     return f.object(x).fields(f.field("devPath", x.devPath), f.field("baudRate", x.baudRate),
-                              f.field("headHeightOffset", x.headHeightOffset));
+                              f.field("headHeightOffset1", x.headHeightOffset1).fallback(0.0),
+                              f.field("headHeightOffset2", x.headHeightOffset2).fallback(0.0));
 }
 
 class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom> {
@@ -88,24 +90,35 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
             HubLogger::watch("bullet speed", fdb.bulletSpeed);
 
-            HubLogger::watch("yaw", fdb.yaw);
-            HubLogger::watch("pitch", fdb.pitch);
+            HubLogger::watch("yaw1", fdb.yaw);
+            HubLogger::watch("pitch1", fdb.pitch);
+            HubLogger::watch("yaw2", fdb.downYaw);
+            HubLogger::watch("pitch2", fdb.downPitch);
             HubLogger::watch("speed x", fdb.speedX);
             HubLogger::watch("speed y", fdb.speedY);
 
             GlobalSettings::get().selfColor = (fdb.color == 0 ? Color::Red : Color::Blue);
             HubLogger::watch("self color", GlobalSettings::get().selfColor == Color::Red ? "Red" : "Blue");
 
-            fdb.yaw = (fdb.yaw < 0.0f) ? fdb.yaw += glm::two_pi<float>() : fdb.yaw;
+            fdb.yaw = (fdb.yaw < 0.0f) ? fdb.yaw + glm::two_pi<float>() : fdb.yaw;
+            fdb.downYaw = (fdb.downYaw < 0.0f) ? fdb.downYaw + glm::two_pi<float>() : fdb.downYaw;
 
-            const HeadInfo info{ SynchronizedClock::instance().now(),
-                                 decltype(HeadInfo::transform){ glm::lookAtRH(
-                                     glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
-                                     glm::dvec3{ std::cos(fdb.yaw + glm::half_pi<double>()) * std::cos(fdb.pitch),
-                                                 mConfig.headHeightOffset + std::sin(fdb.pitch),
-                                                 -std::sin(fdb.yaw + glm::half_pi<double>()) * std::cos(fdb.pitch) },
-                                     glm::dvec3{ 0.0, 1.0, 0.0 }) },
-                                 0.0, 0.0 };
+            const HeadInfo infoUp{ SynchronizedClock::instance().now(),
+                                   decltype(HeadInfo::transform){ glm::lookAtRH(
+                                       glm::dvec3{ 0.0, mConfig.headHeightOffset1, 0.0 },
+                                       glm::dvec3{ std::cos(fdb.yaw + glm::half_pi<double>()) * std::cos(fdb.pitch),
+                                                   mConfig.headHeightOffset1 + std::sin(fdb.pitch),
+                                                   -std::sin(fdb.yaw + glm::half_pi<double>()) * std::cos(fdb.pitch) },
+                                       glm::dvec3{ 0.0, 1.0, 0.0 }) },
+                                   0.0, 0.0 };
+            const HeadInfo infoDown{ SynchronizedClock::instance().now(),
+                                     decltype(HeadInfo::transform){ glm::lookAtRH(
+                                         glm::dvec3{ 0.0, mConfig.headHeightOffset2, 0.0 },
+                                         glm::dvec3{ std::cos(fdb.downYaw + glm::half_pi<double>()) * std::cos(fdb.downPitch),
+                                                     mConfig.headHeightOffset2 + std::sin(fdb.downPitch),
+                                                     -std::sin(fdb.downYaw + glm::half_pi<double>()) * std::cos(fdb.downPitch) },
+                                         glm::dvec3{ 0.0, 1.0, 0.0 }) },
+                                     0.0, 0.0 };
 
             PostureData posture;
             posture.lastUpdate = SynchronizedClock::instance().now();
@@ -114,9 +127,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 Vector<UnitType::AngularAcceleration, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
             posture.angularVelocityOfRobot =
                 Vector<UnitType::AngularVelocity, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
-            float deltaTime = static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                                                     lastReceivedTime - SynchronizedClock::instance().now())
-                                                     .count()) /
+            const auto deltaTime = static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                          lastReceivedTime - SynchronizedClock::instance().now())
+                                                          .count()) /
                 1000.0f;
             posture.linearAccelerationOfRobot =
                 Vector<UnitType::LinearAcceleration, FrameOfReference::Ground>{ { (fdb.speedX - lastSpeedX) / deltaTime,
@@ -128,7 +141,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 Vector<UnitType::LinearVelocity, FrameOfReference::Ground>{ { fdb.speedX, fdb.speedY, 0.0f } };
 
             sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
-            sendAll(update_head_atom_v, BlackBoard::instance().updateSync(mKey, info));
+            sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoUp));
+            sendMasked(update_head_atom_v, 2U, 2U,
+                       BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, infoDown));
         }
     }
 
@@ -137,16 +152,19 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             mSendBufferLen = 0;
         if(mSendBufferLen == 0)
             return;
-        std::cout << mSendBufferLen << std::endl;
+        // std::cout << mSendBufferLen << std::endl;
         mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen = 0;
     }
+
+    float mYaw1 = 0.0f, mPitch1 = 0.0f, mYaw2 = 0.0f, mPitch2 = 0.0f;
+    bool mFire1 = false, mFire2 = false;
 
 public:
     SerialPort(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ typeid(SerialPort).hash_code() },
           mCheckingHeader(false) {
-        const auto [devPath, baudRate, offset] = mConfig;
+        const auto [devPath, baudRate, offset1, offset2] = mConfig;
         mSerialPort->open(devPath, baudRate);
         lastReceivedTime = SynchronizedClock::instance().now();
         mThread = std::thread{ [this]() {
@@ -170,18 +188,28 @@ public:
                     ACTOR_PROTOCOL_CHECK(start_atom);
                     started = true;
                 },
-                 [this](set_target_info_atom, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire) {
-                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, Clock::rep, double, double, bool);
+                 [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire) {
+                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);
 
                      const auto current = Clock::now();
 
                      HubLogger::watch("latency", (current.time_since_epoch().count() - begin) / 1'000'000);
                      HubLogger::watch(
-                         "target yaw",
+                         fmt::format("target yaw{}", mask),
                          fmt::format("{:.8f}", yawAngle > glm::pi<double>() ? (yawAngle - glm::two_pi<double>()) : yawAngle));
-                     HubLogger::watch("target pitch", fmt::format("{:.8f}", pitchAngle));
+                     HubLogger::watch(fmt::format("target pitch{}", mask), fmt::format("{:.8f}", pitchAngle));
 
-                     gimbalSetPacket = GimbalSetPacket(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
+                     if(mask == 1U) {
+                         mYaw1 = static_cast<float>(yawAngle);
+                         mPitch1 = static_cast<float>(pitchAngle);
+                         mFire1 = isFire;
+                     } else {
+                         mYaw2 = static_cast<float>(yawAngle);
+                         mPitch2 = static_cast<float>(pitchAngle);
+                         mFire2 = isFire;
+                     }
+
+                     gimbalSetPacket = GimbalSetPacket(mYaw1, mPitch1, mFire1, mPitch1, mPitch2, mFire2);
                  } };
     }
 };
