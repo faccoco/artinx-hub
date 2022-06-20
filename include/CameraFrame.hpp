@@ -8,7 +8,9 @@ struct CameraInfo final {
     std::variant<Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>,
                  Transform<FrameOfReference::Robot, FrameOfReference::Camera, true>>
         transform;
-    double fov;
+    std::string identifier;
+    cv::Mat cameraMatrix;
+    cv::Mat distCoefficients;
     uint32_t width;
     uint32_t height;
 };

@@ -4,11 +4,31 @@
 #include "Hub.hpp"
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
+#include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/opencv.hpp>
 #pragma warning(push, 0)
 #include <GxIAPI.h>
 #pragma warning(pop)
+
+static void loadCalibration(const std::string& identifier, const uint32_t width, const uint32_t height, const double fallbackFov,
+                            cv::Mat& cameraMatrix, cv::Mat& distCoefficients, bool& undistort) {
+    const auto inputFileName = "./data/camera_calibration/" + identifier + ".yml";
+
+    cv::FileStorage fs(inputFileName, cv::FileStorage::READ);
+    if(fs.isOpened()) {
+        fs["camera_matrix"] >> cameraMatrix;
+        fs["distortion_coefficients"] >> distCoefficients;
+        undistort = true;
+    } else {
+        logWarning(
+            fmt::format("Failed to get calibration info for S/N {}. Use fallback fov {} instead.", identifier, fallbackFov));
+        cameraMatrix = (cv::Mat_<double>(3, 3) << width / 2 / tan(glm::radians(fallbackFov) / 2), 0, width / 2, 0,
+                        height / 2 / tan(glm::radians(fallbackFov) / 2), height / 2, 0, 0, 1);
+        distCoefficients = cv::Mat{};
+        undistort = false;
+    }
+}
 
 struct DahengDriverSettings final {
     std::string openMode;
@@ -64,6 +84,11 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
 
     std::deque<Clock::rep> mLastFrames;
 
+    cv::Mat mCameraMatrix;
+    cv::Mat mDistCoefficients;
+    std::string mCameraSN;
+    bool mDoUndistort;
+
     void reportFrameRate(Clock::time_point timeStamp) {
         const auto current = timeStamp.time_since_epoch().count();
         mLastFrames.push_back(current);
@@ -90,11 +115,19 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
 
         CameraFrame frameData;
         frameData.lastUpdate = timeStamp;
-        frameData.info.fov = mConfig.fov;
+        frameData.info.cameraMatrix = mCameraMatrix;
+        frameData.info.distCoefficients = mDistCoefficients;
+        frameData.info.identifier = mCameraSN;
         frameData.info.width = width;
         frameData.info.height = height;
         frameData.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(
             glm::translate(glm::identity<glm::dmat4>(), -mConfig.offset));
+
+        if(mDoUndistort) {
+            auto src = bgr.clone();
+            cv::undistort(src, bgr, mCameraMatrix, mDistCoefficients, frameData.info.cameraMatrix);
+        }
+
         frameData.frame = std::move(bgr);
 
         BlackBoard::instance().updateSync(mKey, std::move(frameData));
@@ -131,6 +164,11 @@ public:
         deviceDesc.pszContent = mConfig.identifier.data();
 
         checkGXStatus(GXOpenDevice(&deviceDesc, &mDevice));
+        char strSN[256];
+        size_t size = 256;
+        checkGXStatus(GXGetString(mDevice, GX_STRING_DEVICE_SERIAL_NUMBER, strSN, &size));
+        mCameraSN = strSN;
+        logInfo(fmt::format("open camera {}", mCameraSN));
 
 #ifdef ARTINX_DAHENG_USB2
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS));
@@ -165,7 +203,7 @@ public:
             //checkGXStatus(GXSetInt(mDevice, GX_INT_DECIMATION_HORIZONTAL, mConfig.decimation));
             //checkGXStatus(GXSetInt(mDevice, GX_INT_DECIMATION_VERTICAL, mConfig.decimation));
         }
-         */
+        */
 
         int64_t width, height;
         checkGXStatus(GXGetInt(mDevice, GX_INT_WIDTH_MAX, &width));
@@ -179,7 +217,7 @@ public:
         checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_Y, (height - targetHeight) / 2));
 #endif
 
-        // checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BINNING_HORIZONTAL_MODE, GX_BINNING_VERTICAL_MODE_AVERAGE));
+        loadCalibration(mCameraSN, width, height, mConfig.fov, mCameraMatrix, mDistCoefficients, mDoUndistort);
 
 #ifdef ARTINXHUB_WINDOWS
         auto bImplementPacketSize = false;
