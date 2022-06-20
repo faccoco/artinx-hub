@@ -1,4 +1,5 @@
 #pragma once
+#include "DataDesc.hpp"
 #include <caf/actor_addr.hpp>
 #include <chrono>
 #include <mutex>
@@ -6,7 +7,6 @@
 #include <queue>
 #include <thread>
 
-using Clock = std::chrono::steady_clock;
 using TimePoint = Clock::time_point;
 using Duration = Clock::duration;
 

@@ -10,10 +10,11 @@ class BlockedActor final : public HubHelper<caf::event_based_actor, void, payloa
 public:
     BlockedActor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
-                 [&](payload_atom) {
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+                 [&](payload_atom, int32_t, int32_t) {
+                     ACTOR_PROTOCOL_CHECK(payload_atom, int32_t, int32_t);
                      if(mFailed)
-                         sendAll(payload_atom_v);
+                         sendAll(payload_atom_v, 0, 0);
                      else {
                          mFailed = true;
                          while(true)
@@ -31,10 +32,10 @@ class ExceptionKilled final : public HubHelper<caf::event_based_actor, void, pay
 public:
     ExceptionKilled(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
-                 [&](payload_atom) {
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+                 [&](payload_atom, int32_t, int32_t) {
                      if(mFailed)
-                         sendAll(payload_atom_v);
+                         sendAll(payload_atom_v, 0, 0);
                      else {
                          mFailed = true;
                          throw std::runtime_error("emulated exception");
@@ -51,10 +52,10 @@ class SignalKilled final : public HubHelper<caf::event_based_actor, void, payloa
 public:
     SignalKilled(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
-                 [&](payload_atom) {
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+                 [&](payload_atom, int32_t, int32_t) {
                      if(mFailed)
-                         sendAll(payload_atom_v);
+                         sendAll(payload_atom_v, 0, 0);
                      else {
                          mFailed = true;
                          raise(SIGSEGV);
@@ -69,7 +70,14 @@ class DaemonTester final : public HubHelper<caf::event_based_actor, void, payloa
 public:
     DaemonTester(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { sendAll(payload_atom_v); }, [&](payload_atom) { terminateSystem(*this, true); } };
+        return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
+                    sendAll(payload_atom_v, 0, 0);
+                },
+                 [&](payload_atom, int32_t, int32_t) {
+                     ACTOR_PROTOCOL_CHECK(payload_atom, int32_t, int32_t);
+                     terminateSystem(*this, true);
+                 } };
     }
 };
 

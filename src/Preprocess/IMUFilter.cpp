@@ -19,12 +19,13 @@ public:
     IMUFilter(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(IMUFilter).hash_code() } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](update_posture_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);
+                     auto res = BlackBoard::instance().get<PostureData>(key).value();
                      // Implement here
 
-                     // BlackBoard::instance().updateSync(mKey, std::move(res));
-                     sendAll(update_posture_atom_v, mKey);
+                     sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
 };

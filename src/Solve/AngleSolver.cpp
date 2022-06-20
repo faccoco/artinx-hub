@@ -9,6 +9,7 @@
 #include <cmath>
 #include <complex>
 #include <fmt/format.h>
+#include <magic_enum.hpp>
 
 struct AngleSolverSettings final {
     double precision;
@@ -117,20 +118,28 @@ public:
         return ans;
     }
 
-    caf::behavior make_behavior() override{
-        return { [this](start_atom) {},
+    caf::behavior make_behavior() override {
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](set_target_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);
                      const auto data = BlackBoard::instance().get<SelectedTarget>(key);
                      const auto dataHeadInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
                      const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
+                     if(!(data.has_value() && data.value().selected.has_value() && dataHeadInfo.has_value() &&
+                          dataPosture.has_value()))
+                         return;
+                     HubLogger::watch("armor type", magic_enum::enum_name(data.value().selected.value().type));
+
                      const auto& globalSettings = GlobalSettings::get();
                      const double g = -globalSettings.gForce, bulletSpeed = globalSettings.bulletSpeed;
-
+                     
                      constexpr auto square = [=](const double x) { return x * x; };
-                     constexpr auto cube = [=](const double x) { return x * x * x; };
 
                      Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.value().center.value().raw());
                      const auto timeDuration = data.value().lastUpdate.time_since_epoch().count() / 1e9;
+                     Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
+                         data.value().selected.value().center.raw());
+                     const auto timeDuration = static_cast<double>(data.value().lastUpdate.time_since_epoch().count()) / 1e9;
 
                      const auto delayTime = mConfig.delay;
 
@@ -139,22 +148,23 @@ public:
                      glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
 
                      Vector<UnitType::Distance, FrameOfReference::Gun> forwardPosition(forwardVector);
-                     if((dataHeadInfo.has_value()) && (dataPosture.has_value())) {
-                         Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot =
-                             dataHeadInfo.value().transform(positionOfReferenceGun);
-                         Vector<UnitType::Distance, FrameOfReference::Ground> positionOfReferenceGround =
-                             dataPosture.value().postureOfRobot(positionOfReferenceRobot);
-                         Vector<UnitType::Distance, FrameOfReference::Robot> forwardPositionOfReferenceRobot =
-                             dataHeadInfo.value().transform(forwardPosition);
-                         Vector<UnitType::Distance, FrameOfReference::Ground> forwardPositionOfReferenceGround =
-                             dataPosture.value().postureOfRobot(forwardPositionOfReferenceRobot);
-                         Vector<UnitType::LinearVelocity, FrameOfReference::Ground> linearVelocity(
-                             dataPosture.value().linearVelocityOfRobot.raw());
-                         transformedPosition = { positionOfReferenceGround.raw().x, -positionOfReferenceGround.raw().z,
-                                                 positionOfReferenceGround.raw().y };
-                         forwardVector = { forwardPositionOfReferenceGround.raw().x, -forwardPositionOfReferenceGround.raw().z,
-                                           forwardPositionOfReferenceGround.raw().y };
-                         transformedLinearVelocity = { linearVelocity.raw().x, -linearVelocity.raw().z, linearVelocity.raw().y };
+                     Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot =
+                         dataHeadInfo.value().transform(positionOfReferenceGun);
+                     Vector<UnitType::Distance, FrameOfReference::Ground> positionOfReferenceGround =
+                         dataPosture.value().postureOfRobot(positionOfReferenceRobot);
+                     HubLogger::watch("z", positionOfReferenceGround.raw().z);
+
+                     Vector<UnitType::Distance, FrameOfReference::Robot> forwardPositionOfReferenceRobot =
+                         dataHeadInfo.value().transform(forwardPosition);
+                     Vector<UnitType::Distance, FrameOfReference::Ground> forwardPositionOfReferenceGround =
+                         dataPosture.value().postureOfRobot(forwardPositionOfReferenceRobot);
+                     Vector<UnitType::LinearVelocity, FrameOfReference::Ground> linearVelocity(
+                         dataPosture.value().linearVelocityOfRobot.raw());
+                     transformedPosition = { positionOfReferenceGround.raw().x, -positionOfReferenceGround.raw().z,
+                                             positionOfReferenceGround.raw().y };
+                     forwardVector = { forwardPositionOfReferenceGround.raw().x, -forwardPositionOfReferenceGround.raw().z,
+                                       forwardPositionOfReferenceGround.raw().y };
+                     transformedLinearVelocity = { linearVelocity.raw().x, -linearVelocity.raw().z, linearVelocity.raw().y };
 
                          transformedPosition = { transformedPosition.x - delayTime * transformedLinearVelocity.x,
                                                  transformedPosition.y - delayTime * transformedLinearVelocity.y,
@@ -173,7 +183,7 @@ public:
                                                          transformedPosition.y + delayTime * avgVec.y,
                                                          transformedPosition.z + delayTime * avgVec.z };
                              }
-                        
+
 
                          // if(std::abs(mDiff[(mCnt - 1)%1000] - mDiff[(mCnt - 2)%1000]) > 0.2 &&
                          //   std::abs(mDiff[(mCnt - 1)%1000] - mDiff[mCnt%1000]) > 0.2) {
@@ -256,9 +266,14 @@ public:
                      //     (std::abs(currentYawAngle - glm::half_pi<double>() - yawAngle) < prec)));
                      sendAll(set_target_info_atom_v, yawAngle, pitchAngle, true);
                  } },
-               [this](update_head_atom, Identifier key) { mHeadKey = key; },
-               [this](update_posture_atom, Identifier key) { mIMUKey = key; }
-    };
+               [this](update_head_atom, GroupMask, Identifier key) {
+                   ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
+                   mHeadKey = key;
+               },
+               [this](update_posture_atom, Identifier key) {
+                   ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);
+                   mIMUKey = key;
+               } };};
 }
 }
 ;

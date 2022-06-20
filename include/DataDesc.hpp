@@ -5,6 +5,8 @@
 #include <caf/type_id.hpp>
 #include <cstdint>
 
+using Clock = std::chrono::steady_clock;
+
 enum class Color { Red, Blue };
 
 struct GlobalSettings final {
@@ -36,8 +38,13 @@ bool inspect(Inspector& f, GlobalSettings& x) {
                               f.field("bullet42mm", x.bullet42mm));
 }
 
-struct Identifier final {
+struct Identifier {
     uint64_t val;
+};
+
+template <typename T>
+struct TypedIdentifier final : Identifier {
+    using Payload = T;
 };
 
 CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id);
@@ -70,3 +77,35 @@ CAF_ADD_TYPE_ID(ArtinxHub, (Identifier));
 CAF_END_TYPE_ID_BLOCK(ArtinxHub);
 
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(Identifier);
+
+using GroupMask = uint32_t;
+
+template <typename... T>
+struct __ImplActorProtocol final {
+    static constexpr bool check() noexcept {
+        return false;
+    }
+};
+
+#define ACTOR_PROTOCOL_DEFINE(...)                  \
+    template <>                                     \
+    struct __ImplActorProtocol<__VA_ARGS__> final { \
+        static constexpr bool check() noexcept {    \
+            return true;                            \
+        }                                           \
+    }
+
+template <typename... Args>
+constexpr bool __impl_actor_protocol_call() noexcept {
+    return __ImplActorProtocol<Args...>::check();
+}
+
+#define ACTOR_PROTOCOL_CHECK(...) static_assert(__impl_actor_protocol_call<__VA_ARGS__>(), "Mismatched protocol")
+
+ACTOR_PROTOCOL_DEFINE(start_atom);
+ACTOR_PROTOCOL_DEFINE(timer_atom);
+ACTOR_PROTOCOL_DEFINE(monitor_response_atom);
+ACTOR_PROTOCOL_DEFINE(payload_atom, int32_t, int32_t);
+ACTOR_PROTOCOL_DEFINE(ore_detect_available_atom, double);
+ACTOR_PROTOCOL_DEFINE(ore_instructions_atom, bool);
+ACTOR_PROTOCOL_DEFINE(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);

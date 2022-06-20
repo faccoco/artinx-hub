@@ -35,7 +35,8 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
     };
     std::vector<cv::Point2f> mImagePoint{ 4 };
 
-    Point<UnitType::Distance, FrameOfReference::Camera> solve(const cv::Mat& cameraMatrix, const PairedLight& armor) {
+    std::pair<Point<UnitType::Distance, FrameOfReference::Camera>, ArmorType> solve(const cv::Mat& cameraMatrix,
+                                                                                    const PairedLight& armor) {
         boxRect(mImagePoint, armor.r1);
 
         const cv::Point2d lt = 0.5 * (mImagePoint[1] + mImagePoint[2]);
@@ -58,8 +59,6 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
         const auto ratio = distHorizontal / distVertical;
         constexpr auto ratioThreshold = 0.5 * (widthOfLargeArmor + widthOfSmallArmor) / heightOfArmorLightBar;
 
-        // std::cout << (ratio > ratioThreshold ? "large" : "small") << std::endl;
-
         mImagePoint = { lt, lb, rb, rt };
         const auto res = cv::solvePnP(ratio > ratioThreshold ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint, cameraMatrix,
                                       distCoeff, rvec, tvec, false, cv::SOLVEPNP_IPPE);
@@ -68,15 +67,17 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
         if(p0.z > 0.0)
             p0 = -p0;
 
-        return Point<UnitType::Distance, FrameOfReference::Camera>{ p0 };
+        return { Point<UnitType::Distance, FrameOfReference::Camera>{ p0 },
+                 ratio > ratioThreshold ? ArmorType::Large : ArmorType::Small };
     }
 
 public:
     ArmorLocator(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(ArmorLocator).hash_code() } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](armor_detect_available_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
                      const auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
                      //                     logInfo(data.armors[0].armors.size());
                      DetectedTargetArray res;
@@ -93,40 +94,25 @@ public:
                              static_cast<Transform<FrameOfReference::Gun, FrameOfReference::Robot, true>>(headTrans) * trans;
                      }
 
-                     /*
-                     transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>{ glm::translate(
-                         glm::identity<glm::dmat4>(), glm::dvec3{ 0.0, 0.1, -0.15 }) };
-                         */
-
-                     const cv::Mat cameraMatrix =
-                         (cv::Mat_<double>(3, 3) << cameraInfo.width / 2 / tan(glm::radians(cameraInfo.fov) / 2), 0,
-                          cameraInfo.width / 2, 0, cameraInfo.height / 2 / tan(glm::radians(cameraInfo.fov) / 2),
-                          cameraInfo.height / 2, 0, 0, 1);
-
                      for(const auto& [roi, id, armors] : data.armors) {
                          for(auto& armor : armors) {
                              auto armorLight = armor;
                              armorLight.r1.center += cv::Point2f{ roi.tl() };
                              armorLight.r2.center += cv::Point2f{ roi.tl() };
 
-                             const auto point = solve(cameraMatrix, armorLight);
-                             std::cout << distance(point, {}).val << std::endl;
+                             const auto [point, type] = solve(cameraInfo.cameraMatrix, armorLight);
 
                              // TODO: projected area
-                             res.targets.push_back({ transform(point), 0.0, id });
+                             res.targets.push_back({ transform(point), 0.0, id, type });
                          }
                      }
 
-                     if(!res.targets.empty()) {
-                         auto center = res.targets[0].center.raw();
-                         //                         std::cout << fmt::format("x: {} y: {} z: {}", center.x, center.y, center.z) <<
-                         //                         std::endl;
-                     }
-
-                     BlackBoard::instance().updateSync(mKey, std::move(res));
-                     sendAll(detect_available_atom_v, mKey);
+                     sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  },
-                 [&](update_head_atom, Identifier key) { mHeadKey = key; } };
+                 [&](update_head_atom, GroupMask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
+                     mHeadKey = key;
+                 } };
     }
 };
 

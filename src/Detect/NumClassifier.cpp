@@ -78,8 +78,9 @@ public:
     }
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom);},
                  [&](num_classify_request_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(num_classify_request_atom,TypedIdentifier<CameraFrame>);
                      const auto imgData = BlackBoard::instance().get<CameraFrame>(key).value();
                      auto request = mExecutableNetwork.CreateInferRequest();
 

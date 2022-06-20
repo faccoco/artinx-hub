@@ -85,6 +85,7 @@ namespace detail {
     void registerComponent(const char* name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction) {
         NodeFactory::get().addNodeType(std::string{ name }, std::move(spawnFunction));
     }
+
     std::vector<std::string> parseSucceed(const HubConfig& config, const std::string& name) {
         std::string_view nameNormalized = name;
         demangle(nameNormalized);
@@ -102,13 +103,17 @@ namespace detail {
         }
         return res;
     }
-    std::vector<caf::actor_addr> parseSucceed(caf::actor_system& system, const std::vector<std::string>& succeed) {
+
+    static std::unordered_map<std::string, GroupMask> maskLUT;
+
+    std::vector<std::pair<caf::actor_addr, GroupMask>> parseSucceed(caf::actor_system& system,
+                                                                    const std::vector<std::string>& succeed) {
         const auto& registry = system.registry();
-        std::vector<caf::actor_addr> res;
+        std::vector<std::pair<caf::actor_addr, GroupMask>> res;
         res.reserve(succeed.size());
         for(auto id : succeed) {
-            if(auto addr = registry.get<caf::actor_addr>(id))
-                res.push_back(addr);
+            if(const auto addr = registry.get<caf::actor_addr>(id))
+                res.emplace_back(addr, maskLUT[id]);
             else {
                 logError("Undefined actor " + id + " (call sendAll before start_atom?)");
             }
@@ -131,7 +136,14 @@ std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system&
     for(auto&& [name, config] : nodes) {
         if(name == "global")
             continue;
-        actors.push_back({ name, factory.buildNode(system, name, nodes.find(name)->second) });
+        const auto& dict = config.to_dictionary();
+        if(const auto iter = dict->find("group_id"); iter != dict->cend()) {
+            detail::maskLUT[name] = 1U << 1U << static_cast<uint32_t>(iter->second.to_integer().value());
+        } else {
+            detail::maskLUT[name] = 1U;
+        }
+
+        actors.push_back({ name, factory.buildNode(system, name, config) });
     }
 
     return actors;

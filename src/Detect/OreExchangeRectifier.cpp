@@ -140,14 +140,16 @@ public:
         : HubHelper{ base, config }, mKey{ typeid(OreExchangeRectifier).hash_code() } {}
     caf::behavior make_behavior() override {
         return {
-            [this](start_atom) {},
+            [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](ore_instructions_atom, bool y /*may be useful*/, Identifier key) {
+                // ACTOR_PROTOCOL_CHECK(ore_instructions_atom, bool, TypedIdentifier<int>);  // TODO: value type of key
                 off();  // initialize the values for member variable.
                 // situation 1: OFF rectifier is waked up.
                 // situation 2: ON or other state, someone wants to stop it when some exceptions may be observed.
                 mAutomataState = (mAutomataState == AutomataStates::off ? AutomataStates::finding : AutomataStates::off);
             },
             [&](image_frame_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                 if(mAutomataState == AutomataStates::off) {
                     off();
                     return;

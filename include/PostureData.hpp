@@ -12,3 +12,5 @@ struct PostureData final {
     Vector<UnitType::LinearAcceleration, FrameOfReference::Ground> linearAccelerationOfRobot;
     Vector<UnitType::AngularAcceleration, FrameOfReference::Ground> angularAccelerationOfRobot;
 };
+
+ACTOR_PROTOCOL_DEFINE(update_posture_atom, TypedIdentifier<PostureData>);

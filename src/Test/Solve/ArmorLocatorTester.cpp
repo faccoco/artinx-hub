@@ -88,17 +88,24 @@ class ArmorLocatorTester final
         armors.armors.push_back({ generateRotatedRect(horizontal), generateRotatedRect(-horizontal) });
 
         DetectedArmorArray res;
+
+        const cv::Mat cameraMatrix =
+            (cv::Mat_<double>(3, 3) << mConfig.imageWidth / 2 / tan(glm::radians(mConfig.fov) / 2), 0, mConfig.imageWidth / 2, 0,
+             mConfig.imageHeight / 2 / tan(glm::radians(mConfig.fov) / 2), mConfig.imageHeight / 2, 0, 0, 1);
+        const cv::Mat distCoefficients;
+
         res.frame =
             CameraFrame{ SynchronizedClock::instance().now(),
                          { { Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>{ glm::identity<glm::dmat4>() } },
-                           mConfig.fov,
+                           "ArmorLocatorTester",
+                           cameraMatrix,
+                           distCoefficients,
                            mConfig.imageWidth,
                            mConfig.imageHeight },
                          cv::Mat{} };
         res.armors.push_back(std::move(armors));
 
-        BlackBoard::instance().updateSync(mKey, std::move(res));
-        sendAll(armor_detect_available_atom_v, mKey);
+        sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
     }
 
 public:
@@ -109,8 +116,12 @@ public:
               glm::lookAtRH(glm::dvec3{ 0.0 }, glm::dvec3{ 0.0, 0.0, -1.0 }, glm::dvec3{ 0.0, 1.0, 0.0 })
           } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { next(); },
-                 [&](detect_available_atom, Identifier key) {
+        return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
+                    next();
+                },
+                 [&](detect_available_atom, GroupMask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
                      const auto solved = BlackBoard::instance().get<DetectedTargetArray>(key).value().targets.front().center;
 
                      const auto expected = mExpected.front();
