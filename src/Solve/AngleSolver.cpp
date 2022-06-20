@@ -128,15 +128,14 @@ public:
                      if(!(data.has_value() && data.value().selected.has_value() && dataHeadInfo.has_value() &&
                           dataPosture.has_value()))
                          return;
+
                      HubLogger::watch("armor type", magic_enum::enum_name(data.value().selected.value().type));
 
                      const auto& globalSettings = GlobalSettings::get();
                      const double g = -globalSettings.gForce, bulletSpeed = globalSettings.bulletSpeed;
-                     
+
                      constexpr auto square = [=](const double x) { return x * x; };
 
-                     Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(data.value().center.value().raw());
-                     const auto timeDuration = data.value().lastUpdate.time_since_epoch().count() / 1e9;
                      Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
                          data.value().selected.value().center.raw());
                      const auto timeDuration = static_cast<double>(data.value().lastUpdate.time_since_epoch().count()) / 1e9;
@@ -166,24 +165,23 @@ public:
                                        forwardPositionOfReferenceGround.raw().y };
                      transformedLinearVelocity = { linearVelocity.raw().x, -linearVelocity.raw().z, linearVelocity.raw().y };
 
-                         transformedPosition = { transformedPosition.x - delayTime * transformedLinearVelocity.x,
-                                                 transformedPosition.y - delayTime * transformedLinearVelocity.y,
-                                                 transformedPosition.z - delayTime * transformedLinearVelocity.z };
-                         //(forward:+y,right:+x)
-                         mTimes[(++mCnt) % 1000] = timeDuration;
-                         mPositions[(mCnt) % 1000] = transformedPosition;
-                         if(mCnt >= 2) {
-                             mVec[(mCnt - 1) % 1000] = (mPositions[mCnt % 1000] - mPositions[(mCnt - 1) % 1000]) /
-                                 (mTimes[mCnt % 1000] - mTimes[(mCnt - 1) % 1000]);
-                             sumVec += mVec[(mCnt - 1) % 1000];
-                             if(mCnt >= 102) {
-                                 sumVec -= mVec[(mCnt - 101) % 1000];
-                                 avgVec = sumVec / (double)100;
-                                 transformedPosition = { transformedPosition.x + delayTime * avgVec.x,
-                                                         transformedPosition.y + delayTime * avgVec.y,
-                                                         transformedPosition.z + delayTime * avgVec.z };
-                             }
-
+                     transformedPosition = { transformedPosition.x - delayTime * transformedLinearVelocity.x,
+                                             transformedPosition.y - delayTime * transformedLinearVelocity.y,
+                                             transformedPosition.z - delayTime * transformedLinearVelocity.z };
+                     //(forward:+y,right:+x)
+                     mTimes[(++mCnt) % 1000] = timeDuration;
+                     mPositions[(mCnt) % 1000] = transformedPosition;
+                     if(mCnt >= 2) {
+                         mVec[(mCnt - 1) % 1000] = (mPositions[mCnt % 1000] - mPositions[(mCnt - 1) % 1000]) /
+                             (mTimes[mCnt % 1000] - mTimes[(mCnt - 1) % 1000]);
+                         sumVec += mVec[(mCnt - 1) % 1000];
+                         if(mCnt >= 102) {
+                             sumVec -= mVec[(mCnt - 101) % 1000];
+                             avgVec = sumVec / (double)100;
+                             transformedPosition = { transformedPosition.x + delayTime * avgVec.x,
+                                                     transformedPosition.y + delayTime * avgVec.y,
+                                                     transformedPosition.z + delayTime * avgVec.z };
+                         }
 
                          // if(std::abs(mDiff[(mCnt - 1)%1000] - mDiff[(mCnt - 2)%1000]) > 0.2 &&
                          //   std::abs(mDiff[(mCnt - 1)%1000] - mDiff[mCnt%1000]) > 0.2) {
@@ -264,18 +262,18 @@ public:
                      //    (std::abs(currentPitchAngle - pitchAngle) < prec) &&
                      //    ((std::abs(currentYawAngle - yawAngle) < prec) ||
                      //     (std::abs(currentYawAngle - glm::half_pi<double>() - yawAngle) < prec)));
-                     sendAll(set_target_info_atom_v, yawAngle, pitchAngle, true);
-                 } },
-               [this](update_head_atom, GroupMask, Identifier key) {
-                   ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
-                   mHeadKey = key;
-               },
-               [this](update_posture_atom, Identifier key) {
-                   ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);
-                   mIMUKey = key;
-               } };};
-}
-}
-;
+                     sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
+                             pitchAngle, true);
+                 },
+                 [this](update_head_atom, GroupMask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
+                     mHeadKey = key;
+                 },
+                 [this](update_posture_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);
+                     mIMUKey = key;
+                 } };
+    }
+};
 
 HUB_REGISTER_CLASS(AngleSolver);
