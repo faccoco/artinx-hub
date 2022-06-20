@@ -83,26 +83,20 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
     void handlePacket(uint16_t id) {
         if(id == FdbPacket::id) {
-            GlobalSettings::get().bulletSpeed = 13.0f;
-
             FdbPacket fdb(mPacketBuffer);
+            if(fdb.bulletSpeed > 10.0f)
+                GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
+            HubLogger::watch("bullet speed", fdb.bulletSpeed);
 
             HubLogger::watch("yaw", fdb.yaw);
             HubLogger::watch("pitch", fdb.pitch);
-            //            HubLogger::watch("yaw2", fdb.downYaw);
-            //            HubLogger::watch("pitch2", fdb.downPitch);
             HubLogger::watch("speed x", fdb.speedX);
             HubLogger::watch("speed y", fdb.speedY);
-            //            HubLogger::watch("shoot spd", fdb.bulletSpeed);
-            //            HubLogger::watch("color", fdb.color);
-            //            HubLogger::watch("shooter", fdb.shooterId);
 
             GlobalSettings::get().selfColor = (fdb.color == 0 ? Color::Red : Color::Blue);
             HubLogger::watch("self color", GlobalSettings::get().selfColor == Color::Red ? "Red" : "Blue");
 
-            fdb.yaw = (fdb.yaw < 0) ? fdb.yaw += 6.2831852 : fdb.yaw;
-
-            // fdb.yaw = 0.0;// for standard
+            fdb.yaw = (fdb.yaw < 0.0f) ? fdb.yaw += glm::two_pi<float>() : fdb.yaw;
 
             const HeadInfo info{ SynchronizedClock::instance().now(),
                                  decltype(HeadInfo::transform){ glm::lookAtRH(
@@ -127,7 +121,6 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             posture.linearAccelerationOfRobot =
                 Vector<UnitType::LinearAcceleration, FrameOfReference::Ground>{ { (fdb.speedX - lastSpeedX) / deltaTime,
                                                                                   (fdb.speedY - lastSpeedY) / deltaTime, 0.0f } };
-            HubLogger::watch("acc", (fdb.speedX - lastSpeedX) / std::max(1e-6f, deltaTime));
             lastReceivedTime = SynchronizedClock::instance().now();
             lastSpeedX = fdb.speedX;
             lastSpeedY = fdb.speedY;
@@ -144,10 +137,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             mSendBufferLen = 0;
         if(mSendBufferLen == 0)
             return;
-        //        for (int i = 0; i < mSendBufferLen; i++) {
-        //            std::cout << std::hex << static_cast<int>(mSendBuffer[i]) << " ";
-        //        }
-        //        std::cout << std::endl;
+        std::cout << mSendBufferLen << std::endl;
         mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen = 0;
     }
@@ -163,7 +153,7 @@ public:
             while(globalStatus == RunStatus::running) {
                 receive();
                 sendPacket();
-                std::this_thread::sleep_for(0.75ms);
+                std::this_thread::sleep_for(1.5ms);
                 gimbalSetPacket.buffer.copyToSendBuffer(mSendBuffer.data() + mSendBufferLen);
                 mSendBufferLen += gimbalSetPacket.buffer.size();
             }
@@ -179,9 +169,12 @@ public:
         return { [this](start_atom) { started = true; },
                  [this](set_target_info_atom, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire) {
                      const auto current = Clock::now();
+
                      HubLogger::watch("latency", (current.time_since_epoch().count() - begin) / 1'000'000);
-                     HubLogger::watch("tgtyaw", yawAngle > glm::pi<double>() ? (yawAngle - glm::two_pi<double>()) : yawAngle);
-                     HubLogger::watch("tgtpitch", pitchAngle);
+                     HubLogger::watch(
+                         "target yaw",
+                         fmt::format("{:.8f}", yawAngle > glm::pi<double>() ? (yawAngle - glm::two_pi<double>()) : yawAngle));
+                     HubLogger::watch("target pitch", fmt::format("{:.8f}", pitchAngle));
 
                      gimbalSetPacket = GimbalSetPacket(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
                  } };
