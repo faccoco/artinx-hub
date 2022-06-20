@@ -37,14 +37,12 @@ public:
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
 
-                     auto minDistance = std::numeric_limits<double>::max();
+                     auto minDistance = mConfig.distanceThreshold;
                      for(auto& target : data.targets) {
                          const auto distance = glm::length(target.center.raw());
-                         if(distance > mConfig.distanceThreshold && distance < minDistance) {
-                             if(target.id != engineerId) {
-                                 selected.selected = target;
-                                 minDistance = distance;
-                             }
+                         if(distance < minDistance && target.id != engineerId) {
+                             selected.selected = target;
+                             minDistance = distance;
                          }
                      }
 
@@ -64,6 +62,10 @@ public:
                          selected = (mask == 1U ? mLastSelected2 : mLastSelected1);
 
                          if(!selected.selected.has_value())
+                             return;
+
+                         const auto delta = Clock::now() - selected.lastUpdate;
+                         if(delta.count() > static_cast<Clock::rep>(mConfig.detectedTTL * 1e9))
                              return;
 
                          auto& center = selected.selected.value().center;

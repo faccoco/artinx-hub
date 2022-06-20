@@ -48,8 +48,7 @@ public:
 
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
-
-                     // TODO: use middle
+                     
                      auto minDistance = std::numeric_limits<double>::max();
                      for(auto& target : data.targets) {
                          const auto vec = target.center.raw();

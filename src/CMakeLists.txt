@@ -32,6 +32,7 @@ set(SOURCE
 "Strategy/Hero.cpp"
 "Strategy/Infantry.cpp"
 "Strategy/Sentry.cpp"
+"Strategy/UAV.cpp"
 "Test/ActorFramework/Actor.cpp"
 "Test/ActorFramework/Availability.cpp"
 "Test/ActorFramework/DaemonTester.cpp"

@@ -7,19 +7,19 @@
 #include <cstdint>
 #include <glm/glm.hpp>
 
-struct HeroStrategySettings final {};
+struct UAVStrategySettings final {};
 
 template <class Inspector>
-bool inspect(Inspector& f, HeroStrategySettings& x) {
+bool inspect(Inspector& f, UAVStrategySettings& x) {
     return f.object(x).fields();
 }
 
-class HeroStrategy final : public HubHelper<caf::event_based_actor, HeroStrategySettings, set_target_atom> {
+class UAVStrategy final : public HubHelper<caf::event_based_actor, UAVStrategySettings, set_target_atom> {
     Identifier mKey;
 
 public:
-    HeroStrategy(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(HeroStrategy).hash_code() } {}
+    UAVStrategy(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ typeid(UAVStrategy).hash_code() } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](detect_available_atom, GroupMask, Identifier key) {
@@ -45,4 +45,4 @@ public:
     }
 };
 
-HUB_REGISTER_CLASS(HeroStrategy);
+HUB_REGISTER_CLASS(UAVStrategy);

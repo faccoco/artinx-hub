@@ -13,13 +13,15 @@
 struct SerialPortSettings final {
     std::string devPath;
     uint32_t baudRate;
-    double headHeightOffset;
+    double headHeightOffset1;
+    double headHeightOffset2;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, SerialPortSettings& x) {
     return f.object(x).fields(f.field("devPath", x.devPath), f.field("baudRate", x.baudRate),
-                              f.field("headHeightOffset", x.headHeightOffset));
+                              f.field("headHeightOffset1", x.headHeightOffset1).fallback(0.0),
+                              f.field("headHeightOffset2", x.headHeightOffset2).fallback(0.0));
 }
 
 class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom> {
@@ -103,17 +105,17 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
             const HeadInfo infoUp{ SynchronizedClock::instance().now(),
                                    decltype(HeadInfo::transform){ glm::lookAtRH(
-                                       glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
+                                       glm::dvec3{ 0.0, mConfig.headHeightOffset1, 0.0 },
                                        glm::dvec3{ std::cos(fdb.yaw + glm::half_pi<double>()) * std::cos(fdb.pitch),
-                                                   mConfig.headHeightOffset + std::sin(fdb.pitch),
+                                                   mConfig.headHeightOffset1 + std::sin(fdb.pitch),
                                                    -std::sin(fdb.yaw + glm::half_pi<double>()) * std::cos(fdb.pitch) },
                                        glm::dvec3{ 0.0, 1.0, 0.0 }) },
                                    0.0, 0.0 };
             const HeadInfo infoDown{ SynchronizedClock::instance().now(),
                                      decltype(HeadInfo::transform){ glm::lookAtRH(
-                                         glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
+                                         glm::dvec3{ 0.0, mConfig.headHeightOffset2, 0.0 },
                                          glm::dvec3{ std::cos(fdb.downYaw + glm::half_pi<double>()) * std::cos(fdb.downPitch),
-                                                     mConfig.headHeightOffset + std::sin(fdb.downPitch),
+                                                     mConfig.headHeightOffset2 + std::sin(fdb.downPitch),
                                                      -std::sin(fdb.downYaw + glm::half_pi<double>()) * std::cos(fdb.downPitch) },
                                          glm::dvec3{ 0.0, 1.0, 0.0 }) },
                                      0.0, 0.0 };
@@ -162,7 +164,7 @@ public:
     SerialPort(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ typeid(SerialPort).hash_code() },
           mCheckingHeader(false) {
-        const auto [devPath, baudRate, offset] = mConfig;
+        const auto [devPath, baudRate, offset1, offset2] = mConfig;
         mSerialPort->open(devPath, baudRate);
         lastReceivedTime = SynchronizedClock::instance().now();
         mThread = std::thread{ [this]() {
