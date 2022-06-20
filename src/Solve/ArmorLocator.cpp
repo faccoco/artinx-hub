@@ -93,23 +93,13 @@ public:
                              static_cast<Transform<FrameOfReference::Gun, FrameOfReference::Robot, true>>(headTrans) * trans;
                      }
 
-                     /*
-                     transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>{ glm::translate(
-                         glm::identity<glm::dmat4>(), glm::dvec3{ 0.0, 0.1, -0.15 }) };
-                         */
-
-                     const cv::Mat cameraMatrix =
-                         (cv::Mat_<double>(3, 3) << cameraInfo.width / 2 / tan(glm::radians(cameraInfo.fov) / 2), 0,
-                          cameraInfo.width / 2, 0, cameraInfo.height / 2 / tan(glm::radians(cameraInfo.fov) / 2),
-                          cameraInfo.height / 2, 0, 0, 1);
-
                      for(const auto& [roi, id, armors] : data.armors) {
                          for(auto& armor : armors) {
                              auto armorLight = armor;
                              armorLight.r1.center += cv::Point2f{ roi.tl() };
                              armorLight.r2.center += cv::Point2f{ roi.tl() };
 
-                             const auto [point, type] = solve(cameraMatrix, armorLight);
+                             const auto [point, type] = solve(cameraInfo.cameraMatrix, armorLight);
 
                              // TODO: projected area
                              res.targets.push_back({ transform(point), 0.0, id, type });

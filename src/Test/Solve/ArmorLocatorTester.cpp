@@ -88,10 +88,18 @@ class ArmorLocatorTester final
         armors.armors.push_back({ generateRotatedRect(horizontal), generateRotatedRect(-horizontal) });
 
         DetectedArmorArray res;
+
+        const cv::Mat cameraMatrix =
+            (cv::Mat_<double>(3, 3) << mConfig.imageWidth / 2 / tan(glm::radians(mConfig.fov) / 2), 0, mConfig.imageWidth / 2, 0,
+             mConfig.imageHeight / 2 / tan(glm::radians(mConfig.fov) / 2), mConfig.imageHeight / 2, 0, 0, 1);
+        const cv::Mat distCoefficients;
+
         res.frame =
             CameraFrame{ SynchronizedClock::instance().now(),
                          { { Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>{ glm::identity<glm::dmat4>() } },
-                           mConfig.fov,
+                           "ArmorLocatorTester",
+                           cameraMatrix,
+                           distCoefficients,
                            mConfig.imageWidth,
                            mConfig.imageHeight },
                          cv::Mat{} };

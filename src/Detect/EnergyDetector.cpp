@@ -354,12 +354,8 @@ public:
                          return;
 
                      const auto& cameraInfo = data.info;
-                     const cv::Mat cameraMatrix =
-                         (cv::Mat_<double>(3, 3) << cameraInfo.width / 2 / tan(glm::radians(cameraInfo.fov) / 2), 0,
-                          cameraInfo.width / 2, 0, cameraInfo.height / 2 / tan(glm::radians(cameraInfo.fov) / 2),
-                          cameraInfo.height / 2, 0, 0, 1);
 
-                     const auto point = solve(cameraMatrix, armor);
+                     const auto point = solve(cameraInfo.cameraMatrix, armor);
 
                      const auto& transform = std::get<0>(cameraInfo.transform);
 

@@ -5,10 +5,10 @@
 #include <algorithm>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
+#include <limits>
 #include <magic_enum.hpp>
 #include <opencv2/opencv.hpp>
 #include <utility>
-#include <limits>
 
 struct OreAlignmentSettings final {
     // HSV range
@@ -69,7 +69,7 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
                             tempDistance = transformToRealDistance(oreRectArray[atom.flashingIndex], oreMessage.frame, settings);
                     });
                 } else {
-                    tempDistance =std::numeric_limits<double>::infinity() ;
+                    tempDistance = std::numeric_limits<double>::infinity();
                 }
             } break;
 
@@ -171,10 +171,11 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
 
     double transformToRealDistance(const cv::Rect_<int64_t>& rect, const CameraFrame& frame,
                                    const OreAlignmentSettings& settings) {
-        return (rect.x + rect.width / 2 - frame.info.width) / (frame.info.width / 2 / tan(glm::radians(frame.info.fov))) *
+        // FIXME: use cameraMatrix instead
+        return (rect.x + rect.width / 2 - frame.info.width) / (frame.info.width / 2 / tan(glm::radians(30.0f))) *
             settings.distanceToOre +
             settings.offset;
-    }  // todo:may don't have enough precision!!!
+    }  // TODO : may don't have enough precision!!!
 
 public:
     OreAlignment(caf::actor_config& base, const HubConfig& config)
