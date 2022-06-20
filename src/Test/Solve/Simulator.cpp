@@ -460,12 +460,12 @@ public:
 
             // update events
             receive(
-                [&](set_target_info_atom, Clock::rep, const double, const double, const bool isFire) {
-                    ACTOR_PROTOCOL_CHECK(set_target_info_atom, Clock::rep, double, double, bool);
+                [&](set_target_info_atom, GroupMask, Clock::rep, const double, const double, const bool isFire) {
+                    ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);
                     shoot = isFire;
                 },
-                [&](update_head_atom, Identifier key) {
-                    ACTOR_PROTOCOL_CHECK(update_head_atom, TypedIdentifier<HeadInfo>);
+                [&](update_head_atom, GroupMask, Identifier key) {
+                    ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
                     mHeadKey = key;
                 },
                 [&](const caf::down_msg& x) { runFlag = false; }, [&](const caf::exit_msg& x) { runFlag = false; },

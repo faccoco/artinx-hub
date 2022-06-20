@@ -9,4 +9,4 @@ struct HeadInfo final {
     double pitchSpeed;
 };
 
-ACTOR_PROTOCOL_DEFINE(update_head_atom, TypedIdentifier<HeadInfo>);
+ACTOR_PROTOCOL_DEFINE(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);

@@ -40,8 +40,8 @@ public:
 
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                  },
-                 [&](detect_available_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(detect_available_atom, TypedIdentifier<DetectedTargetArray>);
+                 [&](detect_available_atom, GroupMask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
                      if(mEnergyMode)
                          return;
                      const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
@@ -49,9 +49,11 @@ public:
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
 
+                     // TODO: use middle
                      auto minDistance = std::numeric_limits<double>::max();
                      for(auto& target : data.targets) {
-                         const auto distance = glm::length(target.center.raw());
+                         const auto vec = target.center.raw();
+                         const auto distance = vec.x * vec.x + vec.y * vec.y;
                          if(distance < minDistance) {
                              selected.selected = target;
                              minDistance = distance;

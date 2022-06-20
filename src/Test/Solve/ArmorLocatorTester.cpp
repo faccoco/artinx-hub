@@ -120,8 +120,8 @@ public:
                     ACTOR_PROTOCOL_CHECK(start_atom);
                     next();
                 },
-                 [&](detect_available_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(detect_available_atom, TypedIdentifier<DetectedTargetArray>);
+                 [&](detect_available_atom, GroupMask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
                      const auto solved = BlackBoard::instance().get<DetectedTargetArray>(key).value().targets.front().center;
 
                      const auto expected = mExpected.front();
