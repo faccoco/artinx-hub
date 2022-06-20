@@ -13,8 +13,9 @@ public:
     ArmorDetectorDrawer(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(ArmorDetectorDrawer).hash_code() } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](armor_detect_available_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
                      const auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
                      cv::Mat labeled;
                      data.frame.frame.copyTo(labeled);
@@ -48,8 +49,7 @@ public:
                      frame.lastUpdate = data.frame.lastUpdate;
                      frame.info = data.frame.info;
 
-                     BlackBoard::instance().updateSync(mKey, std::move(frame));
-                     sendAll(image_frame_atom_v, mKey);
+                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frame)));
                  } };
     }
 };

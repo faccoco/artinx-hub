@@ -61,7 +61,8 @@ class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSe
         return scale;
     }
 
-    std::vector<cv::Rect> decodeOutputs(const IE::Blob::Ptr& blob, const double scale, const int32_t width, const int32_t height) {
+    std::vector<cv::Rect> decodeOutputs(const IE::Blob::Ptr& blob, const double scale, const int32_t width,
+                                        const int32_t height) {
         const auto memoryBlob = IE::as<IE::MemoryBlob>(blob);
         const auto mapping = memoryBlob->rmap();
         const auto ptr = mapping.as<float*>();
@@ -173,8 +174,9 @@ public:
         mInputBlobName = inputBlobName;  // NOLINT(cppcoreguidelines-prefer-member-initializer)
     }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      ACTOR_EXCEPTION_PROBE();
 
                      DetectedCarArray res;
@@ -197,8 +199,7 @@ public:
                      logInfo(
                          fmt::format("infer time {:.4f}s decode time {:.4f}s", (t1 - t0).count() / 1e9, (t2 - t1).count() / 1e9));
 
-                     BlackBoard::instance().updateSync(mKey, std::move(res));
-                     sendAll(car_detect_available_atom_v, mKey);
+                     sendAll(car_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
 };

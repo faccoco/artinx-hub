@@ -115,8 +115,9 @@ public:
     }
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](set_target_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);
                      const auto data = BlackBoard::instance().get<SelectedTarget>(key);
                      const auto dataHeadInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
                      const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
@@ -251,10 +252,17 @@ public:
                      //     (std::abs(currentPitchAngle - pitchAngle) < prec) &&
                      //     ((std::abs(currentYawAngle - yawAngle) < prec) ||
                      //      (std::abs(currentYawAngle - glm::half_pi<double>() - yawAngle) < prec)));
-                     sendAll(set_target_info_atom_v, data->lastUpdate.time_since_epoch().count(), yawAngle, pitchAngle, true);
+                     sendAll(set_target_info_atom_v, mGroupMask,
+                             static_cast<Clock::rep>(data->lastUpdate.time_since_epoch().count()), yawAngle, pitchAngle, true);
                  },
-                 [this](update_head_atom, Identifier key) { mHeadKey = key; },
-                 [this](update_posture_atom, Identifier key) { mIMUKey = key; } };
+                 [this](update_head_atom, GroupMask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
+                     mHeadKey = key;
+                 },
+                 [this](update_posture_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);
+                     mIMUKey = key;
+                 } };
     }
 };
 

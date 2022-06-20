@@ -75,8 +75,9 @@ public:
     ArmorLocator(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(ArmorLocator).hash_code() } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](armor_detect_available_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
                      const auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
                      //                     logInfo(data.armors[0].armors.size());
                      DetectedTargetArray res;
@@ -106,10 +107,12 @@ public:
                          }
                      }
 
-                     BlackBoard::instance().updateSync(mKey, std::move(res));
-                     sendAll(detect_available_atom_v, mKey);
+                     sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  },
-                 [&](update_head_atom, Identifier key) { mHeadKey = key; } };
+                 [&](update_head_atom, GroupMask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
+                     mHeadKey = key;
+                 } };
     }
 };
 

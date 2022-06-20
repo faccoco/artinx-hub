@@ -105,8 +105,7 @@ class ArmorLocatorTester final
                          cv::Mat{} };
         res.armors.push_back(std::move(armors));
 
-        BlackBoard::instance().updateSync(mKey, std::move(res));
-        sendAll(armor_detect_available_atom_v, mKey);
+        sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
     }
 
 public:
@@ -117,8 +116,12 @@ public:
               glm::lookAtRH(glm::dvec3{ 0.0 }, glm::dvec3{ 0.0, 0.0, -1.0 }, glm::dvec3{ 0.0, 1.0, 0.0 })
           } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { next(); },
-                 [&](detect_available_atom, Identifier key) {
+        return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
+                    next();
+                },
+                 [&](detect_available_atom, GroupMask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
                      const auto solved = BlackBoard::instance().get<DetectedTargetArray>(key).value().targets.front().center;
 
                      const auto expected = mExpected.front();

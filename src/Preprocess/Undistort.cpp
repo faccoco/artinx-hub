@@ -271,8 +271,9 @@ public:
         mGridWidth = mConfig.squareSize * (mConfig.boardSize.width - 1);
     }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      const auto res = BlackBoard::instance().get<CameraFrame>(key).value();
 
                      //-----  If no more image, or got enough, then stop calibration and show result -------------
@@ -330,8 +331,7 @@ public:
                          cv::undistort(temp, res.frame, mCameraMatrix, mDistCoeffs);
                      }
                      // For debugging
-                     BlackBoard::instance().updateSync(mKey, std::move(res));
-                     sendAll(image_frame_atom_v, mKey);
+                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
 };
