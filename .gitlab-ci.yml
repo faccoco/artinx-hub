@@ -10,6 +10,8 @@ cache:
 
 build-job-windows:
   stage: build
+  tags:
+    - windows
   script:
     - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
@@ -18,6 +20,8 @@ build-job-windows:
 
 build-job-linux:
   stage: build
+  tags:
+    - linux
   script:
     - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=$CAMERA_TYPE -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
@@ -26,6 +30,8 @@ build-job-linux:
 
 test-job:
   stage: test
+  tags:
+    - windows
   script:
     - cd build
     - ctest --build-config Release -j 8
@@ -40,6 +46,8 @@ test-job:
 
 deploy-job:
   stage: deploy
+  tags:
+    - linux
   script:
     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
   environment:
@@ -51,6 +59,8 @@ deploy-job:
 
 stop-service:
   stage: deploy
+  tags:
+    - linux
   script:
     - sudo python3 ./scripts/teardown-service.py
   when: manual
