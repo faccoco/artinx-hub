@@ -7,6 +7,14 @@ print-target:
   stage: build
   script:
     - echo $CI_RUNNER_TAGS
+    - echo $TEST_RESULT
+  rules:
+    - if: $CI_RUNNER_TAGS =~ /^Dev.*/
+      variables:
+        TEST_RESULT: 1
+    - if: $CI_RUNNER_TAGS !~ /^Dev.*/
+      variables:
+        TEST_RESULT: 2
 
 build-job-windows:
   stage: build
