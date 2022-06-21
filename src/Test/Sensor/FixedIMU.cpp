@@ -12,10 +12,10 @@ class FixedIMU final : public HubHelper<caf::event_based_actor, void, update_pos
     Identifier mKey;
 
 public:
-    FixedIMU(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(FixedIMU).hash_code() } {}
+    FixedIMU(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [&](timer_atom) {
+                    ACTOR_PROTOCOL_CHECK(timer_atom);
                     PostureData posture;
                     posture.lastUpdate = SynchronizedClock::instance().now();
                     posture.postureOfRobot =
@@ -29,10 +29,12 @@ public:
                     posture.linearVelocityOfRobot =
                         Vector<UnitType::LinearVelocity, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
 
-                    BlackBoard::instance().updateSync(mKey, posture);
-                    sendAll(update_posture_atom_v, mKey);
+                    sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
                 },
-                 [this](start_atom) { Timer::instance().addTimer(address(), 100ms); } };
+                 [this](start_atom) {
+                     ACTOR_PROTOCOL_CHECK(start_atom);
+                     Timer::instance().addTimer(address(), 100ms);
+                 } };
     }
 };
 

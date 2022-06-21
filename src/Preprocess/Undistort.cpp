@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <opencv2/calib3d.hpp>
 
+/*
+// had been integrated into daheng driver
 struct UndistortSettings final {
     std::string ymlPath;
 };
@@ -21,7 +23,7 @@ class Undistort final : public HubHelper<caf::event_based_actor, UndistortSettin
 
 public:
     Undistort(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(Undistort).hash_code() } {
+        : HubHelper{ base, config }, mKey{ generateKey(this) } {
         cv::FileStorage fs(mConfig.ymlPath, cv::FileStorage::READ);
         fs["camera_matrix"] >> mCameraMatrix;
         fs["distortion_coefficients"] >> mDistCoeffs;
@@ -31,8 +33,7 @@ public:
                  [&](image_frame_atom, Identifier key) {
                      auto res = BlackBoard::instance().get<CameraFrame>(key).value();
 
-                     // Implement here
-                     const auto temp = res.frame.clone();
+                     auto temp = res.frame.clone();
                      cv::undistort(temp, res.frame, mCameraMatrix, mDistCoeffs);
 
                      BlackBoard::instance().updateSync(mKey, std::move(res));
@@ -42,6 +43,7 @@ public:
 };
 
 HUB_REGISTER_CLASS(Undistort);
+*/
 
 struct UndistortCalibratorSettings final {
     cv::Size boardSize;           // The size of the board -> Number of items by width and height
@@ -51,11 +53,10 @@ struct UndistortCalibratorSettings final {
     float aspectRatio;            // The aspect ratio
     bool calibZeroTangentDist;    // Assume zero tangential distortion
     bool calibFixPrincipalPoint;  // Fix the principal point at the center
-    std::string outputFileName;   // The name of the file where to write
     bool writePoints;             // Write detected feature points
     bool writeExtrinsics;         // Write extrinsic parameters
     bool writeGrid;               // Write refined 3D target grid points
-    bool showUndistorted;         // Show undistorted images after calibration
+    bool showUndistorted;         // Show undstorted images after calibration
     bool fixK1;                   // fix K1 distortion coefficient
     bool fixK2;                   // fix K2 distortion coefficient
     bool fixK3;                   // fix K3 distortion coefficient
@@ -70,8 +71,8 @@ bool inspect(Inspector& f, UndistortCalibratorSettings& x) {
         f.field("boardSizeWidth", x.boardSize.width), f.field("boardSizeHeight", x.boardSize.height),
         f.field("squareSize", x.squareSize), f.field("flipVertical", x.flipVertical), f.field("nrFrames", x.nrFrames),
         f.field("aspectRatio", x.aspectRatio), f.field("calibZeroTangentDist", x.calibZeroTangentDist),
-        f.field("calibFixPrincipalPoint", x.calibFixPrincipalPoint), f.field("outputFileName", x.outputFileName),
-        f.field("writePoints", x.writePoints), f.field("writeExtrinsics", x.writeExtrinsics), f.field("writeGrid", x.writeGrid),
+        f.field("calibFixPrincipalPoint", x.calibFixPrincipalPoint), f.field("writePoints", x.writePoints),
+        f.field("writeExtrinsics", x.writeExtrinsics), f.field("writeGrid", x.writeGrid),
         f.field("showUndistorted", x.showUndistorted), f.field("fixK1", x.fixK1), f.field("fixK2", x.fixK2),
         f.field("fixK3", x.fixK3), f.field("fixK4", x.fixK4), f.field("fixK5", x.fixK5), f.field("winSize", x.winSize));
 }
@@ -158,11 +159,11 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
                                            tvecs, newObjPoints, mFlag | cv::CALIB_USE_LU);
 
         if(mReleaseObject) {
-            logInfo("New board corners: ");
-            // logInfo(newObjPoints[0]);
-            // logInfo(newObjPoints[mConfig.boardSize.width - 1]);
-            // logInfo(newObjPoints[mConfig.boardSize.width * (mConfig.boardSize.height - 1)]);
-            // logInfo(newObjPoints.back());
+            //  logInfo("New board corners: ");
+            //  logInfo(newObjPoints[0]);
+            //  logInfo(newObjPoints[mConfig.boardSize.width - 1]);
+            //  logInfo(newObjPoints[mConfig.boardSize.width * (mConfig.boardSize.height - 1)]);
+            //  logInfo(newObjPoints.back());
         }
 
         logInfo("Re-projection error reported by calibrateCamera: " + std::to_string(rms));
@@ -177,11 +178,12 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
     }
 
     // Print camera parameters to the output file
-    void saveCameraParams(const std::vector<cv::Mat>& rvecs, const std::vector<cv::Mat>& tvecs,
+    void saveCameraParams(const std::string& identifier, const std::vector<cv::Mat>& rvecs, const std::vector<cv::Mat>& tvecs,
                           const std::vector<float>& reprojErrs, double totalAvgErr,
                           const std::vector<cv::Point3f>& newObjPoints) {
+        const auto outputFileName = "./data/camera_calibration/" + identifier + ".xml";
 
-        cv::FileStorage fs(mConfig.outputFileName, cv::FileStorage::WRITE);
+        cv::FileStorage fs(outputFileName, cv::FileStorage::WRITE);
 
         if(!rvecs.empty() || !reprojErrs.empty())
             fs << "nr_of_frames" << static_cast<int>(std::max(rvecs.size(), reprojErrs.size()));
@@ -246,7 +248,7 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
         }
     }
 
-    bool runCalibrationAndSave() {
+    bool runCalibrationAndSave(const std::string& identifier) {
         std::vector<cv::Mat> rvecs, tvecs;
         std::vector<float> reprojErrs;
         double totalAvgErr = 0;
@@ -258,28 +260,25 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
         logInfo("avg re projection error =" + std::to_string(totalAvgErr));
 
         if(ok)
-            saveCameraParams(rvecs, tvecs, reprojErrs, totalAvgErr, newObjPoints);
+            saveCameraParams(identifier, rvecs, tvecs, reprojErrs, totalAvgErr, newObjPoints);
         return ok;
     }
 
 public:
     UndistortCalibrator(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(UndistortCalibrator).hash_code() }, mMode(Status::CAPTURING) {
-
+        : HubHelper{ base, config }, mKey{ generateKey(this) }, mMode(Status::CAPTURING) {
         initFlag();
         mGridWidth = mConfig.squareSize * (mConfig.boardSize.width - 1);
     }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
-                     const auto input = BlackBoard::instance().get<CameraFrame>(key).value();
-
-                     // Implement here
-                     CameraFrame res = input;
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+                     const auto res = BlackBoard::instance().get<CameraFrame>(key).value();
 
                      //-----  If no more image, or got enough, then stop calibration and show result -------------
                      if(mMode == Status::CAPTURING && mImagePoints.size() >= static_cast<size_t>(mConfig.nrFrames)) {
-                         if(runCalibrationAndSave())
+                         if(runCalibrationAndSave(res.info.identifier))
                              mMode = Status::CALIBRATED;
                          else
                              mMode = Status::DETECTION;
@@ -307,7 +306,6 @@ public:
                          cv::drawChessboardCorners(res.frame, mConfig.boardSize, cv::Mat(pointBuf), found);
                      }
 
-#ifdef ARTINXHUB_DEBUG
                      //----------------------------- Output Text ------------------------------------------------
                      //! [output_text]
                      std::string msg = (mMode == Status::CAPTURING) ? "100/100" :
@@ -332,10 +330,8 @@ public:
                          cv::Mat temp = res.frame.clone();
                          cv::undistort(temp, res.frame, mCameraMatrix, mDistCoeffs);
                      }
-#endif
                      // For debugging
-                     BlackBoard::instance().updateSync(mKey, std::move(res));
-                     sendAll(image_frame_atom_v, mKey);
+                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
 };

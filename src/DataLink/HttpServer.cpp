@@ -81,12 +81,13 @@ public:
         //        mServer.Get("/parameters", [this](const httplib::Request& req, httplib::Response& res) {
         //            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
         //        });
-        mServer.Get(R"(/img/(\d+))", [this](const httplib::Request& req, httplib::Response& res) {
+        mServer.Get(R"(/img/(\d+).*)", [this](const httplib::Request& req, httplib::Response& res) {
             auto path = req.matches[1];
+            std::string p = path;
             res.set_content_provider(
                 "multipart/x-mixed-replace;boundary=MJP",
-                [this, &path](size_t offset, httplib::DataSink& sink) {
-                    if(const auto img = generateImageData(path)) {
+                [this, p](size_t offset, httplib::DataSink& sink) {
+                    if(const auto img = generateImageData(p)) {
                         auto vec = img.value();
                         sink.os << "--MJP\r\n"
                                    "Content-Type: image/jpeg\r\n"
@@ -127,7 +128,7 @@ public:
             mServer.stop();
             terminateSystem(*this, true);
         });
-        mListener = std::thread{ [this] { mServer.listen("127.0.0.1", 8080); } };
+        mListener = std::thread{ [this] { mServer.listen("127.0.0.1", 5630); } };
     }
     ~HttpServer() override {
         std::clog.rdbuf(mClogBuffer);
@@ -135,13 +136,15 @@ public:
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
 #if defined(ARTINXHUB_WINDOWS)
-                    ShellExecuteA(nullptr, "open", "http://localhost:8080/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
+                    ShellExecuteA(nullptr, "open", "http://localhost:5630/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
 #elif defined(ARTINXHUB_LINUX)
-                    ::system("xdg-open http://127.0.0.1:8080/pages/index.html");
+                    int res = ::system("xdg-open http://127.0.0.1:5630/pages/index.html");
 #endif
                 },
                  [this](image_frame_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      std::lock_guard<std::mutex> guard{ mMutex };
                      mImage[key.val].image = BlackBoard::instance().get<CameraFrame>(key).value().frame;
                  } };

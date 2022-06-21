@@ -2,6 +2,7 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "DetectedCar.hpp"
+#include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include <Utility.hpp>
 #include <caf/event_based_actor.hpp>
@@ -46,8 +47,7 @@ class CarTracker final : public HubHelper<caf::event_based_actor, void, car_dete
     }
 
 public:
-    CarTracker(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(CarTracker).hash_code() } {
+    CarTracker(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         for(int i = 0; i < maxNumRobot; i++) {
             mTrackers[i] = cv::TrackerKCF::create();
         }
@@ -55,8 +55,11 @@ public:
 
     caf::behavior make_behavior() override {
         return {
-            [this](start_atom) {},
+            [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](image_frame_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+                ACTOR_LATENCY_PROBE();
+
                 if(!mInitialFlag) {
                     return;
                 }
@@ -73,10 +76,12 @@ public:
                 }
                 const auto t2 = Clock::now();
                 logInfo(fmt::format("image_frame_atom:track time {:.4f}s", (t2 - t1).count() / 1e9));
-                BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes));
-                sendAll(car_detect_available_atom_v, mKey);
+                sendAll(car_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes)));
             },
             [&](car_detect_available_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(car_detect_available_atom, TypedIdentifier<DetectedCarArray>);
+                ACTOR_LATENCY_PROBE();
+
                 const auto carDetectedRes = BlackBoard::instance().get<DetectedCarArray>(key).value();
 
                 const auto t1 = Clock::now();
@@ -92,8 +97,7 @@ public:
                     }
                     mInitialFlag = true;
 
-                    BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes));
-                    sendAll(car_detect_available_atom_v, mKey);
+                    sendAll(car_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes)));
                 } else {
                     VectorRect trackRectRes;
                     std::vector<uint32_t> trackRectIndex;
@@ -132,11 +136,9 @@ public:
 
                     const auto t2 = Clock::now();
                     logInfo(fmt::format("carDetect_atom:track time {:.4f}s", (t2 - t1).count() / 1e9));
-                    BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes));
-                    sendAll(car_detect_available_atom_v, mKey);
+                    sendAll(car_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes)));
                 }
             },
-
         };
     }
 };

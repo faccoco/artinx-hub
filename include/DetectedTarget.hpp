@@ -3,10 +3,13 @@
 #include "Transform.hpp"
 #include <vector>
 
+enum class ArmorType { Small, Large };
+
 struct DetectedTarget final {
     Point<UnitType::Distance, FrameOfReference::Gun> center;
     double area;
     int32_t id;
+    ArmorType type;
     Vector<UnitType::LinearVelocity, FrameOfReference::Gun> velocity;
 };
 
@@ -14,3 +17,5 @@ struct DetectedTargetArray final {
     TimePoint lastUpdate;
     std::vector<DetectedTarget> targets;
 };
+
+ACTOR_PROTOCOL_DEFINE(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);

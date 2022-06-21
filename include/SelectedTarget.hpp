@@ -1,9 +1,11 @@
 #pragma once
+#include "DetectedTarget.hpp"
 #include "Timer.hpp"
-#include "Transform.hpp"
 #include <optional>
 
 struct SelectedTarget final {
     TimePoint lastUpdate;
-    std::optional<Point<UnitType::Distance, FrameOfReference::Gun>> center;
+    std::optional<DetectedTarget> selected;
 };
+
+ACTOR_PROTOCOL_DEFINE(set_target_atom, TypedIdentifier<SelectedTarget>);

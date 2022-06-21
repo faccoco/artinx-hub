@@ -71,13 +71,13 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
     static constexpr double timeScale = static_cast<double>(Clock::period::den) / static_cast<double>(Clock::period::num);
 
 public:
-    ArmorPredictor(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(ArmorPredictor).hash_code() } {
+    ArmorPredictor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         mTimeStep = static_cast<int64_t>(mConfig.step * timeScale);
     }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
-                 [&](detect_available_atom, Identifier key) {
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+                 [&](detect_available_atom, GroupMask mask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
                      ACTOR_EXCEPTION_PROBE();
 
                      auto res = BlackBoard::instance().get<DetectedTargetArray>(key).value();
@@ -129,8 +129,7 @@ public:
                          if(!use[idx])
                              mTargets.erase(mTargets.cbegin() + idx);
 
-                     BlackBoard::instance().updateSync(mKey, std::move(res));
-                     sendAll(detect_available_atom_v, mKey);
+                     sendAll(detect_available_atom_v, mask, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
 };

@@ -1,5 +1,6 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
+#include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include "RadarCameraPoints.hpp"
 #include <caf/event_based_actor.hpp>
@@ -54,21 +55,19 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
     }
 
 public:
-    RadarLocator(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(RadarLocator).hash_code() } {}
+    RadarLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](radar_locate_request_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(radar_locate_request_atom, TypedIdentifier<RadarCameraPointsArray>);
+                     ACTOR_LATENCY_PROBE();
+
                      const auto data = BlackBoard::instance().get<RadarCameraPointsArray>(key).value();
                      const auto& info = data.cameraInfo;
-                     const cv::Mat cameraMatrix =
-                         (cv::Mat_<double>(3, 3) << info.width / 2 / tan(glm::radians(info.fov) / 2), 0, info.width / 2, 0,
-                          info.height / 2 / tan(glm::radians(info.fov) / 2), info.height / 2, 0, 0, 1);
-                     if(const auto radarTransform = locatePosition(cameraMatrix, data.imagePoints, data.selfColor)) {
+                     if(const auto radarTransform = locatePosition(info.cameraMatrix, data.imagePoints, data.selfColor)) {
                          const Transform<FrameOfReference::Camera, FrameOfReference::Ground, true> transform{ glm::inverse(
                              radarTransform.value()) };
-                         BlackBoard::instance().updateSync(mKey, transform);
-                         sendAll(radar_locate_succeed_atom_v, mKey);
+                         sendAll(radar_locate_succeed_atom_v, BlackBoard::instance().updateSync(mKey, transform));
                      }
                  } };
     }

@@ -2,9 +2,9 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
+#include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/videoio.hpp>
 
 struct VideoReplaySettings final {
@@ -17,8 +17,9 @@ struct VideoReplaySettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, VideoReplaySettings& x) {
-    return f.object(x).fields(f.field("path", x.path),
-                              f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 120.0; }),
+    return f.object(x).fields(f.field("path", x.path), f.field("fps", x.fps).fallback(30.0).invariant([](const double v) {
+        return v >= 1.0 && v <= 120.0;
+    }),
                               f.field("fov", x.fov), f.field("width", x.width), f.field("height", x.height));
 }
 
@@ -35,23 +36,29 @@ private:
 
     void next() {
         cv::Mat img;
-        if(!mCapture.read(img))
+        if(!mCapture.read(img)) {
+            mCapture.release();
+            mCapture.open(mConfig.path);
             return;
+        }
 
         CameraFrame res;
         res.frame = (mConfig.width == img.cols && mConfig.height == img.rows) ? std::move(img) : resize(img);
         res.info.width = mConfig.width;
         res.info.height = mConfig.height;
-        res.info.fov = mConfig.fov;
+        res.info.identifier = "VideoReplay";
+        res.info.cameraMatrix =
+            (cv::Mat_<double>(3, 3) << mConfig.width / 2 / tan(glm::radians(mConfig.fov) / 2), 0, mConfig.width / 2, 0,
+             mConfig.height / 2 / tan(glm::radians(mConfig.fov) / 2), mConfig.height / 2, 0, 0, 1);
+        res.info.distCoefficients = cv::Mat_<double>{};
+        res.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
         res.lastUpdate = SynchronizedClock::instance().now();
 
-        BlackBoard::instance().updateSync(mKey, std::move(res));
-        sendAll(image_frame_atom_v, mKey);
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
     }
 
 public:
-    VideoReplay(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(VideoReplay).hash_code() } {
+    VideoReplay(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
 
         if(!mCapture.open(mConfig.path)) {
             const auto error = "Failed to load video " + mConfig.path;
@@ -60,10 +67,14 @@ public:
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
                     Timer::instance().addTimer(address(),
                                                std::chrono::microseconds{ static_cast<int64_t>(1'000'000 / mConfig.fps) });
                 },
-                 [this](timer_atom) { next(); } };
+                 [this](timer_atom) {
+                     ACTOR_PROTOCOL_CHECK(timer_atom);
+                     next();
+                 } };
     }
 };
 

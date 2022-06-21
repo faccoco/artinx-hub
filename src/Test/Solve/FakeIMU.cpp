@@ -30,11 +30,11 @@ class FakeIMU final : public HubHelper<caf::event_based_actor, FakeIMUSettings, 
 
 public:
     FakeIMU(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(FakeIMU).hash_code() }, mDelay{
-              static_cast<Clock::rep>(mConfig.delay * Clock::period::den / Clock::period::num)
-          } {}
+        : HubHelper{ base, config }, mKey{ generateKey(this) }, mDelay{ static_cast<Clock::rep>(
+                                                                    mConfig.delay * Clock::period::den / Clock::period::num) } {}
     caf::behavior make_behavior() override {
         return { [&](simulator_step_atom, Identifier key) {
+                    ACTOR_PROTOCOL_CHECK(simulator_step_atom, TypedIdentifier<SimulatorWorldInfo>);
                     const auto data = BlackBoard::instance().get<SimulatorWorldInfo>(key).value();
                     mQueue.emplace(data.lastUpdate, data.posture);
 
@@ -82,10 +82,9 @@ public:
 
                     // TODO: add noise
 
-                    BlackBoard::instance().updateSync(mKey, posture);
-                    sendAll(update_posture_atom_v, mKey);
+                    sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
                 },
-                 [](start_atom) {} };
+                 [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); } };
     }
 };
 
