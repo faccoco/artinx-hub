@@ -23,7 +23,7 @@ struct ImageWithFilter {
     bool isEnable = true;
 };
 
-class HttpServer final : public HubHelper<caf::event_based_actor, void> {
+class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_coordinate_atom> {
     httplib::Server mServer;
     std::unordered_map<uint64_t, ImageWithFilter> mImage;
     std::mutex mMutex;
@@ -31,6 +31,8 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void> {
 
     std::streambuf* mClogBuffer;
     std::stringstream mLogStream;
+
+    Identifier mKey;
 
     std::optional<std::vector<uchar>> generateImageData(const std::string& path) {
         if(path.empty())
@@ -115,6 +117,12 @@ public:
                 mImage[std::stoull(k)].isEnable = v;
             }
             res.set_content("", "text/plain");
+        });
+        mServer.Post("/radar", [this](const httplib::Request& req, httplib::Response& res) {
+            auto j = nlohmann::json::parse(req.body);
+            int x = j[0], y = j[1];
+            BlackBoard::instance().updateSync(mKey, std::make_pair(x, y));
+            sendAll(radar_coordinate_atom_v, mKey);
         });
         mServer.Get("/exit", [this](const httplib::Request& req, httplib::Response& res) {
             mServer.stop();
