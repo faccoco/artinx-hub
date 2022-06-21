@@ -51,7 +51,7 @@ deploy-job:
   script:
     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
   environment:
-    name: $DEPLOY_TARGET
+    name: Robots
     on_stop: stop-service
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
@@ -65,7 +65,7 @@ stop-service:
     - sudo python3 ./scripts/teardown-service.py
   when: manual
   environment:
-    name: $DEPLOY_TARGET
+    name: Robots
     action: stop
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
