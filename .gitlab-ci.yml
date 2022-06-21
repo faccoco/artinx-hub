@@ -14,16 +14,10 @@ build-job-windows:
 build-job-linux:
   stage: build
   script:
-    - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=$USB_TYPE -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=$CAMERA_TYPE -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
-    - if: $DEPLOY_TARGET == "Sentry"
-      variables:
-        USB_TYPE: "USB2"
-    - if: $DEPLOY_TARGET != "Sentry"
-      variables:
-        USB_TYPE: "USB3"
 
 test-job:
   stage: test
@@ -39,22 +33,22 @@ test-job:
   rules:
     - if: $DEPLOY_TARGET == null
 
-# deploy-job:
-#   stage: deploy
-#   script:
-#     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
-#   environment:
-#     name: $CI_RUNNER_TAGS
-#     on_stop: stop-service
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_RUNNER_TAGS != "Dev"
-#       when: manual
+deploy-job:
+  stage: deploy
+  script:
+    - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
+  environment:
+    name: $DEPLOY_TARGET
+    on_stop: stop-service
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+      when: manual
 
-# stop-service:
-#   stage: deploy
-#   script:
-#     - sudo python3 ./scripts/teardown-service.py
-#   when: manual
-#   environment:
-#     name: $CI_RUNNER_TAGS
-#     action: stop
+stop-service:
+  stage: deploy
+  script:
+    - sudo python3 ./scripts/teardown-service.py
+  when: manual
+  environment:
+    name: $DEPLOY_TARGET
+    action: stop
