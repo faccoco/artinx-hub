@@ -1,5 +1,6 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
+#include "ExceptionProbe.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "PostureData.hpp"
@@ -121,6 +122,8 @@ public:
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](set_target_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);
+                     ACTOR_LATENCY_PROBE();
+
                      const auto data = BlackBoard::instance().get<SelectedTarget>(key);
                      const auto dataHeadInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
                      const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);

@@ -78,7 +78,7 @@ public:
                          }
                      }
 
-                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                     sendMasked(set_target_atom_v, mask, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                  },
                  [&](update_head_atom, GroupMask mask, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);

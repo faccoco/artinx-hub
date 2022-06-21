@@ -1,6 +1,7 @@
 #include "BlackBoard.hpp"
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
+#include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include <algorithm>
 #include <caf/event_based_actor.hpp>
@@ -150,6 +151,8 @@ public:
             },
             [&](image_frame_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+                ACTOR_LATENCY_PROBE();
+
                 if(mAutomataState == AutomataStates::off) {
                     off();
                     return;

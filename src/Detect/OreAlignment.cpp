@@ -1,6 +1,7 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedOre.hpp"
+#include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include <algorithm>
 #include <caf/event_based_actor.hpp>
@@ -184,6 +185,8 @@ public:
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](ore_alignment_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(ore_alignment_available_atom, TypedIdentifier<OreAlignmentMessage>);
+                     ACTOR_LATENCY_PROBE();
+
                      auto data = BlackBoard::instance().get<OreAlignmentMessage>(key).value();
 
                      data.frame.frame.convertTo(bgrFrame, CV_32FC3, 1.0 / 255.0);
