@@ -125,7 +125,7 @@ public:
             RadarCameraPointsArray data;
             // TODO
             data.imagePoints.push_back({x, y});
-            sendAll(radar_coordinate_atom_v, BlackBoard::instance().updateSync(mKey, data));
+            sendAll(radar_locate_request_atom_v, BlackBoard::instance().updateSync(mKey, data));
         });
         mServer.Get("/exit", [this](const httplib::Request& req, httplib::Response& res) {
             mServer.stop();
