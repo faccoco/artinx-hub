@@ -11,7 +11,7 @@ build-job-windows:
   rules:
     - if: $DEPLOY_TARGET == null
   cache:
-    key: $CI_COMMIT_REF_SLUG
+    key: $CI_COMMIT_SHA
     paths:
       - build/*
 
@@ -23,7 +23,7 @@ build-job-linux:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
   cache:
-    key: $CI_COMMIT_REF_SLUG
+    key: $CI_COMMIT_SHA
     paths:
       - build/*
 
@@ -41,7 +41,7 @@ test-job:
   rules:
     - if: $DEPLOY_TARGET == null
   cache:
-    key: $CI_COMMIT_REF_SLUG
+    key: $CI_COMMIT_SHA
 
 deploy-job:
   stage: deploy
@@ -54,7 +54,7 @@ deploy-job:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
       when: manual
   cache:
-    key: $CI_COMMIT_REF_SLUG
+    key: $CI_COMMIT_SHA
 
 stop-service:
   stage: deploy
@@ -68,4 +68,4 @@ stop-service:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
       when: manual
   cache:
-    key: $CI_COMMIT_REF_SLUG
+    key: $CI_COMMIT_SHA
