@@ -3,5 +3,6 @@
 .vscode
 .idea
 config
+bringup
 /data_test/
 
