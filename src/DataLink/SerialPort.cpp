@@ -179,7 +179,7 @@ public:
             while(globalStatus == RunStatus::running) {
                 receive();
                 sendPacket();
-                std::this_thread::sleep_for(1.5ms);
+                std::this_thread::sleep_for(0.75ms);
 //                int targetBits = 0;
 //                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastUpTargetTime).count() < 500) {
 //                    targetBits |= (1 << 2);
