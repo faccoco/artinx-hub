@@ -11,7 +11,7 @@ build-job-windows:
   rules:
     - if: $DEPLOY_TARGET == null
   cache:
-    key: binaries
+    key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
     paths:
       - build/*
 
