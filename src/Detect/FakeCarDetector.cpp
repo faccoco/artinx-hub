@@ -9,8 +9,7 @@ class FakeCarDetector final : public HubHelper<caf::event_based_actor, void, car
     Identifier mKey;
 
 public:
-    FakeCarDetector(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(FakeCarDetector).hash_code() } {}
+    FakeCarDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {

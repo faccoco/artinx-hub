@@ -63,6 +63,11 @@ protected:
     std::conditional_t<std::is_void_v<Config>, char, Config> mConfig;
     GroupMask mGroupMask;
 
+    template <typename Self>
+    static Identifier generateKey(Self* thisPointer) {
+        return { typeid(Self).hash_code() ^ reinterpret_cast<uintptr_t>(thisPointer) };
+    }
+
 public:
     HubHelper(caf::actor_config& base, const HubConfig& config)
         : T{ base }, mDest{ SucceedAddress<Succeed>{ detail::parseSucceed(config, typeid(Succeed).name()) }... } {
@@ -75,8 +80,10 @@ public:
         }
 
         const auto& dict = config.to_dictionary();
-        if(const auto iter = dict->find("group_id"); iter != dict->cend()) {
-            mGroupMask = 1U << static_cast<uint32_t>(iter->second.to_integer().value());
+        if(const auto iter1 = dict->find("group_mask"); iter1 != dict->cend()) {
+            mGroupMask = static_cast<uint32_t>(iter1->second.to_integer().value());
+        } else if(const auto iter2 = dict->find("group_id"); iter2 != dict->cend()) {
+            mGroupMask = 1U << static_cast<uint32_t>(iter2->second.to_integer().value());
         } else {
             mGroupMask = 1U;
         }

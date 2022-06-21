@@ -28,7 +28,7 @@ class FakeDetector final : public HubHelper<caf::event_based_actor, FakeDetector
 
 public:
     FakeDetector(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(FakeDetector).hash_code() }, mDelay{
+        : HubHelper{ base, config }, mKey{ generateKey(this) }, mDelay{
               static_cast<Clock::rep>(mConfig.delay * Clock::period::den / Clock::period::num)
           } {}
     caf::behavior make_behavior() override {

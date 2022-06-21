@@ -13,8 +13,7 @@ class SimpleStrategy final : public HubHelper<caf::event_based_actor, void, set_
     Identifier mKey;
 
 public:
-    SimpleStrategy(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(SimpleStrategy).hash_code() } {}
+    SimpleStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [&](detect_available_atom, GroupMask, Identifier key) {
                     ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);

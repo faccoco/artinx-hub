@@ -72,8 +72,7 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
     }
 
 public:
-    ArmorLocator(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(ArmorLocator).hash_code() } {}
+    ArmorLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](armor_detect_available_atom, Identifier key) {

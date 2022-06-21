@@ -160,8 +160,7 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
 #endif
 
 public:
-    DahengDriver(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(DahengDriver).hash_code() } {
+    DahengDriver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         initLib();
 
         GX_OPEN_PARAM deviceDesc;
@@ -214,6 +213,8 @@ public:
         int64_t width, height;
         checkGXStatus(GXGetInt(mDevice, GX_INT_WIDTH_MAX, &width));
         checkGXStatus(GXGetInt(mDevice, GX_INT_HEIGHT_MAX, &height));
+
+        logInfo(fmt::format("Resolution for {}: {} x {}", mCameraSN, width, height));
 
 #ifndef ARTINX_DAHENG_USB2
         uint32_t targetWidth = width, targetHeight = height;

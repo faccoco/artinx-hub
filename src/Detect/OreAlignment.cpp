@@ -178,8 +178,7 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
     }  // TODO : may don't have enough precision!!!
 
 public:
-    OreAlignment(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(OreAlignment).hash_code() } {}
+    OreAlignment(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
 
     caf::behavior make_behavior() override {
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },

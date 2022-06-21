@@ -58,8 +58,7 @@ private:
     }
 
 public:
-    VideoReplay(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(VideoReplay).hash_code() } {
+    VideoReplay(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
 
         if(!mCapture.open(mConfig.path)) {
             const auto error = "Failed to load video " + mConfig.path;

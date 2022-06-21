@@ -110,7 +110,7 @@ class ArmorLocatorTester final
 
 public:
     ArmorLocatorTester(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(ArmorLocatorTester).hash_code() }, mMat{
+        : HubHelper{ base, config }, mKey{ generateKey(this) }, mMat{
               glm::perspectiveFovRH(glm::radians(mConfig.fov), static_cast<double>(mConfig.imageWidth),
                                     static_cast<double>(mConfig.imageHeight), zNear, zFar) *
               glm::lookAtRH(glm::dvec3{ 0.0 }, glm::dvec3{ 0.0, 0.0, -1.0 }, glm::dvec3{ 0.0, 1.0, 0.0 })

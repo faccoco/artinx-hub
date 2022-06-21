@@ -41,9 +41,8 @@ class FakeHead final : public HubHelper<caf::event_based_actor, FakeHeadSettings
 public:
     FakeHead(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mDelay{ static_cast<Clock::rep>(mConfig.delay * Clock::period::den / Clock::period::num) },
-          mYaw{ { mConfig.kp, mConfig.ki, mConfig.kd } }, mPitch{ { mConfig.kp, mConfig.ki, mConfig.kd } }, mKey{
-              typeid(FakeHead).hash_code()
-          } {
+          mYaw{ { mConfig.kp, mConfig.ki, mConfig.kd } }, mPitch{ { mConfig.kp, mConfig.ki, mConfig.kd } },  //
+          mKey{ generateKey(this) } {
         Timer::instance().addTimer(this->address(), 5ms);
     }
     caf::behavior make_behavior() override {
