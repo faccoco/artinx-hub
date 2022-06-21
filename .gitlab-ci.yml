@@ -11,10 +11,10 @@ print-target:
   rules:
     - if: $CI_RUNNER_TAGS =~ /^Dev.*/
       variables:
-        TEST_RESULT: 1
+        TEST_RESULT: "1"
     - if: $CI_RUNNER_TAGS !~ /^Dev.*/
       variables:
-        TEST_RESULT: 2
+        TEST_RESULT: "2"
 
 build-job-windows:
   stage: build
