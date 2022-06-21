@@ -14,9 +14,7 @@ build-job-windows:
     - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
   rules:
-    - if: $CI_RUNNER_TAGS == "Dev"
-      when: always
-    - when: never
+    - if: $CI_RUNNER_TAGS =~ /Dev$/
 
 build-job-linux:
   stage: build
@@ -24,15 +22,13 @@ build-job-linux:
     - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=$USB_TYPE -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_RUNNER_TAGS != "Dev"
-      when: always
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_RUNNER_TAGS !~ /Dev$/
     - if: $CI_RUNNER_TAGS == "Sentry"
       variables:
         USB_TYPE: USB2
     - if: $CI_RUNNER_TAGS != "Sentry"
       variables:
         USB_TYPE: USB3
-    - when: never
 
 test-job:
   stage: test
@@ -46,9 +42,7 @@ test-job:
     expire_in: 1 month
     expose_as: "test report"
   rules:
-    - if: $CI_RUNNER_TAGS == "Dev"
-      when: always
-    - when: never
+    - if: $CI_RUNNER_TAGS =~ "Dev"
 
 # deploy-job:
 #   stage: deploy
