@@ -3,6 +3,11 @@ stages:
   - test
   - deploy
 
+print-target:
+  stage: build
+  script:
+    - echo $CI_RUNNER_TAGS
+
 build-job-windows:
   stage: build
   script:
