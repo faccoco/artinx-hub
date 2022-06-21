@@ -52,7 +52,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     size_t mSendBufferLen;
 
     float lastSpeedX = 0.0f, lastSpeedY = 0.0f;
-    TimePoint lastReceivedTime, lastTargetTime;
+    TimePoint lastReceivedTime, lastUpTargetTime, lastDownTargetTime;
 
     void receive() {
         if(!started)
@@ -92,7 +92,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             FdbPacket fdb(mPacketBuffer);
             if(fdb.bulletSpeed > 10.0f)
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
-            HubLogger::watch("bullet speed", fdb.bulletSpeed);
+            HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
 
             if(mConfig.enableEnergyControl) {
                 HubLogger::watch("energy mode", static_cast<bool>(fdb.energyMode));
@@ -179,12 +179,19 @@ public:
             while(globalStatus == RunStatus::running) {
                 receive();
                 sendPacket();
-                std::this_thread::sleep_for(1.0ms);
-                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastTargetTime).count() < 500) {
-                    gimbalSetPacket.buffer.now -= 3;
-                    gimbalSetPacket.buffer.serialize(gimbalSetPacket.buffer.buffer[gimbalSetPacket.buffer.now] | (1 << 2));
-                    gimbalSetPacket.buffer.serializeCrc16();
-                }
+                std::this_thread::sleep_for(1.5ms);
+//                int targetBits = 0;
+//                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastUpTargetTime).count() < 500) {
+//                    targetBits |= (1 << 2);
+//                }
+//                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastDownTargetTime).count() < 500) {
+//                    targetBits |= (1 << 3);
+//                }
+//                if (targetBits) {
+//                    gimbalSetPacket.buffer.now -= 3;
+//                    gimbalSetPacket.buffer.serialize(gimbalSetPacket.buffer.buffer[gimbalSetPacket.buffer.now] | targetBits);
+//                    gimbalSetPacket.buffer.serializeCrc16();
+//                }
                 gimbalSetPacket.buffer.copyToSendBuffer(mSendBuffer.data() + mSendBufferLen);
                 mSendBufferLen += gimbalSetPacket.buffer.size();
             }
@@ -216,12 +223,13 @@ public:
                          mYaw1 = static_cast<float>(yawAngle);
                          mPitch1 = static_cast<float>(pitchAngle);
                          mFire1 = isFire;
+                         lastUpTargetTime = current;
                      } else {
                          mYaw2 = static_cast<float>(yawAngle);
                          mPitch2 = static_cast<float>(pitchAngle);
                          mFire2 = isFire;
+                         lastDownTargetTime = current;
                      }
-                     lastTargetTime = Clock::now();
 
                      gimbalSetPacket = GimbalSetPacket(mYaw1, mPitch1, mFire1, mYaw2, mPitch2, mFire2);
                  } };

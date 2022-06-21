@@ -221,6 +221,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
     return globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+std::mutex HubLogger::mutex;
 std::unordered_map<std::string, TimePoint> HubLogger::logs;
 std::unordered_map<std::string, std::string> HubLogger::watches;
 

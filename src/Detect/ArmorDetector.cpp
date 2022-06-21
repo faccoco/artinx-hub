@@ -2,6 +2,7 @@
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
 #include "DetectedCar.hpp"
+#include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
 #include <caf/event_based_actor.hpp>
@@ -168,6 +169,7 @@ class ArmorDetector final
     }
 
     std::vector<cv::RotatedRect> findLights(const cv::Mat& color, const cv::Mat& binary) {
+        ACTOR_LATENCY_PROBE();
         const cv::Rect full = { 0, 0, color.cols, color.rows };
 
         // TODO: downsampling
@@ -263,6 +265,7 @@ class ArmorDetector final
     }
 
     std::vector<PairedLight> matchLights(const cv::Mat& src, const std::vector<cv::RotatedRect>& lights) {
+        ACTOR_LATENCY_PROBE();
         std::vector<std::tuple<uint32_t, uint32_t, double>> pairs;
         for(uint32_t i = 0; i < lights.size(); ++i)
             for(uint32_t j = i + 1; j < lights.size(); ++j) {
@@ -403,6 +406,8 @@ public:
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](car_detect_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(car_detect_available_atom, TypedIdentifier<DetectedCarArray>);
+                     ACTOR_LATENCY_PROBE();
+
                      const auto data = BlackBoard::instance().get<DetectedCarArray>(key).value();
 
                      DetectedArmorArray res;

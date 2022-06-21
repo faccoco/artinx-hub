@@ -2,6 +2,7 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "DetectedCar.hpp"
+#include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include <Utility.hpp>
 #include <caf/event_based_actor.hpp>
@@ -57,6 +58,8 @@ public:
             [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](image_frame_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+                ACTOR_LATENCY_PROBE();
+
                 if(!mInitialFlag) {
                     return;
                 }
@@ -77,6 +80,8 @@ public:
             },
             [&](car_detect_available_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(car_detect_available_atom, TypedIdentifier<DetectedCarArray>);
+                ACTOR_LATENCY_PROBE();
+
                 const auto carDetectedRes = BlackBoard::instance().get<DetectedCarArray>(key).value();
 
                 const auto t1 = Clock::now();

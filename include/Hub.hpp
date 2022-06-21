@@ -5,6 +5,7 @@
 #include <caf/config_value.hpp>
 #include <chrono>
 #include <functional>
+#include <mutex>
 #include <string_view>
 
 using namespace std::literals;
@@ -106,17 +107,20 @@ public:
 };
 
 class HubLogger final {
+    static std::mutex mutex;
     static std::unordered_map<std::string, TimePoint> logs;
 
 public:
     static std::unordered_map<std::string, std::string> watches;
 
     static void watch(const std::string& name, const std::string& log) {
+        std::lock_guard guard{ mutex };
         watches[name] = log;
     }
 
     template <typename T>
     static void watch(const std::string& name, const T& log) {
+        std::lock_guard guard{ mutex };
         if constexpr(std::is_convertible_v<std::decay_t<T>, std::string> ||
                      std::is_convertible_v<std::decay_t<T>, std::string_view>)
             watches[name] = log;
@@ -125,10 +129,12 @@ public:
     }
 
     static void removeWatch(const std::string& name) {
+        std::lock_guard guard{ mutex };
         watches.erase(name);
     }
 
     static void print(const std::string& log, const std::string& name, const int& interval) {
+        std::lock_guard guard{ mutex };
         if(logs.find(name) != logs.end()) {
             if(std::chrono::duration_cast<std::chrono::milliseconds>(SynchronizedClock::instance().now() - logs[name]).count() <
                interval)
@@ -139,6 +145,7 @@ public:
     }
 
     static void printDebugOnly(const std::string& log, const std::string& name, const int& interval) {
+        std::lock_guard guard{ mutex };
 #ifndef ARTINXHUB_DEBUG
         return;
 #endif

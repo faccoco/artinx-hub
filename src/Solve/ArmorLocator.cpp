@@ -2,6 +2,7 @@
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
 #include "DetectedTarget.hpp"
+#include "ExceptionProbe.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
@@ -77,8 +78,10 @@ public:
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](armor_detect_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
+                     ACTOR_LATENCY_PROBE();
+
                      const auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
-                     //                     logInfo(data.armors[0].armors.size());
+                     // logInfo(data.armors[0].armors.size());
                      DetectedTargetArray res;
                      res.lastUpdate = data.frame.lastUpdate;
                      const auto& cameraInfo = data.frame.info;

@@ -177,6 +177,7 @@ public:
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      ACTOR_EXCEPTION_PROBE();
+                     ACTOR_LATENCY_PROBE();
 
                      DetectedCarArray res;
                      res.frame = BlackBoard::instance().get<CameraFrame>(key).value();
