@@ -9,3 +9,7 @@ struct RadarCameraPointsArray final {
     Color selfColor;
     std::vector<cv::Point2f> imagePoints;
 };
+
+ACTOR_PROTOCOL_DEFINE(radar_locate_request_atom, TypedIdentifier<RadarCameraPointsArray>);
+ACTOR_PROTOCOL_DEFINE(radar_locate_succeed_atom,
+                      TypedIdentifier<Transform<FrameOfReference::Camera, FrameOfReference::Ground, true>>);

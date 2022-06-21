@@ -33,6 +33,7 @@ public:
           } {}
     caf::behavior make_behavior() override {
         return { [&](simulator_step_atom, Identifier key) {
+                    ACTOR_PROTOCOL_CHECK(simulator_step_atom, TypedIdentifier<SimulatorWorldInfo>);
                     mQueue.push(BlackBoard::instance().get<SimulatorWorldInfo>(key).value());
 
                     const auto headData = BlackBoard::instance().get<HeadInfo>(mHeadKey);
@@ -66,10 +67,13 @@ public:
                             DetectedTarget{ pos + Vector<UnitType::Distance, FrameOfReference::Gun>(noise), 0.0, 0 });
                     }
 
-                    BlackBoard::instance().updateSync(mKey, data);
-                    sendAll(detect_available_atom_v, mKey);
+                    sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, data));
                 },
-                 [&](update_head_atom, Identifier key) { mHeadKey = key; }, [](start_atom) {} };
+                 [&](update_head_atom, GroupMask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
+                     mHeadKey = key;
+                 },
+                 [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); } };
     }
 };
 

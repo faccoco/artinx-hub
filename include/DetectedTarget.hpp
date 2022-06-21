@@ -17,3 +17,5 @@ struct DetectedTargetArray final {
     TimePoint lastUpdate;
     std::vector<DetectedTarget> targets;
 };
+
+ACTOR_PROTOCOL_DEFINE(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);

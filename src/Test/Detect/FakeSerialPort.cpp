@@ -12,10 +12,14 @@ public:
         : HubHelper{ base, config }, mKey{ typeid(FakeSerialPort).hash_code() } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
                     logInfo("Testing ore detection. ");
                     sendAll(ore_instructions_atom_v, true);
                 },
-                 [&](ore_detect_available_atom, double angle, Identifier key) { logInfo(fmt::format("{}", angle)); } };
+                 [&](ore_detect_available_atom, double angle) {
+                     ACTOR_PROTOCOL_CHECK(ore_detect_available_atom, double);
+                     logInfo(fmt::format("{}", angle));
+                 } };
     }
 };
 HUB_REGISTER_CLASS(FakeSerialPort);

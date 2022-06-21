@@ -416,8 +416,7 @@ public:
                     }
                 }
 
-                BlackBoard::instance().updateSync(mKey, std::move(info));
-                sendAll(simulator_step_atom_v, mKey);
+                sendAll(simulator_step_atom_v, BlackBoard::instance().updateSync(mKey, std::move(info)));
             }
 
             // update collisions
@@ -460,9 +459,17 @@ public:
             }
 
             // update events
-            receive([&](set_target_info_atom, Clock::rep, const double, const double, const bool isFire) { shoot = isFire; },
-                    [&](update_head_atom, Identifier key) { mHeadKey = key; }, [&](const caf::down_msg& x) { runFlag = false; },
-                    [&](const caf::exit_msg& x) { runFlag = false; }, [&](timer_atom) {});
+            receive(
+                [&](set_target_info_atom, GroupMask, Clock::rep, const double, const double, const bool isFire) {
+                    ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);
+                    shoot = isFire;
+                },
+                [&](update_head_atom, GroupMask, Identifier key) {
+                    ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
+                    mHeadKey = key;
+                },
+                [&](const caf::down_msg& x) { runFlag = false; }, [&](const caf::exit_msg& x) { runFlag = false; },
+                [&](timer_atom) { ACTOR_PROTOCOL_CHECK(timer_atom); });
             // shoot
             if(shoot && bulletCount < mConfig.bulletCount && time - lastShoot > mConfig.shootInterval) {
                 const auto headData = BlackBoard::instance().get<HeadInfo>(mHeadKey);

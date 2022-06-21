@@ -21,8 +21,9 @@ public:
         Timer::instance().addTimer(address(), 50ms);
     }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](timer_atom) {
+                     ACTOR_PROTOCOL_CHECK(timer_atom);
                      // TODO: random kill
                  } };
     }

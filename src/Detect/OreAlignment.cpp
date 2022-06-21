@@ -5,10 +5,10 @@
 #include <algorithm>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
+#include <limits>
 #include <magic_enum.hpp>
 #include <opencv2/opencv.hpp>
 #include <utility>
-#include <limits>
 
 struct OreAlignmentSettings final {
     // HSV range
@@ -69,7 +69,7 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
                             tempDistance = transformToRealDistance(oreRectArray[atom.flashingIndex], oreMessage.frame, settings);
                     });
                 } else {
-                    tempDistance =std::numeric_limits<double>::infinity() ;
+                    tempDistance = std::numeric_limits<double>::infinity();
                 }
             } break;
 
@@ -171,25 +171,26 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
 
     double transformToRealDistance(const cv::Rect_<int64_t>& rect, const CameraFrame& frame,
                                    const OreAlignmentSettings& settings) {
-        return (rect.x + rect.width / 2 - frame.info.width) / (frame.info.width / 2 / tan(glm::radians(frame.info.fov))) *
+        // FIXME: use cameraMatrix instead
+        return (rect.x + rect.width / 2 - frame.info.width) / (frame.info.width / 2 / tan(glm::radians(30.0f))) *
             settings.distanceToOre +
             settings.offset;
-    }  // todo:may don't have enough precision!!!
+    }  // TODO : may don't have enough precision!!!
 
 public:
     OreAlignment(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ typeid(OreAlignment).hash_code() } {}
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](ore_alignment_available_atom, Identifier key) {
-                     const auto settings = BlackBoard::instance().get<OreAlignmentSettings>(key).value();
+                     ACTOR_PROTOCOL_CHECK(ore_alignment_available_atom, TypedIdentifier<OreAlignmentMessage>);
                      auto data = BlackBoard::instance().get<OreAlignmentMessage>(key).value();
 
                      data.frame.frame.convertTo(bgrFrame, CV_32FC3, 1.0 / 255.0);
                      cv::cvtColor(bgrFrame, hsvFrame, cv::COLOR_BGR2HSV_FULL);
-                     BlackBoard::instance().updateSync(mKey, std::move(solveDirection(data, settings)));
-                     sendAll(ore_alignment_available_atom_v, mKey);
+                     sendAll(ore_alignment_available_atom_v,
+                             BlackBoard::instance().updateSync(mKey, std::move(solveDirection(data, mConfig))));
                  } };
     }
 };

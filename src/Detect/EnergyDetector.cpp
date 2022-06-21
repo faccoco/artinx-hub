@@ -52,7 +52,6 @@ class EnergyDetector final
     Identifier mKey;
 
     bool mEnabled = false;
-    int mRotateMode = 0;
 
     void reset() {}
 
@@ -76,8 +75,7 @@ class EnergyDetector final
         CameraFrame frame;
         frame.frame = std::move(res);
 
-        BlackBoard::instance().updateSync(newKey, std::move(frame));
-        sendAll(image_frame_atom_v, newKey);
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame)));
     }
 
     static void setBinary(const cv::Mat& src, cv::Mat& binary) {
@@ -427,19 +425,19 @@ public:
         : HubHelper{ base, config }, mKey{ typeid(EnergyDetector).hash_code() } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
                     reset();
-                    // only for test
-                    mEnabled = true;
-                    mRotateMode = 0;
                 },
-                 [&](energy_detector_control_atom, bool enable, int mode) {
-                     if(mEnabled != enable || mRotateMode != mode)
+                 [&](energy_detector_control_atom, bool enable) {
+                     ACTOR_PROTOCOL_CHECK(energy_detector_control_atom, bool);
+                     if(mEnabled != enable)
                          reset();
                      mEnabled = enable;
-                     mRotateMode = mode;
                  },
                  [&](image_frame_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      ACTOR_EXCEPTION_PROBE();
+
                      if(!mEnabled)
                          return;
                      auto data = BlackBoard::instance().get<CameraFrame>(key).value();
@@ -450,12 +448,8 @@ public:
                          return;
 
                      const auto& cameraInfo = data.info;
-                     const cv::Mat cameraMatrix =
-                         (cv::Mat_<double>(3, 3) << cameraInfo.width / 2 / tan(glm::radians(cameraInfo.fov) / 2), 0,
-                          cameraInfo.width / 2, 0, cameraInfo.height / 2 / tan(glm::radians(cameraInfo.fov) / 2),
-                          cameraInfo.height / 2, 0, 0, 1);
 
-                     const auto point = solve(cameraMatrix, armor);
+                     const auto point = solve(cameraInfo.cameraMatrix, armor);
 
                      const auto& transform = std::get<0>(cameraInfo.transform);
 
@@ -483,8 +477,7 @@ public:
                          angles.clear();
                      }
 
-                     BlackBoard::instance().updateSync(mKey, res);
-                     sendAll(energy_detect_available_atom_v, mKey);
+                     sendAll(energy_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, res));
                  } };
     }
 };
