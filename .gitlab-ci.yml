@@ -22,7 +22,7 @@ build-job-linux:
     - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=$CAMERA_TYPE -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null && $CI_PIPELINE_SOURCE != "schedule"
 
 test-job:
   stage: test
