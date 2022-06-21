@@ -10,6 +10,10 @@ build-job-windows:
     - cmake --build ./build --config Release
   rules:
     - if: $DEPLOY_TARGET == null
+  cache:
+    key: binaries
+    paths:
+      - build/*
 
 build-job-linux:
   stage: build
@@ -18,6 +22,10 @@ build-job-linux:
     - cmake --build ./build --config Release
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+  cache:
+    key: binaries
+    paths:
+      - build/*
 
 test-job:
   stage: test
