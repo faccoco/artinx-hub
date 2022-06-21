@@ -142,7 +142,7 @@ public:
 
                      const auto delayTime = mConfig.delay;
 
-                     glm::dvec3 transformedPosition = { 0, 0, 0 };
+
                      glm::dvec3 forwardVector = { 0, 0, -1 };
                      glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
 
@@ -152,6 +152,7 @@ public:
                      Vector<UnitType::Distance, FrameOfReference::Ground> positionOfReferenceGround =
                          dataPosture.value().postureOfRobot(positionOfReferenceRobot);
                      HubLogger::watch("z", positionOfReferenceGround.raw().z);
+                     glm::dvec3 transformedPosition = { positionOfReferenceGround.raw().x, -positionOfReferenceGround.raw().z , positionOfReferenceGround.raw().y };
 
                      Vector<UnitType::Distance, FrameOfReference::Robot> forwardPositionOfReferenceRobot =
                          dataHeadInfo.value().transform(forwardPosition);
@@ -159,19 +160,21 @@ public:
                          dataPosture.value().postureOfRobot(forwardPositionOfReferenceRobot);
                      Vector<UnitType::LinearVelocity, FrameOfReference::Ground> linearVelocity(
                          dataPosture.value().linearVelocityOfRobot.raw());
-                     transformedPosition = { positionOfReferenceGround.raw().x, -positionOfReferenceGround.raw().z,
-                                             positionOfReferenceGround.raw().y };
+
+
+
                      forwardVector = { forwardPositionOfReferenceGround.raw().x, -forwardPositionOfReferenceGround.raw().z,
                                        forwardPositionOfReferenceGround.raw().y };
                      transformedLinearVelocity = { linearVelocity.raw().x, -linearVelocity.raw().z, linearVelocity.raw().y };
 
-                     transformedPosition = { transformedPosition.x - delayTime * transformedLinearVelocity.x,
+                     transformedPosition = {  transformedPosition.x- delayTime * transformedLinearVelocity.x,
                                              transformedPosition.y - delayTime * transformedLinearVelocity.y,
                                              transformedPosition.z - delayTime * transformedLinearVelocity.z };
                      //(forward:+y,right:+x)
                      mTimes[(++mCnt) % 1000] = timeDuration;
                      mPositions[(mCnt) % 1000] = transformedPosition;
                      if(mCnt >= 2) {
+                         if(mTimes[mCnt % 1000] - mTimes[(mCnt - 1) % 1000] != 0)
                          mVec[(mCnt - 1) % 1000] = (mPositions[mCnt % 1000] - mPositions[(mCnt - 1) % 1000]) /
                              (mTimes[mCnt % 1000] - mTimes[(mCnt - 1) % 1000]);
                          sumVec += mVec[(mCnt - 1) % 1000];
@@ -244,7 +247,7 @@ public:
                      double netVerticalSpeed = transformedPosition.z / airDuration + g * airDuration / 2;
                      double pitchAngle = std::asin(netVerticalSpeed / bulletSpeed);
                      pitchAngle = (pitchAngle > glm::quarter_pi<double>()) ? (glm::half_pi<double>() - pitchAngle) : pitchAngle;
-                     CAF_LOG_INFO(fmt::format("YawAngle: {},PitchAngle: {}", yawAngle, pitchAngle));
+
                      if(mExceptionPoint[0] >= 7) {
                          pitchAngle = mPreviousPitchAngle;
                          yawAngle = mPreviousYawAngle;
@@ -252,7 +255,6 @@ public:
                          mPreviousPitchAngle = pitchAngle;
                          mPreviousYawAngle = yawAngle;
                      }
-
                      double currentYawAngle = std::atan2(forwardVector.y, forwardVector.x) - glm::half_pi<double>();
                      double currentPitchAngle = std::atan2(forwardVector.z, std::hypot(forwardVector.x, forwardVector.y));
                      // CAF_LOG_INFO(fmt::format("CurrentYawAngle: {},CurrentPitchAngle: {}",currentYawAngle,
