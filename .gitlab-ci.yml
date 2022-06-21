@@ -3,6 +3,11 @@ stages:
   - test
   - deploy
 
+cache:
+  key: $CI_COMMIT_SHA
+  paths:
+    - build/*
+
 build-job-windows:
   stage: build
   script:
@@ -10,10 +15,6 @@ build-job-windows:
     - cmake --build ./build --config Release
   rules:
     - if: $DEPLOY_TARGET == null
-  cache:
-    key: $CI_COMMIT_SHA
-    paths:
-      - build/*
 
 build-job-linux:
   stage: build
@@ -22,10 +23,6 @@ build-job-linux:
     - cmake --build ./build --config Release
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
-  cache:
-    key: $CI_COMMIT_SHA
-    paths:
-      - build/*
 
 test-job:
   stage: test
@@ -40,8 +37,6 @@ test-job:
     expose_as: "test report"
   rules:
     - if: $DEPLOY_TARGET == null
-  cache:
-    key: $CI_COMMIT_SHA
 
 deploy-job:
   stage: deploy
@@ -53,8 +48,6 @@ deploy-job:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
       when: manual
-  cache:
-    key: $CI_COMMIT_SHA
 
 stop-service:
   stage: deploy
@@ -67,5 +60,3 @@ stop-service:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
       when: manual
-  cache:
-    key: $CI_COMMIT_SHA
