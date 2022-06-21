@@ -32,10 +32,11 @@ public:
 template <int bodySize, int id>
 class PacketBuffer {
     // Header: magicNumber, dataLen, seq, seq, crc8, id
-    std::array<uint8_t, bodySize + 8> buffer{ 0xA5, bodySize, 0, 0, Crc::getHeaderCRC8(bodySize), id };
-    int now = 6;
 
 public:
+    int now = 6;
+    std::array<uint8_t, bodySize + 8> buffer{ 0xA5, bodySize, 0, 0, Crc::getHeaderCRC8(bodySize), id };
+
     template <typename T>
     void serialize(T data) {
         memcpy(buffer.data() + now, &data, sizeof(T));

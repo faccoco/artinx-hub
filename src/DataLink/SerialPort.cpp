@@ -48,7 +48,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     size_t mSendBufferLen;
 
     float lastSpeedX = 0.0f, lastSpeedY = 0.0f;
-    TimePoint lastReceivedTime;
+    TimePoint lastReceivedTime, lastTargetTime;
 
     void receive() {
         if(!started)
@@ -171,7 +171,12 @@ public:
             while(globalStatus == RunStatus::running) {
                 receive();
                 sendPacket();
-                std::this_thread::sleep_for(1.5ms);
+                std::this_thread::sleep_for(1.0ms);
+                if (std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastTargetTime).count() < 500) {
+                    gimbalSetPacket.buffer.now -= 3;
+                    gimbalSetPacket.buffer.serialize(gimbalSetPacket.buffer.buffer[gimbalSetPacket.buffer.now] | (1 << 2));
+                    gimbalSetPacket.buffer.serializeCrc16();
+                }
                 gimbalSetPacket.buffer.copyToSendBuffer(mSendBuffer.data() + mSendBufferLen);
                 mSendBufferLen += gimbalSetPacket.buffer.size();
             }
@@ -208,6 +213,7 @@ public:
                          mPitch2 = static_cast<float>(pitchAngle);
                          mFire2 = isFire;
                      }
+                     lastTargetTime = Clock::now();
 
                      gimbalSetPacket = GimbalSetPacket(mYaw1, mPitch1, mFire1, mPitch1, mPitch2, mFire2);
                  } };
