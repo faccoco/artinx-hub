@@ -15,6 +15,8 @@ build-job-windows:
     - cmake --build ./build --config Release
   rules:
     - if: $CI_RUNNER_TAGS == "Dev"
+      when: always
+    - when: never
 
 build-job-linux:
   stage: build
@@ -23,12 +25,14 @@ build-job-linux:
     - cmake --build ./build --config Release
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_RUNNER_TAGS != "Dev"
+      when: always
     - if: $CI_RUNNER_TAGS == "Sentry"
       variables:
         USB_TYPE: USB2
     - if: $CI_RUNNER_TAGS != "Sentry"
       variables:
         USB_TYPE: USB3
+    - when: never
 
 test-job:
   stage: test
@@ -36,7 +40,6 @@ test-job:
     - cd build
     - ctest --build-config Release -j 8
   artifacts:
-    when: always
     name: "report"
     paths:
       - ./build/testResult.log
@@ -44,23 +47,25 @@ test-job:
     expose_as: "test report"
   rules:
     - if: $CI_RUNNER_TAGS == "Dev"
+      when: always
+    - when: never
 
-deploy-job:
-  stage: deploy
-  script:
-    - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
-  environment:
-    name: $CI_RUNNER_TAGS
-    on_stop: stop-service
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_RUNNER_TAGS != "Dev"
-      when: manual
+# deploy-job:
+#   stage: deploy
+#   script:
+#     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
+#   environment:
+#     name: $CI_RUNNER_TAGS
+#     on_stop: stop-service
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_RUNNER_TAGS != "Dev"
+#       when: manual
 
-stop-service:
-  stage: deploy
-  script:
-    - sudo python3 ./scripts/teardown-service.py
-  when: manual
-  environment:
-    name: $CI_RUNNER_TAGS
-    action: stop
+# stop-service:
+#   stage: deploy
+#   script:
+#     - sudo python3 ./scripts/teardown-service.py
+#   when: manual
+#   environment:
+#     name: $CI_RUNNER_TAGS
+#     action: stop
