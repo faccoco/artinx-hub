@@ -120,9 +120,8 @@ public:
         });
         mServer.Post("/radar", [this](const httplib::Request& req, httplib::Response& res) {
             auto j = nlohmann::json::parse(req.body);
-            int x = j[0], y = j[1];
-            BlackBoard::instance().updateSync(mKey, std::make_pair(x, y));
-            sendAll(radar_coordinate_atom_v, mKey);
+            const int32_t x = j[0], y = j[1];
+            sendAll(radar_coordinate_atom_v, BlackBoard::instance().updateSync(mKey, std::make_pair(x, y)));
         });
         mServer.Get("/exit", [this](const httplib::Request& req, httplib::Response& res) {
             mServer.stop();
