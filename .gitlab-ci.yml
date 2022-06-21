@@ -52,3 +52,6 @@ stop-service:
   environment:
     name: $DEPLOY_TARGET
     action: stop
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+      when: manual
