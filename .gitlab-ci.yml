@@ -19,10 +19,16 @@ build-job-windows:
 build-job-linux:
   stage: build
   script:
-    - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=$ARTINX_HUB_CAMERA -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=$USB_TYPE -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_RUNNER_TAGS != "Dev"
+    - if: $CI_RUNNER_TAGS == "Sentry"
+      variables:
+        USB_TYPE: USB2
+    - if: $CI_RUNNER_TAGS != "Sentry"
+      variables:
+        USB_TYPE: USB3
 
 test-job:
   stage: test
