@@ -6,7 +6,7 @@
 struct FdbPacket {
     static constexpr uint16_t id = 0x0A;
     float yaw, pitch, downYaw, downPitch, bulletSpeed, speedX, speedY;
-    uint8_t color, shooterId;
+    uint8_t color, shooterId, energyMode;
     explicit FdbPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
@@ -15,9 +15,10 @@ struct FdbPacket {
         downPitch = reader.readCompressedFloat(-4.0f, 0.0005f);
         speedX = reader.readCompressedFloat(-20.0f, 0.01f);
         speedY = reader.readCompressedFloat(-20.0f, 0.01f);
-        auto tmp = reader.read();
-        color = tmp & 1;
-        shooterId = tmp >> 1;
+        const auto mask = reader.read();
+        color = mask & 1;
+        shooterId = (mask >> 1) & 1;
+        energyMode = (mask >> 2) & 1;
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
     }
 };
