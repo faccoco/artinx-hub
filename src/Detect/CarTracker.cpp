@@ -46,8 +46,7 @@ class CarTracker final : public HubHelper<caf::event_based_actor, void, car_dete
     }
 
 public:
-    CarTracker(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(CarTracker).hash_code() } {
+    CarTracker(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         for(int i = 0; i < maxNumRobot; i++) {
             mTrackers[i] = cv::TrackerKCF::create();
         }

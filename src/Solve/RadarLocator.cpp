@@ -54,8 +54,7 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
     }
 
 public:
-    RadarLocator(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(RadarLocator).hash_code() } {}
+    RadarLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](radar_locate_request_atom, Identifier key) {

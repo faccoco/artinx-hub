@@ -171,7 +171,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
 public:
     SerialPort(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ typeid(SerialPort).hash_code() },
+        : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ generateKey(this) },
           mCheckingHeader(false) {
         mSerialPort->open(mConfig.devPath, mConfig.baudRate);
         lastReceivedTime = SynchronizedClock::instance().now();
@@ -180,7 +180,7 @@ public:
                 receive();
                 sendPacket();
                 std::this_thread::sleep_for(1.0ms);
-                if (std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastTargetTime).count() < 500) {
+                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastTargetTime).count() < 500) {
                     gimbalSetPacket.buffer.now -= 3;
                     gimbalSetPacket.buffer.serialize(gimbalSetPacket.buffer.buffer[gimbalSetPacket.buffer.now] | (1 << 2));
                     gimbalSetPacket.buffer.serializeCrc16();

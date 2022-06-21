@@ -20,8 +20,7 @@ class InfantryStrategy final : public HubHelper<caf::event_based_actor, Infantry
     bool mEnergyMode = true;  // test only
 
 public:
-    InfantryStrategy(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(InfantryStrategy).hash_code() } {}
+    InfantryStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](energy_detector_control_atom, bool enable) {

@@ -38,8 +38,7 @@ private:
     double mPreviousPitchAngle;
 
 public:
-    AngleSolver(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(AngleSolver).hash_code() } {}
+    AngleSolver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
 
     static std::complex<double> sqrtn(const std::complex<double>& x, double n) {
         if(double r = std::hypot(x.real(), x.imag()); r > 0.0) {

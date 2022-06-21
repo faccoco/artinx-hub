@@ -132,7 +132,7 @@ public:
 #if defined(ARTINXHUB_WINDOWS)
                     ShellExecuteA(nullptr, "open", "http://localhost:5630/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
 #elif defined(ARTINXHUB_LINUX)
-                    ::system("xdg-open http://127.0.0.1:5630/pages/index.html");
+                    int res = ::system("xdg-open http://127.0.0.1:5630/pages/index.html");
 #endif
                 },
                  [this](image_frame_atom, Identifier key) {
