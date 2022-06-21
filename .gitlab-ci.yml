@@ -4,7 +4,7 @@ stages:
   - deploy
 
 cache:
-  key: $CI_COMMIT_SHA
+  key: "$CI_RUNNER_ID-$CI_COMMIT_SHA"
   paths:
     - build/*
 
