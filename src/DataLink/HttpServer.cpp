@@ -24,7 +24,7 @@ struct ImageWithFilter {
     bool isEnable = true;
 };
 
-class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_coordinate_atom> {
+class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_locate_request_atom> {
     httplib::Server mServer;
     std::unordered_map<uint64_t, ImageWithFilter> mImage;
     std::mutex mMutex;
