@@ -1,17 +1,72 @@
 stages:
-  - build-test
+  - build
+  - test
+  - deploy
 
-build-test-job:
-  stage: build-test
+cache:
+  key: "$CI_RUNNER_ID-$CI_COMMIT_SHA"
+  paths:
+    - build/*
+
+build-job-windows:
+  stage: build
+  tags:
+    - windows
   script:
     - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
+  rules:
+    - if: $DEPLOY_TARGET == null
+
+build-job-linux:
+  stage: build
+  tags:
+    - linux
+  script:
+    - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=$CAMERA_TYPE -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake --build ./build --config Release
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null && $CI_PIPELINE_SOURCE != "schedule"
+
+test-job:
+  stage: test
+  tags:
+    - windows
+  script:
     - cd build
     - ctest --build-config Release -j 8
   artifacts:
-    when: always
     name: "report"
     paths:
       - ./build/testResult.log
     expire_in: 1 month
     expose_as: "test report"
+  rules:
+    - if: $DEPLOY_TARGET == null
+
+deploy-job:
+  stage: deploy
+  tags:
+    - linux
+  script:
+    - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
+  environment:
+    name: $DEPLOY_TARGET
+    on_stop: stop-service
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+      when: manual
+
+stop-service:
+  stage: deploy
+  tags:
+    - linux
+  script:
+    - sudo python3 ./scripts/teardown-service.py
+  when: manual
+  environment:
+    name: $DEPLOY_TARGET
+    action: stop
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+      when: manual

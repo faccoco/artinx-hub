@@ -1,5 +1,6 @@
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
+#include "EnergyDetect.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "Packet.hpp"
@@ -15,16 +16,19 @@ struct SerialPortSettings final {
     uint32_t baudRate;
     double headHeightOffset1;
     double headHeightOffset2;
+    bool enableEnergyControl;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, SerialPortSettings& x) {
     return f.object(x).fields(f.field("devPath", x.devPath), f.field("baudRate", x.baudRate),
                               f.field("headHeightOffset1", x.headHeightOffset1).fallback(0.0),
-                              f.field("headHeightOffset2", x.headHeightOffset2).fallback(0.0));
+                              f.field("headHeightOffset2", x.headHeightOffset2).fallback(0.0),
+                              f.field("enableEnergyControl", x.enableEnergyControl).fallback(false));
 }
 
-class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom> {
+class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom,
+                                          energy_detector_control_atom> {
     constexpr static size_t bufferLen = 1024;
     constexpr static size_t headerLen = 5;
     constexpr static size_t sendBufferLen = 1024;
@@ -89,6 +93,11 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             if(fdb.bulletSpeed > 10.0f)
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
             HubLogger::watch("bullet speed", fdb.bulletSpeed);
+
+            if(mConfig.enableEnergyControl) {
+                HubLogger::watch("energy mode", static_cast<bool>(fdb.energyMode));
+                sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
+            }
 
             HubLogger::watch("yaw1", fdb.yaw);
             HubLogger::watch("pitch1", fdb.pitch);
@@ -164,8 +173,7 @@ public:
     SerialPort(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ typeid(SerialPort).hash_code() },
           mCheckingHeader(false) {
-        const auto [devPath, baudRate, offset1, offset2] = mConfig;
-        mSerialPort->open(devPath, baudRate);
+        mSerialPort->open(mConfig.devPath, mConfig.baudRate);
         lastReceivedTime = SynchronizedClock::instance().now();
         mThread = std::thread{ [this]() {
             while(globalStatus == RunStatus::running) {
@@ -215,7 +223,7 @@ public:
                      }
                      lastTargetTime = Clock::now();
 
-                     gimbalSetPacket = GimbalSetPacket(mYaw1, mPitch1, mFire1, mPitch1, mPitch2, mFire2);
+                     gimbalSetPacket = GimbalSetPacket(mYaw1, mPitch1, mFire1, mYaw2, mPitch2, mFire2);
                  } };
     }
 };

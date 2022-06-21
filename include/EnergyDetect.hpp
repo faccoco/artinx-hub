@@ -9,4 +9,4 @@ struct DetectedEnergyInfo final {
 };
 
 ACTOR_PROTOCOL_DEFINE(energy_detect_available_atom, TypedIdentifier<DetectedEnergyInfo>);
-ACTOR_PROTOCOL_DEFINE(energy_detector_control_atom, bool, int);
+ACTOR_PROTOCOL_DEFINE(energy_detector_control_atom, bool);
