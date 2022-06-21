@@ -22,7 +22,7 @@ static void loadCalibration(bool disableUndistort, const std::string& identifier
     if(std::filesystem::exists(inputFileName) && fs.isOpened() && !disableUndistort) {
         fs["camera_matrix"] >> cameraMatrix;
         fs["distortion_coefficients"] >> distCoefficients;
-        undistort = false;
+        undistort = true;
     } else {
         logWarning(
             fmt::format("Failed to get calibration info for S/N {}. Use fallback fov {} instead.", identifier, fallbackFov));
