@@ -50,7 +50,6 @@ class EnergyDetector final
     Identifier mKey;
 
     bool mEnabled = false;
-    int mRotateMode = 0;
 
     void reset() {}
 
@@ -334,16 +333,12 @@ public:
         return { [this](start_atom) {
                     ACTOR_PROTOCOL_CHECK(start_atom);
                     reset();
-                    // only for test
-                    mEnabled = true;
-                    mRotateMode = 0;
                 },
-                 [&](energy_detector_control_atom, bool enable, int mode) {
-                     ACTOR_PROTOCOL_CHECK(energy_detector_control_atom, bool, int);
-                     if(mEnabled != enable || mRotateMode != mode)
+                 [&](energy_detector_control_atom, bool enable) {
+                     ACTOR_PROTOCOL_CHECK(energy_detector_control_atom, bool);
+                     if(mEnabled != enable)
                          reset();
                      mEnabled = enable;
-                     mRotateMode = mode;
                  },
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);

@@ -92,7 +92,7 @@ namespace detail {
         const auto attr = config.to_dictionary().value();
         const auto iter = attr.find(nameNormalized);
         if(iter == attr.cend()) {
-            raiseError(fmt::format("Succeed {} is needed", nameNormalized));
+            return {};
         }
 
         const auto succeed = iter->second.to_list().value();

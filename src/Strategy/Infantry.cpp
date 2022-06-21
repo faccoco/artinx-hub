@@ -24,8 +24,8 @@ public:
         : HubHelper{ base, config }, mKey{ typeid(InfantryStrategy).hash_code() } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [&](energy_detector_control_atom, bool enable, int /*unknown*/) {
-                     ACTOR_PROTOCOL_CHECK(energy_detector_control_atom, bool, int);
+                 [&](energy_detector_control_atom, bool enable) {
+                     ACTOR_PROTOCOL_CHECK(energy_detector_control_atom, bool);
                      mEnergyMode = enable;
                  },
                  [&](energy_detect_available_atom, Identifier key) {
@@ -35,7 +35,7 @@ public:
                      const auto data = BlackBoard::instance().get<DetectedEnergyInfo>(key).value();
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
-                     selected.selected = { data.point, 0.0, 1, ArmorType::Small,
+                     selected.selected = { data.point, 0.0, 1, ArmorType::Large,
                                            Vector<UnitType::LinearVelocity, FrameOfReference::Gun>{ glm::zero<glm::dvec3>() } };
 
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
@@ -48,7 +48,7 @@ public:
 
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
-                     
+
                      auto minDistance = std::numeric_limits<double>::max();
                      for(auto& target : data.targets) {
                          const auto vec = target.center.raw();
