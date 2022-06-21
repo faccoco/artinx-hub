@@ -23,7 +23,7 @@ build-job-linux:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
   cache:
-    key: binaries
+    key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
     paths:
       - build/*
 
@@ -40,6 +40,8 @@ test-job:
     expose_as: "test report"
   rules:
     - if: $DEPLOY_TARGET == null
+  cache:
+    key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
 
 deploy-job:
   stage: deploy
@@ -51,6 +53,8 @@ deploy-job:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
       when: manual
+  cache:
+    key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
 
 stop-service:
   stage: deploy
@@ -63,3 +67,5 @@ stop-service:
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
       when: manual
+  cache:
+    key: "$CI_JOB_NAME-$CI_COMMIT_REF_SLUG"
