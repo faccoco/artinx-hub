@@ -1,5 +1,6 @@
 stages:
   - build-test
+  - deploy
 
 build-test-job:
   stage: build-test
@@ -15,3 +16,14 @@ build-test-job:
       - ./build/testResult.log
     expire_in: 1 month
     expose_as: "test report"
+
+deploy_infantry:
+  stage: deploy
+  script:
+    - echo "Deploy to infantry"
+  environment:
+    name: Infantry
+    url: 
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
