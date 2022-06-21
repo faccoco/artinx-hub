@@ -1,12 +1,27 @@
 stages:
-  - build-test
+  - build
+  - test
   - deploy
 
-build-test-job:
-  stage: build-test
+build-job-windows:
+  stage: build
   script:
     - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
+  rules:
+    - if: $CI_RUNNER_TAGS == "Dev"
+
+build-job-linux:
+  stage: build
+  script:
+    - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=$ARTINX_HUB_CAMERA -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake --build ./build --config Release
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_RUNNER_TAGS != "Dev"
+
+test-job:
+  stage: test
+  script:
     - cd build
     - ctest --build-config Release -j 8
   artifacts:
@@ -16,14 +31,25 @@ build-test-job:
       - ./build/testResult.log
     expire_in: 1 month
     expose_as: "test report"
+  rules:
+    - if: $CI_RUNNER_TAGS == "Dev"
 
-deploy_infantry:
+deploy-job:
   stage: deploy
   script:
-    - echo "Deploy to infantry"
+    - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
   environment:
-    name: Infantry
-    url: 
+    name: $CI_RUNNER_TAGS
+    on_stop: stop-service
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_RUNNER_TAGS != "Dev"
       when: manual
+
+stop-service:
+  stage: deploy
+  script:
+    - sudo python3 ./scripts/teardown-service.py
+  when: manual
+  environment:
+    name: $CI_RUNNER_TAGS
+    action: stop
