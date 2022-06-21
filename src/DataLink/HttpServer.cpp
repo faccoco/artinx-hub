@@ -3,6 +3,7 @@
 #include "Common.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
+#include "RadarCameraPoints.hpp"
 #include "Utility.hpp"
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
@@ -23,7 +24,7 @@ struct ImageWithFilter {
     bool isEnable = true;
 };
 
-class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_coordinate_atom> {
+class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_locate_request_atom> {
     httplib::Server mServer;
     std::unordered_map<uint64_t, ImageWithFilter> mImage;
     std::mutex mMutex;
@@ -120,9 +121,11 @@ public:
         });
         mServer.Post("/radar", [this](const httplib::Request& req, httplib::Response& res) {
             auto j = nlohmann::json::parse(req.body);
-            int x = j[0], y = j[1];
-            BlackBoard::instance().updateSync(mKey, std::make_pair(x, y));
-            sendAll(radar_coordinate_atom_v, mKey);
+            const float x = j[0], y = j[1];
+            RadarCameraPointsArray data;
+            // TODO
+            data.imagePoints.push_back({x, y});
+            sendAll(radar_locate_request_atom_v, BlackBoard::instance().updateSync(mKey, data));
         });
         mServer.Get("/exit", [this](const httplib::Request& req, httplib::Response& res) {
             mServer.stop();
