@@ -3,6 +3,7 @@
 #include "Common.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
+#include "RadarCameraPoints.hpp"
 #include "Utility.hpp"
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
@@ -121,9 +122,10 @@ public:
         mServer.Post("/radar", [this](const httplib::Request& req, httplib::Response& res) {
             auto j = nlohmann::json::parse(req.body);
             const float x = j[0], y = j[1];
-            RadarCameraPointsArray res;
-            res.imagePoints.push_back({x, y});
-            sendAll(radar_coordinate_atom_v, BlackBoard::instance().updateSync(mKey, res));
+            RadarCameraPointsArray data;
+            // TODO
+            data.imagePoints.push_back({x, y});
+            sendAll(radar_coordinate_atom_v, BlackBoard::instance().updateSync(mKey, data));
         });
         mServer.Get("/exit", [this](const httplib::Request& req, httplib::Response& res) {
             mServer.stop();
