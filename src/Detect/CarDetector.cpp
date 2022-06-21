@@ -155,8 +155,7 @@ class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSe
     }
 
 public:
-    CarDetector(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(CarDetector).hash_code() } {
+    CarDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         ACTOR_EXCEPTION_PROBE();
 
         mNetwork = mInferenceEngine.ReadNetwork(mConfig.xmlPath, mConfig.binPath);

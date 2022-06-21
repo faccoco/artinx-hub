@@ -321,8 +321,7 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
     }
 
 public:
-    Simulator(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(Simulator).hash_code() } {
+    Simulator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         mCollisionConfig = std::make_unique<btDefaultCollisionConfiguration>();
         mCollisionDispatcher = std::make_unique<btCollisionDispatcher>(mCollisionConfig.get());
         mBroadphaseInterface = std::make_unique<btDbvtBroadphase>();

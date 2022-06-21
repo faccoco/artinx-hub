@@ -23,7 +23,7 @@ class Undistort final : public HubHelper<caf::event_based_actor, UndistortSettin
 
 public:
     Undistort(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(Undistort).hash_code() } {
+        : HubHelper{ base, config }, mKey{ generateKey(this) } {
         cv::FileStorage fs(mConfig.ymlPath, cv::FileStorage::READ);
         fs["camera_matrix"] >> mCameraMatrix;
         fs["distortion_coefficients"] >> mDistCoeffs;
@@ -266,7 +266,7 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
 
 public:
     UndistortCalibrator(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(UndistortCalibrator).hash_code() }, mMode(Status::CAPTURING) {
+        : HubHelper{ base, config }, mKey{ generateKey(this) }, mMode(Status::CAPTURING) {
         initFlag();
         mGridWidth = mConfig.squareSize * (mConfig.boardSize.width - 1);
     }

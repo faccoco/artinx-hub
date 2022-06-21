@@ -137,8 +137,11 @@ std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system&
         if(name == "global")
             continue;
         const auto& dict = config.to_dictionary();
-        if(const auto iter = dict->find("group_id"); iter != dict->cend()) {
-            detail::maskLUT[name] = 1U << 1U << static_cast<uint32_t>(iter->second.to_integer().value());
+
+        if(const auto iter1 = dict->find("group_mask"); iter1 != dict->cend()) {
+            detail::maskLUT[name] = static_cast<uint32_t>(iter1->second.to_integer().value());
+        } else if(const auto iter2 = dict->find("group_id"); iter2 != dict->cend()) {
+            detail::maskLUT[name] = 1U << static_cast<uint32_t>(iter2->second.to_integer().value());
         } else {
             detail::maskLUT[name] = 1U;
         }

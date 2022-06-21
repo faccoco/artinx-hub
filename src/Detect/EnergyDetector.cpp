@@ -411,18 +411,18 @@ class EnergyDetector final
         return true;
     }
 
-    bool predictAngle(std::vector<double> angles, float& preAngle) {
-        float delAngles[11];
+    void predictAngle(std::vector<double> angles, float& preAngle) {
+        float delAngles[12];
         for(int i = 1; i < 12; i++) {
             delAngles[i] = angles[i] - angles[i - 1];
         }
         auto Angle = LineFitLeastSquares(delAngles);
-        preAngle =Angle>0? Angle * mConfig.offsetPreAngle + mConfig.predictAngle: Angle * mConfig.offsetPreAngle - mConfig.predictAngle;
+        preAngle = Angle > 0 ? Angle * mConfig.offsetPreAngle + mConfig.predictAngle :
+                               Angle * mConfig.offsetPreAngle - mConfig.predictAngle;
     }
 
 public:
-    EnergyDetector(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(EnergyDetector).hash_code() } {}
+    EnergyDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
                     ACTOR_PROTOCOL_CHECK(start_atom);
@@ -471,8 +471,8 @@ public:
                      } else {
                          int direction;
                          float preAngle;
-                        // getDirection(angles, direction);
-                         predictAngle(angles,preAngle);
+                         // getDirection(angles, direction);
+                         predictAngle(angles, preAngle);
                          res.prePoint = predict(armorPoints, raw, preAngle);
                          angles.clear();
                      }

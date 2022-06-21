@@ -26,8 +26,7 @@ class SentryStrategy final : public HubHelper<caf::event_based_actor, SentryStra
     Identifier mHead1, mHead2;
 
 public:
-    SentryStrategy(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(SentryStrategy).hash_code() } {}
+    SentryStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](detect_available_atom, GroupMask mask, Identifier key) {

@@ -71,8 +71,7 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
     static constexpr double timeScale = static_cast<double>(Clock::period::den) / static_cast<double>(Clock::period::num);
 
 public:
-    ArmorPredictor(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(ArmorPredictor).hash_code() } {
+    ArmorPredictor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         mTimeStep = static_cast<int64_t>(mConfig.step * timeScale);
     }
     caf::behavior make_behavior() override {
