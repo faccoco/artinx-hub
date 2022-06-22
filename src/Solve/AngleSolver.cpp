@@ -177,37 +177,18 @@ public:
                      //(forward:+y,right:+x)
                      
 
-                     double horizonalDistance = std::hypot(transformedPosition.x, transformedPosition.y);
+                     double horizontalDistance = std::hypot(transformedPosition.x, transformedPosition.y);
                      double theta = std::atan2(transformedPosition.y, transformedPosition.x);
-                     double netHorizonalSpeed =
-                         Ferrari(-square(horizonalDistance) - square(transformedPosition.z),
-                                 2 * std::cos(theta) * square(horizonalDistance) * transformedLinearVelocity.x +
-                                     2 * std::sin(theta) * square(horizonalDistance) * transformedLinearVelocity.y,
-                                 -g * square(horizonalDistance) * transformedPosition.z +
-                                     square(horizonalDistance) * square(bulletSpeed) -
-                                     square(horizonalDistance) *
+                     double netHorizontalSpeed =
+                         ferrari(-square(horizontalDistance) - square(transformedPosition.z),
+                                 2 * std::cos(theta) * square(horizontalDistance) * transformedLinearVelocity.x +
+                                     2 * std::sin(theta) * square(horizontalDistance) * transformedLinearVelocity.y,
+                                 -g * square(horizontalDistance) * transformedPosition.z +
+                                     square(horizontalDistance) * square(bulletSpeed) -
+                                     square(horizontalDistance) *
                                          (square(transformedLinearVelocity.x) + square(transformedLinearVelocity.y)),
-                                 0, (-0.25) * square(g) * square(square(horizonalDistance)));
-                     //
-                     //                 std::acos(netHorizonalSpeed/bulletSpeed))); const auto expr1 =
-                     //                 std::sqrt(square(bulletSpeed)* square(bulletSpeed) - 2 * g * transformedPosition.z *
-                     //                 square(bulletSpeed) - square(horizonalDistance * g) ) / square(g); const auto expr2 =
-                     //                 std::sqrt(square(bulletSpeed / g) - transformedPosition.z / g - expr1); auto expr3 = 2
-                     //                 * glm::root_two<double>() * horizonalDistance * ((-2 * g * transformedPosition.z + 2 *
-                     //                 std::pow(bulletSpeed, 2)) * expr2 - square(g) * cube(expr2)); expr3 /= (double)(4 *
-                     //                 bulletSpeed); expr3 /= (square(transformedPosition.x) + square(transformedPosition.y)
-                     //                 +
-                     //                           square(transformedPosition.z));
-                     //                 auto expr4 = 2 * glm::root_two<double>() *
-                     //                     (-square(horizonalDistance) * g * expr3 + square(transformedPosition.z) * g *
-                     //                     expr2 -
-                     //                      2 * transformedPosition.z * square(bulletSpeed) * expr2 +
-                     //                      square(g) * transformedPosition.z * cube(expr2));
-                     //                 expr4 /= (double)((-4) * bulletSpeed);
-                     //                 expr4 /= (square(transformedPosition.x) + square(transformedPosition.y) +
-                     // square(transformedPosition.z));
-                     //                 double pitchAngle = std::atan2(expr4, expr3);
-                     double airDuration = horizonalDistance / netHorizonalSpeed;
+                                 0, (-0.25) * square(g) * square(square(horizontalDistance)));
+                     double airDuration = horizontalDistance / netHorizontalSpeed;
                      mTimes[(++mCnt) % 1000] = timeDuration;
                      mPositions[(mCnt) % 1000] = transformedPosition;
                      if(mCnt >= 2) {
@@ -230,31 +211,16 @@ public:
                                                      transformedPosition.y + airDuration * avgVec.y,
                                                      transformedPosition.z + airDuration * avgVec.z };
                          }
-
-                         // if(std::abs(mDiff[(mCnt - 1)%1000] - mDiff[(mCnt - 2)%1000]) > 0.2 &&
-                         //   std::abs(mDiff[(mCnt - 1)%1000] - mDiff[mCnt%1000]) > 0.2) {
-                         //    mExceptionPoint[(++mExceptionPoint[0])%1000] = (mCnt - 1)%1000;
-                         //    if(mexceptionpoint[0] >= 2) {
-                         //        if(mexceptionpoint[0] == 2)
-                         //            mperiod = mtimes[mexceptionpoint[2]] - mtimes[mexceptionpoint[1]];
-                         //        else {
-                         //            mperiod =
-                         //                (mperiod * (mexceptionpoint[0] - 2) + mtimes[mexceptionpoint[mexceptionpoint[0]]] -
-                         //                 mtimes[mexceptionpoint[mexceptionpoint[0] - 1]]) /
-                         //                (mexceptionpoint[0] - 1);
-                         //        }
-                         //    }
-                         //} else mExceptionPoint[0] = 0;
                      }
-                     netHorizonalSpeed =
-                         Ferrari(-square(horizonalDistance) - square(transformedPosition.z),
-                                 2 * std::cos(theta) * square(horizonalDistance) * transformedLinearVelocity.x +
-                                     2 * std::sin(theta) * square(horizonalDistance) * transformedLinearVelocity.y,
-                                 -g * square(horizonalDistance) * transformedPosition.z +
-                                     square(horizonalDistance) * square(bulletSpeed) -
-                                     square(horizonalDistance) *
+                     netHorizontalSpeed =
+                         ferrari(-square(horizontalDistance) - square(transformedPosition.z),
+                                 2 * std::cos(theta) * square(horizontalDistance) * transformedLinearVelocity.x +
+                                     2 * std::sin(theta) * square(horizontalDistance) * transformedLinearVelocity.y,
+                                 -g * square(horizontalDistance) * transformedPosition.z +
+                                     square(horizontalDistance) * square(bulletSpeed) -
+                                     square(horizontalDistance) *
                                          (square(transformedLinearVelocity.x) + square(transformedLinearVelocity.y)),
-                                 0, (-0.25) * square(g) * square(square(horizonalDistance)));
+                                 0, (-0.25) * square(g) * square(square(horizontalDistance)));
                      double netVerticalSpeed = transformedPosition.z / airDuration + g * airDuration / 2;
                      double pitchAngle = std::asin(netVerticalSpeed / bulletSpeed);
                      double yawAngle = std::atan2(netVerticalSpeed * std::sin(theta) - transformedLinearVelocity.y,
@@ -277,8 +243,7 @@ public:
                          currentYawAngle -= glm::two_pi<double>();
                      currentYawAngle -= glm::half_pi<double>();
                      double currentPitchAngle = std::atan2(forwardVector.z, std::hypot(forwardVector.x, forwardVector.y));
-                     double prec = 0.05;
-                     bool ifshoot = (abs(yawAngle - currentYawAngle) < prec) && (abs(pitchAngle - currentPitchAngle) < prec);
+                     bool ifshoot = (std::fabs(yawAngle - currentYawAngle) < mConfig.precision) && (std::fabs(pitchAngle - currentPitchAngle) < mConfig.precision);
                      sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
                              pitchAngle, ifshoot);
                  },
