@@ -51,21 +51,21 @@ deploy-job-infantry1:
     - sudo python3 ./scripts/setup-service infantry1
   environment:
     name: infantry1
-    on_stop: stop-service
+#   on_stop: stop-service
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
 
-stop-service:
-  stage: deploy
-  tags:
-    - linux
-  script:
-    - sudo python3 ./scripts/teardown-service.py
-  when: manual
-  environment:
-    name: $DEPLOY_TARGET
-    action: stop
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
-      when: manual
+# stop-service:
+#   stage: deploy
+#   tags:
+#     - linux
+#   script:
+#     - sudo python3 ./scripts/teardown-service.py
+#   when: manual
+#   environment:
+#     name: $DEPLOY_TARGET
+#     action: stop
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+#       when: manual
