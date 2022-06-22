@@ -36,11 +36,8 @@ test-job:
     - cd build
     - ctest --build-config Release -j 8
   artifacts:
-    name: "report"
-    paths:
-      - ./build/testResult.log
-    expire_in: 1 month
-    expose_as: "test report"
+    reports:
+      metrics: ./build/testResult.txt
   rules:
     - if: $DEPLOY_TARGET == null
 

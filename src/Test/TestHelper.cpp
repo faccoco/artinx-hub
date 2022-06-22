@@ -1,11 +1,14 @@
 #include <fstream>
+#include <mutex>
 #include <string>
 
-extern std::string globalConfigName;
+static std::ostream& getTestResult() {
+    static std::ofstream out{ "testResult.txt", std::ios::app };
+    return out;
+}
 
 void appendTestResult(const std::string& message) {
-    std::ofstream out{ "testResult.log", std::ios::app };
-    out << "========== " << globalConfigName << " ==========" << std::endl;
-    out << message << std::endl;
-    out.flush();
+    static std::mutex mutex;
+    std::lock_guard guard{ mutex };
+    getTestResult() << message << std::endl;
 }

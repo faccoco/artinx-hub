@@ -394,6 +394,13 @@ public:
         const auto maxVelocity = mConfig.v0 + 3.0 * mConfig.v0Std;
         const auto minVelocity = mConfig.v0 - 3.0 * mConfig.v0Std;
 
+        const auto shootCountName = globalConfigName + "_shoot";
+        const auto hitCountName = globalConfigName + "_hit";
+        const auto closestName = globalConfigName + "_closest";
+        appendTestResult("# TYPE " + shootCountName + " counter");
+        appendTestResult("# TYPE " + hitCountName + " counter");
+        appendTestResult("# TYPE " + closestName + " gauge");
+
         // const auto speedThreshold =
         //    globalSettings.bullet42mm ? speedThresholdFor42mmA : speedThresholdFor17mm;  // TODO: handle triangle armor
 
@@ -494,6 +501,7 @@ public:
                     const auto pos = bodyB->getCenterOfMassPosition();
 
                     logInfo(fmt::format("Hit at ({:.2f},{:.2f},{:.2f}) vel {:.2f}", pos.x(), pos.y(), pos.z(), velocity));
+                    appendTestResult(fmt::format("{} {} {:.5f}", hitCountName, hitCount, time));
                     mDynamicWorld->removeRigidBody(const_cast<btRigidBody*>(bodyB));
                 } else {
                     logInfo(fmt::format("Bad hit: vertical speed = {:.3f}", velocity));
@@ -552,6 +560,7 @@ public:
 
                 lastShoot = time;
                 ++bulletCount;
+                appendTestResult(fmt::format("{} {} {:.5f}", shootCountName, bulletCount, time));
             }
 
             logInfo(fmt::format("Simulator time {:.3f}s bullet count {} hit {} shoot {}", time, bulletCount, hitCount, shoot));
@@ -607,6 +616,9 @@ public:
                     const auto [p1, p2] = closest.value();
                     logInfo(fmt::format("Closest pair armor {:.3f} {:.3f} {:.3f} <-> bullet {:.3f} {:.3f} {:.3f} : {:.3f} m",
                                         p1.x(), p1.y(), p1.z(), p2.x(), p2.y(), p2.z(), minDist));
+                    appendTestResult(fmt::format("{} {} {:.5f}", closestName, minDist, time));
+                } else {
+                    appendTestResult(fmt::format("{} {} {:.5f}", closestName, 50.0, time));
                 }
             }
 
@@ -619,9 +631,8 @@ public:
             std::this_thread::sleep_for(5ms);
         }
 
-        logInfo(fmt::format("Expected {} Result {}", mConfig.expectedCount, hitCount));
-        appendTestResult(fmt::format("Result {}/{} (Require {}, Shoot {})", hitCount, mConfig.bulletCount, mConfig.expectedCount,
-                                     bulletCount));
+        logInfo(fmt::format("Result {}/{} (Require {}, Shoot {})", hitCount, mConfig.bulletCount, mConfig.expectedCount,
+                            bulletCount));
 
         if(hitCount < mConfig.expectedCount) {
             logError("Test failed");

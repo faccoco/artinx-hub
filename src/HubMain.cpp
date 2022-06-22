@@ -199,6 +199,9 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
     }
 
     globalConfigName = fs::path{ argv[1] }.filename().string();
+    if(const auto pos = globalConfigName.find('.'); pos != std::string::npos)
+        globalConfigName = globalConfigName.substr(0, pos);
+
     const auto configData = loadConfig(argv[1]);
     const auto pipelineConfig = caf::config_value::parse(configData).value();
     GlobalSettings::get() = caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value();

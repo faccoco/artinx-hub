@@ -113,6 +113,8 @@ class ArmorLocatorTester final
         sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
     }
 
+    std::string mMetricName;
+
 public:
     ArmorLocatorTester(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ generateKey(this) }, mMat{
@@ -124,6 +126,8 @@ public:
         return { [this](start_atom) {
                     ACTOR_PROTOCOL_CHECK(start_atom);
                     next();
+                    mMetricName = globalConfigName + (mConfig.judgeAngle ? "_angle" : "_distance");
+                    appendTestResult("# TYPE " + mMetricName + " gauge");
                 },
                  [&](detect_available_atom, GroupMask, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
@@ -155,6 +159,8 @@ public:
                          passAbsolute = dist < 0.03;  // 3cm
                      }
 
+                     appendTestResult(fmt::format("{} {:.5f} {}", mMetricName, error, mCount));
+
                      if(error < mConfig.maxError * 2.0 || passAbsolute)
                          logInfo(message);
                      else
@@ -172,8 +178,8 @@ public:
                              logInfo("Test passed");
                          else
                              logError("Test failed");
-                         appendTestResult(fmt::format("Mean error {:.2f}% (Require {:.2f}%) {}", mMeanError * 100.0,
-                                                      mConfig.maxError * 100.0, mConfig.judgeAngle ? "Angle" : "Distance"));
+                         logInfo(fmt::format("Mean error {:.2f}% (Require {:.2f}%) {}", mMeanError * 100.0,
+                                             mConfig.maxError * 100.0, mConfig.judgeAngle ? "Angle" : "Distance"));
                          terminateSystem(*this, mMeanError < mConfig.maxError);
                      } else
                          next();
