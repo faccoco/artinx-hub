@@ -34,15 +34,9 @@ public:
                      if(++mSentCount <= mConfig.testCount) {
                          sendAll(payload_atom_v, 0, 0);
                      } else {
-                         std::stringstream ss;
-                         ss << "# TYPE " << globalConfigName << "_availability info" << std::endl;
-                         ss << globalConfigName << "_availability_info {item =\"percent\"} "
-                            << (mSuccessCount / static_cast<double>(mConfig.testCount)) << std::endl;
-                         ss << globalConfigName << "_availability_info {item =\"success\"} " << mSuccessCount << std::endl;
-                         ss << globalConfigName << "_availability_info {item =\"total\"} " << mConfig.testCount << std::endl;
-                         ss << globalConfigName << "_availability_info {item =\"requirement\"} " << mConfig.threshold
-                            << std::endl;
-                         appendTestResult(ss.str());
+                         appendTestResult(fmt::format("Availability {:.2f}% ({}/{}) Require {:.2f}%",
+                                                      mSuccessCount / static_cast<double>(mConfig.testCount) * 100.0,
+                                                      mSuccessCount, mConfig.testCount, mConfig.threshold * 100.0));
                          terminateSystem(*this, mSuccessCount >= mConfig.testCount * mConfig.threshold);
                      }
                  },
