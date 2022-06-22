@@ -33,7 +33,7 @@ test-job:
 deploy-job-infantry1:
   stage: deploy
   tags:
-    - linux 
+    - linux
     - infantry1
   script:
     - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
