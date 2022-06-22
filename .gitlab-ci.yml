@@ -44,18 +44,83 @@ test-job:
   rules:
     - if: $DEPLOY_TARGET == null
 
-deploy-job:
+deploy-job-infantry1:
   stage: deploy
   tags:
-    - linux
+    - linux infantry1
   script:
     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
   environment:
-    name: Robots
+    name: infantry1
     on_stop: stop-service
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
       when: manual
+
+# deploy-job-infantry2:
+#   stage: deploy
+#   tags:
+#     - linux infantry2
+#   script:
+#     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
+#   environment:
+#     name: infantry2
+#     on_stop: stop-service
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+#       when: manual
+
+# deploy-job-engineer:
+#   stage: deploy
+#   tags:
+#     - linux engineer
+#   script:
+#     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
+#   environment:
+#     name: engineer
+#     on_stop: stop-service
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+#       when: manual
+
+# deploy-job-hero:
+#   stage: deploy
+#   tags:
+#     - linux hero
+#   script:
+#     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
+#   environment:
+#     name: hero
+#     on_stop: stop-service
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+#       when: manual
+
+# deploy-job-sentry:
+#   stage: deploy
+#   tags:
+#     - linux sentry
+#   script:
+#     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
+#   environment:
+#     name: sentry
+#     on_stop: stop-service
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+#       when: manual
+
+# deploy-job-uav:
+#   stage: deploy
+#   tags:
+#     - linux uav
+#   script:
+#     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
+#   environment:
+#     name: uav
+#     on_stop: stop-service
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+#       when: manual
 
 stop-service:
   stage: deploy
@@ -63,10 +128,5 @@ stop-service:
     - linux
   script:
     - sudo python3 ./scripts/teardown-service.py
-  when: manual
-  environment:
-    name: Robots
-    action: stop
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
-      when: manual
