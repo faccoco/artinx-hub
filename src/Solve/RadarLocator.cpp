@@ -1,12 +1,18 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
+#include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include "RadarCameraPoints.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <opencv2/calib3d.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct RadarLocatorSetting final {};
 
@@ -18,11 +24,11 @@ bool inspect(Inspector& f, RadarLocatorSetting& x) {
 class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocatorSetting, radar_locate_succeed_atom> {
     Identifier mKey;
     std::vector<cv::Point3f> mObjectPoints = {
-        cv::Point3f(1.51, 7.5, 1.12),  // from rival's base,clockwise
-        cv::Point3f(12.897, 1.867, 0.6), cv::Point3f(19.195, 8.612, 0.615),  cv::Point3f(19.195, 9.272, 0.615),
-        cv::Point3f(12.03, 10.500, 0.6), cv::Point3f(10.931, 12.546, 1.228),  // gardstation's height unknown, can't find in
-                                                                              // manual
-        /*coulde add two additional points but may be too many points
+        cv::Point3f(1.51f, 7.5f, 1.12f),  // from rival's base,clockwise
+        cv::Point3f(12.897f, 1.867f, 0.6f), cv::Point3f(19.195f, 8.612f, 0.615f),  cv::Point3f(19.195f, 9.272f, 0.615f),
+        cv::Point3f(12.03f, 10.500f, 0.6f), cv::Point3f(10.931f, 12.546f, 1.228f),  // guardStation's height unknown, can't find
+                                                                                    // in manual
+        /*could add two additional points but may be too many points
          *cv::Point3f(11.446,11.653,0.000),
          *cv::Point3f(11.446,13.44,0.000),
          */
@@ -54,12 +60,13 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
     }
 
 public:
-    RadarLocator(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(RadarLocator).hash_code() } {}
+    RadarLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](radar_locate_request_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(radar_locate_request_atom, TypedIdentifier<RadarCameraPointsArray>);
+                     ACTOR_LATENCY_PROBE();
+
                      const auto data = BlackBoard::instance().get<RadarCameraPointsArray>(key).value();
                      const auto& info = data.cameraInfo;
                      if(const auto radarTransform = locatePosition(info.cameraMatrix, data.imagePoints, data.selfColor)) {

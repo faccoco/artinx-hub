@@ -2,19 +2,21 @@
 #include "DataDesc.hpp"
 #include "DetectedCar.hpp"
 #include "Hub.hpp"
+#include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
-#include <filesystem>
-#include <memory>
+
+#include "SuppressWarningEnd.hpp"
 
 class CarDetectorDrawer final : public HubHelper<caf::event_based_actor, void, image_frame_atom> {
 private:
     Identifier mKey;
 
 public:
-    CarDetectorDrawer(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(CarDetectorDrawer).hash_code() } {}
+    CarDetectorDrawer(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](car_detect_available_atom, Identifier key) {

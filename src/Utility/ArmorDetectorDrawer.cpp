@@ -4,14 +4,19 @@
 #include "DetectedArmor.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/event_based_actor.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 class ArmorDetectorDrawer final : public HubHelper<caf::event_based_actor, void, image_frame_atom> {
     Identifier mKey;
 
 public:
     ArmorDetectorDrawer(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(ArmorDetectorDrawer).hash_code() } {}
+        : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](armor_detect_available_atom, Identifier key) {

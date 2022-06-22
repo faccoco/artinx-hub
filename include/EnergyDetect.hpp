@@ -1,6 +1,5 @@
 #pragma once
 #include "CameraFrame.hpp"
-#include <opencv2/opencv.hpp>
 
 struct DetectedEnergyInfo final {
     TimePoint lastUpdate;

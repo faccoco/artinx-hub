@@ -4,6 +4,15 @@
 #include "Hub.hpp"
 #include "Timer.hpp"
 #include "Utility.hpp"
+#include <cctype>
+#include <condition_variable>
+#include <fstream>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_registry.hpp>
 #include <caf/actor_system.hpp>
 #include <caf/actor_system_config.hpp>
@@ -11,13 +20,9 @@
 #include <caf/exec_main.hpp>
 #include <caf/logger.hpp>
 #include <caf/scoped_actor.hpp>
-#include <cctype>
-#include <condition_variable>
 #include <fmt/format.h>
-#include <fstream>
-#include <mutex>
-#include <string>
-#include <vector>
+
+#include "SuppressWarningEnd.hpp"
 
 using namespace std::literals;
 
@@ -133,17 +138,20 @@ std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system&
     std::vector<std::pair<std::string, caf::actor>> actors;
     actors.reserve(nodes.size());
 
-    for(auto&& [name, config] : nodes) {
+    for(auto&& [name, sub] : nodes) {
         if(name == "global")
             continue;
-        const auto& dict = config.to_dictionary();
-        if(const auto iter = dict->find("group_id"); iter != dict->cend()) {
-            detail::maskLUT[name] = 1U << 1U << static_cast<uint32_t>(iter->second.to_integer().value());
+        const auto& dict = sub.to_dictionary();
+
+        if(const auto iter1 = dict->find("group_mask"); iter1 != dict->cend()) {
+            detail::maskLUT[name] = static_cast<uint32_t>(iter1->second.to_integer().value());
+        } else if(const auto iter2 = dict->find("group_id"); iter2 != dict->cend()) {
+            detail::maskLUT[name] = 1U << static_cast<uint32_t>(iter2->second.to_integer().value());
         } else {
             detail::maskLUT[name] = 1U;
         }
 
-        actors.push_back({ name, factory.buildNode(system, name, config) });
+        actors.emplace_back(name, factory.buildNode(system, name, sub));
     }
 
     return actors;
@@ -155,16 +163,23 @@ RunStatus globalStatus = RunStatus::running;
 static std::mutex globalMutex;
 static std::condition_variable globalCV;
 
-void terminateSystem(caf::local_actor& actor, const bool success) {
+void terminateSystem(caf::local_actor&, const bool success) {
     globalStatus = success ? RunStatus::normalExit : RunStatus::failureExit;
     globalCV.notify_one();
 }
 
 std::string globalConfigName;
 
+void setupFPEProbe() noexcept {
+#if ARTINXHUB_DEBUG && defined(ARTINXHUB_WINDOWS)
+    _control87(_EM_DENORMAL | _EM_INEXACT | _EM_UNDERFLOW, _MCW_EM);
+#endif
+}
+
 int caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
     logInfo("Initializing");
     Timer::instance().bindSystem(system);
+    setupFPEProbe();
 
     const fs::path logPath{ "./logs" };
     if(!fs::exists(logPath)) {
@@ -218,6 +233,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
     return globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+std::mutex HubLogger::mutex;
 std::unordered_map<std::string, TimePoint> HubLogger::logs;
 std::unordered_map<std::string, std::string> HubLogger::watches;
 

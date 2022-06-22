@@ -6,12 +6,17 @@
 #include "Hub.hpp"
 #include "Timer.hpp"
 #include "Utility.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+#include <queue>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
-#include <queue>
+
+#include "SuppressWarningEnd.hpp"
 
 static constexpr double zNear = 0.5;
 static constexpr double zFar = 50.0;
@@ -110,7 +115,7 @@ class ArmorLocatorTester final
 
 public:
     ArmorLocatorTester(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(ArmorLocatorTester).hash_code() }, mMat{
+        : HubHelper{ base, config }, mKey{ generateKey(this) }, mMat{
               glm::perspectiveFovRH(glm::radians(mConfig.fov), static_cast<double>(mConfig.imageWidth),
                                     static_cast<double>(mConfig.imageHeight), zNear, zFar) *
               glm::lookAtRH(glm::dvec3{ 0.0 }, glm::dvec3{ 0.0, 0.0, -1.0 }, glm::dvec3{ 0.0, 1.0, 0.0 })

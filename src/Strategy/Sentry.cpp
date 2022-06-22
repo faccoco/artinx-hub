@@ -4,9 +4,14 @@
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <glm/glm.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct SentryStrategySettings final {
     double distanceThreshold;
@@ -26,8 +31,7 @@ class SentryStrategy final : public HubHelper<caf::event_based_actor, SentryStra
     Identifier mHead1, mHead2;
 
 public:
-    SentryStrategy(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(SentryStrategy).hash_code() } {}
+    SentryStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](detect_available_atom, GroupMask mask, Identifier key) {
@@ -79,7 +83,7 @@ public:
                          }
                      }
 
-                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                     sendMasked(set_target_atom_v, mask, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                  },
                  [&](update_head_atom, GroupMask mask, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);

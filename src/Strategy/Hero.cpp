@@ -3,9 +3,14 @@
 #include "DetectedTarget.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <glm/glm.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct HeroStrategySettings final {};
 
@@ -18,8 +23,7 @@ class HeroStrategy final : public HubHelper<caf::event_based_actor, HeroStrategy
     Identifier mKey;
 
 public:
-    HeroStrategy(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(HeroStrategy).hash_code() } {}
+    HeroStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](detect_available_atom, GroupMask, Identifier key) {

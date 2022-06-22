@@ -1,6 +1,10 @@
 #pragma once
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/allowed_unsafe_message_type.hpp>
 #include <caf/type_id.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct ClassifiedNum final {
     int32_t num;

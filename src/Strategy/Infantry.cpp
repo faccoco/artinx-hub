@@ -4,9 +4,14 @@
 #include "EnergyDetect.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <glm/glm.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct InfantryStrategySettings final {};
 
@@ -17,11 +22,10 @@ bool inspect(Inspector& f, InfantryStrategySettings& x) {
 
 class InfantryStrategy final : public HubHelper<caf::event_based_actor, InfantryStrategySettings, set_target_atom> {
     Identifier mKey;
-    bool mEnergyMode = true;  // test only
+    bool mEnergyMode = false;
 
 public:
-    InfantryStrategy(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(InfantryStrategy).hash_code() } {}
+    InfantryStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](energy_detector_control_atom, bool enable) {

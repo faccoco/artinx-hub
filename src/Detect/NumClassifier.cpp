@@ -2,16 +2,22 @@
 #include "CameraFrame.hpp"
 #include "ClassifiedNum.hpp"
 #include "DataDesc.hpp"
+#include "ExceptionProbe.hpp"
 #include "Hub.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cmath>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <inference_engine.hpp>
 
+#include "SuppressWarningEnd.hpp"
+
 struct NumClassifierSettings final {
-    int32_t inputWidth;
-    int32_t inputHeight;
+    uint32_t inputWidth;
+    uint32_t inputHeight;
     std::string xmlPath;
     std::string binPath;
     std::string deviceName;
@@ -41,8 +47,8 @@ class NumClassifier final : public HubHelper<caf::event_based_actor, NumClassifi
 
         const auto inputData = inputBlob->buffer().as<IE::PrecisionTrait<IE::Precision::FP32>::value_type*>();
 
-        for(size_t h = 0; h < mConfig.inputHeight; h++) {
-            for(size_t w = 0; w < mConfig.inputWidth; w++) {
+        for(uint32_t h = 0; h < mConfig.inputHeight; h++) {
+            for(uint32_t w = 0; w < mConfig.inputWidth; w++) {
                 inputData[h * mConfig.inputWidth + w] = static_cast<float>(dstImg.at<uchar>(h, w)) / 255.0f;
             }
         }
@@ -64,8 +70,7 @@ class NumClassifier final : public HubHelper<caf::event_based_actor, NumClassifi
     }
 
 public:
-    NumClassifier(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(NumClassifier).hash_code() } {
+    NumClassifier(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         auto [outputBlobName, outputBlob] = *mNetwork.getOutputsInfo().begin();
         mOutputName = outputBlobName;
         outputBlob->setPrecision(IE::Precision::FP32);
@@ -78,9 +83,11 @@ public:
     }
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom);},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](num_classify_request_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(num_classify_request_atom,TypedIdentifier<CameraFrame>);
+                     ACTOR_PROTOCOL_CHECK(num_classify_request_atom, TypedIdentifier<CameraFrame>);
+                     ACTOR_LATENCY_PROBE();
+
                      const auto imgData = BlackBoard::instance().get<CameraFrame>(key).value();
                      auto request = mExecutableNetwork.CreateInferRequest();
 

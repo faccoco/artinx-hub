@@ -2,8 +2,13 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "PostureData.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct IMUFilterSettings final {};
 
@@ -16,8 +21,7 @@ class IMUFilter final : public HubHelper<caf::event_based_actor, IMUFilterSettin
     Identifier mKey;
 
 public:
-    IMUFilter(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(IMUFilter).hash_code() } {}
+    IMUFilter(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](update_posture_atom, Identifier key) {

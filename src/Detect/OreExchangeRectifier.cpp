@@ -1,12 +1,18 @@
 #include "BlackBoard.hpp"
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
+#include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include <algorithm>
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
 #include <limits>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <opencv2/barcode.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct OreExchangeRectifierSettings final {
     std::string superResProtoTxt;
@@ -37,8 +43,8 @@ bool inspect(Inspector& f, OreExchangeRectifierSettings& x) {
 class OreExchangeRectifier final
     : public HubHelper<caf::event_based_actor, OreExchangeRectifierSettings, ore_detect_available_atom> {
     Identifier mKey;
-    enum class AutomataStates { off, finding, learning, back_finding, rectifying };
-    AutomataStates mAutomataState{ AutomataStates::off };
+    enum class AutomataStates { Off, Finding, Learning, BackFinding, Rectifying };
+    AutomataStates mAutomataState{ AutomataStates::Off };
     cv::barcode::BarcodeDetector mBarcodeDetector{ mConfig.superResProtoTxt, mConfig.superResCaffeModel };
     cv::Rect oreBackSurfaceDetect(const cv::Mat& image) const {
         cv::Mat corners;
@@ -63,6 +69,7 @@ class OreExchangeRectifier final
         mAngularVelocity = -mConfig.movingRate;
         mPrevTheta = 0;  // reset to initial value.
     }
+
     int mValidDetectionCount;  // 0
     void finds(const cv::Rect& rect) {
         send(+mConfig.movingRate);
@@ -74,7 +81,7 @@ class OreExchangeRectifier final
         // only when a consecutive image sequence is found to have bar code, do we go to the next state.
         if(mValidDetectionCount >= mConfig.validDetectionRequired) {
             mValidDetectionCount = 0;  // reuse for validMisDetectionCount.
-            mAutomataState = AutomataStates::learning;
+            mAutomataState = AutomataStates::Learning;
         }
     }
     int mMaxHeight;  // std::numeric_limits<int32_t>::min()
@@ -87,7 +94,7 @@ class OreExchangeRectifier final
             // only when a consecutive image sequence is found not to have bar code, do we go to the next state.
             if(validMisDetectionCount >= validMisDetectionRequired) {
                 validMisDetectionCount = 0;  // reuse for mValidDetectionCount.
-                mAutomataState = AutomataStates::back_finding;
+                mAutomataState = AutomataStates::BackFinding;
             }
         } else {
             validMisDetectionCount = 0;
@@ -104,7 +111,7 @@ class OreExchangeRectifier final
         // only when a consecutive image sequence is found to have bar code, do we go to the next state.
         if(mValidDetectionCount >= mConfig.validDetectionRequired) {
             mValidDetectionCount = 0;
-            mAutomataState = AutomataStates::rectifying;
+            mAutomataState = AutomataStates::Rectifying;
         }
     }
     double mAngularVelocity;  //-1
@@ -121,7 +128,7 @@ class OreExchangeRectifier final
                 mValidDetectionCount++;
             if(mValidDetectionCount >= mConfig.validDetectionRequired) {
                 send(-90);
-                mAutomataState = AutomataStates::off;
+                mAutomataState = AutomataStates::Off;
                 return;
             }
             // if theta is declining, then the sign of velocity is correct.
@@ -137,44 +144,47 @@ class OreExchangeRectifier final
 
 public:
     OreExchangeRectifier(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(OreExchangeRectifier).hash_code() } {}
+        : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return {
             [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-            [&](ore_instructions_atom, bool y /*may be useful*/, Identifier key) {
+            [&](ore_instructions_atom, bool /*may be useful*/, Identifier) {
                 // ACTOR_PROTOCOL_CHECK(ore_instructions_atom, bool, TypedIdentifier<int>);  // TODO: value type of key
                 off();  // initialize the values for member variable.
                 // situation 1: OFF rectifier is waked up.
                 // situation 2: ON or other state, someone wants to stop it when some exceptions may be observed.
-                mAutomataState = (mAutomataState == AutomataStates::off ? AutomataStates::finding : AutomataStates::off);
+                mAutomataState = (mAutomataState == AutomataStates::Off ? AutomataStates::Finding : AutomataStates::Off);
             },
             [&](image_frame_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
-                if(mAutomataState == AutomataStates::off) {
+                ACTOR_LATENCY_PROBE();
+
+                if(mAutomataState == AutomataStates::Off) {
                     off();
                     return;
                 }
                 const auto rect =
                     oreBackSurfaceDetect(BlackBoard::instance().get<CameraFrame>(key).value().frame);  // safe and need not copy
                 switch(mAutomataState) {
-                    case AutomataStates::finding: {
+                    case AutomataStates::Finding: {
                         finds(rect);
                         return;
                     }
-                    case AutomataStates::learning: {
+                    case AutomataStates::Learning: {
                         learns(rect);
                         return;
                     }
-                    case AutomataStates::back_finding: {
+                    case AutomataStates::BackFinding: {
                         backFinds(rect);
                         return;
                     }
-                    case AutomataStates::rectifying: {
+                    case AutomataStates::Rectifying: {
                         rectifies(rect);
                         return;
                     }
-                    default: {
-                        raiseError("Invalid state.");
+                    case AutomataStates::Off: {
+                        return;
+                        // raiseError("Invalid state.");
                     }
                 }
             },

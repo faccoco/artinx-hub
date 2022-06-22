@@ -3,9 +3,14 @@
 #include "DetectedTarget.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <glm/glm.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct UAVStrategySettings final {};
 
@@ -18,8 +23,7 @@ class UAVStrategy final : public HubHelper<caf::event_based_actor, UAVStrategySe
     Identifier mKey;
 
 public:
-    UAVStrategy(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(UAVStrategy).hash_code() } {}
+    UAVStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](detect_available_atom, GroupMask, Identifier key) {
@@ -32,8 +36,7 @@ public:
                      auto minDistance = std::numeric_limits<double>::max();
                      for(auto& target : data.targets) {
                          const auto vec = target.center.raw();
-                         const auto distance = vec.x * vec.x + vec.y * vec.y;
-                         if(distance < minDistance) {
+                         if(const auto distance = vec.x * vec.x + vec.y * vec.y; distance < minDistance) {
                              selected.selected = target;
                              minDistance = distance;
                          }

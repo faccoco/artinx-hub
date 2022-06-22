@@ -1,11 +1,18 @@
 #pragma once
 #include "Constants.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/allowed_unsafe_message_type.hpp>
 #include <caf/is_error_code_enum.hpp>
 #include <caf/type_id.hpp>
+
+#include "SuppressWarningEnd.hpp"
+
 #include <cstdint>
 
 using Clock = std::chrono::steady_clock;
+static_assert(std::is_same_v<Clock::period, std::nano>);
 
 enum class Color { Red, Blue };
 
@@ -100,7 +107,11 @@ constexpr bool __impl_actor_protocol_call() noexcept {
     return __ImplActorProtocol<Args...>::check();
 }
 
-#define ACTOR_PROTOCOL_CHECK(...) static_assert(__impl_actor_protocol_call<__VA_ARGS__>(), "Mismatched protocol")
+void setupFPEProbe() noexcept;
+
+#define ACTOR_PROTOCOL_CHECK(...)                                                    \
+    static_assert(__impl_actor_protocol_call<__VA_ARGS__>(), "Mismatched protocol"); \
+    setupFPEProbe()
 
 ACTOR_PROTOCOL_DEFINE(start_atom);
 ACTOR_PROTOCOL_DEFINE(timer_atom);

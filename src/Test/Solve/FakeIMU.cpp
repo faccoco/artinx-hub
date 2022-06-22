@@ -3,11 +3,16 @@
 #include "Hub.hpp"
 #include "PostureData.hpp"
 #include "SimulatorWorldInfo.hpp"
+#include <cstdint>
+#include <queue>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
 #include <glm/gtx/matrix_decompose.hpp>
-#include <queue>
+
+#include "SuppressWarningEnd.hpp"
 
 struct FakeIMUSettings final {
     double delay;
@@ -17,8 +22,8 @@ struct FakeIMUSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, FakeIMUSettings& x) {
-    return f.object(x).fields(f.field("delay", x.delay), f.field("imuLinearStd", x.imuLinearStd),
-                              f.field("imuAngularStd", x.imuAngularStd));
+    return f.object(x).fields(f.field("delay", x.delay).fallback(0.0), f.field("imuLinearStd", x.imuLinearStd).fallback(0.0),
+                              f.field("imuAngularStd", x.imuAngularStd).fallback(0.0));
 }
 
 class FakeIMU final : public HubHelper<caf::event_based_actor, FakeIMUSettings, update_posture_atom> {
@@ -30,9 +35,8 @@ class FakeIMU final : public HubHelper<caf::event_based_actor, FakeIMUSettings, 
 
 public:
     FakeIMU(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(FakeIMU).hash_code() }, mDelay{
-              static_cast<Clock::rep>(mConfig.delay * Clock::period::den / Clock::period::num)
-          } {}
+        : HubHelper{ base, config }, mKey{ generateKey(this) }, mDelay{ static_cast<Clock::rep>(
+                                                                    mConfig.delay * Clock::period::den / Clock::period::num) } {}
     caf::behavior make_behavior() override {
         return { [&](simulator_step_atom, Identifier key) {
                     ACTOR_PROTOCOL_CHECK(simulator_step_atom, TypedIdentifier<SimulatorWorldInfo>);
@@ -78,6 +82,13 @@ public:
                         posture.linearAccelerationOfRobot = (posture.linearVelocityOfRobot - lastData.linearVelocityOfRobot) / dt;
                         posture.angularAccelerationOfRobot =
                             (posture.angularVelocityOfRobot - lastData.angularVelocityOfRobot) / dt;
+                    } else {
+                        posture.linearVelocityOfRobot = decltype(PostureData::linearVelocityOfRobot){ glm::zero<glm::dvec3>() };
+                        posture.angularVelocityOfRobot = decltype(PostureData::angularVelocityOfRobot){ glm::zero<glm::dvec3>() };
+                        posture.linearAccelerationOfRobot =
+                            decltype(PostureData::linearAccelerationOfRobot){ glm::zero<glm::dvec3>() };
+                        posture.angularAccelerationOfRobot =
+                            decltype(PostureData::angularAccelerationOfRobot){ glm::zero<glm::dvec3>() };
                     }
                     mLastData = posture;
 
