@@ -1,8 +1,13 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
+
+#include "SuppressWarningEnd.hpp"
 
 struct AvailabilityTestSettings final {
     uint32_t testCount;
@@ -23,10 +28,11 @@ public:
         Timer::instance().addTimer(address(), 10ms);
     }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](timer_atom) {
+                     ACTOR_PROTOCOL_CHECK(timer_atom);
                      if(++mSentCount <= mConfig.testCount) {
-                         sendAll(payload_atom_v);
+                         sendAll(payload_atom_v, 0, 0);
                      } else {
                          appendTestResult(fmt::format("Availability {:.2f}% ({}/{}) Require {:.2f}%",
                                                       mSuccessCount / static_cast<double>(mConfig.testCount) * 100.0,
@@ -34,7 +40,7 @@ public:
                          terminateSystem(*this, mSuccessCount >= mConfig.testCount * mConfig.threshold);
                      }
                  },
-                 [&](payload_atom) { ++mSuccessCount; } };
+                 [&](payload_atom, int32_t, int32_t) { ++mSuccessCount; } };
     }
 };
 
@@ -44,7 +50,8 @@ class MessageForwarder final : public HubHelper<caf::event_based_actor, void, pa
 public:
     MessageForwarder(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {}, [&](payload_atom) { sendAll(payload_atom_v); } };
+        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+                 [&](payload_atom, int32_t, int32_t) { sendAll(payload_atom_v, 0, 0); } };
     }
 };
 

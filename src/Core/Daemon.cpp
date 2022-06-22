@@ -3,9 +3,14 @@
 #include "Hub.hpp"
 #include "Utility.hpp"
 #include <Timer.hpp>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_system.hpp>
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
+
+#include "SuppressWarningEnd.hpp"
 
 class DaemonActor final : public caf::event_based_actor {
     std::unordered_map<caf::actor_addr, std::string> mActors;
@@ -30,15 +35,17 @@ public:
     }
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { mStarted = true; },
+        return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
+                    mStarted = true;
+                },
                  [this](timer_atom) {
+                     ACTOR_PROTOCOL_CHECK(timer_atom);
                      // TODO: send requests
                      if(!mStarted)
                          return;
                  },
-                 [this](monitor_response_atom) {
-
-                 } };
+                 [this](monitor_response_atom) { ACTOR_PROTOCOL_CHECK(monitor_response_atom); } };
     }
 };
 

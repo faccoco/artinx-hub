@@ -4,12 +4,17 @@
 #include "Hub.hpp"
 #include "SimulatorWorldInfo.hpp"
 #include "Utility.hpp"
+#include <cstdint>
+#include <queue>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
-#include <queue>
+
+#include "SuppressWarningEnd.hpp"
 
 struct FakeHeadSettings final {
     double delay;
@@ -41,16 +46,17 @@ class FakeHead final : public HubHelper<caf::event_based_actor, FakeHeadSettings
 public:
     FakeHead(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mDelay{ static_cast<Clock::rep>(mConfig.delay * Clock::period::den / Clock::period::num) },
-          mYaw{ { mConfig.kp, mConfig.ki, mConfig.kd } }, mPitch{ { mConfig.kp, mConfig.ki, mConfig.kd } }, mKey{
-              typeid(FakeHead).hash_code()
-          } {
+          mYaw{ { mConfig.kp, mConfig.ki, mConfig.kd } }, mPitch{ { mConfig.kp, mConfig.ki, mConfig.kd } },  //
+          mKey{ generateKey(this) } {
         Timer::instance().addTimer(this->address(), 5ms);
     }
     caf::behavior make_behavior() override {
         return { [&](timer_atom) {
+                    ACTOR_PROTOCOL_CHECK(timer_atom);
                     mQueue.push({ mCurrent, mTargetYaw, mTargetPitch });
                 },
                  [&](simulator_step_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(simulator_step_atom, TypedIdentifier<SimulatorWorldInfo>);
                      const auto data = BlackBoard::instance().get<SimulatorWorldInfo>(key).value();
 
                      const auto current = data.lastUpdate;
@@ -86,14 +92,14 @@ public:
                                               glm::dvec3{ 0.0, 1.0, 0.0 }) },
                                           yawSpeed, pitchSpeed };
 
-                     BlackBoard::instance().updateSync(mKey, info);
-                     sendAll(update_head_atom_v, mKey);
+                     sendAll(update_head_atom_v, 1U, BlackBoard::instance().updateSync(mKey, info));
                  },
-                 [&](set_target_info_atom, const double yaw, const double pitch, bool isFire) {
+                 [&](set_target_info_atom, GroupMask, Clock::rep, const double yaw, const double pitch, bool) {
+                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);
                      mTargetYaw = yaw;
                      mTargetPitch = pitch;
                  },
-                 [](start_atom) {} };
+                 [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); } };
     }
 };
 

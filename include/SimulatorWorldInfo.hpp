@@ -10,3 +10,5 @@ struct SimulatorWorldInfo final {
 
     std::vector<Point<UnitType::Distance, FrameOfReference::Ground>> targets;
 };
+
+ACTOR_PROTOCOL_DEFINE(simulator_step_atom, TypedIdentifier<SimulatorWorldInfo>);

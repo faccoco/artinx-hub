@@ -1,6 +1,11 @@
 #pragma once
 #include "CameraFrame.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <opencv2/opencv.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 // Origin: left-top corner of the car's ROI
 // Small armor only
@@ -19,3 +24,5 @@ struct DetectedArmorArray final {
     CameraFrame frame;
     std::vector<DetectedArmorsOfCar> armors;
 };
+
+ACTOR_PROTOCOL_DEFINE(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);

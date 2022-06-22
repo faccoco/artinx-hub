@@ -2,14 +2,37 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include <caf/actor_ostream.hpp>
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <GxIAPI.h>
+#include <caf/event_based_actor.hpp>
+#include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/opencv.hpp>
-#pragma warning(push, 0)
-#include <GxIAPI.h>
-#pragma warning(pop)
+
+#include "SuppressWarningEnd.hpp"
+
+static void loadCalibration(bool disableUndistort, const std::string& identifier, const uint32_t width, const uint32_t height,
+                            const double fallbackFov, cv::Mat& cameraMatrix, cv::Mat& distCoefficients, bool& undistort) {
+    const auto inputFileName = "./data/camera_calibration/" + identifier + ".xml";
+
+    const cv::FileStorage fs(inputFileName, cv::FileStorage::READ);
+    if(std::filesystem::exists(inputFileName) && fs.isOpened() && !disableUndistort) {
+        fs["camera_matrix"] >> cameraMatrix;
+        fs["distortion_coefficients"] >> distCoefficients;
+        undistort = true;
+    } else {
+        logWarning(
+            fmt::format("Failed to get calibration info for S/N {}. Use fallback fov {} instead.", identifier, fallbackFov));
+        cameraMatrix = (cv::Mat_<double>(3, 3) << width / 2.0 / std::tan(glm::radians(fallbackFov) / 2.0), 0,
+                        static_cast<double>(width) / 2.0, 0, height / 2 / std::tan(glm::radians(fallbackFov) / 2.0),
+                        static_cast<double>(height) / 2.0, 0, 0, 1);
+        distCoefficients = cv::Mat{};
+        undistort = false;
+    }
+}
 
 struct DahengDriverSettings final {
     std::string openMode;
@@ -17,7 +40,9 @@ struct DahengDriverSettings final {
     double fps;
     double fov;
     double exposureTime;
-    uint32_t decimation;
+    bool flip;
+    bool disableUndistort;
+    glm::dvec3 offset;
 };
 
 enum class OpenMode { Index, SerialNumber };
@@ -27,8 +52,10 @@ bool inspect(Inspector& f, DahengDriverSettings& x) {
     return f.object(x).fields(
         f.field("openMode", x.openMode).invariant([](const std::string& v) { return v == "Index" || v == "SerialNumber"; }),
         f.field("identifier", x.identifier),
-        f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 500.0; }), f.field("fov", x.fov),
-        f.field("exposureTime", x.exposureTime), f.field("decimation", x.decimation));
+        f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 500.0; }),
+        f.field("fov", x.fov), f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
+        f.field("disableUndistort", x.disableUndistort).fallback(false), f.field("dx", x.offset.x).fallback(0.0),
+        f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0));
 }
 
 static void checkGXStatus(const GX_STATUS status) {
@@ -43,6 +70,7 @@ public:
     DahengLibGuard() {
         checkGXStatus(GXInitLib());
     }
+
     ~DahengLibGuard() {
         checkGXStatus(GXCloseLib());
     }
@@ -61,26 +89,54 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
     static constexpr auto pixelCast = cv::COLOR_BayerRG2RGB_EA;
     static constexpr auto pixelStorageFormat = CV_8UC1;
 
+    std::deque<Clock::rep> mLastFrames;
+
+    cv::Mat mCameraMatrix;
+    cv::Mat mDistCoefficients;
+    std::string mCameraSerialNumber;
+    bool mDoUndistort;
+
+    void reportFrameRate(Clock::time_point timeStamp) {
+        const auto current = timeStamp.time_since_epoch().count();
+        mLastFrames.push_back(current);
+
+        while(current - mLastFrames.front() > 1'000'000'000)
+            mLastFrames.pop_front();
+
+        const auto delta = std::max(static_cast<Clock::rep>(1), current - mLastFrames.front());
+        const auto fps = (static_cast<double>(mLastFrames.size()) - 1.0) * 1e9 / static_cast<double>(delta);
+        HubLogger::watch("fps", static_cast<uint32_t>(fps));
+    }
+
     void newFrameImpl(Clock::time_point timeStamp, const cv::Mat& frame, uint32_t width, uint32_t height) {
         cv::Mat bgr;
         cv::cvtColor(frame, bgr, pixelCast);
 
-        // test only
-        cv::Mat tmp;
-        cv::flip(bgr, tmp, -1);
-        bgr = tmp;
+        if(mConfig.flip) {
+            cv::Mat flipped;
+            cv::flip(bgr, flipped, -1);
+            std::swap(bgr, flipped);
+        }
+
+        reportFrameRate(timeStamp);
 
         CameraFrame frameData;
         frameData.lastUpdate = timeStamp;
-        frameData.info.fov = mConfig.fov;
+        frameData.info.cameraMatrix = mCameraMatrix;
+        frameData.info.distCoefficients = mDistCoefficients;
+        frameData.info.identifier = mCameraSerialNumber;
         frameData.info.width = width;
         frameData.info.height = height;
-        // TODO: transform
-        frameData.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
-        frameData.frame = std::move(bgr);
+        frameData.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(
+            glm::translate(glm::identity<glm::dmat4>(), -mConfig.offset));
 
-        BlackBoard::instance().updateSync(mKey, std::move(frameData));
-        sendAll(image_frame_atom_v, mKey);
+        // if (mDoUndistort) {
+        //     auto src = bgr.clone();
+        //     cv::undistort(src, bgr, mCameraMatrix, mDistCoefficients, frameData.info.cameraMatrix);
+        // }
+
+        frameData.frame = std::move(bgr);
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData)));
     }
 
 #ifdef ARTINX_DAHENG_USB2
@@ -89,13 +145,10 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
 
     void acquireOneFrame() {}
 #else
+
     void newFrame(GX_FRAME_CALLBACK_PARAM* pFrameData) {
         if(pFrameData->status != GX_FRAME_STATUS_SUCCESS || !mStartFlag)
             return;
-
-        // std::cout << "Frame " << (static_cast<double>(Clock::now().time_since_epoch().count()) / Clock::period::den) << " " <<
-        // pFrameData->nWidth << " x "
-        //          << pFrameData->nHeight << std::endl;
 
         const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer
 
@@ -104,11 +157,11 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
         newFrameImpl(timeStamp, frame, pFrameData->nWidth, pFrameData->nHeight);
     }
+
 #endif
 
 public:
-    DahengDriver(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(DahengDriver).hash_code() } {
+    DahengDriver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         initLib();
 
         GX_OPEN_PARAM deviceDesc;
@@ -117,6 +170,11 @@ public:
         deviceDesc.pszContent = mConfig.identifier.data();
 
         checkGXStatus(GXOpenDevice(&deviceDesc, &mDevice));
+        char strSN[256];
+        size_t size = 256;
+        checkGXStatus(GXGetString(mDevice, GX_STRING_DEVICE_SERIAL_NUMBER, strSN, &size));
+        mCameraSerialNumber = strSN;
+        logInfo(fmt::format("open camera {}", mCameraSerialNumber));
 
 #ifdef ARTINX_DAHENG_USB2
         checkGXStatus(GXSetEnum(mDevice, GX_ENUM_ACQUISITION_MODE, GX_ACQ_MODE_CONTINUOUS));
@@ -151,20 +209,23 @@ public:
             //checkGXStatus(GXSetInt(mDevice, GX_INT_DECIMATION_HORIZONTAL, mConfig.decimation));
             //checkGXStatus(GXSetInt(mDevice, GX_INT_DECIMATION_VERTICAL, mConfig.decimation));
         }
-         */
-
-        uint32_t targetWidth = 640, targetHeight = 480;
+        */
 
         int64_t width, height;
         checkGXStatus(GXGetInt(mDevice, GX_INT_WIDTH_MAX, &width));
         checkGXStatus(GXGetInt(mDevice, GX_INT_HEIGHT_MAX, &height));
+
+        logInfo(fmt::format("Resolution for {}: {} x {}", mCameraSerialNumber, width, height));
+
 #ifndef ARTINX_DAHENG_USB2
-        checkGXStatus(GXSetInt(mDevice, GX_INT_WIDTH, targetWidth));
-        checkGXStatus(GXSetInt(mDevice, GX_INT_HEIGHT, targetHeight));
-        checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_X, (width - targetWidth) / 2));
-        checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_Y, (height - targetHeight) / 2));
+        checkGXStatus(GXSetInt(mDevice, GX_INT_WIDTH, width));
+        checkGXStatus(GXSetInt(mDevice, GX_INT_HEIGHT, height));
+        checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_X, 0));
+        checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_Y, 0));
 #endif
-        // checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BINNING_HORIZONTAL_MODE, GX_BINNING_VERTICAL_MODE_AVERAGE));
+
+        loadCalibration(mConfig.disableUndistort, mCameraSerialNumber, static_cast<uint32_t>(width),
+                        static_cast<uint32_t>(height), mConfig.fov, mCameraMatrix, mDistCoefficients, mDoUndistort);
 
 #ifdef ARTINXHUB_WINDOWS
         auto bImplementPacketSize = false;
@@ -212,6 +273,7 @@ public:
         });
 #endif
     }
+
     ~DahengDriver() override {
 #ifdef ARTINX_DAHENG_USB2
         mRunning = false;
@@ -223,8 +285,12 @@ public:
 #endif
         checkGXStatus(GXCloseDevice(mDevice));
     }
+
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { mStartFlag = true; } };
+        return { [this](start_atom) {
+            ACTOR_PROTOCOL_CHECK(start_atom);
+            mStartFlag = true;
+        } };
     }
 };
 

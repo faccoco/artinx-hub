@@ -1,7 +1,8 @@
 .vs/
-build
+*build*/
 .vscode
 .idea
 config
+bringup
 /data_test/
 

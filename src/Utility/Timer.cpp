@@ -1,8 +1,13 @@
 #include "Timer.hpp"
 #include "DataDesc.hpp"
 #include "Utility.hpp"
-#include <caf/scoped_actor.hpp>
 #include <utility>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/scoped_actor.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 Timer& Timer::instance() {
     static Timer inst;

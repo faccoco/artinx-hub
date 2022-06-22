@@ -1,21 +1,19 @@
 #pragma once
 #include "CameraFrame.hpp"
-#include <opencv2/opencv.hpp>
 
-enum class MoveDirection { LEFT, RIGHT, STAY, INVALID };
+enum class OreDetectorMode { GOLD_OVER, GOLD_GROUND, SILVER_GROUND, NONE };
 
-struct Movement final {
-    MoveDirection direction = MoveDirection::INVALID;
-    double distance = 0.0;
-};
-
-struct OrePosition {
+struct OrePosition final {
+    // begin with 0
     uint64_t totalNum;
-    uint64_t flashingIndex;  // begin with 0
+    uint64_t flashingIndex;
 };
 
-struct DetectedOreArray final {
+struct OreAlignmentMessage final {
     CameraFrame frame;
-    Movement currentMovement;
-    std::deque<OrePosition> orePositionHistory;
+    OreDetectorMode detectMode;
+    OreDetectorMode lastMode;
+    double moveDistance;
 };
+
+ACTOR_PROTOCOL_DEFINE(ore_alignment_available_atom, TypedIdentifier<OreAlignmentMessage>);

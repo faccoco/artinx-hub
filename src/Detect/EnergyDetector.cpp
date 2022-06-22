@@ -2,15 +2,20 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "EnergyDetect.hpp"
+#include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
-#include <iostream>
 #include <opencv2/aruco.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/opencv.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct EnergyDetectorSettings final {
     int smallPredictMode;
@@ -28,7 +33,7 @@ struct EnergyDetectorSettings final {
     float noiseArea;
     float predictAngle;
     float radius;
-
+    float offsetPreAngle;
     cv::Point2f offset;
 };
 
@@ -41,7 +46,8 @@ bool inspect(Inspector& f, EnergyDetectorSettings& x) {
                               f.field("stripMaxArea", x.stripMaxArea), f.field("stripMaxWHRatio", x.stripMaxWHRatio),
                               f.field("stripMaxAreaRatio", x.stripMaxAreaRatio), f.field("noiseArea", x.noiseArea),
                               f.field("predictAngle", x.predictAngle), f.field("radius", x.radius),
-                              f.field("offsetX", x.offset.x), f.field("offsetY", x.offset.y));
+                              f.field("offsetPreAngle", x.offsetPreAngle), f.field("offsetX", x.offset.x),
+                              f.field("offsetY", x.offset.y));
 }
 
 class EnergyDetector final
@@ -50,7 +56,6 @@ class EnergyDetector final
     Identifier mKey;
 
     bool mEnabled = false;
-    int mRotateMode = 0;
 
     void reset() {}
 
@@ -74,8 +79,7 @@ class EnergyDetector final
         CameraFrame frame;
         frame.frame = std::move(res);
 
-        BlackBoard::instance().updateSync(newKey, std::move(frame));
-        sendAll(image_frame_atom_v, newKey);
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame)));
     }
 
     static void setBinary(const cv::Mat& src, cv::Mat& binary) {
@@ -83,7 +87,7 @@ class EnergyDetector final
         cv::split(src, imgChannels);
 
         constexpr auto threshold = 50;
-        if(GlobalSettings::get().selfColor == Color::Red) {
+        if(GlobalSettings::get().selfColor == Color::Blue) {
             const auto energyRed = imgChannels[2] - imgChannels[0];
             cv::threshold(energyRed, binary, threshold, 255, cv::THRESH_BINARY);
         } else {
@@ -99,9 +103,9 @@ class EnergyDetector final
     bool stripJudge(const std::vector<cv::Point>& contour, const cv::RotatedRect& rotatedRect) const {
         cv::Point2f rectPoints[4];
         rotatedRect.points(rectPoints);
-        const double height = std::min(rotatedRect.size.height, rotatedRect.size.width);
-        const double width = std::max(rotatedRect.size.height, rotatedRect.size.width);
-        const double area = contourArea(contour);
+        const auto height = std::fmin(rotatedRect.size.height, rotatedRect.size.width);
+        const auto width = std::fmax(rotatedRect.size.height, rotatedRect.size.width);
+        const auto area = static_cast<float>(contourArea(contour));
 
         if(height * width > mConfig.stripMinArea && height * width < mConfig.stripMaxArea &&
            width / height < mConfig.stripMaxWHRatio && width / height > mConfig.stripMinWHRatio &&
@@ -110,7 +114,8 @@ class EnergyDetector final
         return false;
     }
 
-    bool detectArmor(const cv::Mat& src, cv::RotatedRect& res) {
+    bool detectArmor(const cv::Mat& src, cv::RotatedRect& res, double& angle) {
+        ACTOR_EXCEPTION_PROBE();
         auto binary = src.clone();
         setBinary(src, binary);
 
@@ -143,6 +148,18 @@ class EnergyDetector final
 
         if(conIndices.empty()) {
             logInfo("Strip detect failed: no strip");
+            for(uint32_t i = 0; i < armorContoursSize; ++i) {
+                const auto rect = minAreaRect(armorContours[i]);
+                cv::Point2f P[4];
+                rect.points(P);
+                // for(int j = 0; j < 4; ++j) {
+                //     line(src, P[j], P[(j + 1) % 4], cv::Scalar(0, 255, 0), 2, 8);
+                // }
+                logInfo(fmt::format("contourArea: {:.2f}", contourArea(armorContours[i])));
+                logInfo(fmt::format("rectArea: {:.2f}", rect.size.area()));
+                logInfo(fmt::format("ratio: {: .2f}",
+                                    std::max(rect.size.height, rect.size.width) / std::min(rect.size.height, rect.size.width)));
+            }
             return false;
         }
 
@@ -152,16 +169,17 @@ class EnergyDetector final
                 cv::drawContours(img, armorContours, static_cast<int>(idx), cv::Scalar{ 255, 0, 0 });
         });*/
 
-        uint32_t index = std::numeric_limits<uint32_t>::max();
-        double minScore = 0.15;
+        auto index = std::numeric_limits<uint32_t>::max();
+        auto minScore = 0.15f;
 
         for(const auto conIndex : conIndices) {
             // const auto finalLength = arcLength(armorContours[conIndex], true);
             // const auto finalArea = contourArea(armorContours[conIndex]);
 
-            const auto ratio = contourArea(armorContours[conIndex]) / cv::minAreaRect(armorContours[conIndex]).size.area();
+            const auto ratio =
+                static_cast<float>(contourArea(armorContours[conIndex])) / cv::minAreaRect(armorContours[conIndex]).size.area();
 
-            if(const auto score = std::fabs(ratio - 0.42); score < minScore) {
+            if(const auto score = std::fabs(ratio - 0.42f); score < minScore) {
                 minScore = score;
                 index = conIndex;
             }
@@ -175,7 +193,7 @@ class EnergyDetector final
             cv::drawContours(img, armorContours, static_cast<int>(index), cv::Scalar{ 255, 0, 0 });
         });*/
 
-        const auto finalRect = boundingRect(armorContours[index]);
+        const auto finalRect = cv::boundingRect(armorContours[index]);
         const auto finalROI = binary(finalRect);
         const auto moments = cv::moments(finalROI, true);
         const auto centerX = moments.m10 / moments.m00;
@@ -187,18 +205,20 @@ class EnergyDetector final
 
         auto rect = cv::minAreaRect(armorContours[index]);
         if(rect.size.width < rect.size.height) {
-            rect.angle += 90.0;
+            rect.angle += 90.0f;
             std::swap(rect.size.width, rect.size.height);
         }
         auto theta = 0.5 * std::atan2(2 * b, a - c);
         // auto theta = glm::radians(rect.angle);
-        const auto dx = (rect.center.x - finalRect.x) - centerX, dy = (rect.center.y - finalRect.y) - centerY;
+        const auto dx = (static_cast<double>(rect.center.x) - static_cast<double>(finalRect.x)) - centerX,
+                   dy = (static_cast<double>(rect.center.y) - static_cast<double>(finalRect.y)) - centerY;
         if(dx * std::cos(theta) + dy * std::sin(theta) > 0.0)
             theta += glm::pi<double>();
         const auto cos = std::cos(theta), sin = std::sin(theta);
-        const auto offset = rect.size.width * 0.27;
+        const auto offset = static_cast<double>(rect.size.width) * 0.27;
+        angle = theta;
         debugView("finalROI", finalROI, [&](cv::Mat& img) {
-            cv::circle(img, { static_cast<int>(centerX), static_cast<int>(centerY) }, 5.0, cv::Scalar{ 0 });
+            cv::circle(img, { static_cast<int>(centerX), static_cast<int>(centerY) }, 5, cv::Scalar{ 0 });
             cv::line(img, { static_cast<int>(centerX), static_cast<int>(centerY) },
                      { static_cast<int>(centerX + offset * cos), static_cast<int>(centerY + offset * sin) }, cv::Scalar{ 255 });
         });
@@ -245,50 +265,226 @@ class EnergyDetector final
         return Point<UnitType::Distance, FrameOfReference::Camera>{ p0 };
     }
 
+    cv::Mat circleLeastFit(const cv::Mat& armorPoints, glm::dvec3& energyCenter, double& radius) {
+        ACTOR_EXCEPTION_PROBE();
+        const auto num = armorPoints.rows;
+        // const auto dim = armorPoints.cols;
+        const auto L1 = cv::Mat::ones(num, 1, CV_32F);
+        cv::Mat Inv;
+        cv::invert(armorPoints.t() * armorPoints, Inv, 0);
+        cv::Mat A = Inv * armorPoints.t() * L1;
+        cv::Mat B = cv::Mat::zeros(static_cast<int>((num - 1) * num / 2), 3, CV_32F);
+        int count = 0;
+        //        logInfo("O");
+        for(int i = 0; i < num - 1; ++i) {
+            logInfo(fmt::format("I {:d}", i));
+            for(int j = i + 1; j < num; ++j) {
+                logInfo(fmt::format("J {:d}", j));
+                cv::Mat a = armorPoints.row(j) - armorPoints.row(i);
+                a.copyTo(B.row(count));
+                count++;
+            }
+        }
+        //        logInfo("A");
+        cv::Mat L2 = cv::Mat::zeros((num - 1) * num / 2, 1, CV_32F);
+        count = 0;
+        for(int i = 0; i < num - 1; ++i) {
+            for(int j = i + 1; j < num; ++j) {
+                count++;
+                const auto a =
+                    std::hypot(armorPoints.at<double>(j, 0), armorPoints.at<double>(j, 1), armorPoints.at<double>(j, 2));
+                const auto b =
+                    std::hypot(armorPoints.at<double>(i, 0), armorPoints.at<double>(i, 1), armorPoints.at<double>(i, 2));
+                L2.at<double>(count, 0) = (a * a - b * b) / 2;
+            }
+        }
+        //        logInfo("B");
+        cv::Mat D = cv::Mat::zeros(4, 4, CV_32F);
+        cv::Mat E = B.t() * B;
+        for(int i = 0; i < 4; ++i) {
+            for(int j = 0; j < 4; ++j) {
+                if(i < 3 && j < 3) {
+                    D.at<double>(i, j) = E.at<double>(i, j);
+                } else if(i < 3 || j < 3) {
+                    D.at<double>(i, j) = A.at<double>(std::min(i, j), 0);
+                }
+            }
+        }
+        //        logInfo("C");
+        cv::Mat L3 = cv::Mat::ones(4, 1, CV_32F);
+        cv::Mat F = B.t() * L2;
+        L3.at<double>(0, 0) = F.at<double>(0, 0);
+        L3.at<double>(1, 0) = F.at<double>(1, 0);
+        L3.at<double>(2, 0) = F.at<double>(2, 0);
+        cv::Mat Dt;
+        cv::invert(D.t(), Dt, 0);
+        cv::Mat C = Dt * L3;
+        energyCenter = glm::dvec3{ C.at<double>(0, 0), C.at<double>(1, 0), C.at<double>(2, 0) };
+        const cv::Mat C1 = (cv::Mat_<double>(1, 3) << C.at<double>(0, 0), C.at<double>(1, 0), C.at<double>(2, 0));
+        radius = 0;
+        cv::Mat C2 = armorPoints.clone();
+        C1.copyTo(C2.row(0));
+        logInfo("D");
+        for(int i = 0; i < num; ++i) {
+            //            logInfo(fmt::format("I {:d}",i));
+            cv::Mat a = armorPoints.row(i) - C2.row(0);
+            //            logInfo(fmt::format("I {:d}",i));
+            cv::Mat tem = cv::Mat(a);
+            //            logInfo(fmt::format("I {:d}",i));
+            radius += std::hypot(tem.at<double>(0, 0), tem.at<double>(0, 1), tem.at<double>(0, 2));
+        }
+        radius /= num;
+        //        logInfo("E");
+        return A;
+    }
+    float LineFitLeastSquares(const float* data_y) {
+        float A = 0.0;
+        float B = 0.0;
+        float C = 0.0;
+        float D = 0.0;
+        // float E = 0.0;
+        // float F = 0.0;
+
+        constexpr float data_x[11] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+        constexpr int data_n = 11;
+        for(int i = 0; i < data_n; i++) {
+            A += data_x[i] * data_x[i];
+            B += data_x[i];
+            C += data_x[i] * data_y[i];
+            D += data_y[i];
+        }
+
+        float a, b;
+        if(const auto temp = (static_cast<float>(data_n) * A - B * B); std::fabs(temp) > 1e-6f) {
+            a = (static_cast<float>(data_n) * C - B * D) / temp;
+            b = (A * D - B * C) / temp;
+        } else {
+            a = 0;
+            b = 0;
+        }
+
+        return a * 12 + b;
+    }
+
+    Point<UnitType::Distance, FrameOfReference::Gun> predict(const cv::Mat& armorPoints, const glm::dvec3 data,
+                                                             const double preAngle) {
+        ACTOR_EXCEPTION_PROBE();
+        glm::dvec3 energyCenter;
+        double radius;
+        const auto normalVector = circleLeastFit(armorPoints, energyCenter, radius);
+        // int ro = normalVector.rows;
+        // int co = normalVector.cols;
+        //        logInfo(fmt::format("type {:d}",normalVector.type()));
+        //        logInfo(fmt::format("R {:d}",ro));
+        //        logInfo(fmt::format("C {:d}",co));
+        // float preAngle;
+        // if(direction == 0) {
+        //     preAngle = offsetAngle;
+        // } else {
+        //     preAngle = -offsetAngle;
+        // }
+        const auto x = data.x - energyCenter.x;
+        const auto y = data.y - energyCenter.y;
+        const auto z = data.z - energyCenter.z;
+        //        logInfo("F");
+        const cv::Mat r = (cv::Mat_<float>(3, 1) << x, y, z);
+        //        logInfo("G");
+        const auto orthoVector = normalVector.cross(r);
+        //        logInfo("H");
+        const auto preCenter = glm::dvec3{
+            r.at<double>(0, 0) * std::cos(preAngle) + orthoVector.at<double>(0, 0) * std::sin(preAngle) + energyCenter.x,
+            r.at<double>(1, 0) * std::cos(preAngle) + orthoVector.at<double>(1, 0) * std::sin(preAngle) + energyCenter.y,
+            r.at<double>(2, 0) * std::cos(preAngle) + orthoVector.at<double>(2, 0) * std::sin(preAngle) + energyCenter.z
+        };
+        return Point<UnitType::Distance, FrameOfReference::Gun>{ preCenter };
+    }
+
+    bool getDirection(std::vector<double> angles, int& direction) {
+        int positive = 0;
+        int negative = 0;
+        for(int j = 1; j < 3; ++j) {
+            for(int i = 0; i < 12 - j; ++i) {
+                if((angles[i] - angles[i + j]) > 0 || (angles[i] - angles[i + j]) < -300) {
+                    positive++;
+                } else if((angles[i] - angles[i + j]) < 0 || (angles[i] - angles[i + j]) > 300) {
+                    negative++;
+                }
+            }
+        }
+        if(positive > negative) {
+            direction = 1;
+        } else if(positive < negative) {
+            direction = 0;
+        }
+        return true;
+    }
+
+    float predictAngle(const std::vector<double>& angles) {
+        float delAngles[12];
+        for(int i = 1; i < 12; i++) {
+            delAngles[i] = static_cast<float>(angles[i] - angles[i - 1]);
+        }
+        const auto angle = LineFitLeastSquares(delAngles);
+        return angle > 0 ? angle * mConfig.offsetPreAngle + mConfig.predictAngle :
+                           angle * mConfig.offsetPreAngle - mConfig.predictAngle;
+    }
+
+    int mCount = 0;
+    std::vector<double> mAngles;
+    cv::Mat mArmorPoints = cv::Mat::zeros(12, 3, CV_32F);
+
 public:
-    EnergyDetector(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(EnergyDetector).hash_code() } {}
+    EnergyDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
                     reset();
-                    // only for test
-                    mEnabled = true;
-                    mRotateMode = 0;
                 },
-                 [&](energy_detector_control_atom, bool enable, int mode) {
-                     if(mEnabled != enable || mRotateMode != mode)
+                 [&](energy_detector_control_atom, const bool enable) {
+                     ACTOR_PROTOCOL_CHECK(energy_detector_control_atom, bool);
+                     if(mEnabled != enable)
                          reset();
                      mEnabled = enable;
-                     mRotateMode = mode;
                  },
                  [&](image_frame_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+                     ACTOR_EXCEPTION_PROBE();
+                     ACTOR_LATENCY_PROBE();
+
                      if(!mEnabled)
                          return;
-                     auto data = BlackBoard::instance().get<CameraFrame>(key).value();
+                     auto [lastUpdate, info, frame] = BlackBoard::instance().get<CameraFrame>(key).value();
 
                      cv::RotatedRect armor;
-                     if(!detectArmor(data.frame, armor))
+                     double angle;
+                     if(!detectArmor(frame, armor, angle))
                          return;
 
-                     const auto& cameraInfo = data.info;
-                     const cv::Mat cameraMatrix =
-                         (cv::Mat_<double>(3, 3) << cameraInfo.width / 2 / tan(glm::radians(cameraInfo.fov) / 2), 0,
-                          cameraInfo.width / 2, 0, cameraInfo.height / 2 / tan(glm::radians(cameraInfo.fov) / 2),
-                          cameraInfo.height / 2, 0, 0, 1);
+                     const auto& cameraInfo = info;
 
-                     const auto point = solve(cameraMatrix, armor);
+                     const auto point = solve(cameraInfo.cameraMatrix, armor);
 
                      const auto& transform = std::get<0>(cameraInfo.transform);
 
                      DetectedEnergyInfo res;
-                     res.lastUpdate = data.lastUpdate;
+                     res.lastUpdate = lastUpdate;
                      res.point = transform(point);
 
                      const auto raw = res.point.raw();
-                     std::cout << raw.x << " " << raw.y << " " << raw.z << std::endl;
+                     // std::cout << raw.x << " " << raw.y << " " << raw.z << std::endl;
+                     if(mCount < 12) {
+                         mAngles.push_back(angle);
+                         mArmorPoints.at<double>(mCount, 0) = raw.x;
+                         mArmorPoints.at<double>(mCount, 1) = raw.y;
+                         mArmorPoints.at<double>(mCount, 2) = raw.z;
+                         mCount++;
+                     } else {
+                         const auto preAngle = predictAngle(mAngles);
+                         res.prePoint = predict(mArmorPoints, raw, static_cast<double>(preAngle));
+                         mAngles.clear();
+                     }
 
-                     BlackBoard::instance().updateSync(mKey, res);
-                     sendAll(energy_detect_available_atom_v, mKey);
+                     sendAll(energy_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, res));
                  } };
     }
 };
