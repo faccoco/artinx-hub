@@ -17,7 +17,7 @@ bool inspect(Inspector& f, InfantryStrategySettings& x) {
 
 class InfantryStrategy final : public HubHelper<caf::event_based_actor, InfantryStrategySettings, set_target_atom> {
     Identifier mKey;
-    bool mEnergyMode = true;  // test only
+    bool mEnergyMode = false;
 
 public:
     InfantryStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
