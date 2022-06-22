@@ -1,8 +1,13 @@
 #pragma once
 #include "Timer.hpp"
 #include "Transform.hpp"
-#include <opencv2/opencv.hpp>
 #include <variant>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <opencv2/opencv.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct CameraInfo final {
     std::variant<Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>,
@@ -10,7 +15,7 @@ struct CameraInfo final {
         transform;
     std::string identifier;
     cv::Mat cameraMatrix;
-    cv::Mat distCoefficients; // TODO: unused
+    cv::Mat distCoefficients;
     uint32_t width;
     uint32_t height;
 };

@@ -2,10 +2,15 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/videoio.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct VideoReplaySettings final {
     std::string path;
@@ -43,13 +48,15 @@ private:
         }
 
         CameraFrame res;
-        res.frame = (mConfig.width == img.cols && mConfig.height == img.rows) ? std::move(img) : resize(img);
+        res.frame = (mConfig.width == static_cast<uint32_t>(img.cols) && mConfig.height == static_cast<uint32_t>(img.rows)) ?
+            std::move(img) :
+            resize(img);
         res.info.width = mConfig.width;
         res.info.height = mConfig.height;
         res.info.identifier = "VideoReplay";
         res.info.cameraMatrix =
-            (cv::Mat_<double>(3, 3) << mConfig.width / 2 / tan(glm::radians(mConfig.fov) / 2), 0, mConfig.width / 2, 0,
-             mConfig.height / 2 / tan(glm::radians(mConfig.fov) / 2), mConfig.height / 2, 0, 0, 1);
+            (cv::Mat_<double>(3, 3) << mConfig.width / 2 / std::tan(glm::radians(mConfig.fov) / 2), 0, mConfig.width / 2, 0,
+             mConfig.height / 2 / std::tan(glm::radians(mConfig.fov) / 2), mConfig.height / 2, 0, 0, 1);
         res.info.distCoefficients = cv::Mat_<double>{};
         res.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
         res.lastUpdate = SynchronizedClock::instance().now();

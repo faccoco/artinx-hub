@@ -2,8 +2,13 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "PostureData.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct IMUFilterSettings final {};
 

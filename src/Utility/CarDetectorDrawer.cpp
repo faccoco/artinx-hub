@@ -2,11 +2,14 @@
 #include "DataDesc.hpp"
 #include "DetectedCar.hpp"
 #include "Hub.hpp"
+#include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
-#include <filesystem>
-#include <memory>
+
+#include "SuppressWarningEnd.hpp"
 
 class CarDetectorDrawer final : public HubHelper<caf::event_based_actor, void, image_frame_atom> {
 private:

@@ -1,8 +1,14 @@
 #pragma once
 #include "Common.hpp"
 #include "Timer.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_system.hpp>
 #include <caf/config_value.hpp>
+
+#include "SuppressWarningEnd.hpp"
+
 #include <chrono>
 #include <functional>
 #include <mutex>
@@ -76,7 +82,7 @@ public:
             if(auto configValue = caf::get_as<Config>(config)) {
                 mConfig = std::move(configValue.value());
             } else {
-                logError("Bad config for " + std::string{ typeid(T).name() });
+                logError("Bad config");
             }
         }
 

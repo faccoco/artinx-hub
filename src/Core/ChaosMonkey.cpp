@@ -2,9 +2,14 @@
 #include "Hub.hpp"
 #include "Utility.hpp"
 #include <Timer.hpp>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_system.hpp>
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
+
+#include "SuppressWarningEnd.hpp"
 
 class ChaosMonkey final : public HubHelper<caf::event_based_actor, void> {
     std::vector<caf::actor_addr> mActors;

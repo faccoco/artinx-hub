@@ -3,10 +3,15 @@
 #include "Hub.hpp"
 #include "PostureData.hpp"
 #include "Timer.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 class FixedIMU final : public HubHelper<caf::event_based_actor, void, update_posture_atom> {
     Identifier mKey;

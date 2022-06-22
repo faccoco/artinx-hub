@@ -2,10 +2,15 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <opencv2/mcc.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct ColorCalibratorSettings final {
     double maxFittingLoss;
@@ -30,7 +35,6 @@ class ColorCalibrator final : public HubHelper<caf::event_based_actor, ColorCali
     mutable std::optional<CalibrationData> mCalibratedData;
 
     void detectColorCheckerAndCalibrate(const cv::Mat& frame) {
-        const auto& data = mCalibratedData.value();
         if(!mDetector->process(frame, cv::mcc::MCC24, 1, true))
             return;
 
@@ -49,7 +53,7 @@ class ColorCalibrator final : public HubHelper<caf::event_based_actor, ColorCali
 
     cv::Mat applyACES(const cv::Mat& frame) const {
         // Please refer to https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
-        constexpr double a = 2.51, b = 0.03, c = 2.43, d = 0.59f, e = 0.14;
+        constexpr double a = 2.51, b = 0.03, c = 2.43, d = 0.59, e = 0.14;
         const auto meanColor = cv::mean(frame);
         const auto lum = meanColor[0] * 0.2126 + meanColor[1] * 0.7152 + meanColor[2] * 0.0722;
         const auto x = frame * (lum * mConfig.toneMappingLumFactor);
