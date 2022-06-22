@@ -51,7 +51,7 @@ deploy-job-infantry1:
   script:
     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
   environment:
-    name: infantry1
+    name: $DEPLOY_TARGET
     on_stop: stop-service
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
@@ -64,7 +64,7 @@ deploy-job-infantry1:
 #   script:
 #     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
 #   environment:
-#     name: infantry2
+#     name: $DEPLOY_TARGET
 #     on_stop: stop-service
 #   rules:
 #     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
@@ -77,7 +77,7 @@ deploy-job-infantry1:
 #   script:
 #     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
 #   environment:
-#     name: engineer
+#     name: $DEPLOY_TARGET
 #     on_stop: stop-service
 #   rules:
 #     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
@@ -90,7 +90,7 @@ deploy-job-infantry1:
 #   script:
 #     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
 #   environment:
-#     name: hero
+#     name: $DEPLOY_TARGET
 #     on_stop: stop-service
 #   rules:
 #     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
@@ -103,7 +103,7 @@ deploy-job-infantry1:
 #   script:
 #     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
 #   environment:
-#     name: sentry
+#     name: $DEPLOY_TARGET
 #     on_stop: stop-service
 #   rules:
 #     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
@@ -116,7 +116,7 @@ deploy-job-infantry1:
 #   script:
 #     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
 #   environment:
-#     name: uav
+#     name: $DEPLOY_TARGET
 #     on_stop: stop-service
 #   rules:
 #     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
