@@ -197,7 +197,7 @@ public:
     }
 };
 
-static char bulletId, armorId, triangleArmorId;
+[[maybe_unused]] static char bulletId, armorId, triangleArmorId;
 
 class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
     Identifier mKey, mHeadKey{};
