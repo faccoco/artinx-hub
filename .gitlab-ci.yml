@@ -47,9 +47,10 @@ test-job:
 deploy-job-infantry1:
   stage: deploy
   tags:
-    - linux infantry1
+    - linux 
+    - infantry1
   script:
-    - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
+    - sudo python3 ./scripts/setup-service $DEPLOY_TARGET
   environment:
     name: $DEPLOY_TARGET
     on_stop: stop-service
@@ -60,7 +61,8 @@ deploy-job-infantry1:
 # deploy-job-infantry2:
 #   stage: deploy
 #   tags:
-#     - linux infantry2
+#     - linux 
+#     - infantry2
 #   script:
 #     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
 #   environment:
@@ -73,7 +75,8 @@ deploy-job-infantry1:
 # deploy-job-engineer:
 #   stage: deploy
 #   tags:
-#     - linux engineer
+#     - linux 
+#     - engineer
 #   script:
 #     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
 #   environment:
@@ -86,7 +89,8 @@ deploy-job-infantry1:
 # deploy-job-hero:
 #   stage: deploy
 #   tags:
-#     - linux hero
+#     - linux 
+#     - hero
 #   script:
 #     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
 #   environment:
@@ -99,7 +103,8 @@ deploy-job-infantry1:
 # deploy-job-sentry:
 #   stage: deploy
 #   tags:
-#     - linux sentry
+#     - linux 
+#     - sentry
 #   script:
 #     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
 #   environment:
@@ -112,7 +117,8 @@ deploy-job-infantry1:
 # deploy-job-uav:
 #   stage: deploy
 #   tags:
-#     - linux uav
+#     - linux 
+#     - uav
 #   script:
 #     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
 #   environment:
