@@ -15,8 +15,6 @@ build-job-windows:
   script:
     - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
-  rules:
-    - if: $DEPLOY_TARGET == null
 
 build-job-linux:
   stage: build
@@ -26,7 +24,7 @@ build-job-linux:
     - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=$CAMERA_TYPE -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null && $CI_PIPELINE_SOURCE != "schedule"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"
 
 test-job:
   stage: test
@@ -50,83 +48,13 @@ deploy-job-infantry1:
     - linux 
     - infantry1
   script:
-    - sudo python3 ./scripts/setup-service $DEPLOY_TARGET
+    - sudo python3 ./scripts/setup-service infantry1
   environment:
-    name: $DEPLOY_TARGET
+    name: infantry1
     on_stop: stop-service
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET == "infantry1"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
-
-# deploy-job-infantry2:
-#   stage: deploy
-#   tags:
-#     - linux 
-#     - infantry2
-#   script:
-#     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
-#   environment:
-#     name: $DEPLOY_TARGET
-#     on_stop: stop-service
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET == "infantry2"
-#       when: manual
-
-# deploy-job-engineer:
-#   stage: deploy
-#   tags:
-#     - linux 
-#     - engineer
-#   script:
-#     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
-#   environment:
-#     name: $DEPLOY_TARGET
-#     on_stop: stop-service
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET == "engineer"
-#       when: manual
-
-# deploy-job-hero:
-#   stage: deploy
-#   tags:
-#     - linux 
-#     - hero
-#   script:
-#     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
-#   environment:
-#     name: $DEPLOY_TARGET
-#     on_stop: stop-service
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET == "hero"
-#       when: manual
-
-# deploy-job-sentry:
-#   stage: deploy
-#   tags:
-#     - linux 
-#     - sentry
-#   script:
-#     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
-#   environment:
-#     name: $DEPLOY_TARGET
-#     on_stop: stop-service
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET == "sentry"
-#       when: manual
-
-# deploy-job-uav:
-#   stage: deploy
-#   tags:
-#     - linux 
-#     - uav
-#   script:
-#     - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
-#   environment:
-#     name: $DEPLOY_TARGET
-#     on_stop: stop-service
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET == "uav"
-#       when: manual
 
 stop-service:
   stage: deploy
