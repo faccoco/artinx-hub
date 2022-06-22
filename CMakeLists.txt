@@ -9,7 +9,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     add_compile_definitions("_UNICODE")
     add_compile_options("/utf-8")
     add_compile_options("/MP")
-    add_compile_options("/Wall" "/WX" "/wd4514" "/wd4625" "/wd5026" "/wd4626" "/wd5027" "/wd4820" "/wd4365" "/wd4355" "/wd4582" "/wd4619" "/wd5031" "/wd4668" "/wd5039" "/wd5204" "/wd4868" "/wd5045" "/wd4946" "/wd4866" "/wd4371" "/wd4711" "/wd4710" "/wd5228")
+    add_compile_options("/Wall" "/WX" "/wd4514" "/wd4625" "/wd5026" "/wd4626" "/wd5027" "/wd4820" "/wd4365" "/wd4355" "/wd4582" "/wd4619" "/wd5031" "/wd4668" "/wd5039" "/wd5204" "/wd4868" "/wd5045" "/wd4946" "/wd4866" "/wd4371" "/wd4711" "/wd4710" "/wd5220")
     add_compile_options("/permissive-")
 
     if (CMAKE_BUILD_TYPE MATCHES Debug)
