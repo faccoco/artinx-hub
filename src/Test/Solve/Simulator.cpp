@@ -146,19 +146,35 @@ class SentryMotionController final : public MotionController {
     }
 };
 
-// FIXME
 class Translate2DMotionController final : public MotionController {
     std::default_random_engine mGenerator;
-    std::normal_distribution<double> mDistribution{ 0, 1 };
+    double mMaxV;
+    std::normal_distribution<double> mDistribution;
+    double mSpeedX, mSpeedZ, mT = 0.0;
+
+    void updateSpeed(const double dt) {
+        mT += dt;
+        if(mT >= 2.0) {
+            mSpeedX = std::clamp(mDistribution(mGenerator), -mMaxV, mMaxV);
+            mSpeedZ = std::clamp(mDistribution(mGenerator), -mMaxV, mMaxV);
+
+            mT -= 2.0;
+        }
+    }
+
+public:
+    explicit Translate2DMotionController(const double maxV) : mMaxV{ maxV }, mDistribution{ 0, maxV / 3.0 } {
+        updateSpeed(2.0 + 1e-5);
+    }
 
     void step(btMotionState& motionState, const double dt) override {
-        const double ySpeed = mDistribution(mGenerator);
-        const double zSpeed = mDistribution(mGenerator);
+        updateSpeed(dt);
+
         btTransform transform;
         motionState.getWorldTransform(transform);
-        transform.setOrigin(btVector3(transform.getOrigin().getX(),
-                                      static_cast<btScalar>(static_cast<double>(transform.getOrigin().getY()) + ySpeed * dt),
-                                      static_cast<btScalar>(static_cast<double>(transform.getOrigin().getZ()) + zSpeed * dt)));
+        transform.setOrigin(btVector3(static_cast<btScalar>(static_cast<double>(transform.getOrigin().getX()) + mSpeedX * dt),
+                                      transform.getOrigin().getY(),
+                                      static_cast<btScalar>(static_cast<double>(transform.getOrigin().getZ()) + mSpeedZ * dt)));
         motionState.setWorldTransform(transform);
     }
 };
@@ -221,7 +237,7 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                     mSource.second = std::make_unique<SentryMotionController>();
                     break;
                 case SourceMotionType::Translate2D:
-                    mSource.second = std::make_unique<Translate2DMotionController>();
+                    mSource.second = std::make_unique<Translate2DMotionController>(mConfig.vibrationLinearRange);
                     break;
                 case SourceMotionType::Vibration:
                     mSource.second = std::make_unique<VibrationMotionController>(mConfig.vibrationLinearRange);
@@ -326,8 +342,9 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                 case TargetMotionType::LargeCircle: {
                     controller = std::make_unique<LargeCircleMotionController>(mConfig.spinningSpeed);
                 } break;
-                case TargetMotionType::Translate2D:
-                    [[fallthrough]];
+                case TargetMotionType::Translate2D: {
+                    controller = std::make_unique<Translate2DMotionController>(mConfig.vibrationLinearRange);
+                } break;
                 case TargetMotionType::Translate3D:
                     [[fallthrough]];
                 case TargetMotionType::Fans:
@@ -336,7 +353,7 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                     throw NotImplemented{};
             }
 
-            const btRigidBody::btRigidBodyConstructionInfo info{ 100.0, motion.get(), mTargetArmors.back().get() };
+            const btRigidBody::btRigidBodyConstructionInfo info{ 0.0, motion.get(), mTargetArmors.back().get() };
             body = std::make_unique<btRigidBody>(info);
             body->setFlags(btRigidBodyFlags::BT_DISABLE_WORLD_GRAVITY);
             body->setUserPointer(body->getCollisionShape()->getUserPointer());
