@@ -3,11 +3,16 @@
 #include "Hub.hpp"
 #include "PostureData.hpp"
 #include "SimulatorWorldInfo.hpp"
+#include <cstdint>
+#include <queue>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
 #include <glm/gtx/matrix_decompose.hpp>
-#include <queue>
+
+#include "SuppressWarningEnd.hpp"
 
 struct FakeIMUSettings final {
     double delay;

@@ -4,7 +4,12 @@
 #include "DetectedArmor.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/event_based_actor.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 class ArmorDetectorDrawer final : public HubHelper<caf::event_based_actor, void, image_frame_atom> {
     Identifier mKey;

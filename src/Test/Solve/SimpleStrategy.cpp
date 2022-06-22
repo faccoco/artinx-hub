@@ -3,11 +3,15 @@
 #include "DetectedTarget.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
+#include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
 #include <glm/gtc/random.hpp>
-#include <queue>
+
+#include "SuppressWarningEnd.hpp"
 
 class SimpleStrategy final : public HubHelper<caf::event_based_actor, void, set_target_atom> {
     Identifier mKey;
@@ -23,8 +27,7 @@ public:
                     selected.lastUpdate = data.lastUpdate;
                     auto minDistance = std::numeric_limits<double>::max();
                     for(auto& target : data.targets) {
-                        const auto distance = glm::length(target.center.raw());
-                        if(minDistance > distance) {
+                        if(const auto distance = glm::length(target.center.raw()); minDistance > distance) {
                             selected.selected = target;
                             minDistance = distance;
                         }

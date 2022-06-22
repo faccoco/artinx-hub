@@ -3,7 +3,12 @@
 #include "DataDesc.hpp"
 #include "DetectedCar.hpp"
 #include "Hub.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/event_based_actor.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 class FakeCarDetector final : public HubHelper<caf::event_based_actor, void, car_detect_available_atom> {
     Identifier mKey;

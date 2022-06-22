@@ -27,11 +27,15 @@
  *
  */
 
-#include "AsyncSerial/AsyncSerial.h"
+#include "SuppressWarningBegin.hpp"
 
-#include <algorithm>
+#include "AsyncSerial/AsyncSerial.h"
 #include <boost/bind/bind.hpp>
 #include <boost/shared_array.hpp>
+
+#include "SuppressWarningEnd.hpp"
+
+#include <algorithm>
 #include <mutex>
 #include <string>
 #include <thread>

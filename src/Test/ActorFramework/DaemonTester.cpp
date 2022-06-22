@@ -1,8 +1,13 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
-#include <caf/event_based_actor.hpp>
 #include <csignal>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 class BlockedActor final : public HubHelper<caf::event_based_actor, void, payload_atom> {
     inline static bool mFailed = false;

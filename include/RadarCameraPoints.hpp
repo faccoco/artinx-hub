@@ -1,7 +1,6 @@
 #pragma once
 #include "CameraFrame.hpp"
 #include "Timer.hpp"
-#include <opencv2/opencv.hpp>
 
 struct RadarCameraPointsArray final {
     TimePoint lastUpdate;

@@ -4,12 +4,17 @@
 #include "DetectedCar.hpp"
 #include "ExceptionProbe.hpp"
 #include "Hub.hpp"
-#include <Utility.hpp>
+#include "Utility.hpp"
+#include <limits>
+#include <vector>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
-#include <limits>
 #include <opencv2/tracking.hpp>
-#include <vector>
+
+#include "SuppressWarningEnd.hpp"
 
 using MultiTrackers = std::vector<cv::Ptr<cv::TrackerKCF>>;
 using VectorRect = std::vector<cv::Rect>;
@@ -38,8 +43,8 @@ class CarTracker final : public HubHelper<caf::event_based_actor, void, car_dete
             }
             return areaIoU;
         };
-        for(int i = 0; i < trackRectRes.size(); ++i) {
-            for(int j = 0; j < detectRectRes.size(); ++j) {
+        for(size_t i = 0; i < trackRectRes.size(); ++i) {
+            for(size_t j = 0; j < detectRectRes.size(); ++j) {
                 res[i * detectRectRes.size() + j] = computeIoU(trackRectRes[i], detectRectRes[j]) + 1e6;
             }
         }
@@ -48,7 +53,7 @@ class CarTracker final : public HubHelper<caf::event_based_actor, void, car_dete
 
 public:
     CarTracker(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-        for(int i = 0; i < maxNumRobot; i++) {
+        for(uint32_t i = 0; i < maxNumRobot; i++) {
             mTrackers[i] = cv::TrackerKCF::create();
         }
     }
@@ -70,12 +75,12 @@ public:
                 carTrackedRes.frame = data;
 
                 for(int i = 0; i < mInitialisedTrackerNum; ++i) {
-                    if(const auto ok = mTrackers[i]->update(carTrackedRes.frame.frame, mTrackedBoxes[i])) {
+                    if(mTrackers[i]->update(carTrackedRes.frame.frame, mTrackedBoxes[i])) {
                         carTrackedRes.cars.push_back(mTrackedBoxes[i]);
                     }
                 }
                 const auto t2 = Clock::now();
-                logInfo(fmt::format("image_frame_atom:track time {:.4f}s", (t2 - t1).count() / 1e9));
+                logInfo(fmt::format("image_frame_atom:track time {:.4f}s", static_cast<double>((t2 - t1).count()) / 1e9));
                 sendAll(car_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes)));
             },
             [&](car_detect_available_atom, Identifier key) {
@@ -90,7 +95,7 @@ public:
                 carTrackedRes.frame = carDetectedRes.frame;
 
                 if(!mInitialFlag) {
-                    for(int i = 0; i < carDetectedRes.cars.size(); ++i) {
+                    for(size_t i = 0; i < carDetectedRes.cars.size(); ++i) {
                         mTrackedBoxes[i] = carDetectedRes.cars[i];
                         mTrackers[i]->init(carTrackedRes.frame.frame, mTrackedBoxes[i]);
                         mInitialisedTrackerNum++;
@@ -102,16 +107,17 @@ public:
                     VectorRect trackRectRes;
                     std::vector<uint32_t> trackRectIndex;
                     for(int i = 0; i < mInitialisedTrackerNum; ++i) {
-                        if(const auto ok = mTrackers[i]->update(carTrackedRes.frame.frame, mTrackedBoxes[i])) {
+                        if(mTrackers[i]->update(carTrackedRes.frame.frame, mTrackedBoxes[i])) {
                             trackRectRes.push_back(mTrackedBoxes[i]);
                             trackRectIndex.push_back(i);
                         }
                     }
                     if(trackRectRes.size() >= carDetectedRes.cars.size()) {
                         const auto iouAdjacencyMat = computeIoUAdjacencyMat(carDetectedRes.cars, trackRectRes);
-                        const auto matchResult = solveKM(carDetectedRes.cars.size(), trackRectRes.size(), iouAdjacencyMat);
+                        const auto matchResult = solveKM(static_cast<uint32_t>(carDetectedRes.cars.size()),
+                                                         static_cast<uint32_t>(trackRectRes.size()), iouAdjacencyMat);
 
-                        for(int i = 0; i < trackRectRes.size(); ++i) {
+                        for(size_t i = 0; i < trackRectRes.size(); ++i) {
                             if(matchResult[i] < carDetectedRes.cars.size()) {
                                 if(iouAdjacencyMat[matchResult[i] * trackRectRes.size() + i] >
                                    iouThreshold * trackRectRes[i].area() + 1e6) {
@@ -135,7 +141,7 @@ public:
                     }
 
                     const auto t2 = Clock::now();
-                    logInfo(fmt::format("carDetect_atom:track time {:.4f}s", (t2 - t1).count() / 1e9));
+                    logInfo(fmt::format("carDetect_atom:track time {:.4f}s", static_cast<double>((t2 - t1).count()) / 1e9));
                     sendAll(car_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(carTrackedRes)));
                 }
             },

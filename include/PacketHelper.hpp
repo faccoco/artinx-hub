@@ -6,11 +6,12 @@
 
 template <int bufferSize>
 class PacketReader {
-    const std::array<uint8_t, bufferSize> &buffer;
+    const std::array<uint8_t, bufferSize>& buffer;
     int now = 6;
     std::array<uint8_t, 8> rawData{};
+
 public:
-    explicit PacketReader(const std::array<uint8_t, bufferSize> &buffer) : buffer(buffer) {}
+    explicit PacketReader(const std::array<uint8_t, bufferSize>& buffer) : buffer(buffer) {}
 
     template <typename T>
     T read() {
@@ -48,7 +49,7 @@ public:
     }
 
     void serialize(float data, float min, float precision) {
-        uint16_t fixed = static_cast<uint32_t>((data - min) / precision);
+        uint16_t fixed = static_cast<uint16_t>((data - min) / precision);
         serialize(fixed);
     }
 
@@ -61,7 +62,7 @@ public:
         return bodySize + 8;
     }
 
-    void copyToSendBuffer(void *dest) {
+    void copyToSendBuffer(void* dest) {
         memcpy(dest, buffer.data(), size());
     }
 };

@@ -4,10 +4,7 @@
 // Notation: 1)m >= n,otherwise it will stick in an infinite loop.
 //          2)res is the result of m match n, if on one match m, the res[m] is (2^32 - 1).
 // TODO: fixme
-std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>& w) {
-    throw NotImplemented{};
-    return {};
-
+std::vector<uint32_t> solveKM(const uint32_t n, const uint32_t m, const std::vector<double>& w) {
     const auto size = std::max(n, m) + 1;
     std::vector<double> lh(size), rh(size), slack(size);
     std::vector<uint32_t> pair(size), pre(size);
@@ -15,7 +12,7 @@ std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>&
 
     const auto reset = [](auto& c, auto value) { std::fill(c.begin() + 1, c.end(), value); };
 
-    const auto aug = [&](uint32_t s) {
+    const auto aug = [&](const uint32_t s) {
         reset(flag, false);
         reset(pre, 0);
         reset(slack, 1e9);
@@ -47,15 +44,15 @@ std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>&
         }
     };
 
-    for(int i = 1; i <= n; ++i) {
+    for(uint32_t i = 1; i <= n; ++i) {
         double maxh = 0;
-        for(int j = 1; j <= m; ++j)
+        for(uint32_t j = 1; j <= m; ++j)
             maxh = std::fmax(maxh, w[(i - 1) * m + j - 1]);
         lh[i] = maxh;
     }
     reset(rh, 0.0);
     reset(pair, 0);
-    for(int i = 1; i <= n; ++i)
+    for(uint32_t i = 1; i <= n; ++i)
         aug(i);
     std::vector<uint32_t> res(m);
     for(uint32_t idx = 0; idx < m; ++idx)

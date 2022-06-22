@@ -1,6 +1,11 @@
 #pragma once
+#include "SuppressWarningBegin.hpp"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
+
+#include "SuppressWarningEnd.hpp"
+
 #include <utility>
 
 constexpr double radiusOf42mm = 0.00425 * 0.5;

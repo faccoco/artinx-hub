@@ -1,5 +1,10 @@
 #pragma once
+#include "SuppressWarningBegin.hpp"
+
 #include <opencv2/opencv.hpp>
+
+#include "SuppressWarningEnd.hpp"
+
 #include <utility>
 #include <vector>
 
@@ -15,7 +20,7 @@ class PIDSimulator final {
 
 public:
     explicit PIDSimulator(const PIDParameters& params) : mParameters{ params } {}
-    void reset(double current) {
+    void reset(const double current) {
         mCurrent = current;
     }
     // period = -1.0: disabled

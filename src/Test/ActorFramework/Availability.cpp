@@ -1,8 +1,13 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
+
+#include "SuppressWarningEnd.hpp"
 
 struct AvailabilityTestSettings final {
     uint32_t testCount;

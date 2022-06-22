@@ -4,12 +4,17 @@
 #include "Hub.hpp"
 #include "SimulatorWorldInfo.hpp"
 #include "Utility.hpp"
+#include <cstdint>
+#include <queue>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
-#include <queue>
+
+#include "SuppressWarningEnd.hpp"
 
 struct FakeHeadSettings final {
     double delay;
@@ -89,7 +94,7 @@ public:
 
                      sendAll(update_head_atom_v, 1U, BlackBoard::instance().updateSync(mKey, info));
                  },
-                 [&](set_target_info_atom, GroupMask, Clock::rep, const double yaw, const double pitch, bool isFire) {
+                 [&](set_target_info_atom, GroupMask, Clock::rep, const double yaw, const double pitch, bool) {
                      ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);
                      mTargetYaw = yaw;
                      mTargetPitch = pitch;

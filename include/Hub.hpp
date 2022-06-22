@@ -1,8 +1,14 @@
 #pragma once
 #include "Common.hpp"
 #include "Timer.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_system.hpp>
 #include <caf/config_value.hpp>
+
+#include "SuppressWarningEnd.hpp"
+
 #include <chrono>
 #include <functional>
 #include <mutex>

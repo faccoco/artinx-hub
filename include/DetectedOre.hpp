@@ -1,6 +1,5 @@
 #pragma once
 #include "CameraFrame.hpp"
-#include <opencv2/opencv.hpp>
 
 enum class OreDetectorMode { GOLD_OVER, GOLD_GROUND, SILVER_GROUND, NONE };
 

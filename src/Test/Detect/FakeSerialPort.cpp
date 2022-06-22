@@ -2,8 +2,14 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
+
+#include "SuppressWarningEnd.hpp"
+
 class FakeSerialPort final : public HubHelper<caf::event_based_actor, void, ore_instructions_atom> {
     Identifier mKey;
 

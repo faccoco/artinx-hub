@@ -4,6 +4,15 @@
 #include "Hub.hpp"
 #include "Timer.hpp"
 #include "Utility.hpp"
+#include <cctype>
+#include <condition_variable>
+#include <fstream>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_registry.hpp>
 #include <caf/actor_system.hpp>
 #include <caf/actor_system_config.hpp>
@@ -11,13 +20,9 @@
 #include <caf/exec_main.hpp>
 #include <caf/logger.hpp>
 #include <caf/scoped_actor.hpp>
-#include <cctype>
-#include <condition_variable>
 #include <fmt/format.h>
-#include <fstream>
-#include <mutex>
-#include <string>
-#include <vector>
+
+#include "SuppressWarningEnd.hpp"
 
 using namespace std::literals;
 
@@ -133,10 +138,10 @@ std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system&
     std::vector<std::pair<std::string, caf::actor>> actors;
     actors.reserve(nodes.size());
 
-    for(auto&& [name, config] : nodes) {
+    for(auto&& [name, sub] : nodes) {
         if(name == "global")
             continue;
-        const auto& dict = config.to_dictionary();
+        const auto& dict = sub.to_dictionary();
 
         if(const auto iter1 = dict->find("group_mask"); iter1 != dict->cend()) {
             detail::maskLUT[name] = static_cast<uint32_t>(iter1->second.to_integer().value());
@@ -146,7 +151,7 @@ std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system&
             detail::maskLUT[name] = 1U;
         }
 
-        actors.push_back({ name, factory.buildNode(system, name, config) });
+        actors.emplace_back(name, factory.buildNode(system, name, sub));
     }
 
     return actors;
@@ -158,7 +163,7 @@ RunStatus globalStatus = RunStatus::running;
 static std::mutex globalMutex;
 static std::condition_variable globalCV;
 
-void terminateSystem(caf::local_actor& actor, const bool success) {
+void terminateSystem(caf::local_actor&, const bool success) {
     globalStatus = success ? RunStatus::normalExit : RunStatus::failureExit;
     globalCV.notify_one();
 }

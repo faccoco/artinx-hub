@@ -1,6 +1,11 @@
 #pragma once
 #include "CameraFrame.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <opencv2/opencv.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 // Origin: left-top corner of the car's ROI
 // Small armor only
