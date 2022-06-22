@@ -54,7 +54,7 @@ deploy-job-infantry1:
     name: $DEPLOY_TARGET
     on_stop: stop-service
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET == "infantry1"
       when: manual
 
 # deploy-job-infantry2:
@@ -67,7 +67,7 @@ deploy-job-infantry1:
 #     name: $DEPLOY_TARGET
 #     on_stop: stop-service
 #   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET == "infantry2"
 #       when: manual
 
 # deploy-job-engineer:
@@ -80,7 +80,7 @@ deploy-job-infantry1:
 #     name: $DEPLOY_TARGET
 #     on_stop: stop-service
 #   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET == "engineer"
 #       when: manual
 
 # deploy-job-hero:
@@ -93,7 +93,7 @@ deploy-job-infantry1:
 #     name: $DEPLOY_TARGET
 #     on_stop: stop-service
 #   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET == "hero"
 #       when: manual
 
 # deploy-job-sentry:
@@ -106,7 +106,7 @@ deploy-job-infantry1:
 #     name: $DEPLOY_TARGET
 #     on_stop: stop-service
 #   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET == "sentry"
 #       when: manual
 
 # deploy-job-uav:
@@ -119,7 +119,7 @@ deploy-job-infantry1:
 #     name: $DEPLOY_TARGET
 #     on_stop: stop-service
 #   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET == "uav"
 #       when: manual
 
 stop-service:
