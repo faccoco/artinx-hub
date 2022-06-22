@@ -40,6 +40,7 @@ private:
     double mPeriod = 0;
     int mExceptionPoint[1005] = {};
     int mCnt = 0;
+    int emptyData = 0;
     double mPreviousYawAngle;
     double mPreviousPitchAngle;
 
@@ -155,8 +156,7 @@ public:
                      Vector<UnitType::Distance, FrameOfReference::Ground> positionOfReferenceGround =
                          dataPosture.value().postureOfRobot(positionOfReferenceRobot);
                      HubLogger::watch("z", positionOfReferenceGround.raw().z);
-                     glm::dvec3 transformedPosition = { positionOfReferenceGround.raw().x, -positionOfReferenceGround.raw().z,
-                                                        positionOfReferenceGround.raw().y };
+                     glm::dvec3 transformedPosition = { positionOfReferenceGround.raw().x, -positionOfReferenceGround.raw().z , positionOfReferenceGround.raw().y };
 
                      Vector<UnitType::Distance, FrameOfReference::Robot> forwardPositionOfReferenceRobot =
                          dataHeadInfo.value().transform(forwardPosition);
@@ -164,6 +164,8 @@ public:
                          dataPosture.value().postureOfRobot(forwardPositionOfReferenceRobot);
                      Vector<UnitType::LinearVelocity, FrameOfReference::Ground> linearVelocity(
                          dataPosture.value().linearVelocityOfRobot.raw());
+
+
 
                      forwardVector = { forwardPositionOfReferenceGround.raw().x, -forwardPositionOfReferenceGround.raw().z,
                                        forwardPositionOfReferenceGround.raw().y };
@@ -173,39 +175,94 @@ public:
                                              transformedPosition.y - delayTime * transformedLinearVelocity.y,
                                              transformedPosition.z - delayTime * transformedLinearVelocity.z };
                      //(forward:+y,right:+x)
+                     
+
+                     double horizonalDistance = std::hypot(transformedPosition.x, transformedPosition.y);
+                     double theta = std::atan2(transformedPosition.y, transformedPosition.x);
+                     double netHorizonalSpeed =
+                         Ferrari(-square(horizonalDistance) - square(transformedPosition.z),
+                                 2 * std::cos(theta) * square(horizonalDistance) * transformedLinearVelocity.x +
+                                     2 * std::sin(theta) * square(horizonalDistance) * transformedLinearVelocity.y,
+                                 -g * square(horizonalDistance) * transformedPosition.z +
+                                     square(horizonalDistance) * square(bulletSpeed) -
+                                     square(horizonalDistance) *
+                                         (square(transformedLinearVelocity.x) + square(transformedLinearVelocity.y)),
+                                 0, (-0.25) * square(g) * square(square(horizonalDistance)));
+                     //
+                     //                 std::acos(netHorizonalSpeed/bulletSpeed))); const auto expr1 =
+                     //                 std::sqrt(square(bulletSpeed)* square(bulletSpeed) - 2 * g * transformedPosition.z *
+                     //                 square(bulletSpeed) - square(horizonalDistance * g) ) / square(g); const auto expr2 =
+                     //                 std::sqrt(square(bulletSpeed / g) - transformedPosition.z / g - expr1); auto expr3 = 2
+                     //                 * glm::root_two<double>() * horizonalDistance * ((-2 * g * transformedPosition.z + 2 *
+                     //                 std::pow(bulletSpeed, 2)) * expr2 - square(g) * cube(expr2)); expr3 /= (double)(4 *
+                     //                 bulletSpeed); expr3 /= (square(transformedPosition.x) + square(transformedPosition.y)
+                     //                 +
+                     //                           square(transformedPosition.z));
+                     //                 auto expr4 = 2 * glm::root_two<double>() *
+                     //                     (-square(horizonalDistance) * g * expr3 + square(transformedPosition.z) * g *
+                     //                     expr2 -
+                     //                      2 * transformedPosition.z * square(bulletSpeed) * expr2 +
+                     //                      square(g) * transformedPosition.z * cube(expr2));
+                     //                 expr4 /= (double)((-4) * bulletSpeed);
+                     //                 expr4 /= (square(transformedPosition.x) + square(transformedPosition.y) +
+                     // square(transformedPosition.z));
+                     //                 double pitchAngle = std::atan2(expr4, expr3);
+                     double airDuration = horizonalDistance / netHorizonalSpeed;
                      mTimes[(++mCnt) % 1000] = timeDuration;
                      mPositions[(mCnt) % 1000] = transformedPosition;
                      if(mCnt >= 2) {
-                         if(mTimes[mCnt % 1000] - mTimes[(mCnt - 1) % 1000] > 1e-6)
+                         if(mTimes[mCnt % 1000] - mTimes[(mCnt - 1) % 1000] != 0) {
+                             mVec[(mCnt - 1) % 1000] = { 0, 0, 0 };
+                             emptyData += 1;
+                         } else {
                              mVec[(mCnt - 1) % 1000] = (mPositions[mCnt % 1000] - mPositions[(mCnt - 1) % 1000]) /
                                  (mTimes[mCnt % 1000] - mTimes[(mCnt - 1) % 1000]);
-                         sumVec += mVec[(mCnt - 1) % 1000];
-                         if(mCnt >= 102) {
-                             sumVec -= mVec[(mCnt - 101) % 1000];
-                             avgVec = sumVec / 100.0;
-                             transformedPosition = { transformedPosition.x + delayTime * avgVec.x,
-                                                     transformedPosition.y + delayTime * avgVec.y,
-                                                     transformedPosition.z + delayTime * avgVec.z };
+                             sumVec += mVec[(mCnt - 1) % 1000];
                          }
+
+
+                         if(mCnt >= 102) {
+                             if(mVec[(mCnt - 101) % 1000].length == 0)
+                                 emptyData -= 1;
+                             sumVec -= mVec[(mCnt - 101) % 1000];
+                             avgVec = sumVec / (double)(100 - emptyData);
+                             transformedPosition = { transformedPosition.x + airDuration * avgVec.x,
+                                                     transformedPosition.y + airDuration * avgVec.y,
+                                                     transformedPosition.z + airDuration * avgVec.z };
+                         }
+
+                         // if(std::abs(mDiff[(mCnt - 1)%1000] - mDiff[(mCnt - 2)%1000]) > 0.2 &&
+                         //   std::abs(mDiff[(mCnt - 1)%1000] - mDiff[mCnt%1000]) > 0.2) {
+                         //    mExceptionPoint[(++mExceptionPoint[0])%1000] = (mCnt - 1)%1000;
+                         //    if(mexceptionpoint[0] >= 2) {
+                         //        if(mexceptionpoint[0] == 2)
+                         //            mperiod = mtimes[mexceptionpoint[2]] - mtimes[mexceptionpoint[1]];
+                         //        else {
+                         //            mperiod =
+                         //                (mperiod * (mexceptionpoint[0] - 2) + mtimes[mexceptionpoint[mexceptionpoint[0]]] -
+                         //                 mtimes[mexceptionpoint[mexceptionpoint[0] - 1]]) /
+                         //                (mexceptionpoint[0] - 1);
+                         //        }
+                         //    }
+                         //} else mExceptionPoint[0] = 0;
                      }
-
-                     double horizontalDistance = std::hypot(transformedPosition.x, transformedPosition.y);
-                     double yawAngle = std::atan2(transformedPosition.y, transformedPosition.x) - glm::half_pi<double>();
-                     if(yawAngle < 0)
-                         yawAngle += glm::two_pi<double>();
-                     double netHorizontalSpeed =
-                         ferrari(-square(horizontalDistance) - square(transformedPosition.z),
-                                 2 * std::cos(yawAngle) * square(horizontalDistance) * transformedLinearVelocity.x +
-                                     2 * std::sin(yawAngle) * square(horizontalDistance) * transformedLinearVelocity.y,
-                                 -g * square(horizontalDistance) * transformedPosition.z +
-                                     square(horizontalDistance) * square(bulletSpeed) -
-                                     square(horizontalDistance) *
+                     netHorizonalSpeed =
+                         Ferrari(-square(horizonalDistance) - square(transformedPosition.z),
+                                 2 * std::cos(theta) * square(horizonalDistance) * transformedLinearVelocity.x +
+                                     2 * std::sin(theta) * square(horizonalDistance) * transformedLinearVelocity.y,
+                                 -g * square(horizonalDistance) * transformedPosition.z +
+                                     square(horizonalDistance) * square(bulletSpeed) -
+                                     square(horizonalDistance) *
                                          (square(transformedLinearVelocity.x) + square(transformedLinearVelocity.y)),
-                                 0, (-0.25) * square(g) * square(square(horizontalDistance)));
-
-                     double airDuration = horizontalDistance / netHorizontalSpeed;
+                                 0, (-0.25) * square(g) * square(square(horizonalDistance)));
                      double netVerticalSpeed = transformedPosition.z / airDuration + g * airDuration / 2;
                      double pitchAngle = std::asin(netVerticalSpeed / bulletSpeed);
+                     double yawAngle = std::atan2(netVerticalSpeed * std::sin(theta) - transformedLinearVelocity.y,
+                                                  netVerticalSpeed * std::cos(theta) - transformedLinearVelocity.x);
+                     if(yawAngle > 3 * glm::half_pi<double>())
+                         yawAngle -= glm::two_pi<double>();
+                     yawAngle -= glm::half_pi<double>();
+            
                      pitchAngle = (pitchAngle > glm::quarter_pi<double>()) ? (glm::half_pi<double>() - pitchAngle) : pitchAngle;
 
                      if(mExceptionPoint[0] >= 7) {
@@ -215,11 +272,15 @@ public:
                          mPreviousPitchAngle = pitchAngle;
                          mPreviousYawAngle = yawAngle;
                      }
-                     // double currentYawAngle = std::atan2(forwardVector.y, forwardVector.x) - glm::half_pi<double>();
-                     // double currentPitchAngle = std::atan2(forwardVector.z, std::hypot(forwardVector.x, forwardVector.y));
-
+                     double currentYawAngle = std::atan2(forwardVector.y, forwardVector.x);
+                     if(currentYawAngle > 3 * glm::half_pi<double>())
+                         currentYawAngle -= glm::two_pi<double>();
+                     currentYawAngle -= glm::half_pi<double>();
+                     double currentPitchAngle = std::atan2(forwardVector.z, std::hypot(forwardVector.x, forwardVector.y));
+                     double prec = 0.05;
+                     bool ifshoot = (abs(yawAngle - currentYawAngle) < prec) && (abs(pitchAngle - currentPitchAngle) < prec);
                      sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
-                             pitchAngle, true);
+                             pitchAngle, ifshoot);
                  },
                  [this](update_head_atom, GroupMask, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
