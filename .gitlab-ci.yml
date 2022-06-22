@@ -16,16 +16,6 @@ build-job-windows:
     - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
 
-build-job-linux:
-  stage: build
-  tags:
-    - linux
-  script:
-    - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
-    - cmake --build ./build --config Release
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"
-
 test-job:
   stage: test
   tags:
@@ -39,8 +29,6 @@ test-job:
       - ./build/testResult.log
     expire_in: 1 month
     expose_as: "test report"
-  rules:
-    - if: $DEPLOY_TARGET == null
 
 deploy-job-infantry1:
   stage: deploy
@@ -48,13 +36,14 @@ deploy-job-infantry1:
     - linux 
     - infantry1
   script:
+    - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake --build ./build --config Release
     - sudo python3 ./scripts/setup-service infantry1
   environment:
     name: infantry1
 #   on_stop: stop-service
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      when: manual
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"
 
 # stop-service:
 #   stage: deploy
