@@ -82,7 +82,7 @@ public:
             if(auto configValue = caf::get_as<Config>(config)) {
                 mConfig = std::move(configValue.value());
             } else {
-                logError("Bad config for " + std::string{ typeid(T).name() });
+                logError("Bad config");
             }
         }
 

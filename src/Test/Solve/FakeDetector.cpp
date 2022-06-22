@@ -22,7 +22,8 @@ struct FakeDetectorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, FakeDetectorSettings& x) {
-    return f.object(x).fields(f.field("delay", x.delay), f.field("detectLinearStd", x.detectLinearStd));
+    return f.object(x).fields(f.field("delay", x.delay).fallback(0.0),
+                              f.field("detectLinearStd", x.detectLinearStd).fallback(0.0));
 }
 
 class FakeDetector final : public HubHelper<caf::event_based_actor, FakeDetectorSettings, detect_available_atom> {
@@ -65,9 +66,16 @@ public:
 
                     for(const auto& target : info.targets) {
                         const auto pos = worldTrans(target);
-                        const auto noise = glm::gaussRand(glm::dvec3{}, glm::dvec3{ mConfig.detectLinearStd });
-                        data.targets.push_back(
-                            DetectedTarget{ pos + Vector<UnitType::Distance, FrameOfReference::Gun>(noise), 0.0, 0 });
+                        auto noise = glm::zero<glm::dvec3>();
+                        if(mConfig.detectLinearStd > 1e-3) {
+                            noise = glm::gaussRand(glm::zero<glm::dvec3>(), glm::dvec3{ mConfig.detectLinearStd });
+                            noise = glm::clamp(noise, glm::dvec3{ -3.0 * mConfig.detectLinearStd },
+                                               glm::dvec3{ 3.0 * mConfig.detectLinearStd });
+                        }
+
+                        data.targets.push_back(DetectedTarget{ pos + Vector<UnitType::Distance, FrameOfReference::Gun>(noise),
+                                                               0.0, 0, ArmorType::Small,
+                                                               decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
                     }
 
                     sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, data));

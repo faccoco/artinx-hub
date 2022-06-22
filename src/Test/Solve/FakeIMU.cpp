@@ -22,8 +22,8 @@ struct FakeIMUSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, FakeIMUSettings& x) {
-    return f.object(x).fields(f.field("delay", x.delay), f.field("imuLinearStd", x.imuLinearStd),
-                              f.field("imuAngularStd", x.imuAngularStd));
+    return f.object(x).fields(f.field("delay", x.delay).fallback(0.0), f.field("imuLinearStd", x.imuLinearStd).fallback(0.0),
+                              f.field("imuAngularStd", x.imuAngularStd).fallback(0.0));
 }
 
 class FakeIMU final : public HubHelper<caf::event_based_actor, FakeIMUSettings, update_posture_atom> {
@@ -82,6 +82,13 @@ public:
                         posture.linearAccelerationOfRobot = (posture.linearVelocityOfRobot - lastData.linearVelocityOfRobot) / dt;
                         posture.angularAccelerationOfRobot =
                             (posture.angularVelocityOfRobot - lastData.angularVelocityOfRobot) / dt;
+                    } else {
+                        posture.linearVelocityOfRobot = decltype(PostureData::linearVelocityOfRobot){ glm::zero<glm::dvec3>() };
+                        posture.angularVelocityOfRobot = decltype(PostureData::angularVelocityOfRobot){ glm::zero<glm::dvec3>() };
+                        posture.linearAccelerationOfRobot =
+                            decltype(PostureData::linearAccelerationOfRobot){ glm::zero<glm::dvec3>() };
+                        posture.angularAccelerationOfRobot =
+                            decltype(PostureData::angularAccelerationOfRobot){ glm::zero<glm::dvec3>() };
                     }
                     mLastData = posture;
 

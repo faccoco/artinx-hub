@@ -377,8 +377,10 @@ public:
         const auto maxVelocity = mConfig.v0 + 3.0 * mConfig.v0Std;
         const auto minVelocity = mConfig.v0 - 3.0 * mConfig.v0Std;
 
-        const auto speedThreshold =
-            globalSettings.bullet42mm ? speedThresholdFor42mmA : speedThresholdFor17mm;  // TODO: handle triangle armor
+        // const auto speedThreshold =
+        //    globalSettings.bullet42mm ? speedThresholdFor42mmA : speedThresholdFor17mm;  // TODO: handle triangle armor
+
+        constexpr auto speedThreshold = -1.0;  // disable speed threshold
 
         std::unordered_set<const btRigidBody*> usedBullet;
         std::unordered_map<const btRigidBody*, btVector3> bulletVelocity;
@@ -399,8 +401,6 @@ public:
             std::get<2>(mTarget)->step(*std::get<0>(mTarget), mConfig.step);
             mDynamicWorld->stepSimulation(static_cast<btScalar>(mConfig.step), 10, 0.001f);
             time += mConfig.step;
-
-            logInfo(fmt::format("Simulator time {:.3f}s bullet count {} hit {} shoot {}", time, bulletCount, hitCount, shoot));
 
             // update world info
             {
@@ -478,6 +478,8 @@ public:
 
                     logInfo(fmt::format("Hit at ({:.2f},{:.2f},{:.2f}) vel {:.2f}", pos.x(), pos.y(), pos.z(), velocity));
                     mDynamicWorld->removeRigidBody(const_cast<btRigidBody*>(bodyB));
+                } else {
+                    logInfo(fmt::format("Bad hit: vertical speed = {:.3f}", velocity));
                 }
             }
 
@@ -493,26 +495,28 @@ public:
                 },
                 [&](const caf::down_msg&) { runFlag = false; }, [&](const caf::exit_msg&) { runFlag = false; },
                 [&](timer_atom) { ACTOR_PROTOCOL_CHECK(timer_atom); });
+
+            const auto headData = BlackBoard::instance().get<HeadInfo>(mHeadKey);
+            Transform<FrameOfReference::Robot, FrameOfReference::Gun> transA{ glm::identity<glm::dmat4>() };
+            if(headData.has_value()) {
+                transA = headData.value().transform;
+            }
+
+            btTransform trans;
+            mSource.first->getWorldTransform(trans);
+            glm::mat4 mat;
+            trans.getOpenGLMatrix(glm::value_ptr(mat));
+            const auto transB = decltype(SimulatorWorldInfo::posture){ glm::inverse(mat) };
+
+            const auto transform = transB * transA;
+
             // shoot
             if(shoot && bulletCount < mConfig.bulletCount && time - lastShoot > mConfig.shootInterval) {
-                const auto headData = BlackBoard::instance().get<HeadInfo>(mHeadKey);
-                Transform<FrameOfReference::Robot, FrameOfReference::Gun> transA{ glm::identity<glm::dmat4>() };
-                if(headData.has_value()) {
-                    transA = headData.value().transform;
-                }
-
-                auto motion = std::make_unique<btDefaultMotionState>();
-                btTransform trans;
-                mSource.first->getWorldTransform(trans);
-                glm::mat4 mat;
-                trans.getOpenGLMatrix(glm::value_ptr(mat));
-                const auto transB = decltype(SimulatorWorldInfo::posture){ glm::inverse(mat) };
-
-                const auto transform = transB * transA;
                 glm::mat4 transformMat = transform.rawInverse();
                 glm::quat rotate{ transformMat };
                 glm::vec3 origin = transformMat * glm::vec4{ 0.0, 0.0, 0.0, 1.0 };
 
+                auto motion = std::make_unique<btDefaultMotionState>();
                 motion->setWorldTransform(btTransform{ btQuaternion{ rotate.x, rotate.y, rotate.z, rotate.w },
                                                        btVector3{ origin.x, origin.y, origin.z } });
 
@@ -532,7 +536,67 @@ public:
                 lastShoot = time;
                 ++bulletCount;
             }
+
+            logInfo(fmt::format("Simulator time {:.3f}s bullet count {} hit {} shoot {}", time, bulletCount, hitCount, shoot));
+            {
+                btTransform src;
+                mSource.first->getWorldTransform(src);
+                const auto posSrc = src.getOrigin();
+
+                logInfo(fmt::format("Source {:.3f} {:.3f} {:.3f}", posSrc.x(), posSrc.y(), posSrc.z()));
+
+                btTransform dst;
+                std::get<0>(mTarget)->getWorldTransform(dst);
+                const auto posDst = dst.getOrigin();
+
+                logInfo(fmt::format("Target {:.3f} {:.3f} {:.3f}", posDst.x(), posDst.y(), posDst.z()));
+
+                auto diff = posDst - posSrc;
+                diff.normalize();
+
+                logInfo(fmt::format("Ref dir {:.3f} {:.3f} {:.3f}", diff.x(), diff.y(), diff.z()));
+
+                const auto real = transform(Vector<UnitType::Distance, FrameOfReference::Gun>{ { 0.0, 0.0, -1.0f } }).raw();
+                logInfo(fmt::format("Gun dir {:.3f} {:.3f} {:.3f}", real.x, real.y, real.z));
+
+                const auto& motion = std::get<0>(mTarget);
+                const auto ptr = mTargetArmors.back().get();
+                const auto shape = reinterpret_cast<btCompoundShape*>(ptr);  // NOTICE: RTTI is not available
+
+                motion->getWorldTransform(trans);
+
+                btScalar minDist = 1e10f;
+                std::optional<std::pair<btVector3, btVector3>> closest = std::nullopt;
+
+                const auto count = shape->getNumChildShapes();
+                for(int32_t idx = 0; idx < count; ++idx) {
+                    const auto& transformShape = shape->getChildTransform(idx);
+                    const auto worldTransform = trans * transformShape;
+                    const auto origin = worldTransform.getOrigin();
+
+                    for(auto& [bulletTrans, _] : mBullets) {
+                        btTransform trans2;
+                        bulletTrans->getWorldTransform(trans2);
+
+                        const auto origin2 = trans2.getOrigin();
+                        if(const auto dist = btDistance(origin, origin2); dist < minDist) {
+                            minDist = dist;
+                            closest = { origin, origin2 };
+                        }
+                    }
+                }
+
+                if(closest) {
+                    const auto [p1, p2] = closest.value();
+                    logInfo(fmt::format("Closest pair armor {:.3f} {:.3f} {:.3f} <-> bullet {:.3f} {:.3f} {:.3f} : {:.3f} m",
+                                        p1.x(), p1.y(), p1.z(), p2.x(), p2.y(), p2.z(), minDist));
+                }
+            }
+
             if(time - mConfig.maxTime > -1e-4) {
+                runFlag = false;
+            }
+            if(hitCount == mConfig.bulletCount) {
                 runFlag = false;
             }
             std::this_thread::sleep_for(5ms);

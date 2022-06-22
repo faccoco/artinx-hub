@@ -170,9 +170,16 @@ void terminateSystem(caf::local_actor&, const bool success) {
 
 std::string globalConfigName;
 
+void setupFPEProbe() noexcept {
+#if ARTINXHUB_DEBUG && defined(ARTINXHUB_WINDOWS)
+    _control87(_EM_DENORMAL | _EM_INEXACT | _EM_UNDERFLOW, _MCW_EM);
+#endif
+}
+
 int caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
     logInfo("Initializing");
     Timer::instance().bindSystem(system);
+    setupFPEProbe();
 
     const fs::path logPath{ "./logs" };
     if(!fs::exists(logPath)) {
