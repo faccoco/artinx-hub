@@ -35,28 +35,26 @@ deploy-job-infantry1:
   stage: deploy
   tags:
     - linux
-    - infantry1
+    - $DEPLOY_ID
   script:
     - source /opt/intel/openvino_2021/bin/setupvars.sh
-    - cmake -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_MAKE_PROGRAM=make -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake -B ./build -DARTINX_HUB_CAMERA=$CAMERA_TYPE -DCMAKE_MAKE_PROGRAM=make -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release -j 6
-    - sudo bash ./scripts/setup-service.bash infantry
+    - sudo bash ./scripts/setup-service.bash $DEPLOY_TARGET
   environment:
-    name: infantry1
+    name: $DEPLOY_ID
+  parallel:
+    matrix:
+      - DEPLOY_TARGET: "infantry"
+        DEPLOY_ID: ["infantry1", "infantry2"]
+        CAMERA_TYPE: "USB3"
+      - DEPLOY_TARGET: "hero"
+        DEPLOY_ID: "hero"
+        CAMERA_TYPE: "USB3"
+      - DEPLOY_TARGET: "sentry"
+        DEPLOY_ID: "sentry"
+        CAMERA_TYPE: "USB2"
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"
+      when: manual
   dependencies: []
-
-# stop-service:
-#   stage: deploy
-#   tags:
-#     - linux
-#   script:
-#     - sudo python3 ./scripts/teardown-service.py
-#   when: manual
-#   environment:
-#     name: $DEPLOY_TARGET
-#     action: stop
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
-#       when: manual
