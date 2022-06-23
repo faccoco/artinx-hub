@@ -50,7 +50,6 @@ public:
                          }
                      }
 
-                     /*
                      if(selected.selected.has_value()) {
                          (mask == 1U ? mLastSelected1 : mLastSelected2) = selected;
                      } else {
@@ -76,17 +75,16 @@ public:
                          auto& center = selected.selected.value().center;
                          auto& velocity = selected.selected.value().velocity;
                          if(mask == 1U) {
-                             center = headInfo1.transform(headInfo1.transform(center));
-                             velocity = headInfo1.transform(headInfo1.transform(velocity));
+                             center = headInfo1.transform(headInfo2.transform(center));
+                             velocity = headInfo1.transform(headInfo2.transform(velocity));
                          } else {
-                             center = headInfo2.transform(headInfo2.transform(center));
-                             velocity = headInfo2.transform(headInfo2.transform(velocity));
+                             center = headInfo2.transform(headInfo1.transform(center));
+                             velocity = headInfo2.transform(headInfo1.transform(velocity));
                          }
                      }
-                      */
 
-                     if(!selected.selected.has_value())
-                         return;
+                     // if(!selected.selected.has_value())
+                     //     return;
 
                      sendMasked(set_target_atom_v, mask, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                  },
