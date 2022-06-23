@@ -8,7 +8,7 @@ cd "$path" || exit # if fails to cd, exits.
 cd ..
 #ArtinxHub
 while [ true ]; do
-  /opt/artinx-hub/build/src/ArtinxHub /opt/artinx-hub/deploy_config/$DEPLOY_TARGET.conf
+  /opt/artinx-hub/build/src/ArtinxHub /opt/artinx-hub/deploy_config/$(cat /opt/deploy_target.conf).conf > /opt/artinx-hub.log
   sleep 1
 done
 # Guidance:
