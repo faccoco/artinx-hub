@@ -41,14 +41,14 @@ struct EnergyDetectorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, EnergyDetectorSettings& x) {
     return f.object(x).fields(f.field("smallPredictMode", x.smallPredictMode), f.field("bigPredictMode", x.bigPredictMode),
-                              f.field("preFrames", x.preFrames),f.field("armorMinArea", x.armorMinArea), f.field("armorMaxArea", x.armorMaxArea),
-                              f.field("armorMinWHRatio", x.armorMinWHRatio), f.field("armorMaxWHRatio", x.armorMaxWHRatio),
-                              f.field("armorMinAreaRatio", x.armorMinAreaRatio), f.field("stripMinArea", x.stripMinArea),
-                              f.field("stripMaxArea", x.stripMaxArea), f.field("stripMaxWHRatio", x.stripMaxWHRatio),
-                              f.field("stripMaxAreaRatio", x.stripMaxAreaRatio), f.field("noiseArea", x.noiseArea),
-                              f.field("predictAngle", x.predictAngle), f.field("radius", x.radius),
-                              f.field("offsetPreAngle", x.offsetPreAngle), f.field("offsetX", x.offset.x),
-                              f.field("offsetY", x.offset.y));
+                              f.field("preFrames", x.preFrames), f.field("armorMinArea", x.armorMinArea),
+                              f.field("armorMaxArea", x.armorMaxArea), f.field("armorMinWHRatio", x.armorMinWHRatio),
+                              f.field("armorMaxWHRatio", x.armorMaxWHRatio), f.field("armorMinAreaRatio", x.armorMinAreaRatio),
+                              f.field("stripMinArea", x.stripMinArea), f.field("stripMaxArea", x.stripMaxArea),
+                              f.field("stripMaxWHRatio", x.stripMaxWHRatio), f.field("stripMaxAreaRatio", x.stripMaxAreaRatio),
+                              f.field("noiseArea", x.noiseArea), f.field("predictAngle", x.predictAngle),
+                              f.field("radius", x.radius), f.field("offsetPreAngle", x.offsetPreAngle),
+                              f.field("offsetX", x.offset.x), f.field("offsetY", x.offset.y));
 }
 
 class EnergyDetector final
@@ -272,18 +272,18 @@ class EnergyDetector final
         // const auto dim = armorPoints.cols;
         const auto L1 = cv::Mat::ones(num, 1, CV_32F);
         cv::Mat Inv;
-        cv::Mat a=armorPoints.t() * armorPoints;
+        cv::Mat a1 = armorPoints.t() * armorPoints;
         // std::cout<<"armorPoints"<<armorPoints<<std::endl;
         // std::cout<<"a1"<<a<<std::endl;
-        cv::invert(a, Inv);
+        cv::invert(a1, Inv);
         cv::Mat A = Inv * armorPoints.t() * L1;
         cv::Mat B = cv::Mat::zeros(static_cast<int>((num - 1) * num / 2), 3, CV_32F);
         int count = 0;
         //        logInfo("O");
         for(int i = 0; i < num - 1; ++i) {
-//            logInfo(fmt::format("I {:d}", i));
+            //            logInfo(fmt::format("I {:d}", i));
             for(int j = i + 1; j < num; ++j) {
-//                logInfo(fmt::format("J {:d}", j));
+                //                logInfo(fmt::format("J {:d}", j));
                 cv::Mat a = armorPoints.row(j) - armorPoints.row(i);
                 a.copyTo(B.row(count));
                 count++;
@@ -295,10 +295,8 @@ class EnergyDetector final
         for(int i = 0; i < num - 1; ++i) {
             for(int j = i + 1; j < num; ++j) {
                 count++;
-                const auto a =
-                    std::hypot(armorPoints.at<float>(j, 0), armorPoints.at<float>(j, 1), armorPoints.at<float>(j, 2));
-                const auto b =
-                    std::hypot(armorPoints.at<float>(i, 0), armorPoints.at<float>(i, 1), armorPoints.at<float>(i, 2));
+                const auto a = std::hypot(armorPoints.at<float>(j, 0), armorPoints.at<float>(j, 1), armorPoints.at<float>(j, 2));
+                const auto b = std::hypot(armorPoints.at<float>(i, 0), armorPoints.at<float>(i, 1), armorPoints.at<float>(i, 2));
                 L2.at<float>(count, 0) = (a * a - b * b) / 2;
             }
         }
@@ -324,38 +322,38 @@ class EnergyDetector final
         cv::invert(D.t(), Dt, 0);
         cv::Mat C = Dt * L3;
         energyCenter = glm::dvec3{ C.at<float>(0, 0), C.at<float>(1, 0), C.at<float>(2, 0) };
-//        std::cout<< "energycenter"<<energyCenter.x<<" "<<energyCenter.y<<" "<<energyCenter.z;
+        //        std::cout<< "energy center"<<energyCenter.x<<" "<<energyCenter.y<<" "<<energyCenter.z;
         const cv::Mat C1 = (cv::Mat_<float>(1, 3) << C.at<float>(0, 0), C.at<float>(1, 0), C.at<float>(2, 0));
         radius = 0;
         cv::Mat C2 = armorPoints.clone();
         C1.copyTo(C2.row(0));
-        //logInfo("D");
+        // logInfo("D");
         for(int i = 0; i < num; ++i) {
             //            logInfo(fmt::format("I {:d}",i));
             cv::Mat a = armorPoints.row(i) - C2.row(0);
             //            logInfo(fmt::format("I {:d}",i));
-            cv::Mat tem = cv::Mat(a);
+            auto tem = cv::Mat(a);
             //            logInfo(fmt::format("I {:d}",i));
-            radius += std::hypot(tem.at<float>(0, 0), tem.at<float>(0, 1), tem.at<float>(0, 2));
+            radius += static_cast<double>(std::hypot(tem.at<float>(0, 0), tem.at<float>(0, 1), tem.at<float>(0, 2)));
         }
         radius /= num;
         //        logInfo("E");
-                std::cout<< "A"<<A.at<float>(0,0)<<" "<<A.at<float>(1,0)<<" "<<A.at<float>(2,0);
+        // std::cout << "A" << A.at<float>(0, 0) << " " << A.at<float>(1, 0) << " " << A.at<float>(2, 0);`
 
         return A;
     }
 
-    float LineFitLeastSquares(const std::vector<float> data_y) {
+    float LineFitLeastSquares(const std::vector<float>& data_y) {
         float A = 0.0;
         float B = 0.0;
         float C = 0.0;
         float D = 0.0;
 
-        int data_n = mConfig.preFrames-1;
+        int data_n = mConfig.preFrames - 1;
         for(int i = 0; i < data_n; i++) {
-            A += i * i;
-            B += i;
-            C += i * data_y[i];
+            A += static_cast<float>(i * i);
+            B += static_cast<float>(i);
+            C += static_cast<float>(i) * data_y[i];
             D += data_y[i];
         }
 
@@ -368,36 +366,36 @@ class EnergyDetector final
             b = 0;
         }
 
-        return a * (data_n+1) + b;
+        return a * static_cast<float>(data_n + 1) + b;
     }
 
-    Point<UnitType::Distance, FrameOfReference::Gun> predict(const cv::Mat armorPoints, const glm::dvec3 data, int direction, float Angle) {
+    Point<UnitType::Distance, FrameOfReference::Gun> predict(const cv::Mat& armorPoints, const glm::dvec3 data,
+                                                             const int direction, const float angle) {
         ACTOR_EXCEPTION_PROBE();
         glm::dvec3 energyCenter;
         double radius;
         const auto normalVector = circleLeastFit(armorPoints, energyCenter, radius);
         // int ro = normalVector.rows;
         // int co = normalVector.cols;
-        //        logInfo(fmt::format("type {:d}",normalVector.type()));
-        //        logInfo(fmt::format("R {:d}",ro));
-        //        logInfo(fmt::format("C {:d}",co));
-         float preAngle;
+        // logInfo(fmt::format("type {:d}",normalVector.type()));
+        // logInfo(fmt::format("R {:d}",ro));
+        // logInfo(fmt::format("C {:d}",co));
+        float preAngle;
         if(direction == 0) {
-            preAngle = Angle;
+            preAngle = angle;
         } else {
-            preAngle =-Angle;
+            preAngle = -angle;
         }
         const auto x = data.x - energyCenter.x;
         const auto y = data.y - energyCenter.y;
         const auto z = data.z - energyCenter.z;
-
 
         //        logInfo("F");
         const cv::Mat r = (cv::Mat_<float>(3, 1) << x, y, z);
         //        logInfo("G");
         const auto orthoVector = normalVector.cross(r);
         //        logInfo("H");
-        glm::dvec3 preCenter =
+        const glm::dvec3 preCenter =
             glm::dvec3{ r.at<float>(0, 0) * cos(preAngle) + orthoVector.at<float>(0, 0) * sin(preAngle) + energyCenter.x,
                         r.at<float>(1, 0) * cos(preAngle) + orthoVector.at<float>(1, 0) * sin(preAngle) + energyCenter.y,
                         r.at<float>(2, 0) * cos(preAngle) + orthoVector.at<float>(2, 0) * sin(preAngle) + energyCenter.z };
@@ -417,22 +415,22 @@ class EnergyDetector final
                 }
             }
         }
-        if(positive > negetive) {
-            direction = 1;//anti-clockwise
-        } else if(positive < negetive) {
-            direction = 0;//clockwise
+        if(positive > negative) {
+            direction = 1;  // anti-clockwise
+        } else if(positive < negative) {
+            direction = 0;  // clockwise
         }
         logInfo(fmt::format("direction {:d}", direction));
         return true;
     }
 
     bool predictAngle(std::vector<double> angles, float& preAngle) {
-        std::vector<float> delAngles(mConfig.preFrames-1);
+        std::vector<float> delAngles(mConfig.preFrames - 1);
         for(int i = 1; i < mConfig.preFrames; i++) {
-            delAngles[i]=(float)fabs(angles[i] - angles[i - 1]);
+            delAngles[i] = (float)fabs(angles[i] - angles[i - 1]);
         }
         auto Angle = LineFitLeastSquares(delAngles);
-     //   logInfo(fmt::format("Angle {:.4f}", Angle));
+        //   logInfo(fmt::format("Angle {:.4f}", Angle));
         preAngle = Angle * mConfig.offsetPreAngle + mConfig.predictAngle;
         delAngles.clear();
         return true;
@@ -480,28 +478,28 @@ public:
                      res.point = transform(point);
 
                      const auto raw = res.point.raw();
-                     std::cout << "point" <<raw.x << " " << raw.y << " " << raw.z << std::endl;
+                     // std::cout << "point" << raw.x << " " << raw.y << " " << raw.z << std::endl;
                      static int count = 0;
                      static std::vector<double> angles;
                      static cv::Mat armorPoints = cv::Mat::zeros(mConfig.preFrames, 3, CV_32F);
                      if(count < mConfig.preFrames) {
                          angles.push_back(angle);
-                         armorPoints.at<float>(count, 0) = raw.x;
-                         armorPoints.at<float>(count, 1) = raw.y;
-                         armorPoints.at<float>(count, 2) = raw.z;
+                         armorPoints.at<float>(count, 0) = static_cast<float>(raw.x);
+                         armorPoints.at<float>(count, 1) = static_cast<float>(raw.y);
+                         armorPoints.at<float>(count, 2) = static_cast<float>(raw.z);
                          count++;
                      } else {
                          int direction;
                          float preAngle;
                          getDirection(angles, direction);
-                         predictAngle(angles,preAngle);
-//                         logInfo(fmt::format("preangle {:.4f}", preAngle));
-                         res.prePoint = predict(armorPoints, raw, direction,preAngle);
+                         predictAngle(angles, preAngle);
+                         // logInfo(fmt::format("pre angle {:.4f}", preAngle));
+                         res.prePoint = predict(armorPoints, raw, direction, preAngle);
                          angles.clear();
-                         count=0;
+                         count = 0;
                      }
-                     const auto raw1 = res.prePoint.raw();
-                     std::cout << "prepoint" <<raw1.x << " " << raw1.y << " " << raw1.z << std::endl;
+                     // const auto raw1 = res.prePoint.raw();
+                     // std::cout << "pre point" << raw1.x << " " << raw1.y << " " << raw1.z << std::endl;
                      sendAll(energy_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, res));
                  } };
     }
