@@ -24,3 +24,13 @@ Alias=ArtinxHub_autostart_service
 - ~~use `groups ${USER}` to check groups~~
 - sudo gpasswd --add ${USER} dialout
 
+
+```
+
+
+
+```bash
+sudo usermod -a -G sudo gitlab-runner
+sudo visudo
+append gitlab-runner ALL=(ALL) NOPASSWD: ALL
+```
