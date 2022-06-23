@@ -16,6 +16,7 @@
 struct EnergyDetectorSettings final {
     int smallPredictMode;
     int bigPredictMode;
+    int preFrames;
     float armorMinArea;
     float armorMaxArea;
     float armorMinWHRatio;
@@ -36,7 +37,7 @@ struct EnergyDetectorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, EnergyDetectorSettings& x) {
     return f.object(x).fields(f.field("smallPredictMode", x.smallPredictMode), f.field("bigPredictMode", x.bigPredictMode),
-                              f.field("armorMinArea", x.armorMinArea), f.field("armorMaxArea", x.armorMaxArea),
+                              f.field("preFrames", x.preFrames),f.field("armorMinArea", x.armorMinArea), f.field("armorMaxArea", x.armorMaxArea),
                               f.field("armorMinWHRatio", x.armorMinWHRatio), f.field("armorMaxWHRatio", x.armorMaxWHRatio),
                               f.field("armorMinAreaRatio", x.armorMinAreaRatio), f.field("stripMinArea", x.stripMinArea),
                               f.field("stripMaxArea", x.stripMaxArea), f.field("stripMaxWHRatio", x.stripMaxWHRatio),
@@ -51,8 +52,7 @@ class EnergyDetector final
 
     Identifier mKey;
 
-    bool mEnabled = false;
-    int mRotateMode = 0;
+    bool mEnabled = true;
 
     void reset() {}
 
@@ -76,8 +76,7 @@ class EnergyDetector final
         CameraFrame frame;
         frame.frame = std::move(res);
 
-        BlackBoard::instance().updateSync(newKey, std::move(frame));
-        sendAll(image_frame_atom_v, newKey);
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame)));
     }
 
     static void setBinary(const cv::Mat& src, cv::Mat& binary) {
@@ -85,7 +84,7 @@ class EnergyDetector final
         cv::split(src, imgChannels);
 
         constexpr auto threshold = 50;
-        if(GlobalSettings::get().selfColor == Color::Blue) {
+        if(GlobalSettings::get().selfColor == Color::Red) {
             const auto energyRed = imgChannels[2] - imgChannels[0];
             cv::threshold(energyRed, binary, threshold, 255, cv::THRESH_BINARY);
         } else {
@@ -267,15 +266,18 @@ class EnergyDetector final
         const auto dim = armorPoints.cols;
         const auto L1 = cv::Mat::ones(num, 1, CV_32F);
         cv::Mat Inv;
-        cv::invert(armorPoints.t() * armorPoints, Inv, 0);
+        cv::Mat a=armorPoints.t() * armorPoints;
+        // std::cout<<"armorPoints"<<armorPoints<<std::endl;
+        // std::cout<<"a1"<<a<<std::endl;
+        cv::invert(a, Inv);
         cv::Mat A = Inv * armorPoints.t() * L1;
         cv::Mat B = cv::Mat::zeros(static_cast<int>((num - 1) * num / 2), 3, CV_32F);
         int count = 0;
         //        logInfo("O");
         for(int i = 0; i < num - 1; ++i) {
-            logInfo(fmt::format("I {:d}", i));
+//            logInfo(fmt::format("I {:d}", i));
             for(int j = i + 1; j < num; ++j) {
-                logInfo(fmt::format("J {:d}", j));
+//                logInfo(fmt::format("J {:d}", j));
                 cv::Mat a = armorPoints.row(j) - armorPoints.row(i);
                 a.copyTo(B.row(count));
                 count++;
@@ -288,10 +290,10 @@ class EnergyDetector final
             for(int j = i + 1; j < num; ++j) {
                 count++;
                 const auto a =
-                    std::hypot(armorPoints.at<double>(j, 0), armorPoints.at<double>(j, 1), armorPoints.at<double>(j, 2));
+                    std::hypot(armorPoints.at<float>(j, 0), armorPoints.at<float>(j, 1), armorPoints.at<float>(j, 2));
                 const auto b =
-                    std::hypot(armorPoints.at<double>(i, 0), armorPoints.at<double>(i, 1), armorPoints.at<double>(i, 2));
-                L2.at<double>(count, 0) = (a * a - b * b) / 2;
+                    std::hypot(armorPoints.at<float>(i, 0), armorPoints.at<float>(i, 1), armorPoints.at<float>(i, 2));
+                L2.at<float>(count, 0) = (a * a - b * b) / 2;
             }
         }
         //        logInfo("B");
@@ -300,53 +302,54 @@ class EnergyDetector final
         for(int i = 0; i < 4; ++i) {
             for(int j = 0; j < 4; ++j) {
                 if(i < 3 && j < 3) {
-                    D.at<double>(i, j) = E.at<double>(i, j);
+                    D.at<float>(i, j) = E.at<float>(i, j);
                 } else if(i < 3 || j < 3) {
-                    D.at<double>(i, j) = A.at<double>(std::min(i, j), 0);
+                    D.at<float>(i, j) = A.at<float>(std::min(i, j), 0);
                 }
             }
         }
         //        logInfo("C");
         cv::Mat L3 = cv::Mat::ones(4, 1, CV_32F);
         cv::Mat F = B.t() * L2;
-        L3.at<double>(0, 0) = F.at<double>(0, 0);
-        L3.at<double>(1, 0) = F.at<double>(1, 0);
-        L3.at<double>(2, 0) = F.at<double>(2, 0);
+        L3.at<float>(0, 0) = F.at<float>(0, 0);
+        L3.at<float>(1, 0) = F.at<float>(1, 0);
+        L3.at<float>(2, 0) = F.at<float>(2, 0);
         cv::Mat Dt;
         cv::invert(D.t(), Dt, 0);
         cv::Mat C = Dt * L3;
-        energyCenter = glm::dvec3{ C.at<double>(0, 0), C.at<double>(1, 0), C.at<double>(2, 0) };
-        const cv::Mat C1 = (cv::Mat_<double>(1, 3) << C.at<double>(0, 0), C.at<double>(1, 0), C.at<double>(2, 0));
+        energyCenter = glm::dvec3{ C.at<float>(0, 0), C.at<float>(1, 0), C.at<float>(2, 0) };
+//        std::cout<< "energycenter"<<energyCenter.x<<" "<<energyCenter.y<<" "<<energyCenter.z;
+        const cv::Mat C1 = (cv::Mat_<float>(1, 3) << C.at<float>(0, 0), C.at<float>(1, 0), C.at<float>(2, 0));
         radius = 0;
         cv::Mat C2 = armorPoints.clone();
         C1.copyTo(C2.row(0));
-        logInfo("D");
+        //logInfo("D");
         for(int i = 0; i < num; ++i) {
             //            logInfo(fmt::format("I {:d}",i));
             cv::Mat a = armorPoints.row(i) - C2.row(0);
             //            logInfo(fmt::format("I {:d}",i));
             cv::Mat tem = cv::Mat(a);
             //            logInfo(fmt::format("I {:d}",i));
-            radius += std::hypot(tem.at<double>(0, 0), tem.at<double>(0, 1), tem.at<double>(0, 2));
+            radius += std::hypot(tem.at<float>(0, 0), tem.at<float>(0, 1), tem.at<float>(0, 2));
         }
         radius /= num;
         //        logInfo("E");
+                std::cout<< "A"<<A.at<float>(0,0)<<" "<<A.at<float>(1,0)<<" "<<A.at<float>(2,0);
+
         return A;
     }
-    float LineFitLeastSquares(float* data_y) {
+
+    float LineFitLeastSquares(const std::vector<float> data_y) {
         float A = 0.0;
         float B = 0.0;
         float C = 0.0;
         float D = 0.0;
-        float E = 0.0;
-        float F = 0.0;
 
-        float data_x[11] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
-        int data_n = 11;
+        int data_n = mConfig.preFrames-1;
         for(int i = 0; i < data_n; i++) {
-            A += data_x[i] * data_x[i];
-            B += data_x[i];
-            C += data_x[i] * data_y[i];
+            A += i * i;
+            B += i;
+            C += i * data_y[i];
             D += data_y[i];
         }
 
@@ -359,37 +362,41 @@ class EnergyDetector final
             b = 0;
         }
 
-        return a * 12 + b;
+        return a * (data_n+1) + b;
     }
 
-    Point<UnitType::Distance, FrameOfReference::Gun> predict(const cv::Mat armorPoints, const glm::dvec3 data, float preAngle) {
+    Point<UnitType::Distance, FrameOfReference::Gun> predict(const cv::Mat armorPoints, const glm::dvec3 data, int direction, float Angle) {
         ACTOR_EXCEPTION_PROBE();
         glm::dvec3 energyCenter;
         double radius;
         const auto normalVector = circleLeastFit(armorPoints, energyCenter, radius);
-        int ro = normalVector.rows;
-        int co = normalVector.cols;
+//        std::cout<< "normalVector"<<normalVector.at<double>(0,0)<<" "<<normalVector.at<double>(1,0)<<" "<<normalVector.at<double>(2,0);
+//        int ro = normalVector.rows;
+//        int co = normalVector.cols;
         //        logInfo(fmt::format("type {:d}",normalVector.type()));
         //        logInfo(fmt::format("R {:d}",ro));
         //        logInfo(fmt::format("C {:d}",co));
-        // float preAngle;
-        // if(direction == 0) {
-        //     preAngle = offsetAngle;
-        // } else {
-        //     preAngle = -offsetAngle;
-        // }
+         float preAngle;
+        if(direction == 0) {
+            preAngle = Angle;
+        } else {
+            preAngle =-Angle;
+        }
         const auto x = data.x - energyCenter.x;
         const auto y = data.y - energyCenter.y;
         const auto z = data.z - energyCenter.z;
+
+
         //        logInfo("F");
         const cv::Mat r = (cv::Mat_<float>(3, 1) << x, y, z);
         //        logInfo("G");
         const auto orthoVector = normalVector.cross(r);
         //        logInfo("H");
         glm::dvec3 preCenter =
-            glm::dvec3{ r.at<double>(0, 0) * cos(preAngle) + orthoVector.at<double>(0, 0) * sin(preAngle) + energyCenter.x,
-                        r.at<double>(1, 0) * cos(preAngle) + orthoVector.at<double>(1, 0) * sin(preAngle) + energyCenter.y,
-                        r.at<double>(2, 0) * cos(preAngle) + orthoVector.at<double>(2, 0) * sin(preAngle) + energyCenter.z };
+            glm::dvec3{ r.at<float>(0, 0) * cos(preAngle) + orthoVector.at<float>(0, 0) * sin(preAngle) + energyCenter.x,
+                        r.at<float>(1, 0) * cos(preAngle) + orthoVector.at<float>(1, 0) * sin(preAngle) + energyCenter.y,
+                        r.at<float>(2, 0) * cos(preAngle) + orthoVector.at<float>(2, 0) * sin(preAngle) + energyCenter.z };
+
         return Point<UnitType::Distance, FrameOfReference::Gun>{ preCenter };
     }
 
@@ -397,7 +404,7 @@ class EnergyDetector final
         int positive = 0;
         int negetive = 0;
         for(int j = 1; j < 3; ++j) {
-            for(int i = 0; i < 12 - j; ++i) {
+            for(int i = 0; i < mConfig.preFrames - j; ++i) {
                 if((angles[i] - angles[i + j]) > 0 || (angles[i] - angles[i + j]) < -300) {
                     positive++;
                 } else if((angles[i] - angles[i + j]) < 0 || (angles[i] - angles[i + j]) > 300) {
@@ -406,20 +413,24 @@ class EnergyDetector final
             }
         }
         if(positive > negetive) {
-            direction = 1;
+            direction = 1;//anti-clockwise
         } else if(positive < negetive) {
-            direction = 0;
+            direction = 0;//clockwise
         }
+        logInfo(fmt::format("direction {:d}", direction));
         return true;
     }
 
     bool predictAngle(std::vector<double> angles, float& preAngle) {
-        float delAngles[11];
-        for(int i = 1; i < 12; i++) {
-            delAngles[i] = angles[i] - angles[i - 1];
+        std::vector<float> delAngles(mConfig.preFrames-1);
+        for(int i = 1; i < mConfig.preFrames; i++) {
+            delAngles[i]=(float)fabs(angles[i] - angles[i - 1]);
         }
         auto Angle = LineFitLeastSquares(delAngles);
-        preAngle =Angle>0? Angle * mConfig.offsetPreAngle + mConfig.predictAngle: Angle * mConfig.offsetPreAngle - mConfig.predictAngle;
+     //   logInfo(fmt::format("Angle {:.4f}", Angle));
+        preAngle = Angle * mConfig.offsetPreAngle + mConfig.predictAngle;
+        delAngles.clear();
+        return true;
     }
 
 public:
@@ -427,18 +438,17 @@ public:
         : HubHelper{ base, config }, mKey{ typeid(EnergyDetector).hash_code() } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
                     reset();
-                    // only for test
-                    mEnabled = true;
-                    mRotateMode = 0;
                 },
-                 [&](energy_detector_control_atom, bool enable, int mode) {
-                     if(mEnabled != enable || mRotateMode != mode)
+                 [&](energy_detector_control_atom, bool enable) {
+                     ACTOR_PROTOCOL_CHECK(energy_detector_control_atom, bool);
+                     if(mEnabled != enable)
                          reset();
                      mEnabled = enable;
-                     mRotateMode = mode;
                  },
                  [&](image_frame_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      ACTOR_EXCEPTION_PROBE();
                      if(!mEnabled)
                          return;
@@ -450,12 +460,8 @@ public:
                          return;
 
                      const auto& cameraInfo = data.info;
-                     const cv::Mat cameraMatrix =
-                         (cv::Mat_<double>(3, 3) << cameraInfo.width / 2 / tan(glm::radians(cameraInfo.fov) / 2), 0,
-                          cameraInfo.width / 2, 0, cameraInfo.height / 2 / tan(glm::radians(cameraInfo.fov) / 2),
-                          cameraInfo.height / 2, 0, 0, 1);
 
-                     const auto point = solve(cameraMatrix, armor);
+                     const auto point = solve(cameraInfo.cameraMatrix, armor);
 
                      const auto& transform = std::get<0>(cameraInfo.transform);
 
@@ -464,27 +470,29 @@ public:
                      res.point = transform(point);
 
                      const auto raw = res.point.raw();
-                     std::cout << raw.x << " " << raw.y << " " << raw.z << std::endl;
+                     std::cout << "point" <<raw.x << " " << raw.y << " " << raw.z << std::endl;
                      static int count = 0;
                      static std::vector<double> angles;
-                     static cv::Mat armorPoints = cv::Mat::zeros(12, 3, CV_32F);
-                     if(count < 12) {
+                     static cv::Mat armorPoints = cv::Mat::zeros(mConfig.preFrames, 3, CV_32F);
+                     if(count < mConfig.preFrames) {
                          angles.push_back(angle);
-                         armorPoints.at<double>(count, 0) = raw.x;
-                         armorPoints.at<double>(count, 1) = raw.y;
-                         armorPoints.at<double>(count, 2) = raw.z;
+                         armorPoints.at<float>(count, 0) = raw.x;
+                         armorPoints.at<float>(count, 1) = raw.y;
+                         armorPoints.at<float>(count, 2) = raw.z;
                          count++;
                      } else {
                          int direction;
                          float preAngle;
-                        // getDirection(angles, direction);
+                         getDirection(angles, direction);
                          predictAngle(angles,preAngle);
-                         res.prePoint = predict(armorPoints, raw, preAngle);
+//                         logInfo(fmt::format("preangle {:.4f}", preAngle));
+                         res.prePoint = predict(armorPoints, raw, direction,preAngle);
                          angles.clear();
+                         count=0;
                      }
-
-                     BlackBoard::instance().updateSync(mKey, res);
-                     sendAll(energy_detect_available_atom_v, mKey);
+                     const auto raw1 = res.prePoint.raw();
+                     std::cout << "prepoint" <<raw1.x << " " << raw1.y << " " << raw1.z << std::endl;
+                     sendAll(energy_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, res));
                  } };
     }
 };
