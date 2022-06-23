@@ -194,7 +194,7 @@ public:
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](ore_alignment_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(ore_alignment_available_atom, TypedIdentifier<OreAlignmentMessage>);
-                     ACTOR_LATENCY_PROBE();
+                     ACTOR_EXCEPTION_PROBE();
 
                      auto data = BlackBoard::instance().get<OreAlignmentMessage>(key).value();
 

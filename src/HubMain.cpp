@@ -174,12 +174,22 @@ void terminateSystem(caf::local_actor&, const bool success) {
 
 std::string globalConfigName;
 
-void setupFPEProbe() noexcept {
+void installFPEProbe() {
 #if ARTINXHUB_DEBUG
 #ifdef ARTINXHUB_WINDOWS
     _control87(_EM_DENORMAL | _EM_INEXACT | _EM_UNDERFLOW, _MCW_EM);
 #else
+    feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
+#endif
+#endif
+}
 
+void uninstallFPEProbe() {
+#if ARTINXHUB_DEBUG
+#ifdef ARTINXHUB_WINDOWS
+    _control87(_MCW_EM, _MCW_EM);
+#else
+    fedisableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 #endif
 #endif
 }
@@ -187,7 +197,6 @@ void setupFPEProbe() noexcept {
 int caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
     logInfo("Initializing");
     Timer::instance().bindSystem(system);
-    setupFPEProbe();
 
     const fs::path logPath{ "./logs" };
     if(!fs::exists(logPath)) {

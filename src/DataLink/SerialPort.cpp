@@ -91,8 +91,24 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         }
     }
 
+    std::deque<Clock::rep> mLastFrames;
+
+    void reportFrameRate(Clock::time_point timeStamp) {
+        const auto current = timeStamp.time_since_epoch().count();
+        mLastFrames.push_back(current);
+
+        while(current - mLastFrames.front() > 1'000'000'000)
+            mLastFrames.pop_front();
+
+        const auto delta = std::max(static_cast<Clock::rep>(1), current - mLastFrames.front());
+        const auto fps = (static_cast<double>(mLastFrames.size()) - 1.0) * 1e9 / static_cast<double>(delta);
+        HubLogger::watch("ups", static_cast<uint32_t>(fps));
+    }
+
     void handlePacket(uint16_t id) {
         if(id == FdbPacket::id) {
+            reportFrameRate(Clock::now());
+
             FdbPacket fdb(mPacketBuffer);
             if(fdb.bulletSpeed > 10.0f)
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;

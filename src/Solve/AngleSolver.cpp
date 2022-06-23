@@ -126,7 +126,7 @@ public:
             [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [this](set_target_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);
-                ACTOR_LATENCY_PROBE();
+                ACTOR_EXCEPTION_PROBE();
 
                 const auto data = BlackBoard::instance().get<SelectedTarget>(key);
                 const auto dataHeadInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
@@ -189,7 +189,7 @@ public:
                 mTimes[(++mCnt) % 1000] = timeDuration;
                 mPositions[(mCnt) % 1000] = transformedPosition;
                 if(mCnt >= 2) {
-                    if(mTimes[mCnt % 1000] - mTimes[(mCnt - 1) % 1000] > 1e-8) {
+                    if(mTimes[mCnt % 1000] - mTimes[(mCnt - 1) % 1000] < 1e-8) {
                         mVec[(mCnt - 1) % 1000] = { 0, 0, 0 };
                         emptyData += 1;
                     } else {

@@ -175,7 +175,7 @@ class ArmorDetector final
     }
 
     std::vector<cv::RotatedRect> findLights(const cv::Mat& color, const cv::Mat& binary) {
-        ACTOR_LATENCY_PROBE();
+        ACTOR_EXCEPTION_PROBE();
         const cv::Rect full = { 0, 0, color.cols, color.rows };
 
         // TODO: down sampling
@@ -271,7 +271,7 @@ class ArmorDetector final
     }
 
     std::vector<PairedLight> matchLights([[maybe_unused]] const cv::Mat& src, const std::vector<cv::RotatedRect>& lights) {
-        ACTOR_LATENCY_PROBE();
+        ACTOR_EXCEPTION_PROBE();
         std::vector<std::tuple<uint32_t, uint32_t, float>> pairs;
         for(uint32_t i = 0; i < lights.size(); ++i)
             for(uint32_t j = i + 1; j < lights.size(); ++j) {
@@ -290,6 +290,7 @@ class ArmorDetector final
                 if(rect.size.height < 3.0)
                     continue;
                 {
+                    uninstallFPEProbe();
                     bool flag = true;
                     std::vector<cv::Point2f> intersect;
                     for(uint32_t k = i + 1; k < j; ++k) {
@@ -300,6 +301,7 @@ class ArmorDetector final
                             continue;
                         }
                     }
+                    installFPEProbe();
                     if(!flag)
                         continue;
                 }
@@ -412,7 +414,7 @@ public:
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](car_detect_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(car_detect_available_atom, TypedIdentifier<DetectedCarArray>);
-                     ACTOR_LATENCY_PROBE();
+                     ACTOR_EXCEPTION_PROBE();
 
                      const auto [frame, cars] = BlackBoard::instance().get<DetectedCarArray>(key).value();
 

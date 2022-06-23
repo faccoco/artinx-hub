@@ -50,6 +50,7 @@ public:
                          }
                      }
 
+                     /*
                      if(selected.selected.has_value()) {
                          (mask == 1U ? mLastSelected1 : mLastSelected2) = selected;
                      } else {
@@ -82,6 +83,10 @@ public:
                              velocity = headInfo2.transform(headInfo2.transform(velocity));
                          }
                      }
+                      */
+
+                     if(!selected.selected.has_value())
+                         return;
 
                      sendMasked(set_target_atom_v, mask, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                  },
