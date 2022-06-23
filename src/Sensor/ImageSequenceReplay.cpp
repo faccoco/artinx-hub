@@ -4,8 +4,13 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "Timer.hpp"
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/event_based_actor.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct ImageSequenceReplaySettings final {
     std::string path;
@@ -20,8 +25,8 @@ bool inspect(Inspector& f, ImageSequenceReplaySettings& x) {
     return f.object(x).fields(
         f.field("path", x.path).invariant([](const std::string& path) { return fs::exists(path) && fs::is_directory(path); }),
         f.field("extension", x.extension),
-        f.field("fps", x.fps).fallback(30.0).invariant([](double v) { return v >= 1.0 && v <= 120.0; }), f.field("fov", x.fov),
-        f.field("width", x.width), f.field("height", x.height));
+        f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 120.0; }),
+        f.field("fov", x.fov), f.field("width", x.width), f.field("height", x.height));
 }
 
 class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, ImageSequenceReplaySettings, image_frame_atom> {
@@ -43,7 +48,9 @@ class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, Image
 
         auto img = cv::imread(path);
         CameraFrame res;
-        res.frame = (mConfig.width == img.cols && mConfig.height == img.rows) ? std::move(img) : resize(img);
+        res.frame = (mConfig.width == static_cast<uint32_t>(img.cols) && mConfig.height == static_cast<uint32_t>(img.rows)) ?
+            std::move(img) :
+            resize(img);
         res.info.width = mConfig.width;
         res.info.height = mConfig.height;
         res.info.identifier = "ImageSequenceReplay";

@@ -1,9 +1,14 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
+#include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
+
+#include "SuppressWarningEnd.hpp"
 
 class Input final : public HubHelper<caf::event_based_actor, void, payload_atom> {
 public:

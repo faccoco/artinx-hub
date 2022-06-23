@@ -5,10 +5,15 @@
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <glm/glm.hpp>
 #include <opencv2/video/tracking.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct ArmorPredictorSettings final {
     double maxDistance;
@@ -102,7 +107,8 @@ public:
                                  w.push_back(0.0);
                          }
 
-                     const auto match = solveKM(mTargets.size(), res.targets.size(), w);
+                     const auto match =
+                         solveKM(static_cast<uint32_t>(mTargets.size()), static_cast<uint32_t>(res.targets.size()), w);
 
                      const auto dt = static_cast<int32_t>(mAccumulatedTime / mTimeStep);
                      mAccumulatedTime -= dt * mTimeStep;

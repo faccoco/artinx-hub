@@ -1,4 +1,3 @@
-#include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
 #include "EnergyDetect.hpp"
 #include "HeadInfo.hpp"
@@ -6,10 +5,15 @@
 #include "Packet.hpp"
 #include "PostureData.hpp"
 #include "Utility.hpp"
-#include <boost/circular_buffer.hpp>
+
+#include "SuppressWarningBegin.hpp"
+
+#include "AsyncSerial/BufferedAsyncSerial.h"
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct SerialPortSettings final {
     std::string devPath;
@@ -44,9 +48,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
     uint16_t mExpectedLen;
     std::array<uint8_t, bufferLen> mPacketBuffer;
-    size_t mPacketLen;
+    uint32_t mPacketLen;
     std::array<uint8_t, headerLen> mHeaderBuffer;
-    size_t mHeaderLen;
+    uint32_t mHeaderLen;
     bool mCheckingHeader;
     std::array<uint8_t, sendBufferLen> mSendBuffer;
     size_t mSendBufferLen;
@@ -115,17 +119,21 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             const HeadInfo infoUp{ SynchronizedClock::instance().now(),
                                    decltype(HeadInfo::transform){ glm::lookAtRH(
                                        glm::dvec3{ 0.0, mConfig.headHeightOffset1, 0.0 },
-                                       glm::dvec3{ std::cos(fdb.yaw + glm::half_pi<double>()) * std::cos(fdb.pitch),
-                                                   mConfig.headHeightOffset1 + std::sin(fdb.pitch),
-                                                   -std::sin(fdb.yaw + glm::half_pi<double>()) * std::cos(fdb.pitch) },
+                                       glm::dvec3{ std::cos(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
+                                                       std::cos(static_cast<double>(fdb.pitch)),
+                                                   mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
+                                                   -std::sin(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
+                                                       std::cos(static_cast<double>(fdb.pitch)) },
                                        glm::dvec3{ 0.0, 1.0, 0.0 }) },
                                    0.0, 0.0 };
             const HeadInfo infoDown{ SynchronizedClock::instance().now(),
                                      decltype(HeadInfo::transform){ glm::lookAtRH(
                                          glm::dvec3{ 0.0, mConfig.headHeightOffset2, 0.0 },
-                                         glm::dvec3{ std::cos(fdb.downYaw + glm::half_pi<double>()) * std::cos(fdb.downPitch),
-                                                     mConfig.headHeightOffset2 + std::sin(fdb.downPitch),
-                                                     -std::sin(fdb.downYaw + glm::half_pi<double>()) * std::cos(fdb.downPitch) },
+                                         glm::dvec3{ std::cos(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
+                                                         std::cos(static_cast<double>(fdb.downPitch)),
+                                                     mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
+                                                     -std::sin(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
+                                                         std::cos(static_cast<double>(fdb.downPitch)) },
                                          glm::dvec3{ 0.0, 1.0, 0.0 }) },
                                      0.0, 0.0 };
 
@@ -180,18 +188,20 @@ public:
                 receive();
                 sendPacket();
                 std::this_thread::sleep_for(0.75ms);
-//                int targetBits = 0;
-//                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastUpTargetTime).count() < 500) {
-//                    targetBits |= (1 << 2);
-//                }
-//                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastDownTargetTime).count() < 500) {
-//                    targetBits |= (1 << 3);
-//                }
-//                if (targetBits) {
-//                    gimbalSetPacket.buffer.now -= 3;
-//                    gimbalSetPacket.buffer.serialize(gimbalSetPacket.buffer.buffer[gimbalSetPacket.buffer.now] | targetBits);
-//                    gimbalSetPacket.buffer.serializeCrc16();
-//                }
+                //                int targetBits = 0;
+                //                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() -
+                //                lastUpTargetTime).count() < 500) {
+                //                    targetBits |= (1 << 2);
+                //                }
+                //                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() -
+                //                lastDownTargetTime).count() < 500) {
+                //                    targetBits |= (1 << 3);
+                //                }
+                //                if (targetBits) {
+                //                    gimbalSetPacket.buffer.now -= 3;
+                //                    gimbalSetPacket.buffer.serialize(gimbalSetPacket.buffer.buffer[gimbalSetPacket.buffer.now] |
+                //                    targetBits); gimbalSetPacket.buffer.serializeCrc16();
+                //                }
                 gimbalSetPacket.buffer.copyToSendBuffer(mSendBuffer.data() + mSendBufferLen);
                 mSendBufferLen += gimbalSetPacket.buffer.size();
             }

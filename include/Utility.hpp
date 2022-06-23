@@ -1,5 +1,10 @@
 #pragma once
+#include "SuppressWarningBegin.hpp"
+
 #include <opencv2/opencv.hpp>
+
+#include "SuppressWarningEnd.hpp"
+
 #include <utility>
 #include <vector>
 
@@ -15,7 +20,7 @@ class PIDSimulator final {
 
 public:
     explicit PIDSimulator(const PIDParameters& params) : mParameters{ params } {}
-    void reset(double current) {
+    void reset(const double current) {
         mCurrent = current;
     }
     // period = -1.0: disabled
@@ -36,6 +41,7 @@ namespace caf {
 
 void terminateSystem(caf::local_actor& actor, bool success);
 
+extern std::string globalConfigName;
 void appendTestResult(const std::string& message);
 std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>& w);
 

@@ -6,12 +6,17 @@
 #include "Hub.hpp"
 #include "Timer.hpp"
 #include "Utility.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+#include <queue>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
-#include <queue>
+
+#include "SuppressWarningEnd.hpp"
 
 static constexpr double zNear = 0.5;
 static constexpr double zFar = 50.0;

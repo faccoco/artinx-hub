@@ -1,20 +1,22 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
-#include "Hub.hpp"
-#include "Transform.hpp"
-#pragma warning(push, 0)
-#include <bullet/btBulletDynamicsCommon.h>
-#pragma warning(pop)
 #include "HeadInfo.hpp"
+#include "Hub.hpp"
 #include "SimulatorWorldInfo.hpp"
+#include "Transform.hpp"
 #include "Utility.hpp"
+#include <random>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <bullet/btBulletDynamicsCommon.h>
 #include <caf/blocking_actor.hpp>
-#include <cstdlib>
 #include <fmt/format.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <magic_enum.hpp>
-#include <random>
+
+#include "SuppressWarningEnd.hpp"
 
 struct SimulatorSettings final {
     double step;
@@ -65,11 +67,12 @@ enum class SourceMotionType : uint32_t { Static, Vibration, Translate2D, Transla
 class MotionController {
 public:
     virtual void step(btMotionState& motionState, double dt) = 0;
+    virtual ~MotionController() = default;
 };
 
 class StaticMotionController final : public MotionController {
 public:
-    void step(btMotionState& motionState, double) override {}
+    void step(btMotionState&, double) override {}
 };
 
 class SpinMotionController final : public MotionController {
@@ -109,17 +112,18 @@ public:
 };
 
 class UAVMotionController final : public MotionController {
-    std::default_random_engine generator;
-    std::normal_distribution<double> distribution{ 0, 1 };
+    std::default_random_engine mGenerator;
+    std::normal_distribution<double> mDistribution{ 0, 1 };
 
-    void step(btMotionState& motionState, double dt) override {
-        const double xSpeed = distribution(generator);
-        const double ySpeed = distribution(generator);
-        const double zSpeed = distribution(generator);
+    void step(btMotionState& motionState, const double dt) override {
+        const auto xSpeed = mDistribution(mGenerator);
+        const auto ySpeed = mDistribution(mGenerator);
+        const auto zSpeed = mDistribution(mGenerator);
         btTransform transform;
         motionState.getWorldTransform(transform);
-        transform.setOrigin(btVector3(transform.getOrigin().getX() + xSpeed * dt, transform.getOrigin().getY() + ySpeed * dt,
-                                      transform.getOrigin().getZ() - zSpeed * dt));
+        transform.setOrigin(btVector3(static_cast<btScalar>(static_cast<double>(transform.getOrigin().getX()) + xSpeed * dt),
+                                      static_cast<btScalar>(static_cast<double>(transform.getOrigin().getY()) + ySpeed * dt),
+                                      static_cast<btScalar>(static_cast<double>(transform.getOrigin().getZ()) + zSpeed * dt)));
         motionState.setWorldTransform(transform);
     }
 };
@@ -142,38 +146,58 @@ class SentryMotionController final : public MotionController {
     }
 };
 
-// FIXME
 class Translate2DMotionController final : public MotionController {
-    std::default_random_engine generator;
-    std::normal_distribution<double> distribution{ 0, 1 };
+    std::default_random_engine mGenerator;
+    double mMaxV;
+    std::normal_distribution<double> mDistribution;
+    double mSpeedX, mSpeedZ, mT = 0.0;
 
-    void step(btMotionState& motionState, double dt) override {
-        const double ySpeed = distribution(generator);
-        const double zSpeed = distribution(generator);
+    void updateSpeed(const double dt) {
+        mT += dt;
+        if(mT >= 2.0) {
+            mSpeedX = std::clamp(mDistribution(mGenerator), -mMaxV, mMaxV);
+            mSpeedZ = std::clamp(mDistribution(mGenerator), -mMaxV, mMaxV);
+
+            mT -= 2.0;
+        }
+    }
+
+public:
+    explicit Translate2DMotionController(const double maxV) : mMaxV{ maxV }, mDistribution{ 0, maxV / 3.0 } {
+        updateSpeed(2.0 + 1e-5);
+    }
+
+    void step(btMotionState& motionState, const double dt) override {
+        updateSpeed(dt);
+
         btTransform transform;
         motionState.getWorldTransform(transform);
-        transform.setOrigin(btVector3(transform.getOrigin().getX(), transform.getOrigin().getY() + ySpeed * dt,
-                                      transform.getOrigin().getZ() + zSpeed * dt));
+        transform.setOrigin(btVector3(static_cast<btScalar>(static_cast<double>(transform.getOrigin().getX()) + mSpeedX * dt),
+                                      transform.getOrigin().getY(),
+                                      static_cast<btScalar>(static_cast<double>(transform.getOrigin().getZ()) + mSpeedZ * dt)));
         motionState.setWorldTransform(transform);
     }
 };
 
 // FIXME
 class VibrationMotionController final : public MotionController {
-    double vibrationRange;
-    double t = 0;
+    double mVibrationRange;
+    double mT = 0;
 
 public:
-    VibrationMotionController(double range) : vibrationRange{ range } {}
-    void step(btMotionState& motionState, double dt) override {
+    explicit VibrationMotionController(const double range) : mVibrationRange{ range } {}
+    void step(btMotionState& motionState, const double dt) override {
         btTransform transform;
         motionState.getWorldTransform(transform);
-        t += dt;
-        transform.setOrigin(btVector3(transform.getOrigin().getX() + vibrationRange * glm::sin(t), transform.getOrigin().getY(),
-                                      transform.getOrigin().getZ()));
+        mT += dt;
+        transform.setOrigin(
+            btVector3(static_cast<btScalar>(static_cast<double>(transform.getOrigin().getX() + mVibrationRange * glm::sin(mT))),
+                      transform.getOrigin().getY(), transform.getOrigin().getZ()));
         motionState.setWorldTransform(transform);
     }
 };
+
+[[maybe_unused]] static char bulletId, armorId, triangleArmorId;
 
 class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
     Identifier mKey, mHeadKey{};
@@ -189,8 +213,6 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
     std::tuple<std::unique_ptr<btMotionState>, std::unique_ptr<btRigidBody>, std::unique_ptr<MotionController>> mTarget;
     std::pair<std::unique_ptr<btMotionState>, std::unique_ptr<MotionController>> mSource;
     std::mt19937_64 mEngine{ static_cast<uint64_t>(Clock::now().time_since_epoch().count()) };
-
-    static char bulletId, armorId, triangleArmorId;
 
     void initializeTestCase() {
         {
@@ -215,12 +237,12 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                     mSource.second = std::make_unique<SentryMotionController>();
                     break;
                 case SourceMotionType::Translate2D:
-                    mSource.second = std::make_unique<Translate2DMotionController>();
+                    mSource.second = std::make_unique<Translate2DMotionController>(mConfig.vibrationLinearRange);
                     break;
                 case SourceMotionType::Vibration:
                     mSource.second = std::make_unique<VibrationMotionController>(mConfig.vibrationLinearRange);
                     break;
-                default:
+                case SourceMotionType::Translate3D:
                     throw NotImplemented{};
             }
         }
@@ -229,8 +251,9 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
         {
             switch(magic_enum::enum_cast<TargetType>(mConfig.targetType).value()) {
                 case TargetType::Infantry: {
-                    mTargetArmors.push_back(std::make_unique<btBoxShape>(btVector3{
-                        widthOfSmallArmor * 0.5, heightOfSmallArmor * 0.5, thinnessOfArmor * 0.5 }));  // NOTICE: half extents
+                    mTargetArmors.push_back(std::make_unique<btBoxShape>(
+                        btVector3{ static_cast<float>(widthOfSmallArmor * 0.5), static_cast<float>(heightOfSmallArmor * 0.5),
+                                   static_cast<float>(thinnessOfArmor * 0.5) }));  // NOTICE: half extents
                     auto singleArmor = mTargetArmors.back().get();
 
                     auto armors = std::make_unique<btCompoundShape>(true, 4);
@@ -256,8 +279,9 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                     mTargetArmors.push_back(std::move(armors));
                 } break;
                 case TargetType::Sentry: {
-                    mTargetArmors.push_back(std::make_unique<btBoxShape>(btVector3{
-                        widthOfSmallArmor * 0.5, heightOfSmallArmor * 0.5, thinnessOfArmor * 0.5 }));  // NOTICE: half extents
+                    mTargetArmors.push_back(std::make_unique<btBoxShape>(
+                        btVector3{ static_cast<float>(widthOfSmallArmor * 0.5), static_cast<float>(heightOfSmallArmor * 0.5),
+                                   static_cast<float>(thinnessOfArmor * 0.5) }));  // NOTICE: half extents
                     auto singleArmor = mTargetArmors.back().get();
 
                     auto armors = std::make_unique<btCompoundShape>(true, 4);
@@ -283,7 +307,17 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                     mTargetArmors.push_back(std::move(armors));
                 } break;
 
-                default:
+                case TargetType::Hero:
+                    [[fallthrough]];
+                case TargetType::BalancedInfantry:
+                    [[fallthrough]];
+                case TargetType::BaseClosed:
+                    [[fallthrough]];
+                case TargetType::BaseExpanded:
+                    [[fallthrough]];
+                case TargetType::Fans:
+                    [[fallthrough]];
+                case TargetType::Outpost:
                     throw NotImplemented{};
             }
         }
@@ -308,11 +342,18 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                 case TargetMotionType::LargeCircle: {
                     controller = std::make_unique<LargeCircleMotionController>(mConfig.spinningSpeed);
                 } break;
-                default:
+                case TargetMotionType::Translate2D: {
+                    controller = std::make_unique<Translate2DMotionController>(mConfig.vibrationLinearRange);
+                } break;
+                case TargetMotionType::Translate3D:
+                    [[fallthrough]];
+                case TargetMotionType::Fans:
+                    [[fallthrough]];
+                case TargetMotionType::Sentry:
                     throw NotImplemented{};
             }
 
-            const btRigidBody::btRigidBodyConstructionInfo info{ 100.0, motion.get(), mTargetArmors.back().get() };
+            const btRigidBody::btRigidBodyConstructionInfo info{ 0.0, motion.get(), mTargetArmors.back().get() };
             body = std::make_unique<btRigidBody>(info);
             body->setFlags(btRigidBodyFlags::BT_DISABLE_WORLD_GRAVITY);
             body->setUserPointer(body->getCollisionShape()->getUserPointer());
@@ -349,12 +390,14 @@ public:
         mDynamicWorld->setGravity(btVector3{ 0, static_cast<float>(globalSettings.gForce), 0 });
 
         globalSettings.bulletSpeed = mConfig.v0;
-        std::normal_distribution<double> vGen{ mConfig.v0, std::fmax(mConfig.v0Std, 1e-3) };
+        std::normal_distribution vGen{ mConfig.v0, std::fmax(mConfig.v0Std, 1e-3) };
         const auto maxVelocity = mConfig.v0 + 3.0 * mConfig.v0Std;
         const auto minVelocity = mConfig.v0 - 3.0 * mConfig.v0Std;
 
-        const auto speedThreshold =
-            globalSettings.bullet42mm ? speedThresholdFor42mmA : speedThresholdFor17mm;  // TODO: handle triangle armor
+        // const auto speedThreshold =
+        //    globalSettings.bullet42mm ? speedThresholdFor42mmA : speedThresholdFor17mm;  // TODO: handle triangle armor
+
+        constexpr auto speedThreshold = -1.0;  // disable speed threshold
 
         std::unordered_set<const btRigidBody*> usedBullet;
         std::unordered_map<const btRigidBody*, btVector3> bulletVelocity;
@@ -375,8 +418,6 @@ public:
             std::get<2>(mTarget)->step(*std::get<0>(mTarget), mConfig.step);
             mDynamicWorld->stepSimulation(static_cast<btScalar>(mConfig.step), 10, 0.001f);
             time += mConfig.step;
-
-            logInfo(fmt::format("Simulator time {:.3f}s bullet count {} hit {} shoot {}", time, bulletCount, hitCount, shoot));
 
             // update world info
             {
@@ -442,8 +483,8 @@ public:
                 double velocity = 0.0;
 
                 const auto contactsCount = manifold->getNumContacts();
-                for(int32_t idx = 0; idx < contactsCount; ++idx) {
-                    auto& point = manifold->getContactPoint(idx);
+                for(int32_t i = 0; i < contactsCount; ++i) {
+                    auto& point = manifold->getContactPoint(i);
                     velocity = std::max(velocity, static_cast<double>(std::fabs(btDot(point.m_normalWorldOnB, speed))));
                 }
 
@@ -454,6 +495,8 @@ public:
 
                     logInfo(fmt::format("Hit at ({:.2f},{:.2f},{:.2f}) vel {:.2f}", pos.x(), pos.y(), pos.z(), velocity));
                     mDynamicWorld->removeRigidBody(const_cast<btRigidBody*>(bodyB));
+                } else {
+                    logInfo(fmt::format("Bad hit: vertical speed = {:.3f}", velocity));
                 }
             }
 
@@ -467,28 +510,30 @@ public:
                     ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
                     mHeadKey = key;
                 },
-                [&](const caf::down_msg& x) { runFlag = false; }, [&](const caf::exit_msg& x) { runFlag = false; },
+                [&](const caf::down_msg&) { runFlag = false; }, [&](const caf::exit_msg&) { runFlag = false; },
                 [&](timer_atom) { ACTOR_PROTOCOL_CHECK(timer_atom); });
+
+            const auto headData = BlackBoard::instance().get<HeadInfo>(mHeadKey);
+            Transform<FrameOfReference::Robot, FrameOfReference::Gun> transA{ glm::identity<glm::dmat4>() };
+            if(headData.has_value()) {
+                transA = headData.value().transform;
+            }
+
+            btTransform trans;
+            mSource.first->getWorldTransform(trans);
+            glm::mat4 mat;
+            trans.getOpenGLMatrix(glm::value_ptr(mat));
+            const auto transB = decltype(SimulatorWorldInfo::posture){ glm::inverse(mat) };
+
+            const auto transform = transB * transA;
+
             // shoot
             if(shoot && bulletCount < mConfig.bulletCount && time - lastShoot > mConfig.shootInterval) {
-                const auto headData = BlackBoard::instance().get<HeadInfo>(mHeadKey);
-                Transform<FrameOfReference::Robot, FrameOfReference::Gun> transA{ glm::identity<glm::dmat4>() };
-                if(headData.has_value()) {
-                    transA = headData.value().transform;
-                }
-
-                auto motion = std::make_unique<btDefaultMotionState>();
-                btTransform trans;
-                mSource.first->getWorldTransform(trans);
-                glm::mat4 mat;
-                trans.getOpenGLMatrix(glm::value_ptr(mat));
-                const auto transB = decltype(SimulatorWorldInfo::posture){ glm::inverse(mat) };
-
-                const auto transform = transB * transA;
                 glm::mat4 transformMat = transform.rawInverse();
                 glm::quat rotate{ transformMat };
                 glm::vec3 origin = transformMat * glm::vec4{ 0.0, 0.0, 0.0, 1.0 };
 
+                auto motion = std::make_unique<btDefaultMotionState>();
                 motion->setWorldTransform(btTransform{ btQuaternion{ rotate.x, rotate.y, rotate.z, rotate.w },
                                                        btVector3{ origin.x, origin.y, origin.z } });
 
@@ -508,7 +553,67 @@ public:
                 lastShoot = time;
                 ++bulletCount;
             }
+
+            logInfo(fmt::format("Simulator time {:.3f}s bullet count {} hit {} shoot {}", time, bulletCount, hitCount, shoot));
+            {
+                btTransform src;
+                mSource.first->getWorldTransform(src);
+                const auto posSrc = src.getOrigin();
+
+                logInfo(fmt::format("Source {:.3f} {:.3f} {:.3f}", posSrc.x(), posSrc.y(), posSrc.z()));
+
+                btTransform dst;
+                std::get<0>(mTarget)->getWorldTransform(dst);
+                const auto posDst = dst.getOrigin();
+
+                logInfo(fmt::format("Target {:.3f} {:.3f} {:.3f}", posDst.x(), posDst.y(), posDst.z()));
+
+                auto diff = posDst - posSrc;
+                diff.normalize();
+
+                logInfo(fmt::format("Ref dir {:.3f} {:.3f} {:.3f}", diff.x(), diff.y(), diff.z()));
+
+                const auto real = transform(Vector<UnitType::Distance, FrameOfReference::Gun>{ { 0.0, 0.0, -1.0f } }).raw();
+                logInfo(fmt::format("Gun dir {:.3f} {:.3f} {:.3f}", real.x, real.y, real.z));
+
+                const auto& motion = std::get<0>(mTarget);
+                const auto ptr = mTargetArmors.back().get();
+                const auto shape = reinterpret_cast<btCompoundShape*>(ptr);  // NOTICE: RTTI is not available
+
+                motion->getWorldTransform(trans);
+
+                btScalar minDist = 1e10f;
+                std::optional<std::pair<btVector3, btVector3>> closest = std::nullopt;
+
+                const auto count = shape->getNumChildShapes();
+                for(int32_t idx = 0; idx < count; ++idx) {
+                    const auto& transformShape = shape->getChildTransform(idx);
+                    const auto worldTransform = trans * transformShape;
+                    const auto origin = worldTransform.getOrigin();
+
+                    for(auto& [bulletTrans, _] : mBullets) {
+                        btTransform trans2;
+                        bulletTrans->getWorldTransform(trans2);
+
+                        const auto origin2 = trans2.getOrigin();
+                        if(const auto dist = btDistance(origin, origin2); dist < minDist) {
+                            minDist = dist;
+                            closest = { origin, origin2 };
+                        }
+                    }
+                }
+
+                if(closest) {
+                    const auto [p1, p2] = closest.value();
+                    logInfo(fmt::format("Closest pair armor {:.3f} {:.3f} {:.3f} <-> bullet {:.3f} {:.3f} {:.3f} : {:.3f} m",
+                                        p1.x(), p1.y(), p1.z(), p2.x(), p2.y(), p2.z(), minDist));
+                }
+            }
+
             if(time - mConfig.maxTime > -1e-4) {
+                runFlag = false;
+            }
+            if(hitCount == mConfig.bulletCount) {
                 runFlag = false;
             }
             std::this_thread::sleep_for(5ms);
@@ -525,9 +630,5 @@ public:
             terminateSystem(*this, true);
     }
 };
-
-char Simulator::armorId;
-char Simulator::bulletId;
-char Simulator::triangleArmorId;
 
 HUB_REGISTER_CLASS(Simulator);

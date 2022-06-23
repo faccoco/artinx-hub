@@ -2,12 +2,17 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include <caf/actor_ostream.hpp>
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/actor_ostream.hpp>
+#include <caf/event_based_actor.hpp>
 #include <opencv2/videoio.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 namespace fs = std::filesystem;
 
@@ -33,11 +38,11 @@ private:
     uint32_t mFrameCount = 0;
     std::unique_ptr<cv::VideoWriter> mWriter;
 
-    const int mFourcc = cv::VideoWriter::fourcc('H', 'E', 'V', 'C');
+    const int mFourCc = cv::VideoWriter::fourcc('H', 'E', 'V', 'C');
 
 public:
     VideoRecorder(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
-    ~VideoRecorder() {
+    ~VideoRecorder() override {
         mWriter.reset();
     }
     caf::behavior make_behavior() override {
@@ -65,7 +70,7 @@ public:
                              logError(error.c_str());
                          }
                          mWriter = std::make_unique<cv::VideoWriter>(
-                             mConfig.base + "/" + std::to_string(Clock::now().time_since_epoch().count()) + ".mp4", mFourcc,
+                             mConfig.base + "/" + std::to_string(Clock::now().time_since_epoch().count()) + ".mp4", mFourCc,
                              mConfig.fps, frameData.frame.size());
                          mFormat = frameData.frame.type();
                          mSize = frameData.frame.size();

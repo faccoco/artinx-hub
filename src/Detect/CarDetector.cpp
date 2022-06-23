@@ -4,18 +4,23 @@
 #include "DetectedCar.hpp"
 #include "ExceptionProbe.hpp"
 #include "Hub.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <inference_engine.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 namespace IE = InferenceEngine;
 
 struct CarDetectorSettings final {
     double nmsThreshold;
     double boundingBoxThreshold;
-    int32_t inputWidth;
-    int32_t inputHeight;
+    uint32_t inputWidth;
+    uint32_t inputHeight;
     std::string xmlPath;
     std::string binPath;
     std::string deviceName;
@@ -45,7 +50,8 @@ class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSe
         const auto newWidth = static_cast<int32_t>(scale * input.cols), newHeight = static_cast<int32_t>(scale * input.rows);
         cv::Mat resized;
         cv::resize(input, resized, cv::Size{ newWidth, newHeight });
-        cv::Mat full{ mConfig.inputHeight, mConfig.inputWidth, CV_8UC3, cv::Scalar{ 114, 114, 114 } };
+        cv::Mat full{ static_cast<int>(mConfig.inputHeight), static_cast<int>(mConfig.inputWidth), CV_8UC3,
+                      cv::Scalar{ 114, 114, 114 } };
         resized.copyTo(full(cv::Rect{ 0, 0, resized.cols, resized.rows }));
 
         const auto memoryBlob = IE::as<IE::MemoryBlob>(imgBlob);
@@ -69,20 +75,20 @@ class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSe
 
         std::vector<std::tuple<cv::Rect2f, int32_t, float>> proposals;
 
-        const auto generateProposal = [ptr, this, &proposals](const int32_t anchorIdx, const int32_t g0, const int32_t g1,
-                                                              const int32_t stride) {
+        const auto generateProposal = [ptr, this, &proposals](const int32_t anchorIdx, const float g0Base, const float g1Base,
+                                                              const float stride) {
             const auto basePos = anchorIdx * (mConfig.numClasses + 5);
-            const auto centerX = (ptr[basePos + 0] + g0) * stride;
-            const auto centerY = (ptr[basePos + 1] + g1) * stride;
+            const auto centerX = (ptr[basePos + 0] + g0Base) * stride;
+            const auto centerY = (ptr[basePos + 1] + g1Base) * stride;
             const auto w = std::exp(ptr[basePos + 2]) * stride;
             const auto h = std::exp(ptr[basePos + 3]) * stride;
 
             const auto objectness = ptr[basePos + 4];
 
             auto maxProb = static_cast<float>(mConfig.boundingBoxThreshold);
-            int32_t selected = -1;
+            uint32_t selected = std::numeric_limits<uint32_t>::max();
 
-            for(int32_t classIdx = 0; classIdx < mConfig.numClasses; ++classIdx) {
+            for(uint32_t classIdx = 0; classIdx < mConfig.numClasses; ++classIdx) {
                 const auto classScore = ptr[basePos + 5 + classIdx];
                 const auto prob = objectness * classScore;
                 if(prob > maxProb) {
@@ -104,14 +110,14 @@ class CarDetector final : public HubHelper<caf::event_based_actor, CarDetectorSe
             const auto gridCountW = mConfig.inputWidth / stride;
             const auto gridCountH = mConfig.inputHeight / stride;
 
-            for(int32_t g1 = 0; g1 < gridCountH; ++g1)
-                for(int32_t g0 = 0; g0 < gridCountW; ++g0) {
-                    generateProposal(anchorIdx++, g0, g1, stride);
+            for(uint32_t g1 = 0; g1 < gridCountH; ++g1)
+                for(uint32_t g0 = 0; g0 < gridCountW; ++g0) {
+                    generateProposal(anchorIdx++, static_cast<float>(g0), static_cast<float>(g1), static_cast<float>(stride));
                 }
         }
 
         std::sort(proposals.begin(), proposals.end(),
-                  [](const auto& lhs, const auto& rhs) { return std::get<2>(lhs) > std::get<2>(rhs); });
+                  [](const auto& lhs, const auto& rhs) { return std::get<float>(lhs) > std::get<float>(rhs); });
 
         // apply NMS
         std::vector<std::tuple<cv::Rect2f, int32_t, float>> picked;
@@ -196,8 +202,8 @@ public:
                      res.cars = decodeOutputs(outputBlob, scale, res.frame.frame.cols, res.frame.frame.rows);
                      const auto t2 = Clock::now();
 
-                     logInfo(
-                         fmt::format("infer time {:.4f}s decode time {:.4f}s", (t1 - t0).count() / 1e9, (t2 - t1).count() / 1e9));
+                     logInfo(fmt::format("infer time {:.4f}s decode time {:.4f}s", static_cast<double>((t1 - t0).count()) / 1e9,
+                                         static_cast<double>((t2 - t1).count()) / 1e9));
 
                      sendAll(car_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };

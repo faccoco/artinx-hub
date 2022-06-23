@@ -21,6 +21,8 @@ public:
         if(std::uncaught_exceptions()) {
 #ifdef ARTINXHUB_WINDOWS
             __debugbreak();
+#else
+            __builtin_trap();
 #endif
         }
 #endif

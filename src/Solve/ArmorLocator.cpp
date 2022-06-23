@@ -6,12 +6,17 @@
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/calib3d.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct ArmorLocatorSettings final {};
 
@@ -61,8 +66,9 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
         constexpr auto ratioThreshold = 0.5 * (widthOfLargeArmor + widthOfSmallArmor) / heightOfArmorLightBar;
 
         mImagePoint = { lt, lb, rb, rt };
-        const auto res = cv::solvePnP(ratio > ratioThreshold ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint, cameraMatrix,
-                                      distCoeff, rvec, tvec, false, cv::SOLVEPNP_IPPE);
+        [[maybe_unused]] const auto res =
+            cv::solvePnP(ratio > ratioThreshold ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint, cameraMatrix, distCoeff,
+                         rvec, tvec, false, cv::SOLVEPNP_IPPE);
         glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
 
         if(p0.z > 0.0)
@@ -105,7 +111,8 @@ public:
                              const auto [point, type] = solve(cameraInfo.cameraMatrix, armorLight);
 
                              // TODO: projected area
-                             res.targets.push_back({ transform(point), 0.0, id, type });
+                             res.targets.push_back({ transform(point), 0.0, id, type,
+                                                     decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
                          }
                      }
 

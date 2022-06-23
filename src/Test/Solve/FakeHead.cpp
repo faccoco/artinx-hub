@@ -4,12 +4,17 @@
 #include "Hub.hpp"
 #include "SimulatorWorldInfo.hpp"
 #include "Utility.hpp"
+#include <cstdint>
+#include <queue>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/random.hpp>
-#include <queue>
+
+#include "SuppressWarningEnd.hpp"
 
 struct FakeHeadSettings final {
     double delay;
@@ -19,14 +24,16 @@ struct FakeHeadSettings final {
     double headHeightOffset;
 
     double kp, ki, kd;
+    bool enablePID;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, FakeHeadSettings& x) {
-    return f.object(x).fields(f.field("delay", x.delay), f.field("headPosStd", x.headPosStd),
-                              f.field("headSpeedStd", x.headSpeedStd), f.field("headMaxSpeed", x.headMaxSpeed),
-                              f.field("headHeightOffset", x.headHeightOffset), f.field("kp", x.kp), f.field("ki", x.ki),
-                              f.field("kd", x.kd));
+    return f.object(x).fields(
+        f.field("delay", x.delay).fallback(0.0), f.field("headPosStd", x.headPosStd).fallback(0.0),
+        f.field("headSpeedStd", x.headSpeedStd).fallback(0.0), f.field("headMaxSpeed", x.headMaxSpeed).fallback(0.0),
+        f.field("headHeightOffset", x.headHeightOffset), f.field("kp", x.kp).fallback(0.0), f.field("ki", x.ki).fallback(0.0),
+        f.field("kd", x.kd).fallback(0.0), f.field("enablePID", x.enablePID).fallback(false));
 }
 
 class FakeHead final : public HubHelper<caf::event_based_actor, FakeHeadSettings, update_head_atom> {
@@ -34,7 +41,7 @@ class FakeHead final : public HubHelper<caf::event_based_actor, FakeHeadSettings
     Duration mDelay;
     std::queue<std::tuple<TimePoint, double, double>> mQueue;
 
-    double mTime = 0.0, mTargetYaw = 0.0, mTargetPitch = 0.0;
+    double mTargetYaw = 0.0, mTargetPitch = 0.0, mLastYaw = 0.0, mLastPitch = 0.0;
     PIDSimulator mYaw, mPitch;
     Identifier mKey;
 
@@ -69,27 +76,50 @@ public:
                          return;
 
                      const auto [_, targetYaw, targetPitch] = cur.value();
-                     auto [yaw, yawSpeed] = mYaw.step(diff, targetYaw, mConfig.headMaxSpeed, glm::two_pi<double>());
-                     auto [pitch, pitchSpeed] = mPitch.step(diff, targetPitch, mConfig.headMaxSpeed);
+                     double yaw, pitch, yawSpeed, pitchSpeed;
+                     if(mConfig.enablePID) {
+                         auto [yawPID, yawSpeedPID] = mYaw.step(diff, targetYaw, mConfig.headMaxSpeed, glm::two_pi<double>());
+                         auto [pitchPID, pitchSpeedPID] = mPitch.step(diff, targetPitch, mConfig.headMaxSpeed);
+                         yaw = yawPID;
+                         pitch = pitchPID;
+                         yawSpeed = yawSpeedPID;
+                         pitchSpeed = pitchSpeedPID;
+                     } else {
+                         yaw = targetYaw;
+                         pitch = targetPitch;
+                         yawSpeed = (targetYaw - mLastYaw) / diff;
+                         pitchSpeed = (targetPitch - mLastPitch) / diff;
 
-                     yaw += glm::gaussRand(0.0, mConfig.headPosStd);
-                     pitch += glm::gaussRand(0.0, mConfig.headPosStd);
+                         mLastYaw = targetYaw;
+                         mLastPitch = targetPitch;
+                     }
 
-                     yawSpeed += glm::gaussRand(0.0, mConfig.headSpeedStd);
-                     pitchSpeed += glm::gaussRand(0.0, mConfig.headSpeedStd);
+                     if(mConfig.headPosStd > 1e-6) {
+                         yaw += std::clamp(glm::gaussRand(0.0, mConfig.headPosStd), -3.0 * mConfig.headPosStd,
+                                           3.0 * mConfig.headPosStd);
+                         pitch += std::clamp(glm::gaussRand(0.0, mConfig.headPosStd), -3.0 * mConfig.headPosStd,
+                                             3.0 * mConfig.headPosStd);
+                     }
+
+                     if(mConfig.headSpeedStd > 1e-6) {
+                         yawSpeed += std::clamp(glm::gaussRand(0.0, mConfig.headSpeedStd), -3.0 * mConfig.headSpeedStd,
+                                                3.0 * mConfig.headSpeedStd);
+                         pitchSpeed += std::clamp(glm::gaussRand(0.0, mConfig.headSpeedStd), -3.0 * mConfig.headSpeedStd,
+                                                  3.0 * mConfig.headSpeedStd);
+                     }
 
                      const HeadInfo info{ mCurrent,
                                           decltype(HeadInfo::transform){ glm::lookAtRH(
                                               glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
-                                              glm::dvec3{ std::cos(yaw - glm::half_pi<double>()) * std::cos(pitch),
+                                              glm::dvec3{ std::cos(yaw + glm::half_pi<double>()) * std::cos(pitch),
                                                           mConfig.headHeightOffset + std::sin(pitch),
-                                                          std::sin(yaw - glm::half_pi<double>()) * std::cos(pitch) },
+                                                          -std::sin(yaw + glm::half_pi<double>()) * std::cos(pitch) },
                                               glm::dvec3{ 0.0, 1.0, 0.0 }) },
                                           yawSpeed, pitchSpeed };
 
                      sendAll(update_head_atom_v, 1U, BlackBoard::instance().updateSync(mKey, info));
                  },
-                 [&](set_target_info_atom, GroupMask, Clock::rep, const double yaw, const double pitch, bool isFire) {
+                 [&](set_target_info_atom, GroupMask, Clock::rep, const double yaw, const double pitch, bool) {
                      ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);
                      mTargetYaw = yaw;
                      mTargetPitch = pitch;

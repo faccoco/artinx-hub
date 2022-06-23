@@ -4,29 +4,16 @@ stages:
   - deploy
 
 cache:
-  key: "$CI_RUNNER_ID-$CI_COMMIT_SHA"
-  paths:
-    - build/*
+  key: "$CI_RUNNER_ID"
+  untracked: true
 
-build-job-windows:
+build-job:
   stage: build
   tags:
     - windows
   script:
     - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
-  rules:
-    - if: $DEPLOY_TARGET == null
-
-build-job-linux:
-  stage: build
-  tags:
-    - linux
-  script:
-    - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=$CAMERA_TYPE -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=~/workspace/package/vcpkg/scripts/buildsystems/vcpkg.cmake
-    - cmake --build ./build --config Release
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null && $CI_PIPELINE_SOURCE != "schedule"
 
 test-job:
   stage: test
@@ -34,6 +21,7 @@ test-job:
     - windows
   script:
     - cd build
+    - Get-ChildItem * -Include *.log -Recurse | Remove-Item
     - ctest --build-config Release -j 8
   artifacts:
     name: "report"
@@ -41,32 +29,32 @@ test-job:
       - ./build/testResult.log
     expire_in: 1 month
     expose_as: "test report"
-  rules:
-    - if: $DEPLOY_TARGET == null
 
 deploy-job:
   stage: deploy
   tags:
     - linux
+    - $DEPLOY_ID
   script:
-    - sudo python3 ./scripts/setup-service $CI_RUNNER_TAGS
+    - source /opt/intel/openvino_2021/bin/setupvars.sh
+    - cmake -B ./build -DARTINX_HUB_CAMERA=$CAMERA_TYPE -DCMAKE_MAKE_PROGRAM=make -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake --build ./build --config Release -j 6
+    - sudo touch /opt/env_setup.sh
+    - sudo bash ./scripts/setup-service.bash $DEPLOY_TARGET
   environment:
-    name: Robots
-    on_stop: stop-service
+    name: $DEPLOY_ID
+  parallel:
+    matrix:
+      - DEPLOY_TARGET: "infantry"
+        DEPLOY_ID: ["infantry1", "infantry2"]
+        CAMERA_TYPE: "USB3"
+      - DEPLOY_TARGET: "hero"
+        DEPLOY_ID: "hero"
+        CAMERA_TYPE: "USB3"
+      - DEPLOY_TARGET: "sentry"
+        DEPLOY_ID: "sentry"
+        CAMERA_TYPE: "USB2"
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"
       when: manual
-
-stop-service:
-  stage: deploy
-  tags:
-    - linux
-  script:
-    - sudo python3 ./scripts/teardown-service.py
-  when: manual
-  environment:
-    name: Robots
-    action: stop
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_TARGET != null
-      when: manual
+  dependencies: []

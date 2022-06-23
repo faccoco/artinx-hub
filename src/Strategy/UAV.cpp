@@ -3,9 +3,14 @@
 #include "DetectedTarget.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <glm/glm.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct UAVStrategySettings final {};
 
@@ -31,8 +36,7 @@ public:
                      auto minDistance = std::numeric_limits<double>::max();
                      for(auto& target : data.targets) {
                          const auto vec = target.center.raw();
-                         const auto distance = vec.x * vec.x + vec.y * vec.y;
-                         if(distance < minDistance) {
+                         if(const auto distance = vec.x * vec.x + vec.y * vec.y; distance < minDistance) {
                              selected.selected = target;
                              minDistance = distance;
                          }

@@ -2,48 +2,14 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <opencv2/calib3d.hpp>
 
-/*
-// had been integrated into daheng driver
-struct UndistortSettings final {
-    std::string ymlPath;
-};
-
-template <class Inspector>
-bool inspect(Inspector& f, UndistortSettings& x) {
-    return f.object(x).fields(f.field("ymlPath", x.ymlPath));
-}
-
-class Undistort final : public HubHelper<caf::event_based_actor, UndistortSettings, image_frame_atom> {
-    Identifier mKey;
-    cv::Mat mCameraMatrix, mDistCoeffs;
-
-public:
-    Undistort(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ generateKey(this) } {
-        cv::FileStorage fs(mConfig.ymlPath, cv::FileStorage::READ);
-        fs["camera_matrix"] >> mCameraMatrix;
-        fs["distortion_coefficients"] >> mDistCoeffs;
-    }
-    caf::behavior make_behavior() override {
-        return { [this](start_atom) {},
-                 [&](image_frame_atom, Identifier key) {
-                     auto res = BlackBoard::instance().get<CameraFrame>(key).value();
-
-                     auto temp = res.frame.clone();
-                     cv::undistort(temp, res.frame, mCameraMatrix, mDistCoeffs);
-
-                     BlackBoard::instance().updateSync(mKey, std::move(res));
-                     sendAll(image_frame_atom_v, mKey);
-                 } };
-    }
-};
-
-HUB_REGISTER_CLASS(Undistort);
-*/
+#include "SuppressWarningEnd.hpp"
 
 struct UndistortCalibratorSettings final {
     cv::Size boardSize;           // The size of the board -> Number of items by width and height
@@ -56,7 +22,7 @@ struct UndistortCalibratorSettings final {
     bool writePoints;             // Write detected feature points
     bool writeExtrinsics;         // Write extrinsic parameters
     bool writeGrid;               // Write refined 3D target grid points
-    bool showUndistorted;         // Show undstorted images after calibration
+    bool showUndistorted;         // Show undistorted images after calibration
     bool fixK1;                   // fix K1 distortion coefficient
     bool fixK2;                   // fix K2 distortion coefficient
     bool fixK3;                   // fix K3 distortion coefficient
@@ -122,12 +88,12 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
             const double err = cv::norm(imagePoints[i], imagePoints2, cv::NORM_L2);
 
             const size_t n = objectPoints[i].size();
-            perViewErrors[i] = static_cast<float>(std::sqrt(err * err / n));
+            perViewErrors[i] = static_cast<float>(std::sqrt(err * err / static_cast<double>(n)));
             totalErr += err * err;
             totalPoints += n;
         }
 
-        return std::sqrt(totalErr / totalPoints);
+        return std::sqrt(totalErr / static_cast<double>(totalPoints));
     }
 
     void calcBoardCornerPositions(const cv::Size boardSize, const float squareSize, std::vector<cv::Point3f>& corners) {
@@ -206,13 +172,13 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
 
         if(mConfig.writeExtrinsics && !rvecs.empty() && !tvecs.empty()) {
             CV_Assert(rvecs[0].type() == tvecs[0].type());
-            cv::Mat bigmat((int)rvecs.size(), 6, CV_MAKETYPE(rvecs[0].type(), 1));
+            cv::Mat bigMat(static_cast<int>(rvecs.size()), 6, CV_MAKETYPE(rvecs[0].type(), 1));
             bool needReshapeR = rvecs[0].depth() != 1 ? true : false;
             bool needReshapeT = tvecs[0].depth() != 1 ? true : false;
 
             for(size_t i = 0; i < rvecs.size(); i++) {
-                cv::Mat r = bigmat(cv::Range(static_cast<int>(i), static_cast<int>(i + 1)), cv::Range(0, 3));
-                cv::Mat t = bigmat(cv::Range(static_cast<int>(i), static_cast<int>(i + 1)), cv::Range(3, 6));
+                cv::Mat r = bigMat(cv::Range(static_cast<int>(i), static_cast<int>(i + 1)), cv::Range(0, 3));
+                cv::Mat t = bigMat(cv::Range(static_cast<int>(i), static_cast<int>(i + 1)), cv::Range(3, 6));
 
                 if(needReshapeR)
                     rvecs[i].reshape(1, 1).copyTo(r);
@@ -230,11 +196,11 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
                 }
             }
             fs.writeComment("a set of 6-tuples (rotation vector + translation vector) for each view");
-            fs << "extrinsic_parameters" << bigmat;
+            fs << "extrinsic_parameters" << bigMat;
         }
 
         if(mConfig.writePoints && !mImagePoints.empty()) {
-            cv::Mat imagePtMat((mImagePoints.size()), (mImagePoints[0].size()), CV_32FC2);
+            cv::Mat imagePtMat(static_cast<int>(mImagePoints.size()), static_cast<int>(mImagePoints[0].size()), CV_32FC2);
             for(size_t i = 0; i < mImagePoints.size(); i++) {
                 cv::Mat r = imagePtMat.row(static_cast<int>(i)).reshape(2, imagePtMat.cols);
                 cv::Mat imgPoint(mImagePoints[i]);
@@ -268,7 +234,7 @@ public:
     UndistortCalibrator(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ generateKey(this) }, mMode(Status::CAPTURING) {
         initFlag();
-        mGridWidth = mConfig.squareSize * (mConfig.boardSize.width - 1);
+        mGridWidth = mConfig.squareSize * static_cast<float>(mConfig.boardSize.width - 1);
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
