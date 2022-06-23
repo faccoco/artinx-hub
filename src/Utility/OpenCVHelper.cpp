@@ -10,7 +10,7 @@ void drawRotatedRect(cv::Mat& img, const cv::RotatedRect& rect, const cv::Scalar
 }
 
 void boxRect(std::vector<cv::Point2f>& res, const cv::RotatedRect& rect) {
-    assert(rect.size.width <= rect.size.height);
+    // assert(rect.size.width <= rect.size.height);
     rect.points(res.data());
 
     uint32_t selectedIdx = 0;

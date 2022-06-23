@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.16)
 
 set(SOURCE 
 "Core/BlackBoard.cpp"
@@ -29,8 +29,10 @@ set(SOURCE
 "Solve/AngleSolver.cpp"
 "Solve/ArmorLocator.cpp"
 "Solve/RadarLocator.cpp"
+"Strategy/Hero.cpp"
 "Strategy/Infantry.cpp"
 "Strategy/Sentry.cpp"
+"Strategy/UAV.cpp"
 "Test/ActorFramework/Actor.cpp"
 "Test/ActorFramework/Availability.cpp"
 "Test/ActorFramework/DaemonTester.cpp"
@@ -91,6 +93,7 @@ if(${ARTINX_HUB_CAMERA} STREQUAL "USB2")
 target_compile_definitions(ArtinxHub PRIVATE "ARTINX_DAHENG_USB2")
 target_include_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/include)
 target_link_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/lib/pub)
+target_link_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/genicam/bin/Linux64_x64)
 else()
 target_include_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/inc)
 target_link_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/lib/x64)

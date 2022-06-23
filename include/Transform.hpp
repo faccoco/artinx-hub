@@ -1,6 +1,11 @@
 #pragma once
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
 #include <glm/glm.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 enum class FrameOfReference : uint32_t { Ground, Robot, Gun, Camera };
 

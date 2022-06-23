@@ -12,7 +12,7 @@ ExecStart=bash /*the shell script you have written*/
 Restart=always
 RestartSec=1
 StartLimitIntervalSec=0
-StartLImitBurst=999999999
+StartLimitBurst=999999999
 KillMode=none
 [Install]
 WantedBy=multi-user.target
@@ -24,3 +24,13 @@ Alias=ArtinxHub_autostart_service
 - ~~use `groups ${USER}` to check groups~~
 - sudo gpasswd --add ${USER} dialout
 
+
+```
+
+
+
+```bash
+sudo usermod -a -G sudo gitlab-runner
+sudo visudo
+append gitlab-runner ALL=(ALL) NOPASSWD: ALL
+```

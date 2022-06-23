@@ -2,11 +2,15 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include <caf/actor_ostream.hpp>
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/videoio.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct VideoReplaySettings final {
     std::string path;
@@ -44,20 +48,24 @@ private:
         }
 
         CameraFrame res;
-        res.frame = (mConfig.width == img.cols && mConfig.height == img.rows) ? std::move(img) : resize(img);
+        res.frame = (mConfig.width == static_cast<uint32_t>(img.cols) && mConfig.height == static_cast<uint32_t>(img.rows)) ?
+            std::move(img) :
+            resize(img);
         res.info.width = mConfig.width;
         res.info.height = mConfig.height;
-        res.info.fov = mConfig.fov;
+        res.info.identifier = "VideoReplay";
+        res.info.cameraMatrix =
+            (cv::Mat_<double>(3, 3) << mConfig.width / 2 / std::tan(glm::radians(mConfig.fov) / 2), 0, mConfig.width / 2, 0,
+             mConfig.height / 2 / std::tan(glm::radians(mConfig.fov) / 2), mConfig.height / 2, 0, 0, 1);
+        res.info.distCoefficients = cv::Mat_<double>{};
         res.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
         res.lastUpdate = SynchronizedClock::instance().now();
 
-        BlackBoard::instance().updateSync(mKey, std::move(res));
-        sendAll(image_frame_atom_v, mKey);
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
     }
 
 public:
-    VideoReplay(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(VideoReplay).hash_code() } {
+    VideoReplay(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
 
         if(!mCapture.open(mConfig.path)) {
             const auto error = "Failed to load video " + mConfig.path;
@@ -66,10 +74,14 @@ public:
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
                     Timer::instance().addTimer(address(),
                                                std::chrono::microseconds{ static_cast<int64_t>(1'000'000 / mConfig.fps) });
                 },
-                 [this](timer_atom) { next(); } };
+                 [this](timer_atom) {
+                     ACTOR_PROTOCOL_CHECK(timer_atom);
+                     next();
+                 } };
     }
 };
 

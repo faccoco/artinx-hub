@@ -104,7 +104,15 @@ function updateFilter() {
             $("#filter_" + v[0])[0].checked = v[1];
             if (!images.hasOwnProperty(v[0])) {
                 let img = $("<img class=\"mdui-img-fluid image\" id=\"current_image\" src=\"\" alt=\"\"/>")
-                img[0].src = "/img/" + v[0] + "/" + randomString();
+                img[0].src = "/img/" + v[0];
+                img.on("click", function(e) {
+                    let x = e.pageX - this.offsetLeft;
+                    let y = e.pageY - this.offsetTop;
+                    fetch("/radar", {
+                        method: "POST",
+                        body: JSON.stringify([x, y])
+                    })
+                });
                 images[v[0]] = img[0];
                 $("#images").append(img);
             }

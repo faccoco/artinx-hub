@@ -1,9 +1,14 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cmath>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
+
+#include "SuppressWarningEnd.hpp"
 
 std::pair<double, double> PIDSimulator::step(const double dt, double target, const double maxV, const double period) noexcept {
     if(period > 0.0) {

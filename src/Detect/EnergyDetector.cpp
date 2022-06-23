@@ -5,13 +5,17 @@
 #include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
-#include <caf/event_based_actor.hpp>
 #include <cstdint>
+
+#include "SuppressWarningBegin.hpp"
+
+#include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
-#include <iostream>
 #include <opencv2/aruco.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/opencv.hpp>
+
+#include "SuppressWarningEnd.hpp"
 
 struct EnergyDetectorSettings final {
     int smallPredictMode;
@@ -52,7 +56,7 @@ class EnergyDetector final
 
     Identifier mKey;
 
-    bool mEnabled = true;
+    bool mEnabled = false;
 
     void reset() {}
 
@@ -100,9 +104,9 @@ class EnergyDetector final
     bool stripJudge(const std::vector<cv::Point>& contour, const cv::RotatedRect& rotatedRect) const {
         cv::Point2f rectPoints[4];
         rotatedRect.points(rectPoints);
-        const double height = std::min(rotatedRect.size.height, rotatedRect.size.width);
-        const double width = std::max(rotatedRect.size.height, rotatedRect.size.width);
-        const double area = contourArea(contour);
+        const auto height = std::fmin(rotatedRect.size.height, rotatedRect.size.width);
+        const auto width = std::fmax(rotatedRect.size.height, rotatedRect.size.width);
+        const auto area = static_cast<float>(contourArea(contour));
 
         if(height * width > mConfig.stripMinArea && height * width < mConfig.stripMaxArea &&
            width / height < mConfig.stripMaxWHRatio && width / height > mConfig.stripMinWHRatio &&
@@ -166,16 +170,17 @@ class EnergyDetector final
                 cv::drawContours(img, armorContours, static_cast<int>(idx), cv::Scalar{ 255, 0, 0 });
         });*/
 
-        uint32_t index = std::numeric_limits<uint32_t>::max();
-        double minScore = 0.15;
+        auto index = std::numeric_limits<uint32_t>::max();
+        auto minScore = 0.15f;
 
         for(const auto conIndex : conIndices) {
             // const auto finalLength = arcLength(armorContours[conIndex], true);
             // const auto finalArea = contourArea(armorContours[conIndex]);
 
-            const auto ratio = contourArea(armorContours[conIndex]) / cv::minAreaRect(armorContours[conIndex]).size.area();
+            const auto ratio =
+                static_cast<float>(contourArea(armorContours[conIndex])) / cv::minAreaRect(armorContours[conIndex]).size.area();
 
-            if(const auto score = std::fabs(ratio - 0.42); score < minScore) {
+            if(const auto score = std::fabs(ratio - 0.42f); score < minScore) {
                 minScore = score;
                 index = conIndex;
             }
@@ -189,7 +194,7 @@ class EnergyDetector final
             cv::drawContours(img, armorContours, static_cast<int>(index), cv::Scalar{ 255, 0, 0 });
         });*/
 
-        const auto finalRect = boundingRect(armorContours[index]);
+        const auto finalRect = cv::boundingRect(armorContours[index]);
         const auto finalROI = binary(finalRect);
         const auto moments = cv::moments(finalROI, true);
         const auto centerX = moments.m10 / moments.m00;
@@ -201,19 +206,20 @@ class EnergyDetector final
 
         auto rect = cv::minAreaRect(armorContours[index]);
         if(rect.size.width < rect.size.height) {
-            rect.angle += 90.0;
+            rect.angle += 90.0f;
             std::swap(rect.size.width, rect.size.height);
         }
         auto theta = 0.5 * std::atan2(2 * b, a - c);
         // auto theta = glm::radians(rect.angle);
-        const auto dx = (rect.center.x - finalRect.x) - centerX, dy = (rect.center.y - finalRect.y) - centerY;
+        const auto dx = (static_cast<double>(rect.center.x) - static_cast<double>(finalRect.x)) - centerX,
+                   dy = (static_cast<double>(rect.center.y) - static_cast<double>(finalRect.y)) - centerY;
         if(dx * std::cos(theta) + dy * std::sin(theta) > 0.0)
             theta += glm::pi<double>();
         const auto cos = std::cos(theta), sin = std::sin(theta);
-        const auto offset = rect.size.width * 0.27;
+        const auto offset = static_cast<double>(rect.size.width) * 0.27;
         angle = theta;
         debugView("finalROI", finalROI, [&](cv::Mat& img) {
-            cv::circle(img, { static_cast<int>(centerX), static_cast<int>(centerY) }, 5.0, cv::Scalar{ 0 });
+            cv::circle(img, { static_cast<int>(centerX), static_cast<int>(centerY) }, 5, cv::Scalar{ 0 });
             cv::line(img, { static_cast<int>(centerX), static_cast<int>(centerY) },
                      { static_cast<int>(centerX + offset * cos), static_cast<int>(centerY + offset * sin) }, cv::Scalar{ 255 });
         });
@@ -263,7 +269,7 @@ class EnergyDetector final
     cv::Mat circleLeastFit(const cv::Mat& armorPoints, glm::dvec3& energyCenter, double& radius) {
         ACTOR_EXCEPTION_PROBE();
         const auto num = armorPoints.rows;
-        const auto dim = armorPoints.cols;
+        // const auto dim = armorPoints.cols;
         const auto L1 = cv::Mat::ones(num, 1, CV_32F);
         cv::Mat Inv;
         cv::Mat a=armorPoints.t() * armorPoints;
@@ -284,7 +290,7 @@ class EnergyDetector final
             }
         }
         //        logInfo("A");
-        cv::Mat L2 = cv::Mat::zeros(static_cast<int>((num - 1) * num / 2), 1, CV_32F);
+        cv::Mat L2 = cv::Mat::zeros((num - 1) * num / 2, 1, CV_32F);
         count = 0;
         for(int i = 0; i < num - 1; ++i) {
             for(int j = i + 1; j < num; ++j) {
@@ -353,9 +359,9 @@ class EnergyDetector final
             D += data_y[i];
         }
 
-        float a, b, temp = 0;
-        if(temp = (data_n * A - B * B)) {
-            a = (data_n * C - B * D) / temp;
+        float a, b;
+        if(const auto temp = (static_cast<float>(data_n) * A - B * B); std::fabs(temp) > 1e-6f) {
+            a = (static_cast<float>(data_n) * C - B * D) / temp;
             b = (A * D - B * C) / temp;
         } else {
             a = 0;
@@ -370,9 +376,8 @@ class EnergyDetector final
         glm::dvec3 energyCenter;
         double radius;
         const auto normalVector = circleLeastFit(armorPoints, energyCenter, radius);
-//        std::cout<< "normalVector"<<normalVector.at<double>(0,0)<<" "<<normalVector.at<double>(1,0)<<" "<<normalVector.at<double>(2,0);
-//        int ro = normalVector.rows;
-//        int co = normalVector.cols;
+        // int ro = normalVector.rows;
+        // int co = normalVector.cols;
         //        logInfo(fmt::format("type {:d}",normalVector.type()));
         //        logInfo(fmt::format("R {:d}",ro));
         //        logInfo(fmt::format("C {:d}",co));
@@ -402,13 +407,13 @@ class EnergyDetector final
 
     bool getDirection(std::vector<double> angles, int& direction) {
         int positive = 0;
-        int negetive = 0;
+        int negative = 0;
         for(int j = 1; j < 3; ++j) {
             for(int i = 0; i < mConfig.preFrames - j; ++i) {
                 if((angles[i] - angles[i + j]) > 0 || (angles[i] - angles[i + j]) < -300) {
                     positive++;
                 } else if((angles[i] - angles[i + j]) < 0 || (angles[i] - angles[i + j]) > 300) {
-                    negetive++;
+                    negative++;
                 }
             }
         }
@@ -433,15 +438,18 @@ class EnergyDetector final
         return true;
     }
 
+    int mCount = 0;
+    std::vector<double> mAngles;
+    cv::Mat mArmorPoints = cv::Mat::zeros(12, 3, CV_32F);
+
 public:
-    EnergyDetector(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ typeid(EnergyDetector).hash_code() } {}
+    EnergyDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
                     ACTOR_PROTOCOL_CHECK(start_atom);
                     reset();
                 },
-                 [&](energy_detector_control_atom, bool enable) {
+                 [&](energy_detector_control_atom, const bool enable) {
                      ACTOR_PROTOCOL_CHECK(energy_detector_control_atom, bool);
                      if(mEnabled != enable)
                          reset();
@@ -450,23 +458,25 @@ public:
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      ACTOR_EXCEPTION_PROBE();
+                     ACTOR_LATENCY_PROBE();
+
                      if(!mEnabled)
                          return;
-                     auto data = BlackBoard::instance().get<CameraFrame>(key).value();
+                     auto [lastUpdate, info, frame] = BlackBoard::instance().get<CameraFrame>(key).value();
 
                      cv::RotatedRect armor;
                      double angle;
-                     if(!detectArmor(data.frame, armor, angle))
+                     if(!detectArmor(frame, armor, angle))
                          return;
 
-                     const auto& cameraInfo = data.info;
+                     const auto& cameraInfo = info;
 
                      const auto point = solve(cameraInfo.cameraMatrix, armor);
 
                      const auto& transform = std::get<0>(cameraInfo.transform);
 
                      DetectedEnergyInfo res;
-                     res.lastUpdate = data.lastUpdate;
+                     res.lastUpdate = lastUpdate;
                      res.point = transform(point);
 
                      const auto raw = res.point.raw();
