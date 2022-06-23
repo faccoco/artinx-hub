@@ -3,10 +3,10 @@ stages:
   # - test
   - deploy
 
-# cache:
-#   key: "$CI_RUNNER_ID-$CI_COMMIT_SHA"
-#   paths:
-#     - build/*
+cache:
+  key: "$CI_RUNNER_ID"
+  paths:
+    untracked: true
 
 # build-job-windows:
 #   stage: build
