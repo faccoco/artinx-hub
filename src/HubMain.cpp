@@ -11,6 +11,10 @@
 #include <string>
 #include <vector>
 
+#ifdef ARTINXHUB_LINUX
+#include <cfenv>
+#endif
+
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/actor_registry.hpp>
@@ -35,7 +39,7 @@ static std::string loadConfig(const char* path) {
 }
 
 template <typename String>
-static void demangle(String& typeName) {
+static void demangle(String& typeName) {`
 #ifdef ARTINXHUB_WINDOWS
     // For MSVC
     if(const auto pos = typeName.find_last_of(' '); pos != String::npos)
@@ -171,8 +175,12 @@ void terminateSystem(caf::local_actor&, const bool success) {
 std::string globalConfigName;
 
 void setupFPEProbe() noexcept {
-#if ARTINXHUB_DEBUG && defined(ARTINXHUB_WINDOWS)
+#if ARTINXHUB_DEBUG
+#ifdef ARTINXHUB_WINDOWS
     _control87(_EM_DENORMAL | _EM_INEXACT | _EM_UNDERFLOW, _MCW_EM);
+#else
+
+#endif
 #endif
 }
 
