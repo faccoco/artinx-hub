@@ -1,37 +1,36 @@
 stages:
-  # - build
-  # - test
+  - build
+  - test
   - deploy
 
 cache:
   key: "$CI_RUNNER_ID"
   untracked: true
-  when: 'always'
 
-# build-job-windows:
-#   stage: build
-#   tags:
-#     - windows
-#   script:
-#     - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
-#     - cmake --build ./build --config Release
+build-job:
+  stage: build
+  tags:
+    - windows
+  script:
+    - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake --build ./build --config Release
 
-# test-job:
-#   stage: test
-#   tags:
-#     - windows
-#   script:
-#     - cd build
-#     - Get-ChildItem * -Include *.log -Recurse | Remove-Item
-#     - ctest --build-config Release -j 8
-#   artifacts:
-#     name: "report"
-#     paths:
-#       - ./build/testResult.log
-#     expire_in: 1 month
-#     expose_as: "test report"
+test-job:
+  stage: test
+  tags:
+    - windows
+  script:
+    - cd build
+    - Get-ChildItem * -Include *.log -Recurse | Remove-Item
+    - ctest --build-config Release -j 8
+  artifacts:
+    name: "report"
+    paths:
+      - ./build/testResult.log
+    expire_in: 1 month
+    expose_as: "test report"
 
-deploy-job-infantry1:
+deploy-job:
   stage: deploy
   tags:
     - linux
