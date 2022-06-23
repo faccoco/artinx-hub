@@ -11,6 +11,10 @@
 #include <string>
 #include <vector>
 
+#ifdef ARTINXHUB_LINUX
+#include <cfenv>
+#endif
+
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/actor_registry.hpp>
@@ -171,8 +175,12 @@ void terminateSystem(caf::local_actor&, const bool success) {
 std::string globalConfigName;
 
 void setupFPEProbe() noexcept {
-#if ARTINXHUB_DEBUG && defined(ARTINXHUB_WINDOWS)
+#if ARTINXHUB_DEBUG
+#ifdef ARTINXHUB_WINDOWS
     _control87(_EM_DENORMAL | _EM_INEXACT | _EM_UNDERFLOW, _MCW_EM);
+#else
+
+#endif
 #endif
 }
 
@@ -199,6 +207,9 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
     }
 
     globalConfigName = fs::path{ argv[1] }.filename().string();
+    if(const auto pos = globalConfigName.find('.'); pos != std::string::npos)
+        globalConfigName = globalConfigName.substr(0, pos);
+
     const auto configData = loadConfig(argv[1]);
     const auto pipelineConfig = caf::config_value::parse(configData).value();
     GlobalSettings::get() = caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value();
