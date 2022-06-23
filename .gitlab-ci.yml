@@ -6,6 +6,7 @@ stages:
 cache:
   key: "$CI_RUNNER_ID"
   untracked: true
+  when: 'always'
 
 # build-job-windows:
 #   stage: build
@@ -21,6 +22,7 @@ cache:
 #     - windows
 #   script:
 #     - cd build
+#     - Get-ChildItem * -Include *.log -Recurse | Remove-Item
 #     - ctest --build-config Release -j 8
 #   artifacts:
 #     name: "report"
