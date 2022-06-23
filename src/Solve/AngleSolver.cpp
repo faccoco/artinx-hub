@@ -218,6 +218,9 @@ public:
                     }
 
                     if(mCnt >= 502) {
+                        logInfo(fmt::format(
+                            "Time {} {}", mTimes[(mCnt - 1) % 1000],
+                            mTimes[(mCnt - 501) % 1000]));
                         if(glm::length(mVec[(mCnt - 501) % 1000]) < 1e-8)
                             emptyData -= 1;
                         if(mExceptionPoint[(mCnt - 501) % 1000] == 1) {
@@ -247,7 +250,7 @@ public:
                         square(horizontalDistance) * (square(transformedLinearVelocity.x) + square(transformedLinearVelocity.y)),
                     0, (-0.25) * square(g) * square(square(horizontalDistance)));
                 netVerticalSpeed = transformedPosition.z / airDuration + g * airDuration / 2;
-                if(netVerticalSpeed / bulletSpeed < 1) {
+                if(std::fabs(netVerticalSpeed / bulletSpeed) < 1) {
                     pitchAngle = std::asin(netVerticalSpeed / bulletSpeed);
                     vy = netHorizontalSpeed * std::sin(theta) - transformedLinearVelocity.y;
                     vx = netHorizontalSpeed * std::cos(theta) - transformedLinearVelocity.x;
@@ -279,8 +282,8 @@ public:
                 bool ifShoot = ((diffAngle(yawAngle, currentYawAngle) < mConfig.precision) &&
                     (diffAngle(pitchAngle, currentPitchAngle) < mConfig.precision)) ||
                     (mExceptionPoint[0] >= 7);
-                //yawAngle = 0;
-                //pitchAngle = 0.01433011137276355;
+                //yawAngle  = -0.003777868959945035;
+                //pitchAngle = 0.06043495869744205;
                 //ifShoot = true;
                 logInfo(fmt::format("yawAngle {} pitchAngle {}", yawAngle,pitchAngle));
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
