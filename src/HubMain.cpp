@@ -39,7 +39,7 @@ static std::string loadConfig(const char* path) {
 }
 
 template <typename String>
-static void demangle(String& typeName) {`
+static void demangle(String& typeName) {
 #ifdef ARTINXHUB_WINDOWS
     // For MSVC
     if(const auto pos = typeName.find_last_of(' '); pos != String::npos)
