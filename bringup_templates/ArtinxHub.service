@@ -3,12 +3,7 @@ Description=Artinx Hub Service
 After=network.target
 
 [Service]
-# doesn't work: (reason: didn't source openvino, so cannot use the shared lib)
-#ExecStartPre=.
-#ExecStart=/home/artinx-004/workspace/codes/artinx-hub/cmake-build-release-default/src/ArtinxHub /home/artinx-004/workspace/codes/artinx-hub/config/angleSolver.conf
-# work
-# start is the 开机 action, stop is the 关机 action
-ExecStart=/bin/bash /home/artinx-004/workspace/codes/artinx-hub/bringup_templates/bringup.bash
+ExecStart=/bin/bash /opt/artinx-hub/bringup_templates/bringup.bash
 ExecReload=/bin/kill -HUP $MAINPID
 Type=simple
 
