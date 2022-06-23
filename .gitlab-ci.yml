@@ -40,7 +40,7 @@ deploy-job-infantry1:
     - source /opt/intel/openvino_2021/bin/setupvars.sh
     - cmake -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_MAKE_PROGRAM=make -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
-    - sudo ./scripts/setup-service.bash infantry
+    - sudo scripts/setup-service.bash infantry
   environment:
     name: infantry1
   rules:
