@@ -5,8 +5,7 @@ stages:
 
 cache:
   key: "$CI_RUNNER_ID"
-  paths:
-    - untracked: true
+  untracked: true
 
 # build-job-windows:
 #   stage: build
