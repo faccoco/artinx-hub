@@ -8,9 +8,7 @@ cd "$path" || exit # if fails to cd, exits.
 cd ..
 #ArtinxHub
 while [ true ]; do
-  build_path="cmake-build-release-default" # change cmake-build-release-default to the build directory you prefer.
-#  build_path="build"
-  $build_path/src/ArtinxHub config/angleSolver.conf
+  /opt/artinx-hub/build/src/ArtinxHub /opt/artinx-hub/deploy_config/$DEPLOY_TARGET.conf
   sleep 1
 done
 # Guidance:
