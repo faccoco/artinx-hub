@@ -192,8 +192,6 @@ public:
                 double vy = netHorizontalSpeed * std::sin(theta) - transformedLinearVelocity.y;
                 double vx = netHorizontalSpeed * std::cos(theta) - transformedLinearVelocity.x;
                 double yawAngle = std::atan2(vy, vx);
-                const int period = 250;
-                const int vTimeDiff = 50;
                 yawAngle -= glm::half_pi<double>();
                 mTimes[(++mCnt) % 1000] = timeDuration;
                 mPositions[(mCnt) % 1000] = transformedPosition;

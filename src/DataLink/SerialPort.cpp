@@ -166,12 +166,12 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 1000.0f;
             posture.linearAccelerationOfRobot =
                 Vector<UnitType::LinearAcceleration, FrameOfReference::Ground>{ { (fdb.speedX - lastSpeedX) / deltaTime,
-                                                                                  (fdb.speedY - lastSpeedY) / deltaTime, 0.0f } };
+                                                                                  0.0f, -(fdb.speedY - lastSpeedY) / deltaTime } };
             lastReceivedTime = SynchronizedClock::instance().now();
             lastSpeedX = fdb.speedX;
             lastSpeedY = fdb.speedY;
             posture.linearVelocityOfRobot =
-                Vector<UnitType::LinearVelocity, FrameOfReference::Ground>{ { fdb.speedX, fdb.speedY, 0.0f } };
+                Vector<UnitType::LinearVelocity, FrameOfReference::Ground>{ { fdb.speedX, 0, -fdb.speedY } };
 
             sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
             sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoUp));
