@@ -115,10 +115,13 @@ class SentryMotionController final : public MotionController {
 };
 
 class Translate2DMotionController final : public MotionController {
+    static constexpr double alpha = 0.001;
+
     std::default_random_engine mGenerator;
     double mMaxV;
     std::normal_distribution<double> mDistribution;
     double mSpeedX, mSpeedZ, mT = 0.0;
+    double mSmoothX = 0.0, mSmoothZ = 0.0;
 
     void updateSpeed(const double dt) {
         mT += dt;
@@ -128,6 +131,9 @@ class Translate2DMotionController final : public MotionController {
 
             mT -= 2.0;
         }
+
+        mSmoothX = (1.0 - alpha) * mSmoothX + alpha * mSpeedX;
+        mSmoothZ = (1.0 - alpha) * mSmoothZ + alpha * mSpeedZ;
     }
 
 public:
@@ -138,7 +144,7 @@ public:
     void step(MotionState& motionState, const double dt) override {
         updateSpeed(dt);
 
-        motionState = MotionState{ glm::translate(motionState, glm::dvec3{ mSpeedX * dt, 0.0, mSpeedZ * dt }) };
+        motionState = MotionState{ glm::translate(motionState, glm::dvec3{ mSmoothX * dt, 0.0, mSmoothZ * dt }) };
     }
 };
 
@@ -368,7 +374,7 @@ public:
                 GlobalSettings::get().bulletSpeed = v;
 
                 const auto velocity =
-                    glm::dvec3{ transform(Vector<UnitType::Distance, FrameOfReference::Gun>{ { 0.0, 0.0, -v } }).raw() };
+                    glm::normalize(transform(Vector<UnitType::Distance, FrameOfReference::Gun>{ { 0.0, 0.0, -1.0f } }).raw()) * v;
 
                 mBullets.emplace_back(origin, vSrc + velocity);
 
@@ -390,7 +396,8 @@ public:
 
                 logInfo(fmt::format("Ref dir {:.3f} {:.3f} {:.3f}", diff.x, diff.y, diff.z));
 
-                const auto real = transform(Vector<UnitType::Distance, FrameOfReference::Gun>{ { 0.0, 0.0, -1.0f } }).raw();
+                const auto real =
+                    glm::normalize(transform(Vector<UnitType::Distance, FrameOfReference::Gun>{ { 0.0, 0.0, -1.0f } }).raw());
                 logInfo(fmt::format("Gun dir {:.3f} {:.3f} {:.3f}", real.x, real.y, real.z));
 
                 const auto& motion = mTarget.first;

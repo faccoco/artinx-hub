@@ -39,7 +39,7 @@ bool inspect(Inspector& f, FakeHeadSettings& x) {
 class FakeHead final : public HubHelper<caf::event_based_actor, FakeHeadSettings, update_head_atom> {
     TimePoint mCurrent = {};
     Duration mDelay;
-    std::queue<std::tuple<TimePoint, double, double>> mQueue;
+    // std::queue<std::tuple<TimePoint, double, double>> mQueue;
 
     double mTargetYaw = 0.0, mTargetPitch = 0.0, mLastYaw = 0.0, mLastPitch = 0.0;
     PIDSimulator mYaw, mPitch;
@@ -50,12 +50,14 @@ public:
         : HubHelper{ base, config }, mDelay{ static_cast<Clock::rep>(mConfig.delay * Clock::period::den / Clock::period::num) },
           mYaw{ { mConfig.kp, mConfig.ki, mConfig.kd } }, mPitch{ { mConfig.kp, mConfig.ki, mConfig.kd } },  //
           mKey{ generateKey(this) } {
-        Timer::instance().addTimer(this->address(), 5ms);
+        Timer::instance().addTimer(this->address(), 1ms);
     }
+
     caf::behavior make_behavior() override {
         return { [&](timer_atom) {
                     ACTOR_PROTOCOL_CHECK(timer_atom);
-                    mQueue.push({ mCurrent, mTargetYaw, mTargetPitch });
+                    // mQueue.push({ mCurrent, mTargetYaw, mTargetPitch });
+                    sendAll(update_head_atom_v, 1U, TypedIdentifier<HeadInfo>{ mKey });
                 },
                  [&](simulator_step_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(simulator_step_atom, TypedIdentifier<SimulatorWorldInfo>);
@@ -66,6 +68,7 @@ public:
                          static_cast<double>((current - mCurrent).count()) / Clock::period::den * Clock::period::num;
                      mCurrent = current;
 
+                     /*
                      std::optional<std::tuple<TimePoint, double, double>> cur;
                      while(!mQueue.empty() && current - std::get<0>(mQueue.front()) > mDelay) {
                          cur = mQueue.front();
@@ -74,8 +77,10 @@ public:
 
                      if(!cur.has_value())
                          return;
+                         */
 
-                     const auto [_, targetYaw, targetPitch] = cur.value();
+                     // const auto [_, targetYaw, targetPitch] = cur.value();
+                     const auto targetYaw = mTargetYaw, targetPitch = mTargetPitch;
                      double yaw, pitch, yawSpeed, pitchSpeed;
                      if(mConfig.enablePID) {
                          auto [yawPID, yawSpeedPID] = mYaw.step(diff, targetYaw, mConfig.headMaxSpeed, glm::two_pi<double>());

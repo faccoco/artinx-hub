@@ -145,6 +145,8 @@ public:
 
                 Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
                     data.value().selected.value().center.raw());
+                logInfo(fmt::format("Original position data {} {} {}", positionOfReferenceGun.raw().x,
+                                    positionOfReferenceGun.raw().y, positionOfReferenceGun.raw().z));
                 const auto timeDuration = static_cast<double>(data.value().lastUpdate.time_since_epoch().count()) / 1e9;
 
                 const auto delayTime = mConfig.delay;
@@ -205,31 +207,23 @@ public:
                         mVec[(mCnt - 1) % 1000] = (mPositions[mCnt % 1000] - mPositions[(mCnt - 1) % 1000]) /
                             (mTimes[mCnt % 1000] - mTimes[(mCnt - 1) % 1000]);
                         sumVec += mVec[(mCnt - 1) % 1000];
+                        logInfo(fmt::format("Instant velocity {} {} {}", mVec[(mCnt - 1) % 1000].x, mVec[(mCnt - 1) % 1000].y,
+                                            mVec[(mCnt - 1) % 1000].z));
                     }
 
-                    if(mCnt >= 3 && glm::length(mVec[(mCnt - 1) % 1000]) > 400 &&
-                       glm::dot(mVec[(mCnt - 1) % 1000], mVec[mCnt % 1000]) < 0) {
-                        // logInfo(fmt::format("EXEPTIONDDD {} {}", std::fabs((glm::length(mVec[(mCnt - 1) % 1000] - mVec[(mCnt -
-                        // 2) % 1000]))),std::fabs((glm::length(mVec[(mCnt - 1) % 1000] - mVec[mCnt % 1000])))));
-                        mExceptionPoint[(mCnt - 1) % 1000] = 1;
-                        mExceptionPoint[0]++;
-                        sumVec -= mVec[(mCnt - 1) % 1000];
-                        mVec[(mCnt - 1) % 1000] = { 0, 0, 0 };
-                        emptyData += 1;
-                    }
 
-                    if(mCnt >= 502) {
-                        logInfo(fmt::format("Time {} {}", mTimes[(mCnt - 1) % 1000], mTimes[(mCnt - 501) % 1000]));
-                        if(glm::length(mVec[(mCnt - 501) % 1000]) < 1e-8)
+                    if(mCnt >= 252) {
+                        logInfo(fmt::format("Time {} {}", mTimes[(mCnt - 1) % 1000], mTimes[(mCnt - 251) % 1000]));
+                        if(glm::length(mVec[(mCnt - 251) % 1000]) < 1e-8)
                             emptyData -= 1;
-                        if(mExceptionPoint[(mCnt - 501) % 1000] == 1) {
+                        if(mExceptionPoint[(mCnt - 251) % 1000] == 1) {
                             mExceptionPoint[0]--;
-                            mExceptionPoint[(mCnt - 501) % 1000] = 0;
+                            mExceptionPoint[(mCnt - 251) % 1000] = 0;
                         }
-                        sumPositions -= mPositions[(mCnt - 501) % 1000];
-                        sumVec -= mVec[(mCnt - 501) % 1000];
-                        if(emptyData < 500)
-                            avgVec = sumVec / static_cast<double>(500 - emptyData);
+                        sumPositions -= mPositions[(mCnt - 251) % 1000];
+                        sumVec -= mVec[(mCnt - 251) % 1000];
+                        if(emptyData < 250)
+                            avgVec = sumVec / static_cast<double>(250 - emptyData);
                         else
                             avgVec = { 0, 0, 0 };
                         if(mExceptionPoint[0] <= 3)
@@ -239,7 +233,20 @@ public:
                                 (transformedPosition.z + airDuration * (avgVec.z + transformedLinearVelocity.z))
                             };
                         else
-                            transformedPosition = sumPositions / static_cast<double>(500);
+                            transformedPosition = sumPositions / static_cast<double>(250);
+                    }
+
+                    if(mCnt >= 3 &&
+                       ((glm::length(avgVec) != 0 && glm::length(mVec[(mCnt - 1) % 1000]) / glm::length(avgVec) > 60) &&
+                        (glm::length(mVec[(mCnt - 1) % 1000])) > 1e-4) &&
+                       glm::dot(mVec[(mCnt - 1) % 1000], mVec[(mCnt - 2) % 1000]) < 0) {
+                        // logInfo(fmt::format("EXEPTIONDDD {} {}", std::fabs((glm::length(mVec[(mCnt - 1) % 1000] - mVec[(mCnt -
+                        // 2) % 1000]))),std::fabs((glm::length(mVec[(mCnt - 1) % 1000] - mVec[mCnt % 1000])))));
+                        mExceptionPoint[(mCnt - 1) % 1000] = 1;
+                        mExceptionPoint[0]++;
+                        sumVec -= mVec[(mCnt - 1) % 1000];
+                        mVec[(mCnt - 1) % 1000] = { 0, 0, 0 };
+                        emptyData += 1;
                     }
                 }
                 netHorizontalSpeed = ferrari(
@@ -280,10 +287,12 @@ public:
 
                 bool ifShoot = ((diffAngle(yawAngle, currentYawAngle) < mConfig.precision) &&
                                 (diffAngle(pitchAngle, currentPitchAngle) < mConfig.precision)) ||
-                    (mExceptionPoint[0] >= 7);
-                // yawAngle  = -0.003777868959945035;
-                // pitchAngle = 0.06043495869744205;
-                // ifShoot = true;
+                    (mExceptionPoint[0] >= 4);
+                //yawAngle = -0.009774116763924035;
+                //pitchAngle = 0.0557838668789343;
+                //ifShoot = true;
+                if(std::fabs(yawAngle) > 0.1)
+                    return;
                 logInfo(fmt::format("yawAngle {} pitchAngle {}", yawAngle, pitchAngle));
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
                         pitchAngle, ifShoot);
