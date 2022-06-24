@@ -54,6 +54,9 @@ deploy-job:
       - DEPLOY_TARGET: "sentry"
         DEPLOY_ID: "sentry"
         CAMERA_TYPE: "USB2"
+      - DEPLOY_TARGET: "uav"
+        DEPLOY_ID: "uav"
+        CAMERA_TYPE: "USB2"
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE != "schedule"
       when: manual
