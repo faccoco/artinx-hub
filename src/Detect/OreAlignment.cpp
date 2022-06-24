@@ -43,12 +43,19 @@ struct OreAlignmentSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, OreAlignmentSettings& x) {
     return f.object(x).fields(
-        f.field("overGoldAreaRange", x.overGoldAreaRange), f.field("groundGoldAreaRange", x.groundGoldAreaRange),
-        f.field("groundSilverAreaRange", x.groundSilverAreaRange), f.field("lightbarAreaRange", x.lightbarAreaRange),
+        f.field("goldOreHsvLow", x.goldOreHsvLow).invariant([](auto& c) { return c.size() == 3; }),
+        f.field("goldOreHsvHigh", x.goldOreHsvHigh).invariant([](auto& c) { return c.size() == 3; }),
+        f.field("silverOreHsvLow", x.silverOreHsvLow).invariant([](auto& c) { return c.size() == 3; }),
+        f.field("silverOreHsvHigh", x.silverOreHsvHigh).invariant([](auto& c) { return c.size() == 3; }),
+        f.field("lightBarHsvLow", x.lightBarHsvLow).invariant([](auto& c) { return c.size() == 3; }),
+        f.field("lightBarHsvHigh", x.lightBarHsvHigh).invariant([](auto& c) { return c.size() == 3; }),
+        f.field("overGoldAreaRange", x.overGoldAreaRange).invariant([](auto& c) { return c.size() == 2; }),
+        f.field("groundGoldAreaRange", x.groundGoldAreaRange).invariant([](auto& c) { return c.size() == 2; }),
+        f.field("groundSilverAreaRange", x.groundSilverAreaRange).invariant([](auto& c) { return c.size() == 2; }),
+        f.field("lightbarAreaRange", x.lightbarAreaRange).invariant([](auto& c) { return c.size() == 2; }),
         f.field("altitude", x.altitude), f.field("widthExpand", x.widthExpand), f.field("heightExpand", x.heightExpand),
         f.field("historyFrameCount", x.historyFrameCount), f.field("flashFrequencyLimit", x.flashFrequencyLimit),
-        f.field("distanceToOre", x.distanceToOre), f.field("offset", x.offset),
-        f.field("limitMovementDistance", x.limitMovementDistance));
+        f.field("offset", x.offset), f.field("limitMovementDistance", x.limitMovementDistance));
 }
 
 class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignmentSettings, ore_alignment_available_atom> {
