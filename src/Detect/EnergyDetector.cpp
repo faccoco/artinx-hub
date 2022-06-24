@@ -456,7 +456,6 @@ public:
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      ACTOR_EXCEPTION_PROBE();
-                     ACTOR_LATENCY_PROBE();
 
                      if(!mEnabled)
                          return;
@@ -489,7 +488,7 @@ public:
                          armorPoints.at<float>(count, 2) = static_cast<float>(raw.z);
                          count++;
                      } else {
-                         int direction;
+                         int direction = 0;
                          float preAngle;
                          getDirection(angles, direction);
                          predictAngle(angles, preAngle);

@@ -63,7 +63,7 @@ public:
             [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](image_frame_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
-                ACTOR_LATENCY_PROBE();
+                ACTOR_EXCEPTION_PROBE();
 
                 if(!mInitialFlag) {
                     return;
@@ -85,7 +85,7 @@ public:
             },
             [&](car_detect_available_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(car_detect_available_atom, TypedIdentifier<DetectedCarArray>);
-                ACTOR_LATENCY_PROBE();
+                ACTOR_EXCEPTION_PROBE();
 
                 const auto carDetectedRes = BlackBoard::instance().get<DetectedCarArray>(key).value();
 
