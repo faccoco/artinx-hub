@@ -65,7 +65,7 @@ public:
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](radar_locate_request_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(radar_locate_request_atom, TypedIdentifier<RadarCameraPointsArray>);
-                     ACTOR_LATENCY_PROBE();
+                     ACTOR_EXCEPTION_PROBE();
 
                      const auto data = BlackBoard::instance().get<RadarCameraPointsArray>(key).value();
                      const auto& info = data.cameraInfo;

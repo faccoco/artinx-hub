@@ -84,7 +84,7 @@ public:
         return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](armor_detect_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
-                     ACTOR_LATENCY_PROBE();
+                     ACTOR_EXCEPTION_PROBE();
 
                      const auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
                      // logInfo(data.armors[0].armors.size());
