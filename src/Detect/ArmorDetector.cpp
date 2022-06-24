@@ -185,7 +185,12 @@ class ArmorDetector final
         for(auto& lightContour : contours) {
             // if(cv::contourArea(lightContour) < 300.0)
             //     fixContour(color, binary, lightContour);
-            auto lightRect = correctRectAngle(cv::minAreaRect(lightContour));
+            const auto rawRect = cv::minAreaRect(lightContour);
+
+            if(rawRect.size.width == 0 || rawRect.size.height == 0)
+                continue;
+
+            auto lightRect = correctRectAngle(rawRect);
 
             if(lightContour.size() >= 6) {
                 const auto rect = correctRectAngle(cv::fitEllipse(lightContour));
