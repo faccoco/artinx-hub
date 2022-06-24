@@ -294,6 +294,8 @@ class ArmorDetector final
                 }
                 if(rect.size.height < 3.0)
                     continue;
+
+                /*
                 {
                     uninstallFPEProbe();
                     bool flag = true;
@@ -310,6 +312,8 @@ class ArmorDetector final
                     if(!flag)
                         continue;
                 }
+                */
+
                 constexpr auto largeRatio = widthOfLargeArmor / heightOfArmorLightBar;
                 constexpr auto smallRatio = widthOfSmallArmor / heightOfArmorLightBar;
 
