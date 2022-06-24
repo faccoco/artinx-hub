@@ -49,6 +49,8 @@ public:
     }
 
     void serialize(float data, float min, float precision) {
+        assert(data >= min);
+        assert(data <= min + 65535 * precision);
         uint16_t fixed = static_cast<uint16_t>((data - min) / precision);
         serialize(fixed);
     }

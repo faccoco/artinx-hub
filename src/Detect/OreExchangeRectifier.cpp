@@ -157,7 +157,7 @@ public:
             },
             [&](image_frame_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
-                ACTOR_LATENCY_PROBE();
+                ACTOR_EXCEPTION_PROBE();
 
                 if(mAutomataState == AutomataStates::Off) {
                     off();
