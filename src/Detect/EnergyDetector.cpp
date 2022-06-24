@@ -41,7 +41,7 @@ struct EnergyDetectorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, EnergyDetectorSettings& x) {
     return f.object(x).fields(f.field("smallPredictMode", x.smallPredictMode), f.field("bigPredictMode", x.bigPredictMode),
-                              f.field("preFrames", x.preFrames), f.field("armorMinArea", x.armorMinArea),
+                              f.field("preFrames", x.preFrames).fallback(12), f.field("armorMinArea", x.armorMinArea),
                               f.field("armorMaxArea", x.armorMaxArea), f.field("armorMinWHRatio", x.armorMinWHRatio),
                               f.field("armorMaxWHRatio", x.armorMaxWHRatio), f.field("armorMinAreaRatio", x.armorMinAreaRatio),
                               f.field("stripMinArea", x.stripMinArea), f.field("stripMaxArea", x.stripMaxArea),
