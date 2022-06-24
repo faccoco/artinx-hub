@@ -438,7 +438,7 @@ class EnergyDetector final
 
     int mCount = 0;
     std::vector<double> mAngles;
-    cv::Mat mArmorPoints = cv::Mat::zeros(12, 3, CV_32F);
+    cv::Mat mArmorPoints = cv::Mat::zeros(mConfig.preFrames, 3, CV_32F);
 
 public:
     EnergyDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
@@ -478,24 +478,22 @@ public:
 
                      const auto raw = res.point.raw();
                      // std::cout << "point" << raw.x << " " << raw.y << " " << raw.z << std::endl;
-                     static int count = 0;
-                     static std::vector<double> angles;
-                     static cv::Mat armorPoints = cv::Mat::zeros(mConfig.preFrames, 3, CV_32F);
-                     if(count < mConfig.preFrames) {
-                         angles.push_back(angle);
-                         armorPoints.at<float>(count, 0) = static_cast<float>(raw.x);
-                         armorPoints.at<float>(count, 1) = static_cast<float>(raw.y);
-                         armorPoints.at<float>(count, 2) = static_cast<float>(raw.z);
-                         count++;
+
+                     if(mCount < mConfig.preFrames) {
+                         mAngles.push_back(angle);
+                         mArmorPoints.at<float>(mCount, 0) = static_cast<float>(raw.x);
+                         mArmorPoints.at<float>(mCount, 1) = static_cast<float>(raw.y);
+                         mArmorPoints.at<float>(mCount, 2) = static_cast<float>(raw.z);
+                         mCount++;
                      } else {
                          int direction = 0;
                          float preAngle;
-                         getDirection(angles, direction);
-                         predictAngle(angles, preAngle);
+                         getDirection(mAngles, direction);
+                         predictAngle(mAngles, preAngle);
                          // logInfo(fmt::format("pre angle {:.4f}", preAngle));
-                         res.prePoint = predict(armorPoints, raw, direction, preAngle);
-                         angles.clear();
-                         count = 0;
+                         res.prePoint = predict(mArmorPoints, raw, direction, preAngle);
+                         mAngles.clear();
+                         mCount = 0;
                      }
                      // const auto raw1 = res.prePoint.raw();
                      // std::cout << "pre point" << raw1.x << " " << raw1.y << " " << raw1.z << std::endl;

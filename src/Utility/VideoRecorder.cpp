@@ -31,14 +31,14 @@ bool inspect(Inspector& f, VideoRecorderSettings& x) {
 }
 
 class VideoRecorder final : public HubHelper<caf::event_based_actor, VideoRecorderSettings> {
-private:
     bool mStartFlag = false;
     int mFormat = 0;
     cv::Size mSize = { 0, 0 };
-    uint32_t mFrameCount = 0;
+    uint32_t mFrameCount = 0, mTotal = 0;
     std::unique_ptr<cv::VideoWriter> mWriter;
+    Clock::time_point mStart = Clock::now();
 
-    const int mFourCc = cv::VideoWriter::fourcc('H', 'E', 'V', 'C');
+    const int mFourCc = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
 
 public:
     VideoRecorder(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
@@ -56,6 +56,13 @@ public:
                      if(!mStartFlag)
                          return;
 
+                     const auto current = Clock::now();
+                     const auto frameCount =
+                         static_cast<uint32_t>(static_cast<double>((current - mStart).count()) / (1e9 / mConfig.fps));
+                     if(mTotal >= frameCount)
+                         return;
+                     ++mTotal;
+
                      const auto frameData = BlackBoard::instance().get<CameraFrame>(key).value();
                      // TODO: record camera info
 
@@ -65,7 +72,7 @@ public:
                          mWriter.reset();
                      }
                      if(!mWriter) {
-                         if(!fs::create_directories(mConfig.base)) {
+                         if(!fs::exists(mConfig.base) && !fs::create_directories(mConfig.base)) {
                              const auto error = "Failed to create directory " + mConfig.base;
                              logError(error.c_str());
                          }
