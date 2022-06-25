@@ -14,12 +14,13 @@
 
 #include "SuppressWarningEnd.hpp"
 
-static void loadCalibration(bool disableUndistort, const std::string& identifier, const uint32_t width, const uint32_t height,
-                            const double fallbackFov, cv::Mat& cameraMatrix, cv::Mat& distCoefficients, bool& undistort) {
+static void loadCalibration(const bool disableUndistort, const std::string& identifier, const uint32_t width,
+                            const uint32_t height, const double fallbackFov, cv::Mat& cameraMatrix, cv::Mat& distCoefficients,
+                            bool& undistort) {
     const auto inputFileName = "./data/camera_calibration/" + identifier + ".xml";
 
     const cv::FileStorage fs(inputFileName, cv::FileStorage::READ);
-    if(std::filesystem::exists(inputFileName) && fs.isOpened() && !disableUndistort) {
+    if(!disableUndistort && std::filesystem::exists(inputFileName) && fs.isOpened()) {
         fs["camera_matrix"] >> cameraMatrix;
         fs["distortion_coefficients"] >> distCoefficients;
         undistort = true;
