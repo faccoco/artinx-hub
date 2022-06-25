@@ -47,7 +47,6 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
 class ArmorDetector final
     : public HubHelper<caf::event_based_actor, ArmorDetectorSettings, armor_detect_available_atom, image_frame_atom> {
     Identifier mKey;
-    size_t mFrameCnt = 0;
 
     // TODO: light pairs affinity
 
@@ -75,18 +74,21 @@ class ArmorDetector final
     }
 
     std::vector<PairedLight> solve(const cv::Mat& image) {
+        ACTOR_EXCEPTION_PROBE();
         const cv::Mat scaled = image * mConfig.globalScale;
         // debugView("scaled",scaled,[](auto&){});
         const auto lightPart = binary(scaled);
 
-        /*
         cv::Mat color;
         image.copyTo(color, lightPart);
         debugView("color", color, [](auto&) {});
-        */
 
         const auto lights = findLights(image, lightPart);
         return matchLights(image, lights);
+    }
+
+    static bool isWhite(int32_t b, int32_t g, int32_t r) {
+        return b + g + r > 500;
     }
 
     cv::Mat binary(const cv::Mat& src) {
@@ -100,7 +102,7 @@ class ArmorDetector final
                 for(int32_t j = 0; j < src.cols; ++j) {
                     const auto& col = src.at<cv::Vec3b>(i, j);
                     const int32_t b = col[0], g = col[1], r = col[2];
-                    result.at<uchar>(i, j) = (b > minB && g < maxG && r < maxR && b * 3 > g + r) ? 255 : 0;
+                    result.at<uchar>(i, j) = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b * 2> g + r) ? 255 : 0;
                 }
         } else {
             const auto minR = mConfig.thresholdForRed[0];
@@ -111,10 +113,12 @@ class ArmorDetector final
                 for(int32_t j = 0; j < src.cols; ++j) {
                     const auto& col = src.at<cv::Vec3b>(i, j);
                     const int32_t b = col[0], g = col[1], r = col[2];
-                    result.at<uchar>(i, j) = (r > minR && b < maxB && g < maxG && r * 3 > b + g) ? 255 : 0;
+                    result.at<uchar>(i, j) = (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r > b + g) ? 255 : 0;
                 }
         }
-        return result;
+        cv::Mat blurred;
+        cv::medianBlur(result, blurred, 5);
+        return blurred;
     }
 
     void fixContour(const cv::Mat& color, const cv::Mat& binary, std::vector<cv::Point2i>& contour) {
@@ -199,7 +203,7 @@ class ArmorDetector final
                     lightRect = rect;
             }
 
-            if(std::fmax(lightRect.size.width, lightRect.size.height) < 3.0f)
+            if(std::fmax(lightRect.size.width, lightRect.size.height) < 10.0f)
                 continue;
             if(std::fmin(lightRect.size.width, lightRect.size.height) > 50.0f)
                 continue;
@@ -225,13 +229,11 @@ class ArmorDetector final
             lights.emplace_back(lightRect);
         }
 
-        /*
         debugView("contour", color, [&](cv::Mat& src) {
             for(auto& light : lights)
                 cv::ellipse(src, light, cv::Scalar{ 255, 0, 255 }, 1);
             cv::drawContours(src, contours, -1, cv::Scalar{ 0, 255, 0 }, 1);
         });
-         */
 
         std::sort(lights.begin(), lights.end(), [](const auto& lhs, const auto& rhs) { return lhs.center.x < rhs.center.x; });
         return lights;
@@ -365,7 +367,6 @@ class ArmorDetector final
                 pairs.emplace_back(i, j, diff + par + (largeArmor ? 1e3f : 0.0f));
             }
 
-        /*
         debugView("potential", src, [&](cv::Mat& frame) {
             uint32_t idx = 0;
             for(auto& light : lights) {
@@ -399,7 +400,6 @@ class ArmorDetector final
                             cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 255 });
             }
         });
-         */
 
         std::sort(pairs.begin(), pairs.end(),
                   [](const auto& lhs, const auto& rhs) { return std::get<float>(lhs) < std::get<float>(rhs); });
@@ -420,7 +420,10 @@ public:
     ArmorDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
+                    GlobalSettings::get().selfColor = Color::Red;
+                },
                  [&](car_detect_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(car_detect_available_atom, TypedIdentifier<DetectedCarArray>);
                      ACTOR_EXCEPTION_PROBE();
