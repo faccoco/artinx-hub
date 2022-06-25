@@ -25,7 +25,8 @@ bool inspect(Inspector& f, ArmorLocatorSettings& x) {
     return f.object(x).fields();
 }
 
-class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocatorSettings, detect_available_atom> {
+class ArmorLocator final
+    : public HubHelper<caf::event_based_actor, ArmorLocatorSettings, detect_available_atom, image_frame_atom> {
     Identifier mKey, mHeadKey{};
     const std::vector<cv::Point3d> mObjectPointsSmall = {
         { -widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
@@ -51,8 +52,8 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
         return -evalArea(p1, p2, p3) - evalArea(p1, p3, p4);
     }
 
-    std::pair<Point<UnitType::Distance, FrameOfReference::Camera>, ArmorType> solve(const cv::Mat& cameraMatrix,
-                                                                                    const PairedLight& armor) {
+    std::pair<Point<UnitType::Distance, FrameOfReference::Camera>, ArmorType>
+    solve(cv::Mat& debugView, const cv::Mat& cameraMatrix, const PairedLight& armor) {
         boxRect(mImagePoint, armor.r1);
         const auto area1 = armor.r1.size.area();
 
@@ -93,6 +94,9 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
         if(p0.z > 0.0)
             p0 = -p0;
 
+        cv::drawFrameAxes(debugView, cameraMatrix, distCoeff, rvec, tvec,
+                          static_cast<float>(ratio > ratioThreshold ? widthOfLargeArmor : widthOfSmallArmor) * 0.5f);
+
         return { Point<UnitType::Distance, FrameOfReference::Camera>{ p0 },
                  ratio > ratioThreshold ? ArmorType::Large : ArmorType::Small };
     }
@@ -105,7 +109,7 @@ public:
                      ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
                      ACTOR_EXCEPTION_PROBE();
 
-                     const auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
+                     auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
                      // logInfo(data.armors[0].armors.size());
                      DetectedTargetArray res;
                      res.lastUpdate = data.frame.lastUpdate;
@@ -121,13 +125,15 @@ public:
                              static_cast<Transform<FrameOfReference::Gun, FrameOfReference::Robot, true>>(headTrans) * trans;
                      }
 
+                     auto debugView = data.frame.frame.clone();
+
                      for(const auto& [roi, id, armors] : data.armors) {
                          for(auto& armor : armors) {
                              auto armorLight = armor;
                              armorLight.r1.center += cv::Point2f{ roi.tl() };
                              armorLight.r2.center += cv::Point2f{ roi.tl() };
 
-                             const auto [point, type] = solve(cameraInfo.cameraMatrix, armorLight);
+                             const auto [point, type] = solve(debugView, cameraInfo.cameraMatrix, armorLight);
 
                              // TODO: projected area
                              res.targets.push_back({ transform(point), 0.0, id, type,
@@ -135,6 +141,9 @@ public:
                          }
                      }
 
+                     std::swap(debugView, data.frame.frame);
+
+                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(data.frame)));
                      sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  },
                  [&](update_head_atom, GroupMask, Identifier key) {

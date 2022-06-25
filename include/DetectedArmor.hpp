@@ -8,7 +8,6 @@
 #include "SuppressWarningEnd.hpp"
 
 // Origin: left-top corner of the car's ROI
-// Small armor only
 struct PairedLight final {
     cv::RotatedRect r1;
     cv::RotatedRect r2;

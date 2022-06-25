@@ -107,7 +107,7 @@ namespace detail {
         const auto succeed = iter->second.to_list().value();
         std::vector<std::string> res;
         res.reserve(succeed.size());
-        for(auto id : succeed) {
+        for(const auto& id : succeed) {
             res.push_back(caf::to_string(id));
         }
         return res;
@@ -120,7 +120,7 @@ namespace detail {
         const auto& registry = system.registry();
         std::vector<std::pair<caf::actor_addr, GroupMask>> res;
         res.reserve(succeed.size());
-        for(auto id : succeed) {
+        for(const auto& id : succeed) {
             if(const auto addr = registry.get<caf::actor_addr>(id))
                 res.emplace_back(addr, maskLUT[id]);
             else {
@@ -175,7 +175,7 @@ void terminateSystem(caf::local_actor&, const bool success) {
 std::string globalConfigName;
 
 void installFPEProbe() {
-#if ARTINXHUB_DEBUG
+#ifdef ARTINXHUB_DEBUG
 #ifdef ARTINXHUB_WINDOWS
     _control87(_EM_DENORMAL | _EM_INEXACT | _EM_UNDERFLOW, _MCW_EM);
 #else
@@ -185,7 +185,7 @@ void installFPEProbe() {
 }
 
 void uninstallFPEProbe() {
-#if ARTINXHUB_DEBUG
+#ifdef ARTINXHUB_DEBUG
 #ifdef ARTINXHUB_WINDOWS
     _control87(_MCW_EM, _MCW_EM);
 #else
@@ -197,11 +197,6 @@ void uninstallFPEProbe() {
 int caf_main(caf::actor_system& system, const caf::actor_system_config& config) {
     logInfo("Initializing");
     Timer::instance().bindSystem(system);
-
-    const fs::path logPath{ "./logs" };
-    if(!fs::exists(logPath)) {
-        fs::create_directory(logPath);
-    }
 
     const auto [argc, argv] = config.c_args_remainder();
     auto args = "Command Arguments: "s;
