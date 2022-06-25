@@ -27,7 +27,7 @@ static void loadCalibration(bool disableUndistort, const std::string& identifier
         logWarning(
             fmt::format("Failed to get calibration info for S/N {}. Use fallback fov {} instead.", identifier, fallbackFov));
         cameraMatrix = (cv::Mat_<double>(3, 3) << width / 2.0 / std::tan(glm::radians(fallbackFov) / 2.0), 0,
-                        static_cast<double>(width) / 2.0, 0, height / 2 / std::tan(glm::radians(fallbackFov) / 2.0),
+                        static_cast<double>(width) / 2.0, 0, height / 2.0 / std::tan(glm::radians(fallbackFov) / 2.0),
                         static_cast<double>(height) / 2.0, 0, 0, 1);
         distCoefficients = cv::Mat{};
         undistort = false;
@@ -217,12 +217,10 @@ public:
 
         logInfo(fmt::format("Resolution for {}: {} x {}", mCameraSerialNumber, width, height));
 
-#ifndef ARTINX_DAHENG_USB2
         checkGXStatus(GXSetInt(mDevice, GX_INT_WIDTH, width));
         checkGXStatus(GXSetInt(mDevice, GX_INT_HEIGHT, height));
         checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_X, 0));
         checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_Y, 0));
-#endif
 
         loadCalibration(mConfig.disableUndistort, mCameraSerialNumber, static_cast<uint32_t>(width),
                         static_cast<uint32_t>(height), mConfig.fov, mCameraMatrix, mDistCoefficients, mDoUndistort);

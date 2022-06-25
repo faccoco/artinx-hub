@@ -41,21 +41,36 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
     };
     std::vector<cv::Point2f> mImagePoint{ 4 };
 
+    static double evalArea(cv::Point2d p1, cv::Point2d p2, cv::Point2d p3) {
+        const auto v1 = p2 - p1;
+        const auto v2 = p3 - p1;
+        return v1.x * v2.y - v1.y * v2.x;
+    }
+
+    static double evalArea(cv::Point2d p1, cv::Point2d p2, cv::Point2d p3, cv::Point2d p4) {
+        return -evalArea(p1, p2, p3) - evalArea(p1, p3, p4);
+    }
+
     std::pair<Point<UnitType::Distance, FrameOfReference::Camera>, ArmorType> solve(const cv::Mat& cameraMatrix,
                                                                                     const PairedLight& armor) {
         boxRect(mImagePoint, armor.r1);
+        const auto area1 = armor.r1.size.area();
 
         const cv::Point2d lt = 0.5 * (mImagePoint[1] + mImagePoint[2]);
         const cv::Point2d lb = 0.5 * (mImagePoint[0] + mImagePoint[3]);
 
         boxRect(mImagePoint, armor.r2);
+        const auto area2 = armor.r2.size.area();
 
         const cv::Point2d rt = 0.5 * (mImagePoint[1] + mImagePoint[2]);
         const cv::Point2d rb = 0.5 * (mImagePoint[0] + mImagePoint[3]);
 
+        const auto area = evalArea(lt, lb, rb, rt);
+
         const cv::Mat_<double> distCoeff;
         cv::Mat rvec, tvec;
 
+        /*
         const auto left = 0.5 * (lt + lb);
         const auto right = 0.5 * (rt + rb);
 
@@ -64,6 +79,10 @@ class ArmorLocator final : public HubHelper<caf::event_based_actor, ArmorLocator
 
         const auto ratio = distHorizontal / distVertical;
         constexpr auto ratioThreshold = 0.5 * (widthOfLargeArmor + widthOfSmallArmor) / heightOfArmorLightBar;
+         */
+        const auto ratio = area / std::fmax(0.001, area1 + area2);
+        HubLogger::watch("armor ratio", ratio);
+        constexpr auto ratioThreshold = 16.0;
 
         mImagePoint = { lt, lb, rb, rt };
         [[maybe_unused]] const auto res =
