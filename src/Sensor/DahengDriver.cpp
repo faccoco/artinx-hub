@@ -43,7 +43,7 @@ struct DahengDriverSettings final {
     double exposureTime;
     bool flip;
     bool disableUndistort;
-    glm::dvec3 offset;
+    glm::dvec3 offset;  // based on gun
 };
 
 enum class OpenMode { Index, SerialNumber };
@@ -97,7 +97,7 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
     std::string mCameraSerialNumber;
     bool mDoUndistort;
 
-    void reportFrameRate(Clock::time_point timeStamp) {
+    void reportFrameRate(const Clock::time_point timeStamp) {
         const auto current = timeStamp.time_since_epoch().count();
         mLastFrames.push_back(current);
 

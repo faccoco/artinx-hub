@@ -53,7 +53,7 @@ class ArmorLocator final
     }
 
     std::pair<Point<UnitType::Distance, FrameOfReference::Camera>, ArmorType>
-    solve(cv::Mat& debugView, const cv::Mat& cameraMatrix, const PairedLight& armor) {
+    solve([[maybe_unused]] cv::Mat& debugView, const cv::Mat& cameraMatrix, const PairedLight& armor) {
         boxRect(mImagePoint, armor.r1);
         const auto area1 = armor.r1.size.area();
 
@@ -94,8 +94,10 @@ class ArmorLocator final
         if(p0.z > 0.0)
             p0 = -p0;
 
+#ifdef ARTINXHUB_DEBUG
         cv::drawFrameAxes(debugView, cameraMatrix, distCoeff, rvec, tvec,
                           static_cast<float>(ratio > ratioThreshold ? widthOfLargeArmor : widthOfSmallArmor) * 0.5f);
+#endif
 
         return { Point<UnitType::Distance, FrameOfReference::Camera>{ p0 },
                  ratio > ratioThreshold ? ArmorType::Large : ArmorType::Small };
@@ -141,9 +143,11 @@ public:
                          }
                      }
 
+#ifdef ARTINXHUB_DEBUG
                      std::swap(debugView, data.frame.frame);
-
                      sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(data.frame)));
+#endif
+
                      sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  },
                  [&](update_head_atom, GroupMask, Identifier key) {
