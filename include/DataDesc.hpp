@@ -107,8 +107,7 @@ constexpr bool __impl_actor_protocol_call() noexcept {
     return __ImplActorProtocol<Args...>::check();
 }
 
-#define ACTOR_PROTOCOL_CHECK(...)                                                    \
-    static_assert(__impl_actor_protocol_call<__VA_ARGS__>(), "Mismatched protocol"); \
+#define ACTOR_PROTOCOL_CHECK(...) static_assert(__impl_actor_protocol_call<__VA_ARGS__>(), "Mismatched protocol")
 
 ACTOR_PROTOCOL_DEFINE(start_atom);
 ACTOR_PROTOCOL_DEFINE(timer_atom);
