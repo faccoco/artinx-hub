@@ -1,8 +1,8 @@
-DaHeng SDK (Galaxy)
+DaHeng SDK (Galaxy) USB2/USB3 取决于相机线是否过导电滑环
 
 nlohmann-json
 
-caf [modified]
+caf
 
 glm
 
