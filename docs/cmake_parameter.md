@@ -1,1 +1,0 @@
--DARTINX_HUB_CAMERA=USB3 -DCMAKE_TOOLCHAIN_FILE=\<path to vcpkg\>/scripts/buildsystems/vcpkg.cmake
