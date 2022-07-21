@@ -104,7 +104,7 @@ class ArmorDetector final
                 for(int32_t j = 0; j < src.cols; ++j) {
                     const auto& col = src.at<cv::Vec3b>(i, j);
                     const int32_t b = col[0], g = col[1], r = col[2];
-                    result.at<uchar>(i, j) = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b * 4 > g + r) ? 255 : 0;
+                    result.at<uchar>(i, j) = (b > minB && g < maxG && r < maxR && b * 3 > g + r) ? 255 : 0;
                 }
         } else {
             const auto minR = mConfig.thresholdForRed[0];
@@ -115,7 +115,7 @@ class ArmorDetector final
                 for(int32_t j = 0; j < src.cols; ++j) {
                     const auto& col = src.at<cv::Vec3b>(i, j);
                     const int32_t b = col[0], g = col[1], r = col[2];
-                    result.at<uchar>(i, j) = (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r > b + g) ? 255 : 0;
+                    result.at<uchar>(i, j) = (r > minR && b < maxB && g < maxG && r * 3 > b + g) ? 255 : 0;
                 }
         }
         cv::Mat blurred;

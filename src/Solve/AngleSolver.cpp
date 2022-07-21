@@ -31,19 +31,8 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
     Identifier mKey, mIMUKey, mHeadKey;
 
 private:
-    glm::dvec3 mPositions[1005] = {};
-    glm::dvec3 sumPositions = { 0, 0, 0 };
-    double mTimes[1005] = {};
-    glm::dvec3 mDiff[1005] = {};
-    glm::dvec3 mVec[1005] = {};
     glm::dvec3 sumVec = { 0, 0, 0 };
     glm::dvec3 avgVec = { 0, 0, 0 };
-    double mPeriod = 0;
-    int mExceptionPoint[1005] = {};
-    unsigned int mCnt = 0;
-    int emptyData = 0;
-    double mPreviousYawAngle;
-    double mPreviousPitchAngle;
 
 public:
     AngleSolver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
@@ -136,6 +125,8 @@ public:
                      dataPosture.has_value()))
                     return;
 
+                logInfo(fmt::format("mKey:{} received key:{}", mKey.val, key.val));
+
                 HubLogger::watch("armor type", magic_enum::enum_name(data.value().selected.value().type));
 
                 const auto& globalSettings = GlobalSettings::get();
@@ -149,18 +140,14 @@ public:
 
                 const auto delayTime = mConfig.delay;
 
-                glm::dvec3 forwardVector = { 0, 0, -1 };
                 glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
 
-                Vector<UnitType::Distance, FrameOfReference::Gun> forwardPosition(forwardVector);
                 Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot =
                     dataHeadInfo.value().transform(positionOfReferenceGun);
                 Vector<UnitType::Distance, FrameOfReference::Ground> positionOfReferenceGround =
                     dataPosture.value().postureOfRobot(positionOfReferenceRobot);
                 glm::dvec3 transformedPosition = { positionOfReferenceGround.raw().x, -positionOfReferenceGround.raw().z,
                                                    positionOfReferenceGround.raw().y };
-                Vector<UnitType::Distance, FrameOfReference::Robot> forwardPositionOfReferenceRobot =
-                    dataHeadInfo.value().transform(forwardPosition);
                 Vector<UnitType::LinearVelocity, FrameOfReference::Ground> linearVelocity(
                     dataPosture.value().linearVelocityOfRobot.raw());
 
@@ -168,8 +155,6 @@ public:
                 logInfo(fmt::format("position {} {} {}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
 
                 //(forward:+y,right:+x)
-                forwardVector = { positionOfReferenceRobot.raw().x, -positionOfReferenceRobot.raw().z,
-                                  positionOfReferenceRobot.raw().y };
                 transformedLinearVelocity = {avgVec.x - linearVelocity.raw().x, avgVec.y + linearVelocity.raw().z, avgVec.z - linearVelocity.raw().y };
                 //logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y, linearVelocity.raw().z));
                 transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x,
@@ -183,12 +168,11 @@ public:
                 double horizontalSpeedX = (transformedPosition.x + transformedLinearVelocity.x * airDuration) / airDuration;
                 double horizontalSpeedY = (transformedPosition.y + transformedLinearVelocity.y * airDuration) / airDuration;  
                 
-                double pitchAngle = std::asin(verticalSpeed / bulletSpeed), yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
-                //pitchAngle = pitchAngle > glm::quarter_pi<double>() ? glm::half_pi<double>() - pitchAngle : pitchAngle;
-                yawAngle = yawAngle < 0 ? yawAngle + glm::two_pi<double>() : yawAngle;
+                double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
+                double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 
-                //if(std::fabs(yawAngle) > 0.1) return;
                 logInfo(fmt::format("yawAngle {} pitchAngle {}", yawAngle, pitchAngle));
+                logInfo(fmt::format("--------------------------"));
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
                         pitchAngle, true);
             },
