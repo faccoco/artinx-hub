@@ -136,7 +136,6 @@ public:
 
                 Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
                     data.value().selected.value().center.raw());
-                const auto timeDuration = static_cast<double>(data.value().lastUpdate.time_since_epoch().count()) / 1e9;
 
                 const auto delayTime = mConfig.delay;
 
