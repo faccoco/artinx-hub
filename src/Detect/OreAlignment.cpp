@@ -192,6 +192,7 @@ class OreAlignment final : public HubHelper<caf::event_based_actor, OreAlignment
         return (rect.x + static_cast<double>(rect.width) / 2.0 - frame.info.width) /
             (frame.info.width / 2.0 / std::tan(glm::radians(30.0))) * settings.distanceToOre +
             settings.offset;
+        /*const auto res = cv::solvePNP()*/
     }  // TODO : may don't have enough precision!!!
 
 public:

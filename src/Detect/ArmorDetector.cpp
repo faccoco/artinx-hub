@@ -100,23 +100,31 @@ class ArmorDetector final
             const auto maxG = mConfig.thresholdForBlue[1];
             const auto maxR = mConfig.thresholdForBlue[2];
 
-            for(int32_t i = 0; i < src.rows; ++i)
-                for(int32_t j = 0; j < src.cols; ++j) {
-                    const auto& col = src.at<cv::Vec3b>(i, j);
-                    const int32_t b = col[0], g = col[1], r = col[2];
-                    result.at<uchar>(i, j) = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b * 4 > g + r) ? 255 : 0;
+            for(int32_t row = 0; row != src.rows; ++row) {
+                const auto* srcPtr = src.ptr(row);
+                auto* resPtr = result.ptr(row);
+                for(int32_t col = 0; col != src.cols; ++col) {
+                    const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
+                    *resPtr = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b * 4 > g + r) ? 255 : 0;  // binarization
+                    srcPtr += 3;
+                    ++resPtr;
                 }
+            }
         } else {
             const auto minR = mConfig.thresholdForRed[0];
             const auto maxB = mConfig.thresholdForRed[1];
             const auto maxG = mConfig.thresholdForRed[2];
 
-            for(int32_t i = 0; i < src.rows; ++i)
-                for(int32_t j = 0; j < src.cols; ++j) {
-                    const auto& col = src.at<cv::Vec3b>(i, j);
-                    const int32_t b = col[0], g = col[1], r = col[2];
-                    result.at<uchar>(i, j) = (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r > b + g) ? 255 : 0;
+            for(int32_t row = 0; row != src.rows; ++row) {
+                const auto* srcPtr = src.ptr(row);
+                auto* resPtr = result.ptr(row);
+                for(int32_t col = 0; col != src.cols; ++col) {
+                    const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
+                    *resPtr = (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r > b + g) ? 255 : 0;  // binarization
+                    srcPtr += 3;
+                    ++resPtr;
                 }
+            }
         }
         cv::Mat blurred;
         cv::medianBlur(result, blurred, 5);
@@ -193,13 +201,13 @@ class ArmorDetector final
             //     fixContour(color, binary, lightContour);
             const auto rawRect = cv::minAreaRect(lightContour);
 
-            if(rawRect.size.width < 0.5f || rawRect.size.height < 0.5f)
+            if(rawRect.size.width < 0.5f || rawRect.size.height < 0.5f) 
                 continue;
 
             auto lightRect = correctRectAngle(rawRect);
 
             if(lightContour.size() >= 6) {
-                const auto rect = correctRectAngle(cv::fitEllipse(lightContour));
+                const auto rect = correctRectAngle(cv::fitEllipse(lightContour));  // produce as ellipse
                 if(rect.size.area() > 4.0f &&
                    std::fabs(std::sin(glm::radians(lightRect.angle))) > std::fabs(std::sin(glm::radians(rect.angle))))
                     lightRect = rect;
@@ -211,7 +219,7 @@ class ArmorDetector final
                 continue;
 
             const auto rect = lightRect.boundingRect();
-            if((rect & full) != rect)
+            if((rect & full) != rect)  // check rect size not change
                 continue;
 
             /*
@@ -227,6 +235,7 @@ class ArmorDetector final
             }
             if(lightRect.size.height > mConfig.maxLightRectRatio * lightRect.size.width && lightRect.size.width > 3.0f)
                 continue;
+            // filter implement with the lightbars' width and height
 
             lights.emplace_back(lightRect);
         }
@@ -284,7 +293,7 @@ class ArmorDetector final
     std::vector<PairedLight> matchLights([[maybe_unused]] const cv::Mat& src, const std::vector<cv::RotatedRect>& lights) {
         ACTOR_EXCEPTION_PROBE();
         std::vector<std::tuple<uint32_t, uint32_t, float>> pairs;
-        for(uint32_t i = 0; i < lights.size(); ++i)
+        for(uint32_t i = 0; i < lights.size(); ++i) {
             for(uint32_t j = i + 1; j < lights.size(); ++j) {
                 const auto& lhs = lights[i];
                 const auto& rhs = lights[j];
@@ -294,7 +303,7 @@ class ArmorDetector final
                 rhs.points(pts.data() + 4);
 
                 auto rect = cv::minAreaRect(pts);
-                if(rect.size.width < rect.size.height) {
+                if(rect.size.width < rect.size.height) {  // rotate rect
                     std::swap(rect.size.width, rect.size.height);
                     rect.angle += 90.0f;
                 }
@@ -320,7 +329,7 @@ class ArmorDetector final
                 }
                 */
 
-                constexpr auto largeRatio = widthOfLargeArmor / heightOfArmorLightBar;
+                constexpr auto largeRatio = widthOfLargeArmor / heightOfArmorLightBar;  //
                 constexpr auto smallRatio = widthOfSmallArmor / heightOfArmorLightBar;
 
                 const auto ratio = rect.size.aspectRatio();
@@ -356,9 +365,11 @@ class ArmorDetector final
 
                     par = std::fabs(std::sin(glm::radians(lhs.angle) - glm::radians(rhs.angle)));
 
-                    if(par > mConfig.maxParallelAngle)
+                    if(par > mConfig.maxParallelAngle)  // lightbar parallel test
                         continue;
-                    if(par > 0.2f && std::tan(glm::radians(lhs.angle)) * std::tan(glm::radians(rhs.angle)) < 0.0f)
+                    if(par > 0.2f &&
+                       std::tan(glm::radians(lhs.angle)) * std::tan(glm::radians(rhs.angle)) <
+                           0.0f)  // filter out reverse parallel rotatedRect
                         continue;
                 }
 
@@ -370,7 +381,7 @@ class ArmorDetector final
 
                 pairs.emplace_back(i, j, diff + par + (largeArmor ? 1e3f : 0.0f));
             }
-
+        }
         /*
         debugView("potential", src, [&](cv::Mat& frame) {
             uint32_t idx = 0;
@@ -411,7 +422,7 @@ class ArmorDetector final
                   [](const auto& lhs, const auto& rhs) { return std::get<float>(lhs) < std::get<float>(rhs); });
 
         std::vector<PairedLight> res;
-        std::vector<bool> used(lights.size());
+        std::vector<bool> used(lights.size(), false);
         for(auto& [i, j, s] : pairs) {
             if(used[i] || used[j])
                 continue;
@@ -426,9 +437,7 @@ public:
     ArmorDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {
-                    ACTOR_PROTOCOL_CHECK(start_atom);
-                },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](car_detect_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(car_detect_available_atom, TypedIdentifier<DetectedCarArray>);
                      ACTOR_EXCEPTION_PROBE();
@@ -437,6 +446,7 @@ public:
 
                      DetectedArmorArray res;
                      res.frame = frame;
+                     // res.frame.frame=binary(frame.frame );
 
                      for(auto& roi : cars) {
                          auto armors = solve(frame.frame(roi));
