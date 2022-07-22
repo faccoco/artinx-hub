@@ -118,14 +118,14 @@ public:
                 ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);
                 ACTOR_EXCEPTION_PROBE();
 
+                logInfo(fmt::format("mKey:{} received key:{}", mKey.val, key.val));
+
                 const auto data = BlackBoard::instance().get<SelectedTarget>(key);
                 const auto dataHeadInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
                 const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                 if(!(data.has_value() && data.value().selected.has_value() && dataHeadInfo.has_value() &&
                      dataPosture.has_value()))
                     return;
-
-                logInfo(fmt::format("mKey:{} received key:{}", mKey.val, key.val));
 
                 HubLogger::watch("armor type", magic_enum::enum_name(data.value().selected.value().type));
 
