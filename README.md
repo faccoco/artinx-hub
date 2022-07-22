@@ -263,7 +263,8 @@ gitlab-runner ALL=(ALL) NOPASSWD: ALL
     + buffer炸了（调整发包周期）
     + usb2ttl松了/坏了
     + 线扯断了
-    + 用```ls /dev | grep ttyUSB```来查看是否识别串口
+    + 用```ls /dev | grep ttyUSB`
+    + ``来查看是否识别串口
 + 相机无法启动
     + 查看错误码查文档
     + 打开Galaxy看看能不能检测到

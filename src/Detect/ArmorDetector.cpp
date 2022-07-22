@@ -95,7 +95,7 @@ class ArmorDetector final
 
     cv::Mat binary(const cv::Mat& src) {
         cv::Mat result(src.size(), CV_8U);
-        if(GlobalSettings::get().selfColor == Color::Red) {
+        if(GlobalSettings::get().selfColor == Color::Blue) {//modify this to change color
             const auto minB = mConfig.thresholdForBlue[0];
             const auto maxG = mConfig.thresholdForBlue[1];
             const auto maxR = mConfig.thresholdForBlue[2];
@@ -104,7 +104,7 @@ class ArmorDetector final
                 for(int32_t j = 0; j < src.cols; ++j) {
                     const auto& col = src.at<cv::Vec3b>(i, j);
                     const int32_t b = col[0], g = col[1], r = col[2];
-                    result.at<uchar>(i, j) = (b > minB && g < maxG && r < maxR && b * 3 > g + r) ? 255 : 0;
+                    result.at<uchar>(i, j) = (r > minB && g < maxG && r < maxR && r * 3 > g + b) ? 255 : 0;
                 }
         } else {
             const auto minR = mConfig.thresholdForRed[0];
@@ -115,11 +115,12 @@ class ArmorDetector final
                 for(int32_t j = 0; j < src.cols; ++j) {
                     const auto& col = src.at<cv::Vec3b>(i, j);
                     const int32_t b = col[0], g = col[1], r = col[2];
-                    result.at<uchar>(i, j) = (r > minR && b < maxB && g < maxG && r * 3 > b + g) ? 255 : 0;
+                    result.at<uchar>(i, j) = ( b > minR && b < maxB && g < maxG && b * 3 > r + g) ? 255 : 0;
                 }
         }
         cv::Mat blurred;
         cv::medianBlur(result, blurred, 5);
+        //debugView("binary", blurred, [](auto&) {});
         return blurred;
     }
 
