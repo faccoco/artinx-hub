@@ -11,13 +11,8 @@ set(SOURCE
 "DataLink/AsyncSerial/BufferedAsyncSerial.cpp"
 "DataLink/SerialPort.cpp"
 "Detect/ArmorDetector.cpp"
-"Detect/CarDetector.cpp"
-"Detect/CarTracker.cpp"
 "Detect/EnergyDetector.cpp"
 "Detect/FakeCarDetector.cpp"
-"Detect/NumClassifier.cpp"
-"Detect/OreAlignment.cpp"
-"Detect/OreExchangeRectifier.cpp"
 "HubMain.cpp"
 "Postprocess/ArmorPredictor.cpp"
 "Preprocess/ColorCalibration.cpp"
@@ -28,7 +23,6 @@ set(SOURCE
 "Sensor/VideoReplay.cpp"
 "Solve/AngleSolver.cpp"
 "Solve/ArmorLocator.cpp"
-"Solve/RadarLocator.cpp"
 "Strategy/Hero.cpp"
 "Strategy/Infantry.cpp"
 "Strategy/Sentry.cpp"
@@ -76,11 +70,8 @@ find_package(magic_enum CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(Boost REQUIRED system)
 
-set(InferenceEngine_DIR $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine/share/)
-find_package(InferenceEngine CONFIG REQUIRED)
 
 add_executable(ArtinxHub ${SOURCE})
-target_include_directories(ArtinxHub PRIVATE ${InferenceEngine_INCLUDE_DIRS})
 target_include_directories(ArtinxHub PRIVATE ${CAF_INCLUDE_DIRS})
 target_link_libraries(ArtinxHub PRIVATE CAF::core)
 target_link_libraries(ArtinxHub PRIVATE opencv_core opencv_videoio opencv_mcc opencv_calib3d opencv_barcode opencv_tracking)

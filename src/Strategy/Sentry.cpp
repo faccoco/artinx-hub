@@ -10,6 +10,7 @@
 
 #include <caf/event_based_actor.hpp>
 #include <glm/glm.hpp>
+#include <fmt/format.h>
 
 #include "SuppressWarningEnd.hpp"
 
@@ -53,6 +54,12 @@ public:
                      if(selected.selected.has_value()) {
                          (mask == 1U ? mLastSelected1 : mLastSelected2) = selected;
                      } else {
+                         if (mask == 1U){
+                             logInfo(fmt::format("Up has no target!"));
+                         }else {
+                             logInfo(fmt::format("Down has no target!"));
+                         }
+
                          const auto head1 = BlackBoard::instance().get<HeadInfo>(mHead1);
                          const auto head2 = BlackBoard::instance().get<HeadInfo>(mHead2);
                          if(!(head1.has_value() && head2.has_value())) {

@@ -125,8 +125,6 @@ public:
                      dataPosture.has_value()))
                     return;
 
-                logInfo(fmt::format("mKey:{} received key:{}", mKey.val, key.val));
-
                 HubLogger::watch("armor type", magic_enum::enum_name(data.value().selected.value().type));
 
                 const auto& globalSettings = GlobalSettings::get();
@@ -134,26 +132,27 @@ public:
 
                 constexpr auto square = [=](const double x) { return x * x; };
 
-                Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
-                    data.value().selected.value().center.raw());
-
                 const auto delayTime = mConfig.delay;
 
                 glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
 
+                Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
+                data.value().selected.value().center.raw());
                 Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot =
                     dataHeadInfo.value().transform(positionOfReferenceGun);
-                Vector<UnitType::Distance, FrameOfReference::Ground> positionOfReferenceGround =
-                    dataPosture.value().postureOfRobot(positionOfReferenceRobot);
-                glm::dvec3 transformedPosition = { positionOfReferenceGround.raw().x, -positionOfReferenceGround.raw().z,
-                                                   positionOfReferenceGround.raw().y };
                 Vector<UnitType::LinearVelocity, FrameOfReference::Ground> linearVelocity(
                     dataPosture.value().linearVelocityOfRobot.raw());
 
-                HubLogger::watch("z", positionOfReferenceGround.raw().z);
-                logInfo(fmt::format("position {} {} {}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
+                Vector<UnitType::Distance, FrameOfReference::Gun> bulletPosOfReferenceGun{{0, 0, 0}};
+                Vector<UnitType::Distance, FrameOfReference::Robot> bulletPosOfReferenceRobot =
+                    dataHeadInfo.value().transform(bulletPosOfReferenceGun);
 
-                //(forward:+y,right:+x)
+                HubLogger::watch("z", positionOfReferenceRobot.raw().z);
+
+                //(forward:+y,right:+x), object point reference bullet
+                glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x - bulletPosOfReferenceRobot.raw().x,
+                                                   -positionOfReferenceRobot.raw().z + bulletPosOfReferenceRobot.raw().z,
+                                                   positionOfReferenceRobot.raw().y - bulletPosOfReferenceRobot.raw().y};
                 transformedLinearVelocity = {avgVec.x - linearVelocity.raw().x, avgVec.y + linearVelocity.raw().z, avgVec.z - linearVelocity.raw().y };
                 //logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y, linearVelocity.raw().z));
                 transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x,
@@ -170,6 +169,8 @@ public:
                 double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
                 double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 
+                logInfo(fmt::format(" mKey:{} received key:{}", mKey.val, key.val));
+                logInfo(fmt::format("position {} {} {}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
                 logInfo(fmt::format("yawAngle {} pitchAngle {}", yawAngle, pitchAngle));
                 logInfo(fmt::format("--------------------------"));
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
