@@ -55,7 +55,7 @@ class HubHelper : public T {
         return static_cast<const Identifier&>(arg);
     }
 
-    //可变参数模板
+    //可变参数模板 ex: for armorDetector, mDest ==> std::tuple<SucceedAddress<armor_detect_available_atom>, SucceedAddress<image_frame_atom>>
     std::tuple<SucceedAddress<Succeed>...> mDest;
 
     template <typename Atom>
