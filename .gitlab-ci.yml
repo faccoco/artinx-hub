@@ -10,15 +10,15 @@ cache:
 build-job:
   stage: build
   tags:
-    - windows
+    - linux
   script:
-    - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/home/artinx/Desktop/workspace/packages/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
 
 test-job:
   stage: test
   tags:
-    - windows
+    - linux
   script:
     - cd build
     - Get-ChildItem * -Include *.log -Recurse | Remove-Item
