@@ -1,6 +1,6 @@
 stages:
   - build
-  - test
+    # - test
   - deploy
 
 cache:
@@ -19,20 +19,20 @@ build-job:
     - find -name "*.log" | xargs rm -v
     - ctest --build-config Release -j 8
 
-test-job:
-  stage: test
-  tags:
-    - linux-server
-  script:
-    - cd build
-    - find -name "*.log" | xargs rm -v
-    - ctest --build-config Release -j 8
-  artifacts:
-    name: "report"
-    paths:
-      - ./build/testResult.log
-    expire_in: 1 month
-    expose_as: "test report"
+      #test-job:
+      #stage: test
+      #tags:
+      #- linux-server
+      #script:
+      #- cd build
+      #- find -name "*.log" | xargs rm -v
+      #- ctest --build-config Release -j 8
+      #artifacts:
+      #name: "report"
+      #paths:
+      #- ./build/testResult.log
+      #expire_in: 1 month
+      #expose_as: "test report"
 
 deploy-job:
   stage: deploy
