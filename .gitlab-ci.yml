@@ -1,5 +1,5 @@
 stages:
-  - build
+  - build&test
     # - test
   - deploy
 
@@ -7,8 +7,8 @@ cache:
   key: "$CI_RUNNER_ID"
   untracked: true
 
-build-job:
-  stage: build
+build&CTest:
+  stage: build&test
   tags:
     - linux-server
   script:
