@@ -22,7 +22,7 @@ test-job:
     - linux-server
   script:
     - cd build
-    - Get-ChildItem * -Include *.log -Recurse | Remove-Item
+    - finx -name "*.log" | xargs rm -v
     - ctest --build-config Release -j 8
   artifacts:
     name: "report"
