@@ -31,7 +31,7 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
                               f.field("headHeightOffset1", x.headHeightOffset1).fallback(0.0),
                               f.field("headHeightOffset2", x.headHeightOffset2).fallback(0.0),
                               f.field("headForwardOffset1", x.headForwardOffset1).fallback(0.0),
-                              f.field("headForwardOffset2", x.headHeightOffset2).fallback(0,0),
+                              f.field("headForwardOffset2", x.headForwardOffset2).fallback(0.0),
                               f.field("enableEnergyControl", x.enableEnergyControl).fallback(false));
 }
 

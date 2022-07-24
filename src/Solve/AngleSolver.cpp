@@ -134,8 +134,6 @@ public:
 
                 const auto delayTime = mConfig.delay;
 
-                glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
-
                 Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
                 data.value().selected.value().center.raw());
                 Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot =
@@ -143,16 +141,13 @@ public:
                 Vector<UnitType::LinearVelocity, FrameOfReference::Ground> linearVelocity(
                     dataPosture.value().linearVelocityOfRobot.raw());
 
-                Vector<UnitType::Distance, FrameOfReference::Gun> bulletPosOfReferenceGun{{0, 0, 0}};
-                Vector<UnitType::Distance, FrameOfReference::Robot> bulletPosOfReferenceRobot =
-                    dataHeadInfo.value().transform(bulletPosOfReferenceGun);
-
                 HubLogger::watch("z", positionOfReferenceRobot.raw().z);
 
-                //(forward:+y,right:+x), object point reference bullet
-                glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x - bulletPosOfReferenceRobot.raw().x,
-                                                   -positionOfReferenceRobot.raw().z + bulletPosOfReferenceRobot.raw().z,
-                                                   positionOfReferenceRobot.raw().y - bulletPosOfReferenceRobot.raw().y};
+                //(forward:+y,right:+x)
+                glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
+                glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x,
+                                                   -positionOfReferenceRobot.raw().z ,
+                                                   positionOfReferenceRobot.raw().y};
                 transformedLinearVelocity = {avgVec.x - linearVelocity.raw().x, avgVec.y + linearVelocity.raw().z, avgVec.z - linearVelocity.raw().y };
                 //logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y, linearVelocity.raw().z));
                 transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x,
