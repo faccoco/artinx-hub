@@ -13,8 +13,7 @@ build-job:
     - linux-server
   script:
     - source /opt/intel/openvino_2021/bin/setupvars.sh
-    - cmake -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_MAKE_PROGRAM=make -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/home/artinx/Desktop/workspace/packages/vcpkg/scripts/buildsystems/vcpkg.cmake
-    #- cmake -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/home/artinx/Desktop/workspace/packages/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake -B ./build -DARTINX_HUB_CAMERA=$CAMERA_TYPE -DCMAKE_MAKE_PROGRAM=make -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/home/artinx/Desktop/workspace/packages/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
 
 test-job:
