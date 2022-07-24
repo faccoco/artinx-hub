@@ -47,7 +47,7 @@ Artinx视觉组 集成框架
 ## 快速跳转
 
 + [cppreference](https://en.cppreference.com/w/)
-+ [glm manual](https://github.com/g-truc/glm/blob/master/manual.md)
++ [glm manual](https://github.com/g-truc/glm/blob/master/manual.md) or [Opengl-glm](https://nas.artinx.club:5001/sharing/q01EttQss)
 + [OpenCV doc](https://docs.opencv.org/4.x/)
 + [规则手册](https://www.robomaster.com/zh-CN/resource/pages/announcement/1370)
 
