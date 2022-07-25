@@ -7,27 +7,24 @@ cache:
   key: "$CI_RUNNER_ID"
   untracked: true
 
-build:
+build-job:
   stage: build
   tags:
-    - linux-server
+    - windows
   script:
-    - source /opt/intel/openvino_2021/bin/setupvars.sh
-    - cmake -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_MAKE_PROGRAM=make -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/home/artinx/Desktop/workspace/packages/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake -G "Visual Studio 16 2019" -A x64 -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/WorkSpace/SDKS/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build --config Release
 
 test-job:
   stage: test
   tags:
-    - linux-server
+    - windows
   script:
-    - cd ./build
-    - source /opt/intel/openvino_2021/bin/setupvars.sh
-    - find -name "*.log" | xargs rm -v
-    - make && ctest --build-config Release -j 8
+    - cd build
+    - Get-ChildItem * -Include *.log -Recurse | Remove-Item
+    - ctest --build-config Release -j 8
   artifacts:
     name: "report"
-    when: on_success
     paths:
       - ./build/testResult.log
     expire_in: 1 month
