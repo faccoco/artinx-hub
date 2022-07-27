@@ -146,7 +146,7 @@ Artinx视觉组 集成框架
 + 按照Genetic步骤安装依赖
 + clone仓库
 + 用clion打开文件夹
-+ 打开CMake设置，填入参数```-DARTINX_HUB_CAMERA=USB3 -DCMAKE_TOOLCHAIN_FILE=<path to vcpkg>/scripts/buildsystems/vcpkg.cmake```
++ 打开CMake设置，填入参数`-DARTINX_HUB_CAMERA=USB3 -DCMAKE_TOOLCHAIN_FILE=<path to vcpkg>/scripts/buildsystems/vcpkg.cmake` **2.0相机写`USB2`**
 + 在CMake选项卡生成构建文件
 + 在Build选项卡编译程序
 + 添加运行配置，填入参数（config文件路径）
@@ -266,8 +266,9 @@ gitlab-runner ALL=(ALL) NOPASSWD: ALL
     + 用```ls /dev | grep ttyUSB```来查看是否识别串口
 + 相机无法启动
     + 查看错误码查文档
-    + 打开Galaxy看看能不能检测到
+    + 打开Galaxy看看能不能检测到(仅限3.0相机）
     + 重装驱动，重新启动，重新插拔数据线
+    + **哨兵靠相机的SN码区分上下云台，看看confg里面有没有写错**
 + 机器人上自瞄不工作
     + 使用systemctl status ArtinxHub.service查看服务状态
     + 打开127.0.0.1:5430查看工作状态
