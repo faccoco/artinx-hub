@@ -100,11 +100,14 @@ class ArmorDetector final
             const auto maxG = mConfig.thresholdForBlue[1];
             const auto maxR = mConfig.thresholdForBlue[2];
 
-            for(int32_t i = 0; i < src.rows; ++i)
-                for(int32_t j = 0; j < src.cols; ++j) {
-                    const auto& col = src.at<cv::Vec3b>(i, j);
-                    const int32_t b = col[0], g = col[1], r = col[2];
-                    result.at<uchar>(i, j) = (b > minB && g < maxG && r < maxR && b * 3 > g + r) ? 255 : 0;
+            for(int32_t row = 0; row != src.rows; ++row) {
+                const auto* srcPtr = src.ptr(row);
+                auto* resPtr = result.ptr(row);
+                for(int32_t col = 0; col != src.cols; ++col) {
+                    const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
+                    *resPtr = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b * 4 > g + r) ? 255 : 0;  // binarization
+                    srcPtr += 3;
+                    ++resPtr;
                 }
             }
         } else {
@@ -112,11 +115,14 @@ class ArmorDetector final
             const auto maxB = mConfig.thresholdForRed[1];
             const auto maxG = mConfig.thresholdForRed[2];
 
-            for(int32_t i = 0; i < src.rows; ++i)
-                for(int32_t j = 0; j < src.cols; ++j) {
-                    const auto& col = src.at<cv::Vec3b>(i, j);
-                    const int32_t b = col[0], g = col[1], r = col[2];
-                    result.at<uchar>(i, j) = (r > minR && b < maxB && g < maxG && r * 3 > b + g) ? 255 : 0;
+            for(int32_t row = 0; row != src.rows; ++row) {
+                const auto* srcPtr = src.ptr(row);
+                auto* resPtr = result.ptr(row);
+                for(int32_t col = 0; col != src.cols; ++col) {
+                    const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
+                    *resPtr = (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r > b + g) ? 255 : 0;  // binarization
+                    srcPtr += 3;
+                    ++resPtr;
                 }
             }
         }
@@ -195,7 +201,7 @@ class ArmorDetector final
             //     fixContour(color, binary, lightContour);
             const auto rawRect = cv::minAreaRect(lightContour);
 
-            if(rawRect.size.width < 0.5f || rawRect.size.height < 0.5f) 
+            if(rawRect.size.width < 0.5f || rawRect.size.height < 0.5f)
                 continue;
 
             auto lightRect = correctRectAngle(rawRect);
