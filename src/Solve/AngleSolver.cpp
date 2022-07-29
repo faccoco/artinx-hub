@@ -20,11 +20,17 @@
 struct AngleSolverSettings final {
     double precision;
     double delay;
+    double minUpYawAngle;
+    double minUpPitchAngle;
+    double minDownPitchAngle;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
-    return f.object(x).fields(f.field("precision", x.precision), f.field("delay", x.delay));
+    return f.object(x).fields(f.field("precision", x.precision), f.field("delay", x.delay),
+                              f.field("minUpYawAngle", x.minUpPitchAngle).fallback(glm::quarter_pi<double>()),
+                              f.field("minUpPitchAngle", x.minUpPitchAngle).fallback(-0.45),
+                              f.field("minDownPitchAngle", x.minDownPitchAngle).fallback(-1.05));
 }
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
@@ -164,13 +170,18 @@ public:
                 double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
                 double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 
+                bool isFire = true;
                 if (mGroupMask == 1U){
-                    logInfo(fmt::format("position {} {} {}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
-                    //logInfo(fmt::format("yawAngle {} pitchAngle {}", yawAngle, pitchAngle));
-                    logInfo(fmt::format("--------------------------"));
+                    if (!(std::abs(yawAngle) <= mConfig.minUpYawAngle && pitchAngle <= 0.f && pitchAngle >= mConfig.minUpPitchAngle)){
+                        isFire = false;
+                    }
+                }else{
+                    if (!(pitchAngle <= 0.f && pitchAngle >= mConfig.minDownPitchAngle)){
+                        isFire = false;
+                    }
                 }
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
-                        pitchAngle, true);
+                        pitchAngle, isFire);
             },
             [this](update_head_atom, GroupMask, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);

@@ -91,9 +91,6 @@ class ArmorLocator final
                          rvec, tvec, false, cv::SOLVEPNP_IPPE);
         glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
 
-        if (mGroupMask == 1U){
-            logInfo(fmt::format("x:{}, y:{}, z:{}", p0.x, p0.y, p0.z));
-        }
         if(p0.z > 0.0)
             p0 = -p0;
 
