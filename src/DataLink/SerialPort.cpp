@@ -142,7 +142,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                                        glm::dvec3{ std::cos(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
                                                        std::cos(static_cast<double>(fdb.pitch)),
                                                    mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
-                                                   mConfig.headForwardOffset2 - std::sin(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
+                                                   mConfig.headForwardOffset1 - std::sin(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
                                                        std::cos(static_cast<double>(fdb.pitch)) },
                                        glm::dvec3{ 0.0, 1.0, 0.0 }) },
                                    0.0, 0.0 };

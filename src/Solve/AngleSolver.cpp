@@ -164,10 +164,11 @@ public:
                 double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
                 double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 
-                logInfo(fmt::format(" mKey:{} received key:{}", mKey.val, key.val));
-                logInfo(fmt::format("position {} {} {}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
-                logInfo(fmt::format("yawAngle {} pitchAngle {}", yawAngle, pitchAngle));
-                logInfo(fmt::format("--------------------------"));
+                if (mGroupMask == 1U){
+                    logInfo(fmt::format("position {} {} {}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
+                    //logInfo(fmt::format("yawAngle {} pitchAngle {}", yawAngle, pitchAngle));
+                    logInfo(fmt::format("--------------------------"));
+                }
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
                         pitchAngle, true);
             },

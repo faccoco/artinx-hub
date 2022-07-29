@@ -53,41 +53,47 @@ public:
 
                      if(selected.selected.has_value()) {
                          (mask == 1U ? mLastSelected1 : mLastSelected2) = selected;
+//                         if (mask ==1U){
+//                             logInfo(fmt::format(("Up has target!")));
+//                         }else {
+//                             logInfo(fmt::format("down has target!"));
+//                         }
                      } else {
-                         if (mask == 1U){
-                             logInfo(fmt::format("Up has no target!"));
-                         }else {
-                             logInfo(fmt::format("Down has no target!"));
-                         }
-
-                         const auto head1 = BlackBoard::instance().get<HeadInfo>(mHead1);
-                         const auto head2 = BlackBoard::instance().get<HeadInfo>(mHead2);
-                         if(!(head1.has_value() && head2.has_value())) {
-                             logWarning("No head info for sentry");
-                             return;
-                         }
-
-                         const auto& headInfo1 = head1.value();
-                         const auto& headInfo2 = head2.value();
-
-                         selected = (mask == 1U ? mLastSelected2 : mLastSelected1);
-
-                         if(!selected.selected.has_value())
-                             return;
-
-                         const auto delta = Clock::now() - selected.lastUpdate;
-                         if(delta.count() > static_cast<Clock::rep>(mConfig.detectedTTL * 1e9))
-                             return;
-
-                         auto& center = selected.selected.value().center;
-                         auto& velocity = selected.selected.value().velocity;
-                         if(mask == 1U) {
-                             center = headInfo1.transform(headInfo2.transform(center));
-                             velocity = headInfo1.transform(headInfo2.transform(velocity));
-                         } else {
-                             center = headInfo2.transform(headInfo1.transform(center));
-                             velocity = headInfo2.transform(headInfo1.transform(velocity));
-                         }
+                         selected = (mask == 1U ? mLastSelected1 : mLastSelected2);
+//                         if (mask == 1U){
+//                             logInfo(fmt::format("Up has no target!"));
+//                         }else {
+//                             logInfo(fmt::format("Down has no target!"));
+//                         }
+//
+//                         const auto head1 = BlackBoard::instance().get<HeadInfo>(mHead1);
+//                         const auto head2 = BlackBoard::instance().get<HeadInfo>(mHead2);
+//                         if(!(head1.has_value() && head2.has_value())) {
+//                             logWarning("No head info for sentry");
+//                             return;
+//                         }
+//
+//                         const auto& headInfo1 = head1.value();
+//                         const auto& headInfo2 = head2.value();
+//
+//                         selected = (mask == 1U ? mLastSelected2 : mLastSelected1);
+//
+//                         if(!selected.selected.has_value())
+//                             return;
+//
+//                         const auto delta = Clock::now() - selected.lastUpdate;
+//                         if(delta.count() > static_cast<Clock::rep>(mConfig.detectedTTL * 1e9))
+//                             return;
+//
+//                         auto& center = selected.selected.value().center;
+//                         auto& velocity = selected.selected.value().velocity;
+//                         if(mask == 1U) {
+//                             center = headInfo1.transform(headInfo2.transform(center));
+//                             velocity = headInfo1.transform(headInfo2.transform(velocity));
+//                         } else {
+//                             center = headInfo2.transform(headInfo1.transform(center));
+//                             velocity = headInfo2.transform(headInfo1.transform(velocity));
+//                         }
                      }
 
                      // if(!selected.selected.has_value())
