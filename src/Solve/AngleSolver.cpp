@@ -20,9 +20,6 @@
 struct AngleSolverSettings final {
     double precision;
     double delay;
-    double minUpYawAngle;
-    double minUpPitchAngle;
-    double minDownPitchAngle;
 };
 
 template <class Inspector>
@@ -171,15 +168,6 @@ public:
                 double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 
                 bool isFire = true;
-                if (mGroupMask == 1U){
-                    if (!(std::abs(yawAngle) <= mConfig.minUpYawAngle && pitchAngle <= 0.f && pitchAngle >= mConfig.minUpPitchAngle)){
-                        isFire = false;
-                    }
-                }else{
-                    if (!(pitchAngle <= 0.f && pitchAngle >= mConfig.minDownPitchAngle)){
-                        isFire = false;
-                    }
-                }
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
                         pitchAngle, isFire);
             },
