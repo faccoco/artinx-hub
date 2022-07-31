@@ -24,10 +24,7 @@ struct AngleSolverSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
-    return f.object(x).fields(f.field("precision", x.precision), f.field("delay", x.delay),
-                              f.field("minUpYawAngle", x.minUpPitchAngle).fallback(glm::quarter_pi<double>()),
-                              f.field("minUpPitchAngle", x.minUpPitchAngle).fallback(-0.45),
-                              f.field("minDownPitchAngle", x.minDownPitchAngle).fallback(-1.05));
+    return f.object(x).fields(f.field("precision", x.precision), f.field("delay", x.delay));
 }
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
