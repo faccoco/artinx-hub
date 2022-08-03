@@ -105,7 +105,7 @@ class ArmorDetector final
                 auto* resPtr = result.ptr(row);
                 for(int32_t col = 0; col != src.cols; ++col) {
                     const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
-                    *resPtr = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b * 4 > g + r) ? 255 : 0;  // binarization
+                    *resPtr = (b > minB && g < maxG && r < maxR && b * 3 > g + r) ? 255 : 0;  // binarization
                     srcPtr += 3;
                     ++resPtr;
                 }
@@ -120,15 +120,15 @@ class ArmorDetector final
                 auto* resPtr = result.ptr(row);
                 for(int32_t col = 0; col != src.cols; ++col) {
                     const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
-                    *resPtr = (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r > b + g) ? 255 : 0;  // binarization
+                    *resPtr = (r > minR && b < maxB && g < maxG && r * 3 > b + g) ? 255 : 0;  // binarization
                     srcPtr += 3;
                     ++resPtr;
                 }
             }
         }
-        cv::Mat blurred;
-        cv::medianBlur(result, blurred, 5);
-        return blurred;
+        //cv::Mat blurred;
+        //cv::medianBlur(result, blurred, 5);
+        return result;
     }
 
     void fixContour(const cv::Mat& color, const cv::Mat& binary, std::vector<cv::Point2i>& contour) {
@@ -201,7 +201,7 @@ class ArmorDetector final
             //     fixContour(color, binary, lightContour);
             const auto rawRect = cv::minAreaRect(lightContour);
 
-            if(rawRect.size.width < 0.5f || rawRect.size.height < 0.5f) 
+            if(rawRect.size.width < 0.5f || rawRect.size.height < 0.5f)
                 continue;
 
             auto lightRect = correctRectAngle(rawRect);
@@ -446,7 +446,7 @@ public:
 
                      DetectedArmorArray res;
                      res.frame = frame;
-                     // res.frame.frame=binary(frame.frame );
+                     //res.frame.frame=binary(frame.frame );
 
                      for(auto& roi : cars) {
                          auto armors = solve(frame.frame(roi));

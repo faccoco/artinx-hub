@@ -87,6 +87,8 @@ public:
     }
 };
 
+
+
 class LargeCircleMotionController final : public MotionController {
     double mSpinningSpeed;
 
@@ -151,7 +153,7 @@ public:
 class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
     Identifier mKey, mHeadKey{};
 
-    std::vector<std::pair<glm::dvec3, glm::dvec3>> mBullets;
+    std::vector<std::pair<glm::dvec3, glm::dvec3>> mBullets;    //[pose velocity]
     std::pair<MotionState, std::unique_ptr<MotionController>> mTarget;
     std::vector<std::pair<MotionState, double>> mTargetArmors;
     std::pair<MotionState, std::unique_ptr<MotionController>> mSource;
@@ -283,7 +285,7 @@ public:
 
             // update drag forces
 
-            // step
+            // step:update source pose and velocity
             auto vSrc = glm::zero<glm::dvec3>();
             {
                 const auto p1 = mSource.first * glm::dvec4{ 0.0, 0.0, 0.0, 1.0 };

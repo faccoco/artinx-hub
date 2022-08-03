@@ -31,19 +31,8 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
     Identifier mKey, mIMUKey, mHeadKey;
 
 private:
-    glm::dvec3 mPositions[1005] = {};
-    glm::dvec3 sumPositions = { 0, 0, 0 };
-    double mTimes[1005] = {};
-    glm::dvec3 mDiff[1005] = {};
-    glm::dvec3 mVec[1005] = {};
     glm::dvec3 sumVec = { 0, 0, 0 };
     glm::dvec3 avgVec = { 0, 0, 0 };
-    double mPeriod = 0;
-    int mExceptionPoint[1005] = {};
-    int mCnt = 0;
-    int emptyData = 0;
-    double mPreviousYawAngle;
-    double mPreviousPitchAngle;
 
 public:
     AngleSolver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
@@ -114,9 +103,9 @@ public:
             x[0] = x[1] = (-b + a) / 4.0;
             x[2] = x[3] = (-b - a) / 4.0;
         }
-        double ans = 0;
-        for(auto& i : x) {
-            if(i.real() > ans && std::fabs(i.imag()) < 1e7)
+        double ans = 1000;
+        for (auto& i : x) {
+            if (i.real() > 0 && std::fabs(i.imag()) < 1e7 && i.real() < ans)
                 ans = i.real();
         }
         return ans;
@@ -139,168 +128,45 @@ public:
                 HubLogger::watch("armor type", magic_enum::enum_name(data.value().selected.value().type));
 
                 const auto& globalSettings = GlobalSettings::get();
-                const double g = -globalSettings.gForce, bulletSpeed = globalSettings.bulletSpeed;
+                const double g = globalSettings.gForce, bulletSpeed = globalSettings.bulletSpeed;
 
                 constexpr auto square = [=](const double x) { return x * x; };
 
-                Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
-                    data.value().selected.value().center.raw());
-                const auto timeDuration = static_cast<double>(data.value().lastUpdate.time_since_epoch().count()) / 1e9;
-
                 const auto delayTime = mConfig.delay;
 
-                glm::dvec3 forwardVector = { 0, 0, -1 };
-                glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
-
-                Vector<UnitType::Distance, FrameOfReference::Gun> forwardPosition(forwardVector);
+                Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
+                data.value().selected.value().center.raw());
                 Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot =
                     dataHeadInfo.value().transform(positionOfReferenceGun);
-                Vector<UnitType::Distance, FrameOfReference::Ground> positionOfReferenceGround =
-                    dataPosture.value().postureOfRobot(positionOfReferenceRobot);
-                HubLogger::watch("z", positionOfReferenceGround.raw().z);
-                glm::dvec3 transformedPosition = { positionOfReferenceGround.raw().x, -positionOfReferenceGround.raw().z,
-                                                   positionOfReferenceGround.raw().y };
-                logInfo(fmt::format("position {} {} {}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
-                Vector<UnitType::Distance, FrameOfReference::Robot> forwardPositionOfReferenceRobot =
-                    dataHeadInfo.value().transform(forwardPosition);
-                Vector<UnitType::Distance, FrameOfReference::Ground> forwardPositionOfReferenceGround =
-                    dataPosture.value().postureOfRobot(forwardPositionOfReferenceRobot);
                 Vector<UnitType::LinearVelocity, FrameOfReference::Ground> linearVelocity(
                     dataPosture.value().linearVelocityOfRobot.raw());
 
-                forwardVector = { forwardPositionOfReferenceGround.raw().x, -forwardPositionOfReferenceGround.raw().z,
-                                  forwardPositionOfReferenceGround.raw().y };
-                transformedLinearVelocity = { linearVelocity.raw().x, -linearVelocity.raw().z, linearVelocity.raw().y };
-                //logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y, linearVelocity.raw().z));
-                transformedPosition = { transformedPosition.x - delayTime * transformedLinearVelocity.x,
-                                        transformedPosition.y - delayTime * transformedLinearVelocity.y,
-                                        transformedPosition.z - delayTime * transformedLinearVelocity.z };
+                HubLogger::watch("z", positionOfReferenceRobot.raw().z);
+
                 //(forward:+y,right:+x)
+                glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
+                glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x,
+                                                   -positionOfReferenceRobot.raw().z ,
+                                                   positionOfReferenceRobot.raw().y};
+                transformedLinearVelocity = {avgVec.x - linearVelocity.raw().x, avgVec.y + linearVelocity.raw().z, avgVec.z - linearVelocity.raw().y };
+                //logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y, linearVelocity.raw().z));
+                transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x,
+                                        transformedPosition.y + delayTime * transformedLinearVelocity.y,
+                                        transformedPosition.z + delayTime * transformedLinearVelocity.z};
 
-                double horizontalDistance = std::hypot(transformedPosition.x, transformedPosition.y);
-                double theta = std::atan2(transformedPosition.y, transformedPosition.x);
-                double netHorizontalSpeed = ferrari(
-                    -square(horizontalDistance) - square(transformedPosition.z),
-                    2 * std::cos(theta) * square(horizontalDistance) * transformedLinearVelocity.x +
-                        2 * std::sin(theta) * square(horizontalDistance) * transformedLinearVelocity.y,
-                    -g * square(horizontalDistance) * transformedPosition.z + square(horizontalDistance) * square(bulletSpeed) -
-                        square(horizontalDistance) * (square(transformedLinearVelocity.x) + square(transformedLinearVelocity.y)),
-                    0, (-0.25) * square(g) * square(square(horizontalDistance)));
-                double airDuration = horizontalDistance / netHorizontalSpeed;
-                double netVerticalSpeed = transformedPosition.z / airDuration + g * airDuration / 2;
-                double pitchAngle = std::asin(netVerticalSpeed / bulletSpeed);
-                double vy = netHorizontalSpeed * std::sin(theta) - transformedLinearVelocity.y;
-                double vx = netHorizontalSpeed * std::cos(theta) - transformedLinearVelocity.x;
-                double yawAngle = std::atan2(vy, vx);
-                yawAngle -= glm::half_pi<double>();
-                mTimes[(++mCnt) % 1000] = timeDuration;
-                mPositions[(mCnt) % 1000] = transformedPosition;
-                sumPositions += mPositions[mCnt % 1000];
-                if(mCnt >= 51) {
-                    //logInfo(fmt::format("Time {} {}", mTimes[(mCnt) % 1000], mTimes[(mCnt - 50) % 1000]));
-                    if(mTimes[mCnt % 1000] - mTimes[(mCnt - 50) % 1000] == 0) {
-                        mVec[(mCnt - 50) % 1000] = { 0, 0, 0 };
-                        emptyData += 1;
-                    } else {
-                        mVec[(mCnt - 50) % 1000] = (mPositions[mCnt % 1000] - mPositions[(mCnt - 50) % 1000]) /
-                            (mTimes[mCnt % 1000] - mTimes[(mCnt - 50) % 1000]);
-                        
-                        logInfo(fmt::format("Instant velocity {} {} {}", mVec[(mCnt - 50) % 1000].x, mVec[(mCnt - 50) % 1000].y,
-                                            mVec[(mCnt - 50) % 1000].z));
-                    }
-                    sumVec += mVec[(mCnt - 50) % 1000];
+                double airDuration = ferrari(1, 0, -(4 * g * transformedPosition.z + 4 * square(bulletSpeed) - 4 * square(transformedLinearVelocity.x) - 4 * square(transformedLinearVelocity.y)) / square(g),
+                                        (8 * transformedPosition.x * transformedLinearVelocity.x + 8 * transformedPosition.y * transformedLinearVelocity.y) / square(g), 
+                                        (4 * square(transformedPosition.x) + 4 * square(transformedPosition.y) + 4 * square(transformedPosition.z)) / square(g));
+                double verticalSpeed = transformedPosition.z / airDuration - 0.5 * g * airDuration;
+                double horizontalSpeedX = (transformedPosition.x + transformedLinearVelocity.x * airDuration) / airDuration;
+                double horizontalSpeedY = (transformedPosition.y + transformedLinearVelocity.y * airDuration) / airDuration;  
+                
+                double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
+                double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 
-                    if(mCnt >= 302) {
-                        
-                        if(glm::length(mVec[(mCnt - 250) % 1000]) == 0)
-                            emptyData -= 1;
-                        if(mExceptionPoint[(mCnt - 250) % 1000] == 1) {
-                            mExceptionPoint[0]--;
-                            mExceptionPoint[(mCnt - 250) % 1000] = 0;
-                        }
-                        sumPositions -= mPositions[(mCnt - 250) % 1000];
-                        sumVec -= mVec[(mCnt - 250) % 1000];
-
-
-                        if(emptyData < 250)
-                            avgVec = sumVec / static_cast<double>(250 - emptyData - std::max(0,250-mCnt));
-                        else
-                            avgVec = { 0, 0, 0 };
-
-                        double rt = glm::length(mVec[(mCnt - 50) % 1000] - mVec[(mCnt - 51) % 1000]) / glm::length(avgVec);
-                        if(glm::length(avgVec) != 0 && rt > 1)
-                            logInfo(fmt::format("Ratio {}", rt));
-
-                        if(glm::length(avgVec) != 0 &&
-                           glm::length(avgVec) > 0.1 &&
-                           glm::length(mVec[(mCnt - 50) % 1000] - mVec[(mCnt - 51) % 1000]) / glm::length(avgVec) > 20 &&
-                           glm::dot(mVec[(mCnt - 50) % 1000], mVec[(mCnt - 51) % 1000]) < 0) {
-                            mExceptionPoint[0]++;
-                            mExceptionPoint[(mCnt - 50) % 1000] = 1;
-                            sumVec -= mVec[(mCnt - 50) % 1000];
-                            mVec[(mCnt - 50) % 1000] = { 0, 0, 0 };
-                            emptyData += 1;
-                        }
-
-                        if(mExceptionPoint[0] <= 3 && emptyData < 100)
-                            transformedPosition = {
-                                (transformedPosition.x + airDuration * (avgVec.x + transformedLinearVelocity.x)),
-                                (transformedPosition.y + airDuration * (avgVec.y + transformedLinearVelocity.y)),
-                                (transformedPosition.z + airDuration * (avgVec.z + transformedLinearVelocity.z))
-                            };
-                        else
-                            transformedPosition = sumPositions / static_cast<double>(250);
-                    }
-
-                    if(mCnt >= 3 &&
-                       ((glm::length(avgVec) != 0 && glm::length(mVec[(mCnt - 1) % 1000]) / glm::length(avgVec) > 60) &&
-                        (glm::length(mVec[(mCnt - 1) % 1000])) > 1e-4) &&
-                       glm::dot(mVec[(mCnt - 1) % 1000], mVec[(mCnt - 2) % 1000]) < 0) {
-                        // logInfo(fmt::format("EXEPTIONDDD {} {}", std::fabs((glm::length(mVec[(mCnt - 1) % 1000] - mVec[(mCnt -
-                        // 2) % 1000]))),std::fabs((glm::length(mVec[(mCnt - 1) % 1000] - mVec[mCnt % 1000])))));
-                        mExceptionPoint[(mCnt - 1) % 1000] = 1;
-                        mExceptionPoint[0]++;
-                        sumVec -= mVec[(mCnt - 1) % 1000];
-                        mVec[(mCnt - 1) % 1000] = { 0, 0, 0 };
-                        emptyData += 1;
-                    }
-                }
-                netHorizontalSpeed = ferrari(
-                    -square(horizontalDistance) - square(transformedPosition.z),
-                    2 * std::cos(theta) * square(horizontalDistance) * transformedLinearVelocity.x +
-                        2 * std::sin(theta) * square(horizontalDistance) * transformedLinearVelocity.y,
-                    -g * square(horizontalDistance) * transformedPosition.z + square(horizontalDistance) * square(bulletSpeed) -
-                        square(horizontalDistance) * (square(transformedLinearVelocity.x) + square(transformedLinearVelocity.y)),
-                    0, (-0.25) * square(g) * square(square(horizontalDistance)));
-                netVerticalSpeed = transformedPosition.z / airDuration + g * airDuration / 2;
-                if(std::fabs(netVerticalSpeed / bulletSpeed) < 1) {
-                    pitchAngle = std::asin(netVerticalSpeed / bulletSpeed);
-                    vy = netHorizontalSpeed * std::sin(theta) - transformedLinearVelocity.y;
-                    vx = netHorizontalSpeed * std::cos(theta) - transformedLinearVelocity.x;
-                    yawAngle = std::atan2(vy, vx);
-                    yawAngle -= glm::half_pi<double>();
-                }
-
-                pitchAngle = (pitchAngle > glm::quarter_pi<double>()) ? (glm::half_pi<double>() - pitchAngle) : pitchAngle;
-                logInfo(fmt::format("Object velocity {} {} {} mexecption {}", avgVec.x, avgVec.y, avgVec.z, mExceptionPoint[0]));
-                double currentYawAngle = std::atan2(forwardVector.y, forwardVector.x);
-                currentYawAngle -= glm::half_pi<double>();
-
-                double currentPitchAngle = std::atan2(forwardVector.z, std::hypot(forwardVector.x, forwardVector.y));
-                // TODO: variant tolerance: size / sin(2*theta) \approx dist
-                const auto diffAngle = [](const double a, const double b) {
-                    const auto delta = std::fabs(a - b);
-                    assert(delta < glm::two_pi<double>());
-                    return std::min(delta, glm::two_pi<double>() - delta);
-                };
-
-                bool ifShoot = ((diffAngle(yawAngle, currentYawAngle) < mConfig.precision) &&
-                                (diffAngle(pitchAngle, currentPitchAngle) < mConfig.precision)) ||
-                    (mExceptionPoint[0] >= 4);
-                //if(std::fabs(yawAngle) > 0.1) return;
-                logInfo(fmt::format("yawAngle {} pitchAngle {}", yawAngle, pitchAngle));
+                bool isFire = true;
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
-                        pitchAngle, ifShoot);
+                        pitchAngle, isFire);
             },
             [this](update_head_atom, GroupMask, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
