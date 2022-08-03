@@ -10,6 +10,7 @@
 
 #include <caf/event_based_actor.hpp>
 #include <glm/glm.hpp>
+#include <fmt/format.h>
 
 #include "SuppressWarningEnd.hpp"
 

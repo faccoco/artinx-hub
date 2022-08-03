@@ -38,6 +38,7 @@ class HubHelper : public T {
     //静态断言，编译期判断T的基类是否为caf::abstract_actor
     static_assert(std::is_base_of_v<caf::abstract_actor, T>);
 
+    //模板参数Lable指明了需要发送Atom的类型
     template <typename Label>
     struct SucceedAddress final {
         std::variant<std::vector<std::string>, std::vector<std::pair<caf::actor_addr, GroupMask>>> val;
@@ -55,7 +56,7 @@ class HubHelper : public T {
         return static_cast<const Identifier&>(arg);
     }
 
-    //可变参数模板
+    //可变参数模板 ex: for armorDetector, mDest ==> std::tuple<SucceedAddress<armor_detect_available_atom>, SucceedAddress<image_frame_atom>>
     std::tuple<SucceedAddress<Succeed>...> mDest;
 
     template <typename Atom>
