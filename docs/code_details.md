@@ -215,7 +215,7 @@ public:
 
 + 装甲板坐标以装甲板中心为原点，装甲板平板为xy平面。
 + 相机坐标系原点为相机光心的位置，沿着相机方向向后为z轴正，垂直相机向右为x轴正，垂直相机向上为y轴正。
-+ 枪管坐标系的原点规定在枪管绕着x轴旋转的两个支点的中点处
++ 枪管坐标系的原点规定在枪管pitch轴旋转的两个支点的中点处，沿枪管朝前为z轴负，垂直枪管为向右为x轴正。
 + 机器人坐标系原点规定在底盘中心，向正右方为x轴正，正上方为y轴正，正后方为z轴正。
 
 + 世界坐标系原点和机器人坐标系原点重合
@@ -226,25 +226,121 @@ public:
 
     通过`SolvePnP`能得到，从装甲板坐标系到相机坐标系的变化矩阵$^cT_w$
 
-    ![image-20220723090138861](C:\Users\20172\AppData\Roaming\Typora\typora-user-images\image-20220723090138861.png)
-
     取装甲板中心，即$X_w = 0，Y_w = 0, Z_w = 0$,则 $X_c = t_x, Y_c=t_y, Z_c=t_z$,由于`opencv solvePnP`中规定的y轴方向和z轴方向相反，所以y轴和z轴方向还需要做一个取负的运算。
 
 + 从相机坐标系到枪管坐标系
 
+    由于相机安装会和枪管有一个固定的偏置，所以从相机坐标系到枪管坐标系需要有一个平移变换。
+
 + 从机器人坐标系从枪管坐标系
 
-    注意，由于哨兵的yaw轴和和pitch轴的
+    利用`glm::lookAtRH`函数，以机器人坐标系为原点，去看枪管坐标系。
 
-    利用`glm::lookAtRH`函数，
+    *Reference*:[摄像机+LookAt矩阵+视角移动+欧拉角 - Garrett_Wale - 博客园 (cnblogs.com)](https://www.cnblogs.com/GarrettWale/p/11336589.html)
+    
+    ```c++
+        /**					
+       * @brief 				根据要变换到的坐标系的原点在当前坐标系的位置，和三个向量的方向在当前坐标系的位置来求得两个坐标系之间的变换
+       * @param1 eye			要变换到的坐标系原点在当前坐标系的位置，
+       							枪管坐标系原点在机器人坐标系（0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1）
+       * @param center 	  	    要变换到的坐标系三个向量的方向，根据yaw角和pitch角推出，可以自己想一想怎么推出来的
+       * @param up				上向量
+       */
+    const HeadInfo infoUp{ SynchronizedClock::instance().now(),
+                                       decltype(HeadInfo::transform){ glm::lookAtRH(
+                                           glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1},
+                                           glm::dvec3{ std::cos(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
+                                                           std::cos(static_cast<double>(fdb.pitch)),
+                                                       mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
+                                                       mConfig.headForwardOffset1 - std::sin(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
+                                                           std::cos(static_cast<double>(fdb.pitch)) },
+                                           glm::dvec3{ 0.0, 1.0, 0.0 }) },
+    ```
+    
+    
+
+## Angle Solver
+
+$V_0$: 子弹的净速度    $V_{0h}$ : 子弹的水平面方向净速度 	$V_{0v}$:子弹竖直方向的净速度   $V_h$:子弹水平面方向的
+
+ $V_1:$ 车的速度     $V_x$: 子弹x方向的合速度     $V_y$:子弹y方向的合速度
+
+$S$: 水平方向的距离
+
+$V_{x} = V_{1x} + V_{0hx}$   $V_y = V_{1y} + V_{0hy}$
+
+$V_hsin\theta = V_{ohy} + V_{1y}$  $V_hcos \theta = V_{0hx} + V_{1x}$
+
+$V_h^2=V_x^2+V_y^2$
+
+$V_{0v}\frac{S}{V_h}-\frac{1}{2}g\frac{S^2}{V_h^2}=h$
+
+$V_0^2= V_{0h}^2 + V_{0v}^2$
+
+$\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ 
+
+$V_{0v}^2S^2V_h^2=h^2V_h^4+1/4gs^2+hgs^2V_h^4$
+
+$(V_0^2 - V_{0h}^2)S^2V_h^2=h^2V_h^4+1/4gs^2+hgs^2V_h^4$ 
+
+$(V_0^2-(V_hsin \theta - V_{1y})^2-(V_hsin \theta - V_{1x})^2)S^2h^2=h^2V_h^4+1/4gs^2+hgs^2V_h^4$
+
+$(V_0^2 - V_h^2 + 2V_hV_{1y}sin \theta + 2V_hV_{1x}cos \theta - (V_{1y}^2+V_{1x}^2))S^2h^2=h^2V_h^4+1/4gs^2+hgs^2V_h^4$
+
++ 以车辆自身作为参考系
+
++ 考虑视觉算法处理的延迟、串口通信的延迟，云台电机执行动作的延迟以及子弹从拨弹轮到射出的延迟，这几类延迟之和设为$t_{f}$
+
+    $V_0$: 子弹相对车速度    $V_{0h}$ : 子弹的相对车水平面方向速度 	$V_{0v}$:子弹竖直方向的净速度  $V_2$: 目标移动的速度
+
+     $V_1:$ 车的速度   $S$: 目标到枪口水平面方向的距离      $t$: 子弹从枪口射出到命中障碍物的时间   $h$: 目标到枪口的竖直高度
+
++ 未知量有$\vec{V_{0h}}$  $V_{0v}$  $t$，其余量已知
+
+经过固定延迟$t_f$后，目标移动到$\vec{X_f}$处
+
+​					$\vec{S_f} = \vec{S} + (\vec{V_2}-\vec{V_1})t_f$
+
+$V_{0v}t + \frac{1}{2}gt^2 = h$     												 --式一
+
+$\vec{V_{0h}}t = \vec{S_f} + (\vec{V_2} - \vec{V_1})t$
+
+$\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ 
+
+$V_{0h}cos\theta t= S_{fx} + ({V_2} - {V_1})_xt$   						--式二
+
+$V_{0h}sin\theta t= S_{fy} + ({V_2} - {V_1})_yt$							--式三
+
+$V_0 = V_{0h}^2 + V_{0v}^2 $														--式四
+
+联立式一、式二、式三、式四，利用`matlab`可解得一个关于`t`的四次方程， `matlab`脚本如下，图片不方便插入，想看结果自己运行查看一下。
+
+```matlab
+syms V0v V0hx V0hy t; 
+syms Sx Sy Vx Vy h g V0;
+S1 = V0v*t + 1/2 * g * t * t - h;
+S2 = V0hx*t - Sx  - Vx * t;
+S3 = V0hy*t - Sy  - Vy * t;
+S4 = V0 * V0 - V0v * V0v - V0hx * V0hx - V0hy * V0hy;
+[V0v, V0hx, V0hy, t] = solve(S1, S2, S3, S4, V0v, V0hx, V0hy, t)
+```
+
+解得t后，其他量可简单求之，最后
+
+```c++
+//由于机器人的yaw轴的零点在视觉定义的坐标系的pi/2处，所以求得的pitch角要减pi/2
+double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
+double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
+```
 
 ## Sentry actor workflow
 
 + `camera_up `和`camera_down`
+  
     + 初始化由于类实例化的对象地址不同，所以`mkey`值不相同，对应的在`blackboard`上的`CameraFrame`的哈希值不同。
     + `mGroup`未设置，都为1。
-    + `sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData)))`。
-
++ `sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData)))`。
+  
 + `serial`
 
     + `mGroup`未设置，为1。

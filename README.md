@@ -316,7 +316,8 @@ CAF框架参见[actor_system.md](docs/actor_system.md)
 + config新增两个内置属性group_id和group_mask，如果设置了group_id则mGroupMask为1<<group_id,如果设置了group_mask则mGroupMask为group_mask，否则默认为1
 + HubHelper里的mGroupMask用于指示自己的身份和通讯组
 + sendMasked比sendAll增加mask参数，当**mask和receiver的mGroupMask按位与不等于0**时才发送
-+ 如果发给不同mask的数据不一样，需要给每个mask分配一个独立的key（发现哨兵策略有个共享key的bug，谁去修一下）
-
++ 如果发给不同mask的数据不一样，需要给每个mask分配一个独立的key
+### 代码详解
+参见[code_details.md](docs/code_details.md)
 
 
