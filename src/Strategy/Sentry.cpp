@@ -64,14 +64,28 @@ public:
                          const auto& headInfo1 = head1.value();
                          const auto& headInfo2 = head2.value();
 
-                         selected = (mask == 1U ? mLastSelected2 : mLastSelected1);
+                         SelectedTarget lastSelfSelected;
+                         if (mask == 1U){
+                             selected = mLastSelected2;
+                             lastSelfSelected = mLastSelected1;
+                         }else{
+                             selected = mLastSelected1;
+                             lastSelfSelected = mLastSelected2;
+                         }
 
                          if(!selected.selected.has_value())
                              return;
 
                          const auto delta = Clock::now() - selected.lastUpdate;
-                         if(delta.count() > static_cast<Clock::rep>(mConfig.detectedTTL * 1e9))
+                         if(delta.count() > static_cast<Clock::rep>(mConfig.detectedTTL  * 1e9))
                              return;
+
+                         if(lastSelfSelected.selected.has_value()){
+                             const auto selfDelta = Clock::now() - lastSelfSelected.lastUpdate;
+                             if (selfDelta.count() < static_cast<Clock::rep>(mConfig.detectedTTL / 10 * 1e9)){
+                                 return;
+                             }
+                         }
 
                          auto& center = selected.selected.value().center;
                          auto& velocity = selected.selected.value().velocity;
