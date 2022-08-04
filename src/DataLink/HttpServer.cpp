@@ -17,9 +17,15 @@
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <string>
+#include <fmt/format.h>
 #ifdef ARTINXHUB_WINDOWS
 #define NOMINMAX
 #include <Windows.h>
+#endif
+
+#ifdef ARTINXHUB_LINUX
+#include <net/if.h>
+#include <sys/ioctl.h>
 #endif
 
 #include "SuppressWarningEnd.hpp"
@@ -35,10 +41,30 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_lo
     std::mutex mMutex;
     std::thread mListener;
 
+    std::string mhostIpAddress;
     std::streambuf* mClogBuffer;
     std::stringstream mLogStream;
 
     Identifier mKey;
+
+#if defined(ARTINXHUB_LINUX)
+#define ETH_NAME "wlp0s20f3"
+     std::string getHostIpAddress(){
+        int                 sockFd;
+        struct sockaddr_in  sockIn;
+        struct ifreq        ifReq;
+
+        sockFd = socket(AF_INET, SOCK_DGRAM, 0);
+        if (sockFd != -1) {
+            strncpy(ifReq.ifr_name, ETH_NAME, IFNAMSIZ);                            //Interface name
+            if (ioctl(sockFd, SIOCGIFADDR, &ifReq) == 0) {                          //SIOCGIFADDR 获取interface address
+                memcpy(&sockIn, &ifReq.ifr_addr, sizeof(ifReq.ifr_addr));
+                return inet_ntoa(sockIn.sin_addr);
+            }
+        }
+        return "127.0.0.1";
+    }
+#endif
 
     std::optional<std::vector<uchar>> generateImageData(const std::string& path) {
         if(path.empty())
@@ -74,7 +100,11 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_lo
 public:
     HttpServer(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mClogBuffer{ std::clog.rdbuf() }, mKey{ generateKey(this) } {
-
+#if defined(ARTINXHUB_WINDOWS)
+        mhostIpAddress = "127.0.0.1";
+#elif defined(ARTINXHUB_LINUX)
+        mhostIpAddress = getHostIpAddress();
+#endif
         // std::clog.rdbuf(mLogStream.rdbuf());
 
         mServer.set_mount_point("/pages", "./pages");
@@ -137,7 +167,7 @@ public:
             mServer.stop();
             terminateSystem(*this, true);
         });
-        mListener = std::thread{ [this] { mServer.listen("127.0.0.1", 5630); } };
+        mListener = std::thread{ [this] { mServer.listen(mhostIpAddress.c_str(), 5630); } };
     }
     ~HttpServer() override {
         std::clog.rdbuf(mClogBuffer);
@@ -148,11 +178,11 @@ public:
                     ACTOR_PROTOCOL_CHECK(start_atom);
                     [[maybe_unused]] const auto res =
 #if defined(ARTINXHUB_WINDOWS)
-                        ShellExecuteA(nullptr, "open", "http://localhost:5630/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
+                    ShellExecuteA(nullptr, "open", "http://localhost:5630/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
 #elif defined(ARTINXHUB_LINUX)
-                        ::system("xdg-open http://127.0.0.1:5630/pages/index.html");
+                    ::system(fmt::format("xdg-open http://{}:5630/pages/index.html", mhostIpAddress).c_str());
 #else
-                        0;
+                    0;
 #endif
                 },
                  [this](image_frame_atom, Identifier key) {
