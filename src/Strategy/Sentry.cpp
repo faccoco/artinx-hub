@@ -64,14 +64,8 @@ public:
                          const auto& headInfo1 = head1.value();
                          const auto& headInfo2 = head2.value();
 
-                         SelectedTarget lastSelfSelected;
-                         if (mask == 1U){
-                             selected = mLastSelected2;
-                             lastSelfSelected = mLastSelected1;
-                         }else{
-                             selected = mLastSelected1;
-                             lastSelfSelected = mLastSelected2;
-                         }
+                         selected = (mask == 1U) ? mLastSelected2 : mLastSelected1;
+                         const auto& lastSelfSelected = (mask == 1U)? mLastSelected1 : mLastSelected2;
 
                          if(!selected.selected.has_value())
                              return;
@@ -82,7 +76,7 @@ public:
 
                          if(lastSelfSelected.selected.has_value()){
                              const auto selfDelta = Clock::now() - lastSelfSelected.lastUpdate;
-                             if (selfDelta.count() < static_cast<Clock::rep>(mConfig.detectedTTL / 10 * 1e9)){
+                             if (selfDelta.count() < static_cast<Clock::rep>(mConfig.detectedTTL * 1e9)){
                                  return;
                              }
                          }
