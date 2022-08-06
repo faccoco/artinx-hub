@@ -44,7 +44,7 @@ deploy-job:
     - cmake --build ./build --config Release -j 6
     - sudo touch /opt/env_setup.sh
     # - sudo bash ./scripts/setup-service.bash $DEPLOY_TARGET
-    - sudo systemctl stop ArtinxHub.service
+    - sudo bash ./scripts/close-service.bash
   environment:
     name: $DEPLOY_ID
   parallel:
