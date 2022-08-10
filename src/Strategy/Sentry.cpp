@@ -82,7 +82,7 @@ public:
 
                          if(lastSelfSelected.selected.has_value()){
                              const auto selfDelta = Clock::now() - lastSelfSelected.lastUpdate;
-                             if (selfDelta.count() < static_cast<Clock::rep>(mConfig.detectedTTL / 10 * 1e9)){
+                             if (selfDelta.count() < static_cast<Clock::rep>(mConfig.detectedTTL * 1e9)){
                                  return;
                              }
                          }

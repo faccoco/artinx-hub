@@ -165,6 +165,7 @@ public:
                 double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 
                 bool isFire = true;
+                logInfo(fmt::format("x:{}, y:{}, z:{}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
                         pitchAngle, isFire);
             },
