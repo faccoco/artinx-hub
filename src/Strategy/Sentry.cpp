@@ -54,6 +54,9 @@ public:
                      if(selected.selected.has_value()) {
                          (mask == 1U ? mLastSelected1 : mLastSelected2) = selected;
                      } else {
+#ifndef ENABLE_INTERACTION
+                         return ;
+#endif
                          const auto head1 = BlackBoard::instance().get<HeadInfo>(mHead1);
                          const auto head2 = BlackBoard::instance().get<HeadInfo>(mHead2);
                          if(!(head1.has_value() && head2.has_value())) {
