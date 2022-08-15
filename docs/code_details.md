@@ -79,7 +79,7 @@ protected:
    /**
    * @brief				根据this指针生成Key
    * @param thisPointer self类型的this指针
-   * @retrun			某个actor类实例化的对象对应的key， key=类型的hash_code 异或 类实例化后的对                         象this指针的值的结果	
+   * @retrun			某个actor类实例化的对象对应的key， key=类型的hash_code 异或 类实例化后的对象this指针的值的结果	
    */
     template <typename Self>
     static Identifier generateKey(Self* thisPointer) {
@@ -89,7 +89,7 @@ protected:
 public:
     /**
    * @brief				构造函数，读取配置文件，初始化actor
-   						1.如果配置文件中，如果设置了group_mask则mGroupMask为group_mask,如果设置了						                  group_id则mGroupMask为1<<group_id,，否则默认为1
+   						1.如果配置文件中，如果设置了group_mask则mGroupMask为group_mask,如果设置了						                group_id则mGroupMask为1<<group_id,，否则默认为1
    * @param base 		actor基类
    * @param config		配置文件
    */

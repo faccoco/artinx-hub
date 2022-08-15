@@ -12,7 +12,6 @@ class BlackBoard final {
 
     void insertImpl(size_t hashValue, std::any val);
     std::pair<std::shared_mutex, std::any>* getImpl(size_t hashValue);
-
 public:
     template <typename T>
     std::optional<T> get(const Identifier key) {
