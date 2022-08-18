@@ -134,6 +134,7 @@ public:
 
                 const auto delayTime = mConfig.delay;
 
+                logInfo(fmt::format("Beform transform:x: {}, y: {}, z: {}", data.value().selected.value().center.raw().x, -data.value().selected.value().center.raw().z, data.value().selected.value().center.raw().y));
                 Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
                 data.value().selected.value().center.raw());
                 Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot =
