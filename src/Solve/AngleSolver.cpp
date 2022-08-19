@@ -134,6 +134,7 @@ public:
 
                 const auto delayTime = mConfig.delay;
 
+                logInfo(fmt::format("Beform transform:x: {}, y: {}, z: {}", data.value().selected.value().center.raw().x, -data.value().selected.value().center.raw().z, data.value().selected.value().center.raw().y));
                 Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
                 data.value().selected.value().center.raw());
                 Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot =
@@ -165,6 +166,7 @@ public:
                 double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 
                 bool isFire = true;
+                logInfo(fmt::format("x:{}, y:{}, z:{}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
                         pitchAngle, isFire);
             },

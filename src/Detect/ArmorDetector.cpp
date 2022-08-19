@@ -90,7 +90,7 @@ class ArmorDetector final
     }
 
     static bool isWhite(int32_t b, int32_t g, int32_t r) {
-        return b + g + r > 520;
+        return b + g + r > 400;
     }
 
     cv::Mat binary(const cv::Mat& src) {
@@ -105,7 +105,7 @@ class ArmorDetector final
                 auto* resPtr = result.ptr(row);
                 for(int32_t col = 0; col != src.cols; ++col) {
                     const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
-                    *resPtr = (b > minB && g < maxG && r < maxR && b * 3 > g + r) ? 255 : 0;  // binarization
+                    *resPtr = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b * 3 > g + r) ? 255 : 0;  // binarization
                     srcPtr += 3;
                     ++resPtr;
                 }
@@ -120,14 +120,14 @@ class ArmorDetector final
                 auto* resPtr = result.ptr(row);
                 for(int32_t col = 0; col != src.cols; ++col) {
                     const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
-                    *resPtr = (r > minR && b < maxB && g < maxG && r * 3 > b + g) ? 255 : 0;  // binarization
+                    *resPtr = (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r * 3 > b + g) ? 255 : 0;  // binarization
                     srcPtr += 3;
                     ++resPtr;
                 }
             }
         }
-        //cv::Mat blurred;
-        //cv::medianBlur(result, blurred, 5);
+        cv::Mat blurred;
+        cv::medianBlur(result, blurred, 5);
         return result;
     }
 
