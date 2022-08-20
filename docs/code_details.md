@@ -201,7 +201,47 @@ public:
     static BlackBoard& instance();
 };
 ```
+## Armor Detector
+### 吉林大学方案
+#### 二值化方案
+```C++
+//RGB通道相减
+enemyColor == RED:
+    r - b > thereshold
+enemyColor == BLUE:
+    b - r > thereshold
 
+//筛选结构化的元素、膨胀
+kernel = getStructuringElement(MORPH_ELLIPSE, Size(3, 3))
+dilate(src, dist, kernel)
+```
+#### 灯条寻找方案
+```C++
+//寻找轮廓
+findContours(contourImg, lightContours, CV_RETR_EXTERNAL，CV_CHAIN_APPROX_SIMPLE)
+
+// 对找到的轮廓遍历进行筛选，筛选条件如下
+// 1、轮廓点数 > 6
+// 2、轮廓面积大于 min_area 阈值
+
+//拟合椭圆
+fitEllipse(lightContours)
+//角度筛选，去掉一个角度偏大的灯条
+
+//将灯条从左到右排序
+```
+#### 灯条匹配方案
+ ```c++
+ // 从左到右，为每个灯条编号， 并与其他灯条进行一次匹配判断，判断条件如下
+// 1、角度差判断
+// 2、两灯条中心连线与与水平线夹角
+// 3、两灯条中心x方向差距比值（l_light_center.x - l_light_center.y) / mean_l_light_len)
+// 4、两灯条中心y方向差距的比值
+// 左右灯条长度差比值 (l_light.len - r_light.leng) / max(l_light_len, r_light_len)
+
+//去除游离灯条导致错误识别的装甲板
+//如果装甲板左右两边灯条编号一致，则比较两装甲板灯条中心连线与水平线的夹角，谁小，则去除另外一个。
+ ```
 ## SolvePnP
 
 + *Reference*:[OpenCV: Perspective-n-Point (PnP) pose computation](https://docs.opencv.org/3.4/d5/d1f/calib3d_solvePnP.html)
