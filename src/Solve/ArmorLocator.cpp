@@ -142,7 +142,7 @@ public:
                                                      decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
                          }
                      }
-
+ 
 #ifdef ARTINXHUB_DEBUG
                      std::swap(debugView, data.frame.frame);
                      sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(data.frame)));

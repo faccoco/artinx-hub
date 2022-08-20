@@ -47,7 +47,7 @@ Artinx视觉组 集成框架
 ## 快速跳转
 
 + [cppreference](https://en.cppreference.com/w/)
-+ [glm manual](https://github.com/g-truc/glm/blob/master/manual.md)
++ [glm manual](https://github.com/g-truc/glm/blob/master/manual.md) or [Opengl-glm](https://nas.artinx.club:5001/sharing/q01EttQss)
 + [OpenCV doc](https://docs.opencv.org/4.x/)
 + [规则手册](https://www.robomaster.com/zh-CN/resource/pages/announcement/1370)
 
@@ -146,7 +146,7 @@ Artinx视觉组 集成框架
 + 按照Genetic步骤安装依赖
 + clone仓库
 + 用clion打开文件夹
-+ 打开CMake设置，填入参数```-DARTINX_HUB_CAMERA=USB3 -DCMAKE_TOOLCHAIN_FILE=<path to vcpkg>/scripts/buildsystems/vcpkg.cmake```
++ 打开CMake设置，填入参数`-DARTINX_HUB_CAMERA=USB3 -DCMAKE_TOOLCHAIN_FILE=<path to vcpkg>/scripts/buildsystems/vcpkg.cmake` **2.0相机写`USB2`**
 + 在CMake选项卡生成构建文件
 + 在Build选项卡编译程序
 + 添加运行配置，填入参数（config文件路径）
@@ -267,8 +267,9 @@ gitlab-runner ALL=(ALL) NOPASSWD: ALL
     + ``来查看是否识别串口
 + 相机无法启动
     + 查看错误码查文档
-    + 打开Galaxy看看能不能检测到
+    + 打开Galaxy看看能不能检测到(仅限3.0相机）
     + 重装驱动，重新启动，重新插拔数据线
+    + **哨兵靠相机的SN码区分上下云台，看看confg里面有没有写错**
 + 机器人上自瞄不工作
     + 使用systemctl status ArtinxHub.service查看服务状态
     + 打开127.0.0.1:5430查看工作状态
@@ -316,7 +317,8 @@ CAF框架参见[actor_system.md](docs/actor_system.md)
 + config新增两个内置属性group_id和group_mask，如果设置了group_id则mGroupMask为1<<group_id,如果设置了group_mask则mGroupMask为group_mask，否则默认为1
 + HubHelper里的mGroupMask用于指示自己的身份和通讯组
 + sendMasked比sendAll增加mask参数，当**mask和receiver的mGroupMask按位与不等于0**时才发送
-+ 如果发给不同mask的数据不一样，需要给每个mask分配一个独立的key（发现哨兵策略有个共享key的bug，谁去修一下）
-
++ 如果发给不同mask的数据不一样，需要给每个mask分配一个独立的key
+### 代码详解
+参见[code_details.md](docs/code_details.md)
 
 

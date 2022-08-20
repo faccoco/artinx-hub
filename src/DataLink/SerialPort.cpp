@@ -20,6 +20,8 @@ struct SerialPortSettings final {
     uint32_t baudRate;
     double headHeightOffset1;
     double headHeightOffset2;
+    double headForwardOffset1;
+    double headForwardOffset2;
     bool enableEnergyControl;
 };
 
@@ -28,6 +30,8 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
     return f.object(x).fields(f.field("devPath", x.devPath), f.field("baudRate", x.baudRate),
                               f.field("headHeightOffset1", x.headHeightOffset1).fallback(0.0),
                               f.field("headHeightOffset2", x.headHeightOffset2).fallback(0.0),
+                              f.field("headForwardOffset1", x.headForwardOffset1).fallback(0.0),
+                              f.field("headForwardOffset2", x.headForwardOffset2).fallback(0.0),
                               f.field("enableEnergyControl", x.enableEnergyControl).fallback(false));
 }
 
@@ -134,21 +138,21 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
             const HeadInfo infoUp{ SynchronizedClock::instance().now(),
                                    decltype(HeadInfo::transform){ glm::lookAtRH(
-                                       glm::dvec3{ 0.0, mConfig.headHeightOffset1, 0.0 },
+                                       glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1},
                                        glm::dvec3{ std::cos(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
                                                        std::cos(static_cast<double>(fdb.pitch)),
                                                    mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
-                                                   -std::sin(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
+                                                   mConfig.headForwardOffset1 - std::sin(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
                                                        std::cos(static_cast<double>(fdb.pitch)) },
                                        glm::dvec3{ 0.0, 1.0, 0.0 }) },
                                    0.0, 0.0 };
             const HeadInfo infoDown{ SynchronizedClock::instance().now(),
                                      decltype(HeadInfo::transform){ glm::lookAtRH(
-                                         glm::dvec3{ 0.0, mConfig.headHeightOffset2, 0.0 },
+                                         glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
                                          glm::dvec3{ std::cos(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
                                                          std::cos(static_cast<double>(fdb.downPitch)),
                                                      mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
-                                                     -std::sin(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
+                                                     mConfig.headForwardOffset2 - std::sin(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
                                                          std::cos(static_cast<double>(fdb.downPitch)) },
                                          glm::dvec3{ 0.0, 1.0, 0.0 }) },
                                      0.0, 0.0 };
