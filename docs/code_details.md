@@ -203,7 +203,10 @@ public:
 };
 ```
 ## Armor Detector
-### 吉林大学方案
+### 吉林大学2020方案
+
++ *Reference*：[GitHub - QunShanHe/JLURoboVision: Standard Vision Software of TARS-GO Team, Jilin University on RoboMaster 2020 Robotic Competition](https://github.com/QunShanHe/JLURoboVision)
+
 #### 二值化方案
 ```C++
 //RGB通道相减
@@ -227,7 +230,7 @@ findContours(contourImg, lightContours, CV_RETR_EXTERNAL，CV_CHAIN_APPROX_SIMPL
 
 //拟合椭圆
 fitEllipse(lightContours)
-//角度筛选，去掉一个角度偏大的灯条
+//角度筛选，去掉角度偏大的灯条
 
 //将灯条从左到右排序
 ```
@@ -243,6 +246,86 @@ fitEllipse(lightContours)
 //去除游离灯条导致错误识别的装甲板
 //如果装甲板左右两边灯条编号一致，则比较两装甲板灯条中心连线与水平线的夹角，谁小，则去除另外一个。
  ```
+### Artinx 2022视觉方案
+
+#### 二值化方案
+
+```c++
+static bool isWhite(int32_t b, int32_t g, int32_t r) {
+    return b + g + r > 520;
+}
+
+// for blue
+ (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b * 4 > g + r) ? 255 : 0
+
+//for red
+(!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r > b + g) ? 255 : 0
+```
+
+#### 灯条寻找方案
+
+```C++
+//寻找轮廓
+cv::findContours();
+
+/*最小矩形拟合轮廓
+返回的旋转矩形的四个点的索引0的点永远是矩形在图中的最低点，也就是y最大的顶点。
+从索引0的顶点开始，顺时针方向，依次为1，2，3索引点。
+索引0和索引3之间为矩形的width，索引0和索引1之间为矩形的height。
+角度θ即是水平轴逆时针旋转到 索引0和索引3所在边之间的夹角
+*/
+rawRect = cv::minAreaRect(lightContour);
+
+
+//矫正矩形的角度和长宽
+//确保矩形的短边为宽，长边为高。
+//确保矩形的夹角为水平线与宽边的夹角
+correctRectAngle();
+
+/*去除不符合条件的灯条，不符合条件的灯条情况如下:
+1、max(高、宽) < 10 && min(宽、高) > 50
+2、高 > 2 * 宽  && Rect.angle < maxLightAngle
+3、高 > maxLightRectRatio * 宽 && Rect.width > 3
+*/
+```
+
+#### 灯条匹配方案
+
+```C++
+//以两条灯条矩形拟合的最小外接矩形为装甲板的矩形
+//规定长边为装甲板宽，短边如装甲板高,角度为水平线和宽方向的夹角
+if(rect.size.width < rect.size.height) {  // rotate rect
+    std::swap(rect.size.width, rect.size.height);
+    rect.angle += 90.0f;
+}
+
+//diff =（rectRatio - ArmorRatio） / ArmorRatio
+//par = abs(lhs.angle - rhs.angle)
+/*去除不符合装甲板矩形，不符合的装甲板矩形情况如下:
+1、矩形高度 < 3.0f
+2、diff  > maxArmorRectRatio
+3、两个灯条的中心线的连线与水平方向的夹角 > maxArmorAngle
+4、如果两个灯条面积比 < 0.1f 并且左右两灯条矩形长宽的比率大的那个 < 0.5
+5、左右两个灯条矩形的面积 > 0.5 * 装甲板矩形
+6、左右两灯条的矩形角度与装甲板矩形的角度差 > minLightBaseAngle
+7、两个灯条的的角度差 > maxParallelAngle
+8、两个灯条的最大的高度 > 1.2 * 矩形高度
+9、两个灯条最小高度 < minLightHeightRatio * rect.size.height
+*/
+
+//根据 diff + par 的值对匹配的灯条构成的矩形进行排序
+//依次将矩形放入结果中，如果构成某个矩形的灯条已经被用过了，则丢弃掉。
+
+//去除反射：由于灯光照在地面上可能导致地面上的灯光被误识别为装甲板，因此需去除
+
+```
+
+
+
+#### 深圳大学2019年方案
+
++ *Reference*：[GitHub - yarkable/RP_Infantry_Plus: RoboMaster2019 Infantry Vision OpenSource Code of Shenzhen University](https://github.com/yarkable/RP_Infantry_Plus)
+
 ## SolvePnP
 
 + *Reference*:[OpenCV: Perspective-n-Point (PnP) pose computation](https://docs.opencv.org/3.4/d5/d1f/calib3d_solvePnP.html)
