@@ -22,6 +22,8 @@ struct ArmorDetectorSettings final {
     float globalScale;
     std::vector<int32_t> thresholdForBlue;  // minBlue, maxGreen, maxRed
     std::vector<int32_t> thresholdForRed;   // minRed, maxBlue,maxGreen
+    int bgrSubtractForBlue;                 // bgr subtract threshold for blue
+    int bgrSubtractForRed;                  // bgr subtract threshold for red
     float maxAreaRatio;                     // ellipseArea/contourArea
     float maxLightAngle;                    // cos(angle)
     float maxLightRectRatio;                // height/width
@@ -37,6 +39,8 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
     return f.object(x).fields(f.field("globalScale", x.globalScale),
                               f.field("thresholdForBlue", x.thresholdForBlue).invariant([](auto& c) { return c.size() == 3; }),
                               f.field("thresholdForRed", x.thresholdForRed).invariant([](auto& c) { return c.size() == 3; }),
+                              f.field("bgrSubtractForBlue", x.bgrSubtractForBlue).fallback(40),
+                              f.field("bgrSubtractForRed", x.bgrSubtractForRed).fallback(60),
                               f.field("maxAreaRatio", x.maxAreaRatio), f.field("maxLightAngle", x.maxLightAngle),
                               f.field("maxLightRectRatio", x.maxLightRectRatio),
                               f.field("maxArmorRectRatio", x.maxArmorRectRatio), f.field("maxArmorAngle", x.maxArmorAngle),
@@ -71,64 +75,6 @@ class ArmorDetector final
         frame.frame = std::move(res);
 
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame)));
-    }
-
-    std::vector<PairedLight> solve(const cv::Mat& image) {
-        ACTOR_EXCEPTION_PROBE();
-        const cv::Mat scaled = image * mConfig.globalScale;
-        // debugView("scaled",scaled,[](auto&){});
-        const auto lightPart = binary(scaled);
-
-        /*
-        cv::Mat color;
-        image.copyTo(color, lightPart);
-        debugView("color", color, [](auto&) {});
-        */
-
-        const auto lights = findLights(image, lightPart);
-        return matchLights(image, lights);
-    }
-
-    static bool isWhite(int32_t b, int32_t g, int32_t r) {
-        return b + g + r > 400;
-    }
-
-    cv::Mat binary(const cv::Mat& src) {
-        cv::Mat result(src.size(), CV_8U);
-        if(GlobalSettings::get().selfColor == Color::Red) {
-            const auto minB = mConfig.thresholdForBlue[0];
-            const auto maxG = mConfig.thresholdForBlue[1];
-            const auto maxR = mConfig.thresholdForBlue[2];
-
-            for(int32_t row = 0; row != src.rows; ++row) {
-                const auto* srcPtr = src.ptr(row);
-                auto* resPtr = result.ptr(row);
-                for(int32_t col = 0; col != src.cols; ++col) {
-                    const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
-                    *resPtr = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b * 3 > g + r) ? 255 : 0;  // binarization
-                    srcPtr += 3;
-                    ++resPtr;
-                }
-            }
-        } else {
-            const auto minR = mConfig.thresholdForRed[0];
-            const auto maxB = mConfig.thresholdForRed[1];
-            const auto maxG = mConfig.thresholdForRed[2];
-
-            for(int32_t row = 0; row != src.rows; ++row) {
-                const auto* srcPtr = src.ptr(row);
-                auto* resPtr = result.ptr(row);
-                for(int32_t col = 0; col != src.cols; ++col) {
-                    const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
-                    *resPtr = (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r * 3 > b + g) ? 255 : 0;  // binarization
-                    srcPtr += 3;
-                    ++resPtr;
-                }
-            }
-        }
-        cv::Mat blurred;
-        cv::medianBlur(result, blurred, 5);
-        return result;
     }
 
     void fixContour(const cv::Mat& color, const cv::Mat& binary, std::vector<cv::Point2i>& contour) {
@@ -188,6 +134,67 @@ class ArmorDetector final
         return lightRect;
     }
 
+    cv::Rect2f boundingRect(const PairedLight& armor) {
+        const auto b1 = armor.r1.boundingRect2f();
+        const auto b2 = armor.r2.boundingRect2f();
+        return b1 | b2;
+    }
+
+    static bool isWhite(int32_t b, int32_t g, int32_t r) {
+        return b + g + r > 500;
+    }
+
+    std::vector<PairedLight> solve(const cv::Mat& image) {
+        ACTOR_EXCEPTION_PROBE();
+        const cv::Mat scaled = image * mConfig.globalScale;
+        // debugView("scaled",scaled,[](auto&){});
+        const auto lightPart = binary(scaled);
+
+        const auto lights = findLights(image, lightPart);
+        return matchLights(image, lights);
+    }
+
+    cv::Mat binary(const cv::Mat& src) {
+        cv::Mat result(src.size(), CV_8U);
+        if(GlobalSettings::get().selfColor == Color::Red) {
+            const auto minB = mConfig.thresholdForBlue[0];
+            const auto maxG = mConfig.thresholdForBlue[1];
+            const auto maxR = mConfig.thresholdForBlue[2];
+
+            for(int32_t row = 0; row != src.rows; ++row) {
+                const auto* srcPtr = src.ptr(row);
+                auto* resPtr = result.ptr(row);
+                for(int32_t col = 0; col != src.cols; ++col) {
+                    const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
+                    *resPtr = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b * 3 > g + r) ? 255 : 0;  // binarization
+                    srcPtr += 3;
+                    ++resPtr;
+                }
+            }
+        } else {
+            const auto minR = mConfig.thresholdForRed[0];
+            const auto maxB = mConfig.thresholdForRed[1];
+            const auto maxG = mConfig.thresholdForRed[2];
+            const auto diffRedBlue = mConfig.bgrSubtractForRed;
+
+            for(int32_t row = 0; row != src.rows; ++row) {
+                const auto* srcPtr = src.ptr(row);
+                auto* resPtr = result.ptr(row);
+                for(int32_t col = 0; col != src.cols; ++col) {
+                    const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
+                    //*resPtr = (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r  > b + g) ? 255 : 0;  // binarization
+                    *resPtr = (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r - b > diffRedBlue) ? 255 : 0;
+                    srcPtr += 3;
+                    ++resPtr;
+                }
+            }
+        }
+
+        // cv::medianBlur(result, result, 5);
+        // debugView("binary", result, [](auto) {});
+        return result;
+    }
+
     std::vector<cv::RotatedRect> findLights(const cv::Mat& color, const cv::Mat& binary) {
         ACTOR_EXCEPTION_PROBE();
         const cv::Rect full = { 0, 0, color.cols, color.rows };
@@ -213,7 +220,7 @@ class ArmorDetector final
                     lightRect = rect;
             }
 
-            if(std::fmax(lightRect.size.width, lightRect.size.height) < 10.0f)
+            if(std::fmax(lightRect.size.width, lightRect.size.height) < 6.0f)
                 continue;
             if(std::fmin(lightRect.size.width, lightRect.size.height) > 50.0f)
                 continue;
@@ -240,54 +247,13 @@ class ArmorDetector final
             lights.emplace_back(lightRect);
         }
 
-        /*
-        debugView("contour", color, [&](cv::Mat &src) {
-            for (auto &light: lights)
-                cv::ellipse(src, light, cv::Scalar{255, 0, 255}, 1);
-            cv::drawContours(src, contours, -1, cv::Scalar{0, 255, 0}, 1);
-        });
-        */
+        // debugView("contour", color, [&](cv::Mat& src) {
+        //     for(auto& light : lights)
+        //         cv::rectangle(src, light.boundingRect(), cv::Scalar{ 255, 255, 255 }, 1);
+        // });
 
         std::sort(lights.begin(), lights.end(), [](const auto& lhs, const auto& rhs) { return lhs.center.x < rhs.center.x; });
         return lights;
-    }
-
-    cv::Rect2f boundingRect(const PairedLight& armor) {
-        const auto b1 = armor.r1.boundingRect2f();
-        const auto b2 = armor.r2.boundingRect2f();
-        return b1 | b2;
-    }
-
-    std::vector<PairedLight> removeReflected(std::vector<PairedLight> armors) {
-        std::sort(armors.begin(), armors.end(), [](const PairedLight& lhs, const PairedLight& rhs) {
-            return lhs.r1.center.y + lhs.r2.center.y < rhs.r1.center.y + rhs.r2.center.y;
-        });
-
-        std::vector<PairedLight> res;
-        res.reserve(armors.size());
-        std::vector<cv::Rect2f> exceptBounds;
-        exceptBounds.reserve(armors.size());
-        for(auto& armor : armors) {
-            auto bound = boundingRect(armor);
-
-            bool flag = true;
-            for(auto& exceptBound : exceptBounds) {
-                if((bound & exceptBound) == bound) {
-                    flag = false;
-                    break;
-                }
-            }
-            if(!flag)
-                continue;
-
-            bound.x -= bound.width * 0.25f;
-            bound.width *= 1.5f;
-            bound.y -= bound.height * 0.15f;
-            bound.height *= 5.0f;
-            exceptBounds.push_back(bound);
-            res.push_back(armor);
-        }
-        return res;
     }
 
     std::vector<PairedLight> matchLights([[maybe_unused]] const cv::Mat& src, const std::vector<cv::RotatedRect>& lights) {
@@ -309,25 +275,6 @@ class ArmorDetector final
                 }
                 if(rect.size.height < 3.0f)
                     continue;
-
-                /*
-                {
-                    uninstallFPEProbe();
-                    bool flag = true;
-                    std::vector<cv::Point2f> intersect;
-                    for(uint32_t k = i + 1; k < j; ++k) {
-                        const auto& mid = lights[k];
-                        if(cv::rotatedRectangleIntersection(mid, rect, intersect) !=
-                           cv::RectanglesIntersectTypes::INTERSECT_NONE) {
-                            flag = false;
-                            continue;
-                        }
-                    }
-                    installFPEProbe();
-                    if(!flag)
-                        continue;
-                }
-                */
 
                 constexpr auto largeRatio = widthOfLargeArmor / heightOfArmorLightBar;  //
                 constexpr auto smallRatio = widthOfSmallArmor / heightOfArmorLightBar;
@@ -379,7 +326,18 @@ class ArmorDetector final
                 if(std::fmin(lhs.size.height, rhs.size.height) < mConfig.minLightHeightRatio * rect.size.height)
                     continue;
 
-                pairs.emplace_back(i, j, diff + par + (largeArmor ? 1e3f : 0.0f));
+                bool isInteraction = false;
+                for(uint32_t k = i + 1; k < j; ++k) {
+                    const auto& minRect = rect.boundingRect();
+                    if(lights[k].center.y > minRect.tl().y && lights[k].center.y < minRect.br().x) {
+                        isInteraction = true;
+                        break;
+                    }
+                }
+                if(isInteraction)
+                    continue;
+
+                pairs.emplace_back(i, j, diff * 2 + par + (largeArmor ? 1e3f : 0.0f));
             }
         }
         /*
@@ -423,6 +381,7 @@ class ArmorDetector final
 
         std::vector<PairedLight> res;
         std::vector<bool> used(lights.size(), false);
+
         for(auto& [i, j, s] : pairs) {
             if(used[i] || used[j])
                 continue;
@@ -431,6 +390,38 @@ class ArmorDetector final
         }
 
         return removeReflected(std::move(res));
+    }
+
+    std::vector<PairedLight> removeReflected(std::vector<PairedLight> armors) {
+        std::sort(armors.begin(), armors.end(), [](const PairedLight& lhs, const PairedLight& rhs) {
+            return lhs.r1.center.y + lhs.r2.center.y < rhs.r1.center.y + rhs.r2.center.y;
+        });
+
+        std::vector<PairedLight> res;
+        res.reserve(armors.size());
+        std::vector<cv::Rect2f> exceptBounds;
+        exceptBounds.reserve(armors.size());
+        for(auto& armor : armors) {
+            auto bound = boundingRect(armor);
+
+            bool flag = true;
+            for(auto& exceptBound : exceptBounds) {
+                if((bound & exceptBound) == bound) {
+                    flag = false;
+                    break;
+                }
+            }
+            if(!flag)
+                continue;
+
+            bound.x -= bound.width * 0.25f;
+            bound.width *= 1.5f;
+            bound.y -= bound.height * 0.15f;
+            bound.height *= 5.0f;
+            exceptBounds.push_back(bound);
+            res.push_back(armor);
+        }
+        return res;
     }
 
 public:
@@ -446,7 +437,7 @@ public:
 
                      DetectedArmorArray res;
                      res.frame = frame;
-                     //res.frame.frame=binary(frame.frame );
+                     // res.frame.frame=binary(frame.frame );
 
                      for(auto& roi : cars) {
                          auto armors = solve(frame.frame(roi));
