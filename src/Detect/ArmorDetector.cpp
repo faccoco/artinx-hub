@@ -39,7 +39,7 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
     return f.object(x).fields(f.field("globalScale", x.globalScale),
                               f.field("thresholdForBlue", x.thresholdForBlue).invariant([](auto& c) { return c.size() == 3; }),
                               f.field("thresholdForRed", x.thresholdForRed).invariant([](auto& c) { return c.size() == 3; }),
-                              f.field("bgrSubtractForBlue", x.bgrSubtractForBlue).fallback(40),
+                              f.field("bgrSubtractForBlue", x.bgrSubtractForBlue).fallback(60),
                               f.field("bgrSubtractForRed", x.bgrSubtractForRed).fallback(60),
                               f.field("maxAreaRatio", x.maxAreaRatio), f.field("maxLightAngle", x.maxLightAngle),
                               f.field("maxLightRectRatio", x.maxLightRectRatio),
@@ -166,7 +166,7 @@ class ArmorDetector final
                 auto* resPtr = result.ptr(row);
                 for(int32_t col = 0; col != src.cols; ++col) {
                     const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
-                    *resPtr = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b * 3 > g + r) ? 255 : 0;  // binarization
+                    *resPtr = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b - r > mConfig.bgrSubtractForBlue) ? 255 : 0;  // binarization
                     srcPtr += 3;
                     ++resPtr;
                 }
@@ -191,7 +191,7 @@ class ArmorDetector final
         }
 
         // cv::medianBlur(result, result, 5);
-        //debugView("binary", result, [](auto) {});
+        // debugView("binary", result, [](auto) {});
         return result;
     }
 
@@ -281,9 +281,10 @@ class ArmorDetector final
 
                 const auto ratio = rect.size.aspectRatio();
                 auto diff = static_cast<float>(std::fabs(ratio - smallRatio)) / smallRatio;
+                //auto smalldiff = diff;
                 const auto diffLarge = static_cast<float>(std::fabs(ratio - largeRatio)) / largeRatio;
                 bool largeArmor = false;
-                if(diffLarge < diff) {
+                if(diffLarge * largeRatio < diff * smallRatio) {
                     diff = diffLarge;
                     largeArmor = true;
                 }
@@ -336,7 +337,7 @@ class ArmorDetector final
                 }
                 if(isInteraction)
                     continue;
-
+                //logInfo(fmt::format("diff:{}, large_diff:{}", smalldiff, diffLarge));
                 pairs.emplace_back(i, j,  diff + par + (largeArmor ? 1e3 : 0.0f));
             }
         }
@@ -382,6 +383,7 @@ class ArmorDetector final
         std::vector<bool> used(lights.size(), false);
         
         for(auto& [i, j, s] : pairs) {
+            //logInfo(fmt::format("diff:{}", s));
             if(used[i] || used[j])
                 continue;
             used[i] = used[j] = true;
