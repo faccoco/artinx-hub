@@ -42,12 +42,22 @@ public:
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
 
+                     // Give priority to striking the nearest large armor plate target
                      auto minDistance = mConfig.distanceThreshold;
+                     auto curArmorType = ArmorType::Small;
                      for(auto& target : data.targets) {
                          const auto distance = glm::length(target.center.raw());
-                         if(distance < minDistance && target.id != engineerId) {
-                             selected.selected = target;
-                             minDistance = distance;
+                         if(target.type == ArmorType::Large) {
+                             if(curArmorType == ArmorType::Small || distance < minDistance) {
+                                 selected.selected = target;
+                                 minDistance = distance;
+                                 curArmorType = ArmorType::Large;
+                             }
+                         } else {
+                             if(curArmorType == ArmorType::Small && distance < minDistance && target.id != engineerId) {
+                                 selected.selected = target;
+                                 minDistance = distance;
+                             }
                          }
                      }
 
