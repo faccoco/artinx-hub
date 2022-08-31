@@ -66,6 +66,11 @@ public:
     [[nodiscard]] glm::dvec3 raw() const noexcept {
         return mValue;
     }
+
+    void setZero() noexcept {
+        mValue = { 0, 0, 0 };
+    }
+
     Vector operator+(Vector rhs) const noexcept {
         return Vector{ mValue + rhs.mValue };
     }
@@ -120,6 +125,10 @@ public:
 
     [[nodiscard]] glm::dvec3 raw() const noexcept {
         return mValue;
+    }
+
+    void setZero() noexcept {
+        mValue = { 0, 0, 0 };
     }
 
     Point operator+(Vector<Unit, FoR> rhs) const noexcept {

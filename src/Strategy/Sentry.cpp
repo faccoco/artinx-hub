@@ -87,17 +87,15 @@ public:
                              const auto& headInfo2 = head2.value();
 
                              auto& center = selected.selected.value().center;
-                             auto& velocity = selected.selected.value().velocity;
                              if(mask == 1U) {
                                  center = headInfo1.transform(headInfo2.transform(center));
-                                 velocity = headInfo1.transform(headInfo2.transform(velocity));
                              } else {
                                  center = headInfo2.transform(headInfo1.transform(center));
-                                 velocity = headInfo2.transform(headInfo1.transform(velocity));
                              }
                          }
                      }
 
+                     selected.selected.value().velocity.setZero();
                      sendMasked(set_target_atom_v, mask,
                                 BlackBoard::instance().updateSync<SelectedTarget>(Identifier{ mKey.val ^ mask }, selected));
                  },

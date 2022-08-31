@@ -30,10 +30,6 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
     Identifier mKey, mIMUKey, mHeadKey;
 
-private:
-    glm::dvec3 sumVec = { 0, 0, 0 };
-    glm::dvec3 avgVec = { 0, 0, 0 };
-
 public:
     AngleSolver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
 
@@ -104,8 +100,8 @@ public:
             x[2] = x[3] = (-b - a) / 4.0;
         }
         double ans = 1000;
-        for (auto& i : x) {
-            if (i.real() > 0 && std::fabs(i.imag()) < 1e7 && i.real() < ans)
+        for(auto& i : x) {
+            if(i.real() > 0 && std::fabs(i.imag()) < 1e7 && i.real() < ans)
                 ans = i.real();
         }
         return ans;
@@ -134,9 +130,10 @@ public:
 
                 const auto delayTime = mConfig.delay;
 
-                logInfo(fmt::format("Beform transform:x: {}, y: {}, z: {}", data.value().selected.value().center.raw().x, -data.value().selected.value().center.raw().z, data.value().selected.value().center.raw().y));
+                logInfo(fmt::format("Beform transform:x: {}, y: {}, z: {}", data.value().selected.value().center.raw().x,
+                                    -data.value().selected.value().center.raw().z, data.value().selected.value().center.raw().y));
                 Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
-                data.value().selected.value().center.raw());
+                    data.value().selected.value().center.raw());
                 Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot =
                     dataHeadInfo.value().transform(positionOfReferenceGun);
                 Vector<UnitType::LinearVelocity, FrameOfReference::Ground> linearVelocity(
@@ -146,22 +143,32 @@ public:
 
                 //(forward:+y,right:+x)
                 glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
-                glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x,
-                                                   -positionOfReferenceRobot.raw().z ,
-                                                   positionOfReferenceRobot.raw().y};
-                transformedLinearVelocity = {avgVec.x - linearVelocity.raw().x, avgVec.y + linearVelocity.raw().z, avgVec.z - linearVelocity.raw().y };
-                //logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y, linearVelocity.raw().z));
+                const auto targetVec = data.value().selected.value().velocity;
+                glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x, -positionOfReferenceRobot.raw().z,
+                                                   positionOfReferenceRobot.raw().y };
+                transformedLinearVelocity = { targetVec.raw().x - linearVelocity.raw().x,
+                                              -targetVec.raw().z + linearVelocity.raw().z,
+                                              targetVec.raw().y - linearVelocity.raw().y };
+                // logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y,
+                // linearVelocity.raw().z));
                 transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x,
                                         transformedPosition.y + delayTime * transformedLinearVelocity.y,
-                                        transformedPosition.z + delayTime * transformedLinearVelocity.z};
+                                        transformedPosition.z + delayTime * transformedLinearVelocity.z };
 
-                double airDuration = ferrari(1, 0, -(4 * g * transformedPosition.z + 4 * square(bulletSpeed) - 4 * square(transformedLinearVelocity.x) - 4 * square(transformedLinearVelocity.y)) / square(g),
-                                        (8 * transformedPosition.x * transformedLinearVelocity.x + 8 * transformedPosition.y * transformedLinearVelocity.y) / square(g), 
-                                        (4 * square(transformedPosition.x) + 4 * square(transformedPosition.y) + 4 * square(transformedPosition.z)) / square(g));
+                double airDuration = ferrari(
+                    1, 0,
+                    -(4 * g * transformedPosition.z + 4 * square(bulletSpeed) - 4 * square(transformedLinearVelocity.x) -
+                      4 * square(transformedLinearVelocity.y)) /
+                        square(g),
+                    (8 * transformedPosition.x * transformedLinearVelocity.x +
+                     8 * transformedPosition.y * transformedLinearVelocity.y) /
+                        square(g),
+                    (4 * square(transformedPosition.x) + 4 * square(transformedPosition.y) + 4 * square(transformedPosition.z)) /
+                        square(g));
                 double verticalSpeed = transformedPosition.z / airDuration - 0.5 * g * airDuration;
                 double horizontalSpeedX = (transformedPosition.x + transformedLinearVelocity.x * airDuration) / airDuration;
-                double horizontalSpeedY = (transformedPosition.y + transformedLinearVelocity.y * airDuration) / airDuration;  
-                
+                double horizontalSpeedY = (transformedPosition.y + transformedLinearVelocity.y * airDuration) / airDuration;
+
                 double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
                 double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 

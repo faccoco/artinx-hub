@@ -10,7 +10,7 @@ struct DetectedTarget final {
     double area;
     int32_t id;
     ArmorType type;
-    Vector<UnitType::LinearVelocity, FrameOfReference::Gun> velocity;
+    Vector<UnitType::LinearVelocity, FrameOfReference::Robot> velocity;
 };
 
 struct DetectedTargetArray final {
