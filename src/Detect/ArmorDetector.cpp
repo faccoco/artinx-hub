@@ -281,7 +281,7 @@ class ArmorDetector final
 
                 const auto ratio = rect.size.aspectRatio();
                 auto diff = static_cast<float>(std::fabs(ratio - smallRatio)) / smallRatio;
-                //auto smalldiff = diff;
+
                 const auto diffLarge = static_cast<float>(std::fabs(ratio - largeRatio)) / largeRatio;
                 bool largeArmor = false;
                 if(diffLarge * largeRatio < diff * smallRatio) {
@@ -329,7 +329,7 @@ class ArmorDetector final
 
                 bool isInteraction = false;
                 for(uint32_t k = i + 1; k < j; ++k) {
-                    const auto& minRect = rect.boundingRect();
+                    const auto& minRect = rect.boundingRect2f();
                     if(lights[k].center.y > minRect.tl().y && lights[k].center.y < minRect.br().x) {
                         isInteraction = true;
                         break;
