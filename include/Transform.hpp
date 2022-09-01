@@ -61,7 +61,7 @@ class Vector final {
 
 public:
     Vector() = default;
-    explicit Vector(const glm::dvec3 val) : mValue{ val } {}
+    explicit Vector(const glm::dvec3& val) : mValue{ val } {}
 
     [[nodiscard]] glm::dvec3 raw() const noexcept {
         return mValue;
@@ -69,6 +69,10 @@ public:
 
     void setZero() noexcept {
         mValue = { 0, 0, 0 };
+    }
+
+    void setValue(const glm::dvec3& val) noexcept {
+        mValue = val;
     }
 
     Vector operator+(Vector rhs) const noexcept {
@@ -121,7 +125,7 @@ class Point final {
 
 public:
     Point() = default;
-    explicit Point(const glm::dvec3 val) : mValue{ val } {}
+    explicit Point(const glm::dvec3& val) : mValue{ val } {}
 
     [[nodiscard]] glm::dvec3 raw() const noexcept {
         return mValue;
@@ -129,6 +133,10 @@ public:
 
     void setZero() noexcept {
         mValue = { 0, 0, 0 };
+    }
+
+    void setValue(const glm::dvec3& val) noexcept {
+        mValue = val;
     }
 
     Point operator+(Vector<Unit, FoR> rhs) const noexcept {

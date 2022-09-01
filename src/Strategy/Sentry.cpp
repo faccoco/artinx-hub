@@ -95,7 +95,6 @@ public:
                          }
                      }
 
-                     selected.selected.value().velocity.setZero();
                      sendMasked(set_target_atom_v, mask,
                                 BlackBoard::instance().updateSync<SelectedTarget>(Identifier{ mKey.val ^ mask }, selected));
                  },

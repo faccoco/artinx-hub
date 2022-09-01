@@ -166,7 +166,9 @@ class ArmorDetector final
                 auto* resPtr = result.ptr(row);
                 for(int32_t col = 0; col != src.cols; ++col) {
                     const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
-                    *resPtr = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b - r > mConfig.bgrSubtractForBlue) ? 255 : 0;  // binarization
+                    *resPtr = (!isWhite(b, g, r) && b > minB && g < maxG && r < maxR && b - r > mConfig.bgrSubtractForBlue) ?
+                        255 :
+                        0;  // binarization
                     srcPtr += 3;
                     ++resPtr;
                 }
@@ -175,7 +177,6 @@ class ArmorDetector final
             const auto minR = mConfig.thresholdForRed[0];
             const auto maxB = mConfig.thresholdForRed[1];
             const auto maxG = mConfig.thresholdForRed[2];
-            const auto diffRedBlue = mConfig.bgrSubtractForRed;
 
             for(int32_t row = 0; row != src.rows; ++row) {
                 const auto* srcPtr = src.ptr(row);
@@ -183,7 +184,8 @@ class ArmorDetector final
                 for(int32_t col = 0; col != src.cols; ++col) {
                     const auto b = srcPtr[0], g = srcPtr[1], r = srcPtr[2];
                     //*resPtr = (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r  > b + g) ? 255 : 0;  // binarization
-                    *resPtr = (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r - b > diffRedBlue) ? 255 : 0;
+                    *resPtr =
+                        (!isWhite(b, g, r) && r > minR && b < maxB && g < maxG && r - b > mConfig.bgrSubtractForRed) ? 255 : 0;
                     srcPtr += 3;
                     ++resPtr;
                 }
@@ -247,10 +249,10 @@ class ArmorDetector final
             lights.emplace_back(lightRect);
         }
 
-//         debugView("contour", color, [&](cv::Mat& src) {
-//             for(auto& light : lights)
-//                 cv::rectangle(src, light.boundingRect(), cv::Scalar{ 255, 255, 255 }, 1);
-//         });
+        //         debugView("contour", color, [&](cv::Mat& src) {
+        //             for(auto& light : lights)
+        //                 cv::rectangle(src, light.boundingRect(), cv::Scalar{ 255, 255, 255 }, 1);
+        //         });
 
         std::sort(lights.begin(), lights.end(), [](const auto& lhs, const auto& rhs) { return lhs.center.x < rhs.center.x; });
         return lights;
@@ -337,53 +339,53 @@ class ArmorDetector final
                 }
                 if(isInteraction)
                     continue;
-                //logInfo(fmt::format("diff:{}, large_diff:{}", smalldiff, diffLarge));
-                pairs.emplace_back(i, j,  diff + par + (largeArmor ? 1e3 : 0.0f));
+                // logInfo(fmt::format("diff:{}, large_diff:{}", smalldiff, diffLarge));
+                pairs.emplace_back(i, j, diff + par + (largeArmor ? 1e3 : 0.0f));
             }
         }
 
-//        debugView("potential", src, [&](cv::Mat& frame) {
-//            uint32_t idx = 0;
-//            for(auto& light : lights) {
-//                cv::ellipse(frame, light, cv::Scalar{ 255, 255, 0 }, 1);
-//                cv::Point2f offset{ -std::sin(glm::radians(light.angle)) * light.size.height,
-//                                    std::cos(glm::radians(light.angle)) * light.size.height };
-//                const auto p0 = light.center + offset;
-//                const auto p1 = light.center - offset;
-//                cv::line(frame, p0, p1, cv::Scalar{ 255, 0, 255 });
-//                cv::putText(frame, std::to_string(idx++),
-//                            { static_cast<int32_t>(light.center.x), static_cast<int32_t>(light.center.y) },
-//                            cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 0, 0, 255 });
-//            }
-//            for(auto& [i, j, s] : pairs) {
-//                const auto& lhs = lights[i];
-//                const auto& rhs = lights[j];
-//
-//                std::vector<cv::Point2f> pts(8);
-//                lhs.points(pts.data());
-//                rhs.points(pts.data() + 4);
-//
-//                auto rect = cv::minAreaRect(pts);
-//                if(rect.size.width < rect.size.height) {
-//                    std::swap(rect.size.width, rect.size.height);
-//                    rect.angle += 90.0;
-//                }
-//
-//                drawRotatedRect(frame, rect, cv::Scalar{ 0, 0, 255 });
-//                cv::putText(frame, fmt::format("{:.3f}", rect.size.width / rect.size.height),
-//                            { static_cast<int32_t>(rect.center.x), static_cast<int32_t>(rect.center.y) },
-//                            cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 255 });
-//            }
-//        });
+        //        debugView("potential", src, [&](cv::Mat& frame) {
+        //            uint32_t idx = 0;
+        //            for(auto& light : lights) {
+        //                cv::ellipse(frame, light, cv::Scalar{ 255, 255, 0 }, 1);
+        //                cv::Point2f offset{ -std::sin(glm::radians(light.angle)) * light.size.height,
+        //                                    std::cos(glm::radians(light.angle)) * light.size.height };
+        //                const auto p0 = light.center + offset;
+        //                const auto p1 = light.center - offset;
+        //                cv::line(frame, p0, p1, cv::Scalar{ 255, 0, 255 });
+        //                cv::putText(frame, std::to_string(idx++),
+        //                            { static_cast<int32_t>(light.center.x), static_cast<int32_t>(light.center.y) },
+        //                            cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 0, 0, 255 });
+        //            }
+        //            for(auto& [i, j, s] : pairs) {
+        //                const auto& lhs = lights[i];
+        //                const auto& rhs = lights[j];
+        //
+        //                std::vector<cv::Point2f> pts(8);
+        //                lhs.points(pts.data());
+        //                rhs.points(pts.data() + 4);
+        //
+        //                auto rect = cv::minAreaRect(pts);
+        //                if(rect.size.width < rect.size.height) {
+        //                    std::swap(rect.size.width, rect.size.height);
+        //                    rect.angle += 90.0;
+        //                }
+        //
+        //                drawRotatedRect(frame, rect, cv::Scalar{ 0, 0, 255 });
+        //                cv::putText(frame, fmt::format("{:.3f}", rect.size.width / rect.size.height),
+        //                            { static_cast<int32_t>(rect.center.x), static_cast<int32_t>(rect.center.y) },
+        //                            cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 255 });
+        //            }
+        //        });
 
         std::sort(pairs.begin(), pairs.end(),
                   [](const auto& lhs, const auto& rhs) { return std::get<float>(lhs) < std::get<float>(rhs); });
 
         std::vector<PairedLight> res;
         std::vector<bool> used(lights.size(), false);
-        
+
         for(auto& [i, j, s] : pairs) {
-            //logInfo(fmt::format("diff:{}", s));
+            // logInfo(fmt::format("diff:{}", s));
             if(used[i] || used[j])
                 continue;
             used[i] = used[j] = true;

@@ -17,21 +17,90 @@
 
 #include "SuppressWarningEnd.hpp"
 
+// x(k)_est = x(k - 1)_est + kmGain * (x(k)_mea - x(k - 1)_est)
+// x(k)_est: current estimate value
+// x(k)_mea: current measured value
+// kmGain: kalman Gain = Err_est(k - 1) / (Err_est(k - 1) + Err_mea(k))
+// Err_est(k) = (1 - kmGain) * Err_est(k - 1)
+
 struct AngleSolverSettings final {
     double precision;
     double delay;
+    bool enableEstimateVec;
+    std::vector<double> errEstimate;
+    std::vector<double> errMeasure;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
-    return f.object(x).fields(f.field("precision", x.precision), f.field("delay", x.delay));
+    return f.object(x).fields(f.field("precision", x.precision), f.field("delay", x.delay),
+                              f.field("enableEstimateVec", x.enableEstimateVec).fallbakc(true),
+                              f.field("errEstimate", x.errEstimate).invariant([](auto& c) { return c.size() == 3 }),
+                              f.field("errMeasure", x.errMeasure).invariant([](auto& c) { return c.size() == 3 }));
 }
+
+class EstimateVec final {
+    glm::dvec3 mErrEstimate;
+    glm::dvec3 mErrMeasure;
+    glm::dvec3 mKmGain;
+
+    glm::dvec3 mEsitmateVec;
+    glm::dvec3 mMeasureVec;
+
+    bool mIsInitLastPos;
+    bool mIsInitEsitmateVec;
+    glm::dvec3 mInitErrEstimate;
+
+    TimePoint mLastUpdate;
+    glm::dvec3 mLastPosition;
+
+public:
+    EstimateVec() = default;
+
+    EstimateVec(const std::vector<double>& errEstimate, const std::vector<double>& errMeasure)
+        : mErrEstimate(errEstimate[0], errEstimate[1], errEstimate[2]), mErrMeasure(errMeasure[0], errMeasure[1], errMeasure[2]),
+          mInitErrEstimate(mErrEstimate), mIsInitLastPos(false), mIsInitEsitmateVec(false) {}
+
+    void update(const TimePoint& curTimePoint, const glm::dvec3& curPosition, const glm::dvec3& linearVelocity) {
+        if(mIsInitLastPos) {
+            const auto dt = curTimePoint - mLastPosition;
+            const auto diff = curPosition - mLastPosition;
+            if(dt > 1s || diff.length() > 0.5) {  // diff time too long or diff position too distant, re estimate
+                mErrEstimate = mInitErrEstimate;
+                mIsInitEsitmateVec = false;
+            } else {
+                mMeasureVec = diff / std::chrono::duration_cast<std::chrono::milliseconds>(dt).count() / 1000.0 + linearVelocity;
+                if(mIsInitEsitmateVec) {
+                    estimateVec();
+                } else {
+                    mEsitmateVec = mMeasureVec;
+                    mIsInitEsitmateVec = true;
+                }
+            }
+        }
+        mLastUpdate = curTimePoint;
+        mLastPosition = curPosition;
+        mIsInitLastPos = true;
+    }
+
+    void estimateVec() {
+        mKmGain = mErrEstimate / (mErrEstimate + mErrMeasure);            // step 1. clc kalman Gain
+        mEsitmateVec += mKmGain * (mMeasureVec - mEsitmateVec);           // step 2. clc x_est(k)
+        mErrEstimate = (glm::dvec3{ 1, 1, 1 } - mKmGain) / mErrEstimate;  // step 3. update Err_est(k)
+    }
+
+    glm::dvec3 getEsimateVec() {
+        return mEsitmateVec;
+    }
+};
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
     Identifier mKey, mIMUKey, mHeadKey;
+    EstimateVec estimator;
 
 public:
-    AngleSolver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    AngleSolver(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, estimator(mConfig.errEstimate, mConfig.errMeasure), mKey{ generateKey(this) } {}
 
     static std::complex<double> sqrtN(const std::complex<double>& x, double n) {
         if(auto r = std::hypot(x.real(), x.imag()); r > 0.0) {
@@ -143,7 +212,15 @@ public:
 
                 //(forward:+y,right:+x)
                 glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
-                const auto targetVec = data.value().selected.value().velocity;
+                auto targetVec = data.value().selected.value().velocity;
+
+                if(mConfig.enableEstimateVec) {
+                    estimator.update(data.value().lastUpdate, positionOfReferenceRobot.raw(), linearVelocity.raw());
+                    targetVec.setValue(estimator.getEsimateVec());
+                } else {
+                    targetVec.setZero();
+                }
+
                 glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x, -positionOfReferenceRobot.raw().z,
                                                    positionOfReferenceRobot.raw().y };
                 transformedLinearVelocity = { targetVec.raw().x - linearVelocity.raw().x,
