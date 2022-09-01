@@ -65,7 +65,8 @@ public:
 
     void update(const TimePoint& curTimePoint, const glm::dvec3& curPosition, const glm::dvec3& linearVelocity) {
         if(mIsInitLastPos) {
-            const double dt = static_cast<double>(curTimePoint.time_since_epoch().count() - mLastUpdate.time_since_epoch().count()) / 1e9;
+            const double dt =
+                static_cast<double>(curTimePoint.time_since_epoch().count() - mLastUpdate.time_since_epoch().count()) / 1e9;
             const glm::dvec3 diffPos = curPosition - mLastPosition;
             if(dt > 1.0 || diffPos.length() > 0.5) {  // diff time too long or diff position too distant, re estimate
                 mErrEstimate = mInitErrEstimate;
@@ -215,14 +216,12 @@ public:
                 //(forward:+y,right:+x)
                 glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
                 auto targetVec = data.value().selected.value().velocity;
+                targetVec.setZero();
 
                 if(mConfig.enableEstimateVec) {
                     estimator.update(data.value().lastUpdate, positionOfReferenceRobot.raw(), linearVelocity.raw());
                     targetVec.setValue(estimator.getEsimateVec());
-                } else {
-                    targetVec.setZero();
                 }
-
                 glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x, -positionOfReferenceRobot.raw().z,
                                                    positionOfReferenceRobot.raw().y };
                 transformedLinearVelocity = { targetVec.raw().x - linearVelocity.raw().x,
