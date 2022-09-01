@@ -34,9 +34,9 @@ struct AngleSolverSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
     return f.object(x).fields(f.field("precision", x.precision), f.field("delay", x.delay),
-                              f.field("enableEstimateVec", x.enableEstimateVec).fallbakc(true),
-                              f.field("errEstimate", x.errEstimate).invariant([](auto& c) { return c.size() == 3 }),
-                              f.field("errMeasure", x.errMeasure).invariant([](auto& c) { return c.size() == 3 }));
+                              f.field("enableEstimateVec", x.enableEstimateVec).fallback(false),
+                              f.field("errEstimate", x.errEstimate).invariant([](auto& c) { return c.size() == 3; }),
+                              f.field("errMeasure", x.errMeasure).invariant([](auto& c) { return c.size() == 3; }));
 }
 
 class EstimateVec final {
@@ -59,17 +59,19 @@ public:
 
     EstimateVec(const std::vector<double>& errEstimate, const std::vector<double>& errMeasure)
         : mErrEstimate(errEstimate[0], errEstimate[1], errEstimate[2]), mErrMeasure(errMeasure[0], errMeasure[1], errMeasure[2]),
-          mInitErrEstimate(mErrEstimate), mIsInitLastPos(false), mIsInitEsitmateVec(false) {}
+          mIsInitLastPos(false), mIsInitEsitmateVec(false) {
+        mInitErrEstimate = mErrEstimate;
+    }
 
     void update(const TimePoint& curTimePoint, const glm::dvec3& curPosition, const glm::dvec3& linearVelocity) {
         if(mIsInitLastPos) {
-            const auto dt = curTimePoint - mLastPosition;
-            const auto diff = curPosition - mLastPosition;
-            if(dt > 1s || diff.length() > 0.5) {  // diff time too long or diff position too distant, re estimate
+            const double dt = static_cast<double>(curTimePoint.time_since_epoch().count() - mLastUpdate.time_since_epoch().count()) / 1e9;
+            const glm::dvec3 diffPos = curPosition - mLastPosition;
+            if(dt > 1.0 || diffPos.length() > 0.5) {  // diff time too long or diff position too distant, re estimate
                 mErrEstimate = mInitErrEstimate;
                 mIsInitEsitmateVec = false;
             } else {
-                mMeasureVec = diff / std::chrono::duration_cast<std::chrono::milliseconds>(dt).count() / 1000.0 + linearVelocity;
+                mMeasureVec = diffPos / dt + linearVelocity;
                 if(mIsInitEsitmateVec) {
                     estimateVec();
                 } else {
@@ -100,7 +102,7 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
 
 public:
     AngleSolver(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, estimator(mConfig.errEstimate, mConfig.errMeasure), mKey{ generateKey(this) } {}
+        : HubHelper{ base, config }, mKey{ generateKey(this) }, estimator(mConfig.errEstimate, mConfig.errMeasure) {}
 
     static std::complex<double> sqrtN(const std::complex<double>& x, double n) {
         if(auto r = std::hypot(x.real(), x.imag()); r > 0.0) {
