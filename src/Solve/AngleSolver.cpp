@@ -40,6 +40,8 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
 }
 
 class EstimateVec final {
+    glm::dvec3 mInitErrEstimate;
+
     glm::dvec3 mErrEstimate;
     glm::dvec3 mErrMeasure;
     glm::dvec3 mKmGain;
@@ -49,7 +51,6 @@ class EstimateVec final {
 
     bool mIsInitLastPos;
     bool mIsInitEsitmateVec;
-    glm::dvec3 mInitErrEstimate;
 
     TimePoint mLastUpdate;
     glm::dvec3 mLastPosition;
@@ -58,21 +59,32 @@ public:
     EstimateVec() = default;
 
     EstimateVec(const std::vector<double>& errEstimate, const std::vector<double>& errMeasure)
-        : mErrEstimate(errEstimate[0], errEstimate[1], errEstimate[2]), mErrMeasure(errMeasure[0], errMeasure[1], errMeasure[2]),
-          mIsInitLastPos(false), mIsInitEsitmateVec(false) {
-        mInitErrEstimate = mErrEstimate;
+        : mInitErrEstimate(errEstimate[0], errEstimate[1], errEstimate[2]), mErrEstimate(mInitErrEstimate),
+          mErrMeasure(errMeasure[0], errMeasure[1], errMeasure[2]), mEsitmateVec(0, 0, 0),
+          mMeasureVec(0, 0, 0), mIsInitLastPos(false), mIsInitEsitmateVec(false) {
     }
 
     void update(const TimePoint& curTimePoint, const glm::dvec3& curPosition, const glm::dvec3& linearVelocity) {
         if(mIsInitLastPos) {
-            const double dt =
+            double dt =
                 static_cast<double>(curTimePoint.time_since_epoch().count() - mLastUpdate.time_since_epoch().count()) / 1e9;
-            const glm::dvec3 diffPos = curPosition - mLastPosition;
-            if(dt > 1.0 || diffPos.length() > 0.5) {  // diff time too long or diff position too distant, re estimate
+            logInfo(fmt::format("dt:{}", dt));
+            dt = dt > 1.0e-3 ? dt : 5.0e-3;
+
+            glm::dvec3 diffPos = curPosition - mLastPosition;
+            logInfo(fmt::format("diffPos:{}, {}, {}", diffPos.x, diffPos.y, diffPos.z));
+            diffPos.x = std::fabs(diffPos.x) > 2.0e-2 ? diffPos.x : 0.0;
+            diffPos.y = std::fabs(diffPos.y) > 2.0e-2 ? diffPos.y : 0.0;
+            diffPos.z = std::fabs(diffPos.z) > 2.0e-2 ? diffPos.z : 0.0;
+
+            if(dt > 1.0 || glm::length(diffPos) > 0.5) {  // diff time too long or diff position too distant, re estimate
                 mErrEstimate = mInitErrEstimate;
+                mMeasureVec = {0, 0, 0};
+                mEsitmateVec = {0, 0, 0 };
                 mIsInitEsitmateVec = false;
             } else {
                 mMeasureVec = diffPos / dt + linearVelocity;
+                logInfo(fmt::format("mMeasureVec: {}, {}, {}", mMeasureVec.x, mMeasureVec.y, mMeasureVec.z));
                 if(mIsInitEsitmateVec) {
                     estimateVec();
                 } else {
@@ -88,11 +100,12 @@ public:
 
     void estimateVec() {
         mKmGain = mErrEstimate / (mErrEstimate + mErrMeasure);            // step 1. clc kalman Gain
+        logInfo(fmt::format("kmGain:{}, {}, {}", mKmGain.x, mKmGain.y, mKmGain.z));
         mEsitmateVec += mKmGain * (mMeasureVec - mEsitmateVec);           // step 2. clc x_est(k)
-        mErrEstimate = (glm::dvec3{ 1, 1, 1 } - mKmGain) / mErrEstimate;  // step 3. update Err_est(k)
+        mErrEstimate = (glm::dvec3{ 1, 1, 1 } - mKmGain) * mErrEstimate;  // step 3. update Err_est(k)
     }
 
-    glm::dvec3 getEsimateVec() {
+    glm::dvec3 getEstimateVec() {
         return mEsitmateVec;
     }
 };
@@ -220,7 +233,8 @@ public:
 
                 if(mConfig.enableEstimateVec) {
                     estimator.update(data.value().lastUpdate, positionOfReferenceRobot.raw(), linearVelocity.raw());
-                    targetVec.setValue(estimator.getEsimateVec());
+                    targetVec.setValue(estimator.getEstimateVec());
+                    logInfo(fmt::format("target vec:{}, {}, {}", targetVec.raw().x, targetVec.raw().y, targetVec.raw().z));
                 }
                 glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x, -positionOfReferenceRobot.raw().z,
                                                    positionOfReferenceRobot.raw().y };
