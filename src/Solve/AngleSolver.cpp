@@ -49,57 +49,60 @@ class EstimateVec final {
     glm::dvec3 mEsitmateVec;
     glm::dvec3 mMeasureVec;
 
-    bool mIsInitLastPos;
-    bool mIsInitEsitmateVec;
+    std::vector<double> mPreTimePoint;
+    std::vector<glm::dvec3> mPrePosition;
 
-    TimePoint mLastUpdate;
-    glm::dvec3 mLastPosition;
+    uint64_t cnt;
+    constexpr static size_t estimateStep = 20;
 
 public:
     EstimateVec() = default;
 
     EstimateVec(const std::vector<double>& errEstimate, const std::vector<double>& errMeasure)
         : mInitErrEstimate(errEstimate[0], errEstimate[1], errEstimate[2]), mErrEstimate(mInitErrEstimate),
-          mErrMeasure(errMeasure[0], errMeasure[1], errMeasure[2]), mEsitmateVec(0, 0, 0),
-          mMeasureVec(0, 0, 0), mIsInitLastPos(false), mIsInitEsitmateVec(false) {
+          mErrMeasure(errMeasure[0], errMeasure[1], errMeasure[2]), mEsitmateVec(0, 0, 0), mMeasureVec(0, 0, 0), cnt(0) {
+        mPreTimePoint.resize(estimateStep);
+        mPrePosition.resize(estimateStep);
     }
 
     void update(const TimePoint& curTimePoint, const glm::dvec3& curPosition, const glm::dvec3& linearVelocity) {
-        if(mIsInitLastPos) {
-            double dt =
-                static_cast<double>(curTimePoint.time_since_epoch().count() - mLastUpdate.time_since_epoch().count()) / 1e9;
-            logInfo(fmt::format("dt:{}", dt));
-            dt = dt > 1.0e-3 ? dt : 5.0e-3;
-
-            glm::dvec3 diffPos = curPosition - mLastPosition;
-            logInfo(fmt::format("diffPos:{}, {}, {}", diffPos.x, diffPos.y, diffPos.z));
-            diffPos.x = std::fabs(diffPos.x) > 2.0e-2 ? diffPos.x : 0.0;
-            diffPos.y = std::fabs(diffPos.y) > 2.0e-2 ? diffPos.y : 0.0;
-            diffPos.z = std::fabs(diffPos.z) > 2.0e-2 ? diffPos.z : 0.0;
-
+        double tp = static_cast<double>(curTimePoint.time_since_epoch().count()) / 1e9;
+        if(cnt >= 1) {
+            double dt = tp - mPreTimePoint[cnt % estimateStep];
+            auto diffPos = curPosition - mPrePosition[cnt % estimateStep];
             if(dt > 1.0 || glm::length(diffPos) > 0.5) {  // diff time too long or diff position too distant, re estimate
                 mErrEstimate = mInitErrEstimate;
-                mMeasureVec = {0, 0, 0};
-                mEsitmateVec = {0, 0, 0 };
-                mIsInitEsitmateVec = false;
+                mMeasureVec = { 0, 0, 0 };
+                mEsitmateVec = { 0, 0, 0 };
+
+                mPreTimePoint.clear();
+                mPreTimePoint.resize(estimateStep);
+
+                mPrePosition.clear();
+                mPrePosition.resize(estimateStep);
+
+                cnt = 0;
             } else {
-                mMeasureVec = diffPos / dt + linearVelocity;
-                logInfo(fmt::format("mMeasureVec: {}, {}, {}", mMeasureVec.x, mMeasureVec.y, mMeasureVec.z));
-                if(mIsInitEsitmateVec) {
-                    estimateVec();
-                } else {
-                    mEsitmateVec = mMeasureVec;
-                    mIsInitEsitmateVec = true;
+                if(cnt >= estimateStep) {
+                    diffPos = mPrePosition[(cnt - estimateStep) % estimateStep] - curPosition;
+                    dt = tp - mPreTimePoint[(cnt - estimateStep) % estimateStep];
+                    mMeasureVec = diffPos / dt + linearVelocity;
+                    logInfo(fmt::format("mMeasureVec: {}, {}, {}", mMeasureVec.x, mMeasureVec.y, mMeasureVec.z));
+                    if(cnt >= (estimateStep + 1)) {
+                        estimateVec();
+                    } else {
+                        mEsitmateVec = mMeasureVec;
+                    }
                 }
             }
         }
-        mLastUpdate = curTimePoint;
-        mLastPosition = curPosition;
-        mIsInitLastPos = true;
+        mPreTimePoint[(cnt) % estimateStep] = tp;
+        mPrePosition[(cnt) % estimateStep] = curPosition;
+        ++cnt;
     }
 
     void estimateVec() {
-        mKmGain = mErrEstimate / (mErrEstimate + mErrMeasure);            // step 1. clc kalman Gain
+        mKmGain = mErrEstimate / (mErrEstimate + mErrMeasure);  // step 1. clc kalman Gain
         logInfo(fmt::format("kmGain:{}, {}, {}", mKmGain.x, mKmGain.y, mKmGain.z));
         mEsitmateVec += mKmGain * (mMeasureVec - mEsitmateVec);           // step 2. clc x_est(k)
         mErrEstimate = (glm::dvec3{ 1, 1, 1 } - mKmGain) * mErrEstimate;  // step 3. update Err_est(k)
