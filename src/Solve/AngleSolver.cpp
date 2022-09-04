@@ -68,8 +68,9 @@ public:
     void update(const TimePoint& curTimePoint, const glm::dvec3& curPosition, const glm::dvec3& linearVelocity) {
         double tp = static_cast<double>(curTimePoint.time_since_epoch().count()) / 1e9;
         if(cnt >= 1) {
-            double dt = tp - mPreTimePoint[cnt % estimateStep];
-            auto diffPos = curPosition - mPrePosition[cnt % estimateStep];
+            double dt = tp - mPreTimePoint[(cnt - 1) % estimateStep];
+            auto diffPos = curPosition - mPrePosition[(cnt - 1) % estimateStep];
+            logInfo(fmt::format("cnt:{}, df:{}, diffPos:{}", cnt, dt, glm::length(diffPos)));
             if(dt > 1.0 || glm::length(diffPos) > 0.5) {  // diff time too long or diff position too distant, re estimate
                 mErrEstimate = mInitErrEstimate;
                 mMeasureVec = { 0, 0, 0 };
@@ -109,7 +110,8 @@ public:
     }
 
     glm::dvec3 getEstimateVec() {
-        return mEsitmateVec;
+        logInfo(fmt::format("mEstimateVec:{}, {}, {}", mEsitmateVec.x, mEsitmateVec.y, mEsitmateVec.z));
+        return mMeasureVec;
     }
 };
 
