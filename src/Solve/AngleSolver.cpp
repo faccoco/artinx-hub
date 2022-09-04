@@ -17,11 +17,6 @@
 
 #include "SuppressWarningEnd.hpp"
 
-// x(k)_est = x(k - 1)_est + kmGain * (x(k)_mea - x(k - 1)_est)
-// x(k)_est: current estimate value
-// x(k)_mea: current measured value
-// kmGain: kalman Gain = Err_est(k - 1) / (Err_est(k - 1) + Err_mea(k))
-// Err_est(k) = (1 - kmGain) * Err_est(k - 1)
 
 struct AngleSolverSettings final {
     double precision;
@@ -34,19 +29,10 @@ struct AngleSolverSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
     return f.object(x).fields(f.field("precision", x.precision), f.field("delay", x.delay),
-                              f.field("enableEstimateVec", x.enableEstimateVec).fallback(false),
-                              f.field("errEstimate", x.errEstimate).invariant([](auto& c) { return c.size() == 3; }),
-                              f.field("errMeasure", x.errMeasure).invariant([](auto& c) { return c.size() == 3; }));
+                              f.field("enableEstimateVec", x.enableEstimateVec).fallback(false));
 }
 
 class EstimateVec final {
-    glm::dvec3 mInitErrEstimate;
-
-    glm::dvec3 mErrEstimate;
-    glm::dvec3 mErrMeasure;
-    glm::dvec3 mKmGain;
-
-    glm::dvec3 mEsitmateVec;
     glm::dvec3 mMeasureVec;
 
     std::vector<double> mPreTimePoint;
@@ -59,8 +45,7 @@ public:
     EstimateVec() = default;
 
     EstimateVec(const std::vector<double>& errEstimate, const std::vector<double>& errMeasure)
-        : mInitErrEstimate(errEstimate[0], errEstimate[1], errEstimate[2]), mErrEstimate(mInitErrEstimate),
-          mErrMeasure(errMeasure[0], errMeasure[1], errMeasure[2]), mEsitmateVec(0, 0, 0), mMeasureVec(0, 0, 0), cnt(0) {
+        :mMeasureVec(0, 0, 0), cnt(0) {
         mPreTimePoint.resize(estimateStep);
         mPrePosition.resize(estimateStep);
     }
@@ -70,11 +55,9 @@ public:
         if(cnt >= 1) {
             double dt = tp - mPreTimePoint[(cnt - 1) % estimateStep];
             auto diffPos = curPosition - mPrePosition[(cnt - 1) % estimateStep];
-            logInfo(fmt::format("cnt:{}, df:{}, diffPos:{}", cnt, dt, glm::length(diffPos)));
+            logInfo(fmt::format("cnt:{}, dt:{}, diffPos:{}", cnt, dt, glm::length(diffPos)));
             if(dt > 1.0 || glm::length(diffPos) > 0.5) {  // diff time too long or diff position too distant, re estimate
-                mErrEstimate = mInitErrEstimate;
                 mMeasureVec = { 0, 0, 0 };
-                mEsitmateVec = { 0, 0, 0 };
 
                 mPreTimePoint.clear();
                 mPreTimePoint.resize(estimateStep);
@@ -89,11 +72,6 @@ public:
                     dt = tp - mPreTimePoint[(cnt - estimateStep) % estimateStep];
                     mMeasureVec = diffPos / dt + linearVelocity;
                     logInfo(fmt::format("mMeasureVec: {}, {}, {}", mMeasureVec.x, mMeasureVec.y, mMeasureVec.z));
-                    if(cnt >= (estimateStep + 1)) {
-                        estimateVec();
-                    } else {
-                        mEsitmateVec = mMeasureVec;
-                    }
                 }
             }
         }
@@ -102,15 +80,7 @@ public:
         ++cnt;
     }
 
-    void estimateVec() {
-        mKmGain = mErrEstimate / (mErrEstimate + mErrMeasure);  // step 1. clc kalman Gain
-        logInfo(fmt::format("kmGain:{}, {}, {}", mKmGain.x, mKmGain.y, mKmGain.z));
-        mEsitmateVec += mKmGain * (mMeasureVec - mEsitmateVec);           // step 2. clc x_est(k)
-        mErrEstimate = (glm::dvec3{ 1, 1, 1 } - mKmGain) * mErrEstimate;  // step 3. update Err_est(k)
-    }
-
     glm::dvec3 getEstimateVec() {
-        logInfo(fmt::format("mEstimateVec:{}, {}, {}", mEsitmateVec.x, mEsitmateVec.y, mEsitmateVec.z));
         return mMeasureVec;
     }
 };
@@ -243,9 +213,9 @@ public:
                 }
                 glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x, -positionOfReferenceRobot.raw().z,
                                                    positionOfReferenceRobot.raw().y };
-                transformedLinearVelocity = { targetVec.raw().x - linearVelocity.raw().x,
-                                              -targetVec.raw().z + linearVelocity.raw().z,
-                                              targetVec.raw().y - linearVelocity.raw().y };
+                transformedLinearVelocity = { -targetVec.raw().x - linearVelocity.raw().x,
+                                              targetVec.raw().z + linearVelocity.raw().z,
+                                              -targetVec.raw().y - linearVelocity.raw().y };
                 // logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y,
                 // linearVelocity.raw().z));
                 transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x,
