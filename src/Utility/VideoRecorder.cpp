@@ -77,7 +77,7 @@ public:
                              logError(error.c_str());
                          }
                          mWriter = std::make_unique<cv::VideoWriter>(
-                             mConfig.base + "/" + std::to_string(Clock::now().time_since_epoch().count()) + ".mp4", mFourCc,
+                             mConfig.base + "/" + std::to_string(Clock::now().time_since_epoch().count()%1000000000) + ".mp4", mFourCc,
                              mConfig.fps, frameData.frame.size());
                          mFormat = frameData.frame.type();
                          mSize = frameData.frame.size();
