@@ -44,7 +44,6 @@ class HubHelper : public T {
         std::variant<std::vector<std::string>, std::vector<std::pair<caf::actor_addr, GroupMask>>> val;
     };
 	
-    //传啥返回啥，这样做的好处？
     template <typename Arg>
     static const Arg& wrap(const Arg& arg) noexcept {
         return arg;
@@ -172,7 +171,7 @@ class BlackBoard final {
 public:
     /**
    * @brief 			根据key从黑板上拿值
-   * @param key   		每个actor？atom?对应的整形值?
+   * @param key   		每个actor类实例的对象对应的整形值
    * @return 	  		拿到的值	
    */
     template <typename T>
