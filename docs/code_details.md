@@ -329,7 +329,7 @@ if(rect.size.width < rect.size.height) {  // rotate rect
 ## SolvePnP
 
 + *Reference*:[OpenCV: Perspective-n-Point (PnP) pose computation](https://docs.opencv.org/3.4/d5/d1f/calib3d_solvePnP.html)
-
++ *Reference*:https://www.cnblogs.com/singlex/category/911880.html
 ## Coordinate system regulation and coordinate transformation
 
 ### Coordinate system regulation
@@ -455,6 +455,13 @@ S4 = V0 * V0 - V0v * V0v - V0hx * V0hx - V0hy * V0hy;
 double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
 double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 ```
+
+# Predictor
+
+## 开源方案
+
++ *Reference*：[freezing00/Baldr: 本项目为桂林电子科技大学Evolution战队2021赛季常规机器人视觉项目 (github.com)](https://github.com/freezing00/Baldr)
++ *Reference*：[WMJ2021/libControl/Predict at master · NZqian/WMJ2021 (github.com)](https://github.com/NZqian/WMJ2021/tree/master/libControl/Predict)
 
 ## Sentry actor workflow
 
