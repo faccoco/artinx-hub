@@ -118,8 +118,6 @@ public:
                 ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);
                 ACTOR_EXCEPTION_PROBE();
 
-                logInfo(fmt::format("mKey:{} received key:{}", mKey.val, key.val));
-
                 const auto data = BlackBoard::instance().get<SelectedTarget>(key);
                 const auto dataHeadInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
                 const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
@@ -134,26 +132,23 @@ public:
 
                 constexpr auto square = [=](const double x) { return x * x; };
 
-                Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
-                    data.value().selected.value().center.raw());
-
                 const auto delayTime = mConfig.delay;
 
-                glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
-
+                logInfo(fmt::format("Beform transform:x: {}, y: {}, z: {}", data.value().selected.value().center.raw().x, -data.value().selected.value().center.raw().z, data.value().selected.value().center.raw().y));
+                Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
+                data.value().selected.value().center.raw());
                 Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot =
                     dataHeadInfo.value().transform(positionOfReferenceGun);
-                Vector<UnitType::Distance, FrameOfReference::Ground> positionOfReferenceGround =
-                    dataPosture.value().postureOfRobot(positionOfReferenceRobot);
-                glm::dvec3 transformedPosition = { positionOfReferenceGround.raw().x, -positionOfReferenceGround.raw().z,
-                                                   positionOfReferenceGround.raw().y };
                 Vector<UnitType::LinearVelocity, FrameOfReference::Ground> linearVelocity(
                     dataPosture.value().linearVelocityOfRobot.raw());
 
-                HubLogger::watch("z", positionOfReferenceGround.raw().z);
-                logInfo(fmt::format("position {} {} {}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
+                HubLogger::watch("z", positionOfReferenceRobot.raw().z);
 
                 //(forward:+y,right:+x)
+                glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
+                glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x,
+                                                   -positionOfReferenceRobot.raw().z ,
+                                                   positionOfReferenceRobot.raw().y};
                 transformedLinearVelocity = {avgVec.x - linearVelocity.raw().x, avgVec.y + linearVelocity.raw().z, avgVec.z - linearVelocity.raw().y };
                 //logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y, linearVelocity.raw().z));
                 transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x,
@@ -170,10 +165,10 @@ public:
                 double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
                 double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 
-                logInfo(fmt::format("yawAngle {} pitchAngle {}", yawAngle, pitchAngle));
-                logInfo(fmt::format("--------------------------"));
+                bool isFire = true;
+                logInfo(fmt::format("x:{}, y:{}, z:{}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
-                        pitchAngle, true);
+                        pitchAngle, isFire);
             },
             [this](update_head_atom, GroupMask, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);

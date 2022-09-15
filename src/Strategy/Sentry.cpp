@@ -9,8 +9,8 @@
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
-#include <glm/glm.hpp>
 #include <fmt/format.h>
+#include <glm/glm.hpp>
 
 #include "SuppressWarningEnd.hpp"
 
@@ -54,40 +54,42 @@ public:
                      if(selected.selected.has_value()) {
                          (mask == 1U ? mLastSelected1 : mLastSelected2) = selected;
                      } else {
-                         const auto head1 = BlackBoard::instance().get<HeadInfo>(mHead1);
-                         const auto head2 = BlackBoard::instance().get<HeadInfo>(mHead2);
-                         if(!(head1.has_value() && head2.has_value())) {
-                             logWarning("No head info for sentry");
+                         selected = (mask == 1U) ? mLastSelected1 : mLastSelected2;
+                         const auto& delta = Clock::now() - selected.lastUpdate;
+                         if(!selected.selected.has_value() ||
+                            !(delta.count() < static_cast<Clock::rep>(mConfig.detectedTTL * 1e9))) {
+#ifndef ENABLE_INTERACTION
                              return;
-                         }
+#endif
+                             selected = (mask == 1U) ? mLastSelected2 : mLastSelected1;
 
-                         const auto& headInfo1 = head1.value();
-                         const auto& headInfo2 = head2.value();
+                             if(delta.count() > static_cast<Clock::rep>(mConfig.detectedTTL * 1e9))
+                                 return;
 
-                         selected = (mask == 1U ? mLastSelected2 : mLastSelected1);
+                             const auto head1 = BlackBoard::instance().get<HeadInfo>(mHead1);
+                             const auto head2 = BlackBoard::instance().get<HeadInfo>(mHead2);
+                             if(!(head1.has_value() && head2.has_value())) {
+                                 logWarning("No head info for sentry");
+                                 return;
+                             }
 
-                         if(!selected.selected.has_value())
-                             return;
+                             const auto& headInfo1 = head1.value();
+                             const auto& headInfo2 = head2.value();
 
-                         const auto delta = Clock::now() - selected.lastUpdate;
-                         if(delta.count() > static_cast<Clock::rep>(mConfig.detectedTTL * 1e9))
-                             return;
-
-                         auto& center = selected.selected.value().center;
-                         auto& velocity = selected.selected.value().velocity;
-                         if(mask == 1U) {
-                             center = headInfo1.transform(headInfo2.transform(center));
-                             velocity = headInfo1.transform(headInfo2.transform(velocity));
-                         } else {
-                             center = headInfo2.transform(headInfo1.transform(center));
-                             velocity = headInfo2.transform(headInfo1.transform(velocity));
+                             auto& center = selected.selected.value().center;
+                             auto& velocity = selected.selected.value().velocity;
+                             if(mask == 1U) {
+                                 center = headInfo1.transform(headInfo2.transform(center));
+                                 velocity = headInfo1.transform(headInfo2.transform(velocity));
+                             } else {
+                                 center = headInfo2.transform(headInfo1.transform(center));
+                                 velocity = headInfo2.transform(headInfo1.transform(velocity));
+                             }
                          }
                      }
 
-                     // if(!selected.selected.has_value())
-                     //     return;
-
-                     sendMasked(set_target_atom_v, mask, BlackBoard::instance().updateSync<SelectedTarget>(Identifier{mKey.val ^ mask}, selected));
+                     sendMasked(set_target_atom_v, mask,
+                                BlackBoard::instance().updateSync<SelectedTarget>(Identifier{ mKey.val ^ mask }, selected));
                  },
                  [&](update_head_atom, GroupMask mask, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
