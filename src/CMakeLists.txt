@@ -13,6 +13,8 @@ set(SOURCE
 "Detect/ArmorDetector.cpp"
 "Detect/EnergyDetector.cpp"
 "Detect/FakeCarDetector.cpp"
+"Detect/OreAlignment.cpp"
+"Detect/OreExchangeRectifier.cpp"
 "HubMain.cpp"
 "Postprocess/ArmorPredictor.cpp"
 "Preprocess/ColorCalibration.cpp"
@@ -23,6 +25,7 @@ set(SOURCE
 "Sensor/VideoReplay.cpp"
 "Solve/AngleSolver.cpp"
 "Solve/ArmorLocator.cpp"
+"Solve/RadarLocator.cpp"
 "Strategy/Hero.cpp"
 "Strategy/Infantry.cpp"
 "Strategy/Sentry.cpp"
@@ -69,7 +72,6 @@ message(${ARTINX_HUB_CAMERA} ":" ${DAHENG_SDK_PATH})
 find_package(magic_enum CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(Boost REQUIRED system)
-
 
 add_executable(ArtinxHub ${SOURCE})
 target_include_directories(ArtinxHub PRIVATE ${CAF_INCLUDE_DIRS})

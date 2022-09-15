@@ -207,7 +207,9 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
     logInfo(args);
 
     if(argc != 2 || !fs::exists(argv[1])) {
-        logError("Bad Config");
+        logError(fmt::format("argc:{}, argv[1]:{}", argc, argv[1]));
+        logError("No config file path argument or config file path do not exsits!");
+        return 0;
     }
 
     globalConfigName = fs::path{ argv[1] }.filename().string();
