@@ -1,5 +1,83 @@
 # Code Details
 
+##  HubClassRegister
+
++ 宏定义中`#`的作用
+
+    + 一个`#`:将其后面的宏参数进行字符串化
+
+    + 两个`##`:在带参数数的宏定义中将两个子串(token)连接起来，从而形成一个个新的字串。子串(token)指编译器能够识别的最小语法单元。
+
+        ```c++
+        #define PRINT(N) printf("token"#N" = %d", token##N)
+        
+        int token9 = 3;
+        PRINT(N)   //printf("token9 = %d", token9)
+        
+        ```
+
+        总之，宏中的参数仅仅只有一个替换的作用。
+
++ 初始化时机
+    + **全局变量、文件域中的静态变量、类中的成员静态变量在main函数执行前初始化；局部变量中的静态变量在第一次调用时初始化。**
+
+```c++
+//所有actor类由于声明定义了一个static静态变量的HubClassRegister类， 因此都会在进入main函数之前初始化一个hubClassRegister##CLASS_NAME的变量。
+#define HUB_REGISTER_CLASS(CLASS_NAME) static detail::HubClassRegister<CLASS_NAME> hubClassRegister##CLASS_NAME
+
+//HubClassRegister类的构造函数中，调用registerComponent函数，将acotor类的名称、生成的方法注册到工厂类的mClasser变量中，由工厂类负责生成actor类对象。
+void registerComponent(const char* name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction) {
+    NodeFactory::get().addNodeType(std::string{ name }, std::move(spawnFunction));
+}
+
+template <typename NodeType>
+class HubClassRegister final : Unmovable {
+    public:
+    HubClassRegister() {
+        registerComponent(typeid(NodeType).name(), [](caf::actor_system& system, const HubConfig& config) -> caf::actor {
+            return system.spawn<NodeType>(config);
+        });
+    }
+};
+
+```
+
+## NodeFactory
+
+```c++
+//工厂类，制造生成acotr
+class NodeFactory final : Unmovable {
+    //存放actor的名称和制造acotr的方法
+    std::unordered_map<std::string, std::function<caf::actor(caf::actor_system&, const HubConfig&)>> mClasses{};
+
+public:
+    //由HubClassRegister类调用，把actor的名称和制造方法存放到mClass中。
+    void addNodeType(std::string name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction);
+ 	//根据配置文件中给定actor的type，在mClasser中寻找与其名称相对的actor，并调用其制造方法生成该actor，并将其注册到系统中。
+    caf::actor buildNode(caf::actor_system& system, const std::string& name, const HubConfig& config);
+   //单例模式
+    static NodeFactory& get() {
+        static NodeFactory instance;
+        return instance;
+    }
+};
+```
+
+## Atom
+
+```C++
+/*本质上为一个结构体
+例如：CAF_ADD_ATOM(ArtinxHub, image_frame_atom)
+该宏展开为：
+struct image_frame_atom{};
+static constexpr image_frame_atom image_frame_atom_v = image_frame_atom{};
+...
+*/
+#  define CAF_ADD_ATOM(...)                                                    \
+    CAF_PP_OVERLOAD(CAF_ADD_ATOM_, __VA_ARGS__)(__VA_ARGS__)
+#endif 
+```
+
 ## Identifier
 
 ```c++
@@ -14,6 +92,56 @@ template <typename T>
 struct TypedIdentifier final : Identifier {
     using Payload = T;
 };
+```
+
+## parseSucceed
+
+```C++
+   /**
+   * @brief				根据config文件解析actor类中的atom对应的需要发送到的actor
+   * @param config 		配置文件
+   * @param name		atom的名字
+   * @retrun			需要发送到的actor的名称
+   **/
+std::vector<std::string> parseSucceed(const HubConfig& config, const std::string& name) {
+    std::string_view nameNormalized = name;
+    //由于name由typeid.name(atom) 传入， name会带上struct关键，所以调用demangle函数去掉
+    demangle(nameNormalized);
+    const auto attr = config.to_dictionary().value();
+    //根据atom名称在config文件中查找
+    const auto iter = attr.find(nameNormalized);
+    if(iter == attr.cend()) {
+        return {};
+    }
+
+    const auto succeed = iter->second.to_list().value();
+    std::vector<std::string> res;
+    res.reserve(succeed.size());
+    //将config文件中的发送到目标actor的名称以字符串形式保存
+    for(const auto& id : succeed) {
+        res.push_back(caf::to_string(id));
+    }
+    return res;
+}
+
+   /**
+   * @brief				根据actor名称返回actor的地址和组码
+   * @param string		actor的名称
+   * @retrun			acotr的地址和组码
+   **/
+    std::vector<std::pair<caf::actor_addr, GroupMask>> parseSucceed(caf::actor_system& system, const std::vector<std::string>& succeed) {
+        const auto& registry = system.registry();
+        std::vector<std::pair<caf::actor_addr, GroupMask>> res;
+        res.reserve(succeed.size());
+        for(const auto& id : succeed) {
+            if(const auto addr = registry.get<caf::actor_addr>(id))
+                res.emplace_back(addr, maskLUT[id]);
+            else {
+                logError("Undefined actor " + id + " (call sendAll before start_atom?)");
+            }
+        }
+        return res;
+    }
 ```
 
 ## HubHelper
@@ -58,9 +186,15 @@ class HubHelper : public T {
     //可变参数模板 ex: for armorDetector, mDest ==> std::tuple<SucceedAddress<armor_detect_available_atom>, SucceedAddress<image_frame_atom>>
     std::tuple<SucceedAddress<Succeed>...> mDest;
 
+   /**
+   * @brief				得到atom要发送的目标actor
+   * @retrun			返回一个std::vector<std::pair<caf::actor_addr, GroupMask>>> 类型的值	
+   */    
     template <typename Atom>
     const auto& getDest() {
+        //从mDest中拿到要发送的actor的名称
         auto& dest = std::get<SucceedAddress<Atom>>(mDest).val;
+   		//如果dest为std::variant中的std::vector<std::string>类型，则将其变为std::vector<std::pair<caf::actor_addr, GroupMask>>类型     
         if(dest.index() == 0)
             dest = detail::parseSucceed(this->system(), std::get<0>(dest));
         return std::get<1>(dest);
@@ -112,9 +246,9 @@ public:
         }
     }
     /**
-   * @brief				根据配置文件内容给对应的actor发送atom，从而触发相应lambada函数调用
-   * @param atom
-   * @param args	
+   * @brief				给对应的actor发送atom，从而触发相应lambada函数调用
+   * @param atom		需要发送的atom
+   * @param args		其他参数
    */
     template <typename Atom, typename... Args>
     void sendAll(Atom atom, Args&&... args) {
@@ -122,11 +256,17 @@ public:
         for(auto&& [address, mask] : getDest<Atom>())
             this->send(caf::actor_cast<caf::actor>(address), atom, wrap(std::forward<Args>(args))...);
     }
-
+    /**
+   * @brief				当目标actor的mask和mask相同时， 给目标actor发送atom，从而触发相应lambada函数调用
+   * @param atom		需要发送的atom
+   * @param mask		目标acotr的mask
+   * @param args		其他参数
+   */
     template <typename Atom, typename... Args>
     void sendMasked(Atom atom, GroupMask mask, Args&&... args) {
         ACTOR_PROTOCOL_CHECK(Atom, std::decay_t<Args>...);
         for(auto&& [address, maskRhs] : getDest<Atom>())
+            //检查目标acotr的mask是否和mask一致
             if(mask & maskRhs)
                 this->send(caf::actor_cast<caf::actor>(address), atom, wrap(std::forward<Args>(args))...);
     }
@@ -464,49 +604,51 @@ double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<
 
 ## Sentry actor workflow
 
-+ `camera_up `和`camera_down`
-  
-    + 初始化由于类实例化的对象地址不同，所以`mkey`值不相同，对应的在`blackboard`上的`CameraFrame`的哈希值不同。
-    + `mGroup`未设置，都为1。
+### `camera_up `和`camera_down`
+
++ 初始化由于类实例化的对象地址不同，所以`mkey`值不相同，对应的在`blackboard`上的`CameraFrame`的哈希值不同。
++ `mGroup`未设置，都为1。
+
 + `sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData)))`。
-  
-+ `serial`
 
-    + `mGroup`未设置，为1。
-    + `sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture))` 发送姿态信息
-    + `sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoUp))`。发送上云台枪管坐标系到机器人坐标变换矩阵信息。
-    + ` sendMasked(update_head_atom_v, 2U, 2U, BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, infoDown))`;发送下云台枪管坐标系到机器人坐标系的变换矩阵信息。
+### `serial`
 
-    + 接收 `[this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire)`    `mGroupMask == 1U` 为上云台数据，否则为下云台数据。
++ `mGroup`未设置，为1。
++ `sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture))` 发送姿态信息
++ `sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoUp))`。发送上云台枪管坐标系到机器人坐标变换矩阵信息。
++ ` sendMasked(update_head_atom_v, 2U, 2U, BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, infoDown))`;发送下云台枪管坐标系到机器人坐标系的变换矩阵信息。
 
-+ `detector_up`和`detector_down`
-    + 接收 `image_frame_atom` ，发送`sendAll(car_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)))`
-    + config 文件中配置了`detector_up`和`detector_down`分别接收`camera_up`和`camera_down`的`atom`和`key`。
++ 接收 `[this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire)`    `mGroupMask == 1U` 为上云台数据，否则为下云台数据。
 
+### `detector_up`和`detector_down`
+
++ 接收 `image_frame_atom` ，发送`sendAll(car_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)))`
++ config 文件中配置了`detector_up`和`detector_down`分别接收`camera_up`和`camera_down`的`atom`和`key`。
 + `armor_detector_up`和`aromor_detector_down`
-  
+
 + 接受 `car_detector_available_atom`, 发送`sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)))`
-  
-+ `armor_locator_up` 和`armor_locator_down`
 
-    + 在config文件中`armor_loctor_up` 的`group_id`为0， `armor_locator_down ` 的 `group_id`为 1。
+### `armor_locator_up` 和`armor_locator_down`
 
-    + 接收`armor_detect_available_atom`, 发送`sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)))`
-    + 接收 `(update_head_atom, GroupMask, Identifier key)`, 更新`actor`的 `mHeadKey`
++ 在config文件中`armor_loctor_up` 的`group_id`为0， `armor_locator_down ` 的 `group_id`为 1。
 
-+ `strategy`
++ 接收`armor_detect_available_atom`, 发送`sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)))`
++ 接收 `(update_head_atom, GroupMask, Identifier key)`, 更新`actor`的 `mHeadKey`
 
-    + 接收`(detect_available_atom, GroupMask mask, Identifier key)`
+### `strategy`
 
-    + 如果`selected`有数据，` (mask == 1U ? mLastSelected1 : mLastSelected2) = selected`;
++ 接收`(detect_available_atom, GroupMask mask, Identifier key)`
 
-        如果`selected`没有数据，`selected = (mask == 1U ? mLastSelected2 : mLastSelected1)`,指从另外一个云台拿数据。
++ 如果`selected`有数据，` (mask == 1U ? mLastSelected1 : mLastSelected2) = selected`;
 
-    + 发送`sendMasked(set_target_atom_v, mask, BlackBoard::instance().updateSync<SelectedTarget>(Identifier{mKey.val ^ mask}, selected));`，注意`sendMasked`指定了接收对象
-    + 接收`(update_head_atom, GroupMask mask, Identifier key)`,更新`mHead1`和`mHead2`的数据。
+    如果`selected`没有数据，`selected = (mask == 1U ? mLastSelected2 : mLastSelected1)`,指从另外一个云台拿数据。
 
-+ `angleSolve_up` 和`angleSolve_down`
-    +  接收`(set_target_atom, Identifier key)`
-    + 发送 `sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle, pitchAngle, isFire)`
-    + 接收`(update_head_atom, GroupMask, Identifier key)`, 更新`mHeadKey`
-    + 接收 `(update_posture_atom, Identifier key)`, 更新`mIMUKey`
++ 发送`sendMasked(set_target_atom_v, mask, BlackBoard::instance().updateSync<SelectedTarget>(Identifier{mKey.val ^ mask}, selected));`，注意`sendMasked`指定了接收对象
++ 接收`(update_head_atom, GroupMask mask, Identifier key)`,更新`mHead1`和`mHead2`的数据。
+
+### `angleSolve_up` 和`angleSolve_down`
+
++  接收`(set_target_atom, Identifier key)`
++ 发送 `sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle, pitchAngle, isFire)`
++ 接收`(update_head_atom, GroupMask, Identifier key)`, 更新`mHeadKey`
++ 接收 `(update_posture_atom, Identifier key)`, 更新`mIMUKey`
