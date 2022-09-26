@@ -19,6 +19,7 @@
         总之，宏中的参数仅仅只有一个替换的作用。
 
 + 初始化时机
+    
     + **全局变量、文件域中的静态变量、类中的成员静态变量在main函数执行前初始化；局部变量中的静态变量在第一次调用时初始化。**
 
 ```c++
@@ -148,16 +149,15 @@ std::vector<std::string> parseSucceed(const HubConfig& config, const std::string
 
 + `std::variant`
     + 类似C语言中的union，保存可能存储的类型列表之一的对象。
-
 + `noexcept`
     + 修饰函数表示不会抛出异常。
-
 + `reinterpre_cast`
     + 强制转型，用来处理无关类型之间的转换， 它会产生一个新的值，这个值会有与原始参数值有完全相同的比特位。
-
 + `std::get(std::tuple)`
     + `std::get<N>(t)` 提取`tuple`的第N个元素
     + `std::get<typename>(t)`提取`tuple`中`typename`类型的元素，如果`tuple`中不只一个该类型元素，则编译失败。
++ `std::decay_t`
+    + 返回去除`cv`属性的类型
 
 ```c++
 //T: 继承的actor基类    config: 配置文件参数   Succeed: 需要发送的atom
@@ -341,7 +341,135 @@ public:
     static BlackBoard& instance();
 };
 ```
+# ACTOR_PROTOCOL_DEFINE 
+
++ **该宏定义atom与发atom时需要从`blackboard`上拿的对应的结构体类型**
+
++ 使用方法`ACTOR_PROTOCOL_DEFINE(atom, typename)`，`atom`为一个结构体类型，`typename`为与之对应的结构体类
+
+    ```c++
+    //该宏定义了一个模板类，该模板类相当于
+    struct __ImplActorProtocol<atom, typename> final{
+        static constexpr bool check() noexcept{
+            return true;
+        }
+    }
+    #define ACTOR_PROTOCOL_DEFINE(...)                  \
+        template <>                                     \
+        struct __ImplActorProtocol<__VA_ARGS__> final { \
+            static constexpr bool check() noexcept {    \
+                return true;                            \
+            }                                           \
+        }
+    ```
+
+# ACTOR_PROTOCOL_CHECK
+
++ 该宏检查`atom`与参数类型是否对应
+
+```c++
+//该宏调用 __ImplActorProtocol<Args...>:：check()进行判断
+#define ACTOR_PROTOCOL_CHECK(...) static_assert(__impl_actor_protocol_call<__VA_ARGS__>(), "Mismatched protocol")
+
+template <typename... Args>
+constexpr bool __impl_actor_protocol_call() noexcept {
+    return __ImplActorProtocol<Args...>::check();
+}
+
+//没有经过__ACTOR_PROTOCOL_DEFINE__定义的其他类型参数传入时，利用模板偏特化技术，会匹配到该类，从而返回false
+template <typename... T>
+struct __ImplActorProtocol final {
+    static constexpr bool check() noexcept {
+        return false;
+    }
+};
+```
+
+# ACTOR_EXCEPTION_PROBE
+
++ `__FILE__`: 当前源文件名
++ `__LINE_`: 当前程序行的行号
++ `__FUNCTION__`:当前函数的函数名
++ `feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW)`
+    + 该函数使能浮点数异常检查功能
+    + `FE_DIVBYZERO `表示被0除的异常
+    + `FE_INVALID`表示不合法的浮点运算
+    + `FE_OVERFLOW`表示浮点数溢出
+
++ `std::uncaught_exceptions`
+
+    + 检测当前线程中是否有活动异常对象，及异常已抛出或重新抛出，并且尚未输入匹配的`CATHCH`字句
+
++ `__builtin_trap`
+
+    + 本质上通过执行非法命令来中止程序。
+
+      ```css
+    __builtin_trap function causes the program to exit abnormally. GCC implements this function by using a target-dependent mechanism (such as intentionally executing an illegal instruction) or by calling abort. The mechanism used may vary from release to release so you should not rely on any particular implementation.
+      ```
+
+```c++
+//定义ExceptionProbe __probe{}类
+#define ACTOR_EXCEPTION_PROBE()          \
+    ExceptionProbe __probe {             \
+        __FILE__, __FUNCTION__, __LINE__ \
+    }
+
+void installFPEProbe() {
+#ifdef ARTINXHUB_DEBUG
+#ifdef ARTINXHUB_WINDOWS
+    _control87(_EM_DENORMAL | _EM_INEXACT | _EM_UNDERFLOW, _MCW_EM);
+#else
+    feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
+#endif
+#endif
+}
+void uninstallFPEProbe();
+
+class ExceptionProbe final {
+    const char* mFile;
+    const char* mFunction;
+    const uint32_t mLine;
+
+    static constexpr auto highLatency = 50ms;
+    Clock::time_point mStart;
+
+public:
+    ExceptionProbe(const char* file, const char* function, const uint32_t line)
+        : mFile{ file }, mFunction{ function }, mLine{ line }, mStart{ Clock::now() } {
+#ifdef ARTINXHUB_DEBUG
+        installFPEProbe();
+#endif
+    }
+    ExceptionProbe(const ExceptionProbe& rhs) = delete;
+    ExceptionProbe& operator=(const ExceptionProbe& rhs) = delete;
+    ExceptionProbe(ExceptionProbe&& rhs) = delete;
+    ExceptionProbe& operator=(ExceptionProbe&& rhs) = delete;
+
+    ~ExceptionProbe() {
+#ifdef ARTINXHUB_DEBUG
+        uninstallFPEProbe();
+
+        if(std::uncaught_exceptions()) {
+#ifdef ARTINXHUB_WINDOWS
+            __debugbreak();
+#else
+            __builtin_trap();
+#endif
+        }
+#else
+        if(Clock::now() - mStart > highLatency) {
+            logWarning(fmt::format("High latency detected {} {} {}", mFile, mFunction, mLine));
+        }
+#endif
+    }
+};
+```
+
+
+
 ## Armor Detector
+
 ### 吉林大学2020方案
 
 + *Reference*：[GitHub - QunShanHe/JLURoboVision: Standard Vision Software of TARS-GO Team, Jilin University on RoboMaster 2020 Robotic Competition](https://github.com/QunShanHe/JLURoboVision)
@@ -522,32 +650,6 @@ if(rect.size.width < rect.size.height) {  // rotate rect
     
 
 ## Angle Solver
-
-$V_0$: 子弹的净速度    $V_{0h}$ : 子弹的水平面方向净速度 	$V_{0v}$:子弹竖直方向的净速度   $V_h$:子弹水平面方向的
-
- $V_1:$ 车的速度     $V_x$: 子弹x方向的合速度     $V_y$:子弹y方向的合速度
-
-$S$: 水平方向的距离
-
-$V_{x} = V_{1x} + V_{0hx}$   $V_y = V_{1y} + V_{0hy}$
-
-$V_hsin\theta = V_{ohy} + V_{1y}$  $V_hcos \theta = V_{0hx} + V_{1x}$
-
-$V_h^2=V_x^2+V_y^2$
-
-$V_{0v}\frac{S}{V_h}-\frac{1}{2}g\frac{S^2}{V_h^2}=h$
-
-$V_0^2= V_{0h}^2 + V_{0v}^2$
-
-$\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ 
-
-$V_{0v}^2S^2V_h^2=h^2V_h^4+1/4gs^2+hgs^2V_h^4$
-
-$(V_0^2 - V_{0h}^2)S^2V_h^2=h^2V_h^4+1/4gs^2+hgs^2V_h^4$ 
-
-$(V_0^2-(V_hsin \theta - V_{1y})^2-(V_hsin \theta - V_{1x})^2)S^2h^2=h^2V_h^4+1/4gs^2+hgs^2V_h^4$
-
-$(V_0^2 - V_h^2 + 2V_hV_{1y}sin \theta + 2V_hV_{1x}cos \theta - (V_{1y}^2+V_{1x}^2))S^2h^2=h^2V_h^4+1/4gs^2+hgs^2V_h^4$
 
 + 以车辆自身作为参考系
 
