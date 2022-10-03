@@ -24,12 +24,15 @@ struct ArmorDetectorSettings final {
     std::vector<int32_t> thresholdForRed;   // minRed, maxBlue,maxGreen
     int bgrSubtractForBlue;                 // bgr subtract threshold for blue
     int bgrSubtractForRed;                  // bgr subtract threshold for red
+    float minLightAngle;                    // width/height
+    float maxLightRectRatio;                // width/height
+    float maxLightAngle;                    // sin(angle)
     float maxAreaRatio;                     // ellipseArea/contourArea
-    float maxLightAngle;                    // cos(angle)
-    float maxLightRectRatio;                // height/width
-    float maxArmorRectRatio;                // width/ (1.8 *  height)
-    float maxArmorAngle;                    // cos(angle)
-    float minLightBaseAngle;                // cos(lightAngle-armorAngle)
+
+    float minArmorRectRatio;                // height/width
+    float maxArmorRectRatio;                // height/width
+    float maxArmorAngle;                    // tan(angle)
+    float maxLightBaseAngle;                // tan(lightAngle-armorAngle)
     float maxParallelAngle;                 // sin(lightAngle1-lightAngle2)
     float minLightHeightRatio;              // lightHeight/armorHeight
 };
@@ -41,8 +44,9 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
                               f.field("thresholdForRed", x.thresholdForRed).invariant([](auto& c) { return c.size() == 3; }),
                               f.field("bgrSubtractForBlue", x.bgrSubtractForBlue).fallback(60),
                               f.field("bgrSubtractForRed", x.bgrSubtractForRed).fallback(60),
-                              f.field("maxAreaRatio", x.maxAreaRatio), f.field("maxLightAngle", x.maxLightAngle),
-                              f.field("maxLightRectRatio", x.maxLightRectRatio),
+                              f.field("maxLightAngle", x.minLightAngle), f.field("maxLightAngle", x.maxLightAngle),
+                              f.field("maxLightRectRatio", x.maxLightRectRatio),  f.field("maxAreaRatio", x.maxAreaRatio),
+                              f.field("minArmorRectRatio", x.minArmorRectRatio),
                               f.field("maxArmorRectRatio", x.maxArmorRectRatio), f.field("maxArmorAngle", x.maxArmorAngle),
                               f.field("minLightBaseAngle", x.minLightBaseAngle), f.field("maxParallelAngle", x.maxParallelAngle),
                               f.field("minLightHeightRatio", x.minLightHeightRatio));
@@ -116,21 +120,11 @@ class ArmorDetector final
     }
 
     static cv::RotatedRect correctRectAngle(cv::RotatedRect lightRect) {
-        if(std::fmax(lightRect.size.width, lightRect.size.height) < 5.0f) {
-            if(std::fabs(std::sin(glm::radians(lightRect.angle))) < glm::root_two<float>() * 0.5f) {
-                std::swap(lightRect.size.width, lightRect.size.height);
-                lightRect.angle += 90.0f;
-            }
-        } else if(std::fmax(lightRect.size.width, lightRect.size.height) /
-                      std::fmin(lightRect.size.width, lightRect.size.height) >
-                  1.2f) {
-            if((lightRect.size.width > 1.5f * lightRect.size.height) ||
-               (lightRect.size.width > 1.2f * lightRect.size.height &&
-                std::fabs(std::sin(glm::radians(lightRect.angle))) < glm::root_two<float>() * 0.5f)) {
-                std::swap(lightRect.size.width, lightRect.size.height);
-                lightRect.angle += 90.0f;
-            }
+        if (lightRect.size.width > lightRect.size.height){
+            std::swap(lightRect.size.width, lightRect.size.height);
+            lightRect.angle += 90.0f;
         }
+
         return lightRect;
     }
 
@@ -197,7 +191,6 @@ class ArmorDetector final
 
     std::vector<cv::RotatedRect> findLights(const cv::Mat& color, const cv::Mat& binary) {
         ACTOR_EXCEPTION_PROBE();
-        const cv::Rect full = { 0, 0, color.cols, color.rows };
 
         // TODO: down sampling
         std::vector<std::vector<cv::Point2i>> contours;
@@ -208,41 +201,27 @@ class ArmorDetector final
             //     fixContour(color, binary, lightContour);
             const auto rawRect = cv::minAreaRect(lightContour);
 
-            if(rawRect.size.width < 0.5f || rawRect.size.height < 0.5f)
-                continue;
-
             auto lightRect = correctRectAngle(rawRect);
 
-            if(lightContour.size() >= 6) {
-                const auto rect = correctRectAngle(cv::fitEllipse(lightContour));  // produce as ellipse
-                if(rect.size.area() > 4.0f &&
-                   std::fabs(std::sin(glm::radians(lightRect.angle))) > std::fabs(std::sin(glm::radians(rect.angle))))
-                    lightRect = rect;
+            //灯条矩形的长边不符合要求了
+            if(std::fmax(lightRect.size.width, lightRect.size.height) < 6.0f && std::fmax(lightRect.size.width, lightRect.size.height) > 60.f)
+                continue;
+            //灯条矩形的短边太长了
+            if(std::fmin(lightRect.size.width, lightRect.size.height) > 15.0f)
+                continue;
+
+            //灯条倾斜角度太大
+            if(std::fabs(std::sin(glm::radians(lightRect.angle))) > mConfig.maxLightAngle) {
+                continue;
             }
 
-            if(std::fmax(lightRect.size.width, lightRect.size.height) < 6.0f)
-                continue;
-            if(std::fmin(lightRect.size.width, lightRect.size.height) > 50.0f)
-                continue;
+            const auto rect = cv::fitEllipse(lightContour);  // produce as ellipse
 
-            const auto rect = lightRect.boundingRect();
-            if((rect & full) != rect)  // check rect size not change
-                continue;
-
-            /*
-            if(static_cast<double>(lightRect.size.width) * static_cast<double>(lightRect.size.height) *
+            //外接矩形对应的椭圆的面积比外接轮廓的面积大太多了
+            if(static_cast<double>(rect.size.width) * static_cast<double>(rect.size.height) *
                    glm::quarter_pi<double>() >
                mConfig.maxAreaRatio * cv::contourArea(lightContour))
                 continue;
-            */
-
-            if(lightRect.size.height > 2.0f * lightRect.size.width &&
-               std::fabs(std::cos(glm::radians(lightRect.angle))) < mConfig.maxLightAngle) {
-                continue;
-            }
-            if(lightRect.size.height > mConfig.maxLightRectRatio * lightRect.size.width && lightRect.size.width > 3.0f)
-                continue;
-            // filter implement with the lightbars' width and height
 
             lights.emplace_back(lightRect);
         }
@@ -273,58 +252,49 @@ class ArmorDetector final
                     std::swap(rect.size.width, rect.size.height);
                     rect.angle += 90.0f;
                 }
+
+                //装甲板矩形高度太小了
                 if(rect.size.height < 3.0f)
                     continue;
 
-                constexpr auto largeRatio = widthOfLargeArmor / heightOfArmorLightBar;  //
-                constexpr auto smallRatio = widthOfSmallArmor / heightOfArmorLightBar;
-
-                const auto ratio = rect.size.aspectRatio();
-                auto diff = static_cast<float>(std::fabs(ratio - smallRatio)) / smallRatio;
-                //auto smalldiff = diff;
-                const auto diffLarge = static_cast<float>(std::fabs(ratio - largeRatio)) / largeRatio;
-                bool largeArmor = false;
-                if(diffLarge * largeRatio < diff * smallRatio) {
-                    diff = diffLarge;
-                    largeArmor = true;
-                }
-
-                if(diff > mConfig.maxArmorRectRatio)
+                //装甲板矩形长度太大了
+                if(rect.size.width > 100.0f)
                     continue;
-                const auto rectAngle = std::atan2(lhs.center.y - rhs.center.y, lhs.center.x - rhs.center.x);
 
-                if(std::fabs(std::cos(rectAngle)) < mConfig.maxArmorAngle)
+                //装甲板矩形高和宽的比不符合比率范围
+                const auto ratio = rect.size.height / rect.size.width;
+                if(ratio > mConfig.maxArmorRectRatio && ratio < mConfig.minArmorRectRatio)
                     continue;
+
                 const auto area1 = lhs.size.area();
                 const auto area2 = rhs.size.area();
                 auto par = std::fmin(area1, area2) / std::fmax(area1, area2);
-
-                if(std::fmax(lhs.size.aspectRatio(), rhs.size.aspectRatio()) < 0.5 && par < 0.1f)
+                //两边灯条的面积差太大了
+                if(par < 0.2f)
                     continue;
 
+                //两边灯条的面积和比矩形的面积的一半还要大
                 if(area1 + area2 > 0.5f * rect.size.area())
                     continue;
 
-                if(std::fmax(lhs.size.aspectRatio(), rhs.size.aspectRatio()) < 0.5) {
-                    if(std::fabs(std::cos(rectAngle - glm::radians(lhs.angle))) < mConfig.minLightBaseAngle)
-                        continue;
-                    if(std::fabs(std::cos(rectAngle - glm::radians(rhs.angle))) < mConfig.minLightBaseAngle)
-                        continue;
-
-                    par = std::fabs(std::sin(glm::radians(lhs.angle) - glm::radians(rhs.angle)));
-
-                    if(par > mConfig.maxParallelAngle)  // lightbar parallel test
-                        continue;
-                    if(par > 0.2f &&
-                       std::tan(glm::radians(lhs.angle)) * std::tan(glm::radians(rhs.angle)) <
-                           0.0f)  // filter out reverse parallel rotatedRect
-                        continue;
-                }
-
-                if(std::fmax(lhs.size.height, rhs.size.height) > 1.2f * rect.size.height)
+                //小的那个高度比外接矩形的高度低太多了
+                if(std::fmin(lhs.size.height, rhs.size.height) < mConfig.minLightHeightRatio * rect.size.height)
                     continue;
 
-                if(std::fmin(lhs.size.height, rhs.size.height) < mConfig.minLightHeightRatio * rect.size.height)
+                //装甲板矩形的倾斜角度太大了
+                const auto tanRectAngle = std::fabs(lhs.center.y - rhs.center.y) / std::fabs(lhs.center.x - rhs.center.x + 1e-6);
+                if( tanRectAngle > mConfig.maxArmorAngle)
+                    continue;
+
+                //灯条矩形和装甲板矩形的角度差太大了
+                if(std::fabs(tanRectAngle - std::tan(glm::radians(lhs.angle))) > mConfig.maxLightBaseAngle)
+                    continue;
+                if(std::fabs(tanRectAngle - std::tan(glm::radians(rhs.angle))) < mConfig.maxLightBaseAngle)
+                    continue;
+
+                //两个灯条的角度差太大了
+                par = std::fabs(std::sin(glm::radians(lhs.angle) - glm::radians(rhs.angle)));
+                if(par > mConfig.maxParallelAngle)  // lightbar parallel test
                     continue;
 
                 bool isInteraction = false;
@@ -338,7 +308,7 @@ class ArmorDetector final
                 if(isInteraction)
                     continue;
                 //logInfo(fmt::format("diff:{}, large_diff:{}", smalldiff, diffLarge));
-                pairs.emplace_back(i, j,  diff + par + (largeArmor ? 1e3 : 0.0f));
+                pairs.emplace_back(i, j, par);
             }
         }
 
