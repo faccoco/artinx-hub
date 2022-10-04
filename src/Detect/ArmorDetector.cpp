@@ -135,7 +135,7 @@ class ArmorDetector final
             }
         }
 
-        // cv::medianBlur(result, result, 5);
+        // cv::medianBlur(result, result, 3);
         debugView("binary", result, [](auto) {});
         return result;
     }
@@ -153,19 +153,19 @@ class ArmorDetector final
             //长边为高，短边为宽，角度为水平线顺时针旋转到长边的角度
             if(lightRect.size.width > lightRect.size.height) {
                 std::swap(lightRect.size.width, lightRect.size.height);
-            }else{
+            } else {
                 lightRect.angle += 90.0f;
             }
             //灯条矩形的长边不符合要求
             if(lightRect.size.height < 6.0f || lightRect.size.height > 160.f)
                 continue;
             //灯条矩形的短边太长了
-            if(lightRect.size.width > 40.0f)
+            if(lightRect.size.width > 20.0f)
                 continue;
             //灯条矩形的比率不符合要求
             const auto ratio = lightRect.size.width / lightRect.size.height;
-            if (ratio < mConfig.minLightRectRatio && ratio > mConfig.maxLightRectRatio)
-                continue ;
+            if(ratio < mConfig.minLightRectRatio || ratio > mConfig.maxLightRectRatio)
+                continue;
 
             //灯条倾斜角度太平了, 矫正后的定义矩形角度范围在(0, minLightAngle, minLightAngle, pi)
             if(std::sin(glm::radians(lightRect.angle)) < std::sin(glm::radians(mConfig.minLightAngle))) {
@@ -185,10 +185,10 @@ class ArmorDetector final
             lights.emplace_back(lightRect);
         }
 
-         debugView("contour", color, [&](cv::Mat& src) {
-             for(auto& light : lights)
-                 cv::rectangle(src, light.boundingRect(), cv::Scalar{ 255, 255, 255 }, 1);
-         });
+        debugView("contour", color, [&](cv::Mat& src) {
+            for(auto& light : lights)
+                cv::rectangle(src, light.boundingRect(), cv::Scalar{ 255, 255, 255 }, 1);
+        });
 
         std::sort(lights.begin(), lights.end(), [](const auto& lhs, const auto& rhs) { return lhs.center.x < rhs.center.x; });
         return lights;
@@ -211,6 +211,9 @@ class ArmorDetector final
                     std::swap(rect.size.width, rect.size.height);
                     rect.angle += 90.0f;
                 }
+                //装甲板矩形长度太长了
+                if(rect.size.width > 300.f)
+                    continue;
 
                 //装甲板矩形高度太小了
                 if(rect.size.height < 3.0f)
@@ -218,7 +221,7 @@ class ArmorDetector final
 
                 //装甲板矩形高和宽的比不符合比率范围
                 const auto ratio = rect.size.height / rect.size.width;
-                if(ratio > mConfig.maxArmorRectRatio && ratio < mConfig.minArmorRectRatio)
+                if(ratio > mConfig.maxArmorRectRatio || ratio < mConfig.minArmorRectRatio)
                     continue;
 
                 const auto area1 = lhs.size.area();
@@ -237,23 +240,22 @@ class ArmorDetector final
                     continue;
 
                 //装甲板矩形的倾斜角度太大了
-                const auto tanRectAngle = std::fabs((lhs.center.y - rhs.center.y) /(lhs.center.x - rhs.center.x + 1e-6));  //避免除0
+                const auto tanRectAngle =
+                    std::fabs((lhs.center.y - rhs.center.y) / (lhs.center.x - rhs.center.x + 1e-6));  //避免除0
                 const auto rectAngele = std::atan(tanRectAngle);
                 if(rectAngele > glm::radians(mConfig.maxArmorAngle))
                     continue;
 
                 //灯条矩形和装甲板矩形的角度差太大了
-                auto sinDegree = [](auto degree){
-                    return std::sin(glm::radians(degree));
-                };
-                if(std::fabs(sinDegree(rectAngele) - sinDegree(lhs.angle)) >  sinDegree(mConfig.maxLightBaseAngle))
+                auto sinDegree = [](auto degree) { return std::sin(glm::radians(degree)); };
+                if(std::fabs(sinDegree(rectAngele) - sinDegree(lhs.angle)) > sinDegree(mConfig.maxLightBaseAngle))
                     continue;
-                if(std::fabs(sinDegree(rectAngele) - sinDegree(lhs.angle)) >  sinDegree(mConfig.maxLightBaseAngle))
+                if(std::fabs(sinDegree(rectAngele) - sinDegree(lhs.angle)) > sinDegree(mConfig.maxLightBaseAngle))
                     continue;
 
                 //两个灯条的角度差太大了
-                par = std::fabs(std::sin(glm::radians(lhs.angle - rhs.angle)));
-                if(par > std::sin(mConfig.maxParallelAngle))
+                par = std::fabs(sinDegree(lhs.angle - rhs.angle));
+                if(par > sinDegree(mConfig.maxParallelAngle))
                     continue;
 
                 //两根灯条拼成的矩形中不会出现其他灯条
@@ -272,39 +274,39 @@ class ArmorDetector final
             }
         }
 
-        //                debugView("potential", src, [&](cv::Mat& frame) {
-        //                    uint32_t idx = 0;
-        //                    for(auto& light : lights) {
-        //                        cv::ellipse(frame, light, cv::Scalar{ 255, 255, 0 }, 1);
-        //                        cv::Point2f offset{ -std::sin(glm::radians(light.angle)) * light.size.height,
-        //                                            std::cos(glm::radians(light.angle)) * light.size.height };
-        //                        const auto p0 = light.center + offset;
-        //                        const auto p1 = light.center - offset;
-        //                        cv::line(frame, p0, p1, cv::Scalar{ 255, 0, 255 });
-        //                        cv::putText(frame, std::to_string(idx++),
-        //                                    { static_cast<int32_t>(light.center.x), static_cast<int32_t>(light.center.y) },
-        //                                    cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 0, 0, 255 });
-        //                    }
-        //                    for(auto& [i, j, s] : pairs) {
-        //                        const auto& lhs = lights[i];
-        //                        const auto& rhs = lights[j];
-        //
-        //                        std::vector<cv::Point2f> pts(8);
-        //                        lhs.points(pts.data());
-        //                        rhs.points(pts.data() + 4);
-        //
-        //                        auto rect = cv::minAreaRect(pts);
-        //                        if(rect.size.width < rect.size.height) {
-        //                            std::swap(rect.size.width, rect.size.height);
-        //                            rect.angle += 90.0;
-        //                        }
-        //
-        //                        drawRotatedRect(frame, rect, cv::Scalar{ 0, 0, 255 });
-        //                        cv::putText(frame, fmt::format("{:.3f}", rect.size.width / rect.size.height),
-        //                                    { static_cast<int32_t>(rect.center.x), static_cast<int32_t>(rect.center.y) },
-        //                                    cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 255 });
-        //                    }
-        //                });
+        debugView("potential", src, [&](cv::Mat& frame) {
+            uint32_t idx = 0;
+            for(auto& light : lights) {
+                cv::ellipse(frame, light, cv::Scalar{ 255, 255, 0 }, 1);
+                cv::Point2f offset{ -std::sin(glm::radians(light.angle)) * light.size.height,
+                                    std::cos(glm::radians(light.angle)) * light.size.height };
+                const auto p0 = light.center + offset;
+                const auto p1 = light.center - offset;
+                cv::line(frame, p0, p1, cv::Scalar{ 255, 0, 255 });
+                cv::putText(frame, std::to_string(idx++),
+                            { static_cast<int32_t>(light.center.x), static_cast<int32_t>(light.center.y) },
+                            cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 0, 0, 255 });
+            }
+            for(auto& [i, j, s] : pairs) {
+                const auto& lhs = lights[i];
+                const auto& rhs = lights[j];
+
+                std::vector<cv::Point2f> pts(8);
+                lhs.points(pts.data());
+                rhs.points(pts.data() + 4);
+
+                auto rect = cv::minAreaRect(pts);
+                if(rect.size.width < rect.size.height) {
+                    std::swap(rect.size.width, rect.size.height);
+                    rect.angle += 90.0;
+                }
+
+                drawRotatedRect(frame, rect, cv::Scalar{ 0, 0, 255 });
+                cv::putText(frame, fmt::format("{:.3f}", rect.size.height / rect.size.width),
+                            { static_cast<int32_t>(rect.center.x), static_cast<int32_t>(rect.center.y) },
+                            cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 255 });
+            }
+        });
 
         std::sort(pairs.begin(), pairs.end(),
                   [](const auto& lhs, const auto& rhs) { return std::get<float>(lhs) < std::get<float>(rhs); });
