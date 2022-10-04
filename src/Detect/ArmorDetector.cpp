@@ -185,10 +185,13 @@ class ArmorDetector final
             lights.emplace_back(lightRect);
         }
 
-        debugView("contour", color, [&](cv::Mat& src) {
-            for(auto& light : lights)
-                cv::rectangle(src, light.boundingRect(), cv::Scalar{ 255, 255, 255 }, 1);
-        });
+//        debugView("contour", color, [&](cv::Mat& src) {
+//            for(auto& light : lights){
+//                cv::rectangle(src, light.boundingRect(), cv::Scalar{ 0, 255, 255 }, 1);
+//                cv::putText(src, fmt::format("({:.2f}", light.size.width / light.size.height), { static_cast<int32_t>(light.center.x), static_cast<int32_t>(light.center.y) },
+//                            cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 255 });
+//            }
+//        });
 
         std::sort(lights.begin(), lights.end(), [](const auto& lhs, const auto& rhs) { return lhs.center.x < rhs.center.x; });
         return lights;
@@ -206,7 +209,7 @@ class ArmorDetector final
                 rhs.points(pts.data() + 4);
 
                 auto rect = cv::minAreaRect(pts);
-                //长边为宽，短边为高，角度为水平线顺时针旋转到长边的角度 TODO
+                //长边为宽，短边为高，角度为水平线顺时针旋转到长边的角度
                 if(rect.size.width < rect.size.height) {
                     std::swap(rect.size.width, rect.size.height);
                     rect.angle += 90.0f;
@@ -231,8 +234,8 @@ class ArmorDetector final
                 if(par < 0.2f)
                     continue;
 
-                //两边灯条的面积和比矩形的面积的一半还要大
-                if(area1 + area2 > 0.5f * rect.size.area())
+                //两边灯条的面积占比矩形面积太大了
+                if(area1 + area2 > 0.6f * rect.size.area())
                     continue;
 
                 //小的那个高度比外接矩形的高度低太多了
@@ -262,7 +265,7 @@ class ArmorDetector final
                 bool isInteraction = false;
                 for(uint32_t k = i + 1; k < j; ++k) {
                     const auto& minRect = rect.boundingRect();
-                    if(lights[k].center.y > minRect.tl().y && lights[k].center.y < minRect.br().y) {
+                    if(lights[k].center.y > minRect.tl().y || lights[k].center.y < minRect.br().y) {
                         isInteraction = true;
                         break;
                     }
