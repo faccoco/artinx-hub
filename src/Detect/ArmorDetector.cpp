@@ -162,6 +162,10 @@ class ArmorDetector final
             //灯条矩形的短边太长了
             if(lightRect.size.width > 40.0f)
                 continue;
+            //灯条矩形的比率不符合要求
+            const auto ratio = lightRect.size.width / lightRect.size.height;
+            if (ratio < mConfig.minLightRectRatio && ratio > mConfig.maxLightRectRatio)
+                continue ;
 
             //灯条倾斜角度太平了, 矫正后的定义矩形角度范围在(0, minLightAngle, minLightAngle, pi)
             if(std::sin(glm::radians(lightRect.angle)) < std::sin(glm::radians(mConfig.minLightAngle))) {
