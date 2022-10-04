@@ -530,24 +530,53 @@ static bool isWhite(int32_t b, int32_t g, int32_t r) {
 ```
 
 #### 灯条寻找方案
+#### cv::minAreaRect旋转矩形定义测试代码
+```C++
+    void testMinAreaRect(){
+        cv::Mat test_image(200, 200, CV_8UC3, cv::Scalar(0));
+        cv::RotatedRect rRect = cv::RotatedRect(cv::Point2f(100, 100), cv::Size2f(100, 50), 180);
+
+        //绘制旋转矩形
+        cv::Point2f vertices[4];
+        rRect.points(vertices);
+        for (int i = 0; i < 4; i++){
+            cv::line(test_image, vertices[i], vertices[(i + 1) % 4], cv::Scalar(0, 255, 0), 2);
+        }
+
+        cv::Mat binarySrc;
+        cv::cvtColor(test_image, binarySrc, cv::COLOR_BGR2GRAY);
+        cv::threshold(binarySrc, binarySrc, 0, 255, cv::THRESH_OTSU);
+
+        std::vector<std::vector<cv::Point2i>> contours;
+        cv::findContours(binarySrc, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+        std::vector<cv::RotatedRect> lights;
+        for(auto& lightContour : contours) {
+            auto rect = cv::minAreaRect(lightContour);
+            logInfo(fmt::format("Rect height:{}, Rect width:{}, Rect Angle:{}", rect.size.height, rect.size.width, rect.angle));
+            cv::Point2f rotateVertices[4];
+            rect.points(rotateVertices);
+            for (int i = 0; i < 4; i++){
+                cv::circle(test_image, rotateVertices[i], 2, cv::Scalar(0, 255, 0), 2);
+                cv::putText(test_image, std::to_string(i), rotateVertices[i], cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(0, 255, 0));
+                logInfo(fmt::format("Vertices[{}]:({}, {})", i, rotateVertices[i].x, rotateVertices[i].y));
+            }
+        }
+
+        debugView("RotateRect", test_image, [](auto){});
+    }
+```
 
 ```C++
 //寻找轮廓
 cv::findContours();
 
 /*最小矩形拟合轮廓
-返回的旋转矩形的四个点的索引0的点永远是矩形在图中的最低点，也就是y最大的顶点。
-从索引0的顶点开始，顺时针方向，依次为1，2，3索引点。
-索引0和索引3之间为矩形的width，索引0和索引1之间为矩形的height。
-角度θ即是水平轴逆时针旋转到 索引0和索引3所在边之间的夹角
+注意opencv4返回的旋转矩形定义：
+角度为水平顺时针旋转碰到的一条边(该边定义为宽)所转的角度，范围在(0, 90]
+
 */
 rawRect = cv::minAreaRect(lightContour);
 
-
-//矫正矩形的角度和长宽
-//确保矩形的短边为宽，长边为高。
-//确保矩形的夹角为水平线与宽边的夹角
-correctRectAngle();
 
 /*去除不符合条件的灯条，不符合条件的灯条情况如下:
 1、max(高、宽) < 10 && min(宽、高) > 50
@@ -560,10 +589,9 @@ correctRectAngle();
 
 ```C++
 //以两条灯条矩形拟合的最小外接矩形为装甲板的矩形
-//规定长边为装甲板宽，短边如装甲板高,角度为水平线和宽方向的夹角
+//规定长边为装甲板宽，短边如装甲板高
 if(rect.size.width < rect.size.height) {  // rotate rect
     std::swap(rect.size.width, rect.size.height);
-    rect.angle += 90.0f;
 }
 
 //diff =（rectRatio - ArmorRatio） / ArmorRatio
