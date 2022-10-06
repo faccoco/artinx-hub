@@ -128,6 +128,8 @@ Artinx视觉组 集成框架
   git push -u origin <branch name>
   ```
 
++ git命令总结可参见[tool_tutorials.md](docs/tool_tutorials.md)
+
 ### GitLab工作流
 
 1. 某人发起新的issue对应新的功能/bug修复，此时新的补充或纠正等讨论内容发在issue上
@@ -372,9 +374,9 @@ CAF框架参见[actor_system.md](docs/actor_system.md)
 - sendMasked比sendAll增加mask参数，当**mask和receiver的mGroupMask按位与不等于0**时才发送
 - 如果发给不同mask的数据不一样，需要给每个mask分配一个独立的key
 
-### 代码详解
+## 代码详解
 
-参见[code_details.md](docs/code_details.md)
++ 参见[code_details.md](docs/code_details.md)
 
 ## 踩过的坑
 
