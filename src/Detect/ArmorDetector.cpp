@@ -26,7 +26,7 @@ struct ArmorDetectorSettings final {
     int bgrSubtractForRed;                  // bgr subtract threshold for red
     float minLightRectRatio;                // width/height
     float maxLightRectRatio;                // width/height
-    float minLightAngle;                    // angle(degree)
+    float maxLightAngle;                    // angle(degree)
     float maxAreaRatio;                     // ellipseArea/contourArea
     float minArmorRectRatio;                // height/width
     float maxArmorRectRatio;                // height/width
@@ -44,7 +44,7 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
                               f.field("bgrSubtractForBlue", x.bgrSubtractForBlue).fallback(60),
                               f.field("bgrSubtractForRed", x.bgrSubtractForRed).fallback(60),
                               f.field("minLightRectRatio", x.minLightRectRatio),
-                              f.field("maxLightRectRatio", x.maxLightRectRatio), f.field("minLightAngle", x.minLightAngle),
+                              f.field("maxLightRectRatio", x.maxLightRectRatio), f.field("maxLightAngle", x.maxLightAngle),
                               f.field("maxAreaRatio", x.maxAreaRatio), f.field("minArmorRectRatio", x.minArmorRectRatio),
                               f.field("maxArmorRectRatio", x.maxArmorRectRatio), f.field("maxArmorAngle", x.maxArmorAngle),
                               f.field("maxLightBaseAngle", x.maxLightBaseAngle), f.field("maxParallelAngle", x.maxParallelAngle),
@@ -148,16 +148,15 @@ class ArmorDetector final
         for(auto& lightContour : contours) {
             // if(cv::contourArea(lightContour) < 300.0)
             //     fixContour(color, binary, lightContour);
-            // minAreaRect 返回的旋转矩形定义如下：
-            //水平线顺时针旋转碰的第一条边为宽，角度为
-            auto lightRect = cv::minAreaRect(lightContour);
 
-            //长边为高，短边为宽，此代码中定义的角度为水平线顺时针旋转到长边的角度
-            if(lightRect.size.width > lightRect.size.height) {
-                std::swap(lightRect.size.width, lightRect.size.height);
+            cv::RotatedRect lightRect;
+            if(lightContour.size() >= 6) {
+                // fitEllipse 返回的旋转矩形角度定义为水平线顺时针旋转到与短轴平行处所转过的角度,范围在[0, 180]
+                lightRect = cv::fitEllipse(lightContour);  // produce as ellipse
             } else {
-                lightRect.angle += 90.0f;
+                continue;
             }
+
             //灯条矩形的长边不符合要求
             if(lightRect.size.height < 6.0f || lightRect.size.height > 160.f)
                 continue;
@@ -169,15 +168,11 @@ class ArmorDetector final
             if(ratio < mConfig.minLightRectRatio || ratio > mConfig.maxLightRectRatio)
                 continue;
 
-            //灯条倾斜角度太平了, 角度范围在(0, minLightAngle] [minLightAngle, pi]内,不符合要求
-            if(std::sin(glm::radians(lightRect.angle)) < std::sin(glm::radians(mConfig.minLightAngle))) {
+            //灯条倾斜角度太平了(水平线顺时针旋转到短边的角度太大), 角度范围在 [maxLightAngle, pi - maxLightAngle]内不符合要求
+            if(std::sin(glm::radians(lightRect.angle)) > std::sin(glm::radians(mConfig.maxLightAngle))) {
                 continue;
             }
 
-            if(lightContour.size() > 6) {
-                const auto rect = cv::fitEllipse(lightContour);  // produce as ellipse
-                lightRect = rect;
-            }
             //外接矩形对应的椭圆的面积比外接轮廓的面积大太多了
             if(static_cast<double>(lightRect.size.width) * static_cast<double>(lightRect.size.height) *
                    glm::quarter_pi<double>() >
@@ -187,14 +182,19 @@ class ArmorDetector final
             lights.emplace_back(lightRect);
         }
 
-        // debugView("contour", color, [&](cv::Mat& src) {
-        //     for(auto& light : lights){
-        //         cv::rectangle(src, light.boundingRect(), cv::Scalar{ 0, 255, 255 }, 1);
-        //         cv::putText(src, fmt::format("({:.2f}", light.size.width / light.size.height), {
-        //         static_cast<int32_t>(light.center.x), static_cast<int32_t>(light.center.y) },
-        //                     cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 255 });
-        //     }
-        // });
+//                debugView("contour", color, [&](cv::Mat& src) {
+//                    for(auto& light : lights) {
+//                        cv::Point2f rotateVertices[4];
+//                        light.points(rotateVertices);
+//                        for(int i = 0; i < 4; ++i) {
+//                            cv::line(src, rotateVertices[i], rotateVertices[(i + 1) % 4], cv::Scalar(0, 255, 255), 1);
+//                        }
+//                        // cv::rectangle(src, light.boundingRect(), cv::Scalar{ 0, 255, 255 }, 1);
+//                        cv::putText(src, fmt::format("({:.2f}", light.angle),
+//                                    { static_cast<int32_t>(light.center.x), static_cast<int32_t>(light.center.y) },
+//                                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 255 });
+//                    }
+//                });
 
         std::sort(lights.begin(), lights.end(), [](const auto& lhs, const auto& rhs) { return lhs.center.x < rhs.center.x; });
         return lights;
@@ -211,11 +211,13 @@ class ArmorDetector final
                 lhs.points(pts.data());
                 rhs.points(pts.data() + 4);
 
+                // minAreaRect 返回的旋转矩形定义如下：
+                // 角度为水平线顺时针旋转碰的第一条(该边为宽)所转过的角度
                 auto rect = cv::minAreaRect(pts);
-                //长边为宽，短边为高，此代码中定义的角度为水平线顺时针旋转到长边的角度
+
+                //长边为宽，短边为高
                 if(rect.size.width < rect.size.height) {
                     std::swap(rect.size.width, rect.size.height);
-                    rect.angle += 90.0f;
                 }
                 //装甲板矩形长度太长了
                 if(rect.size.width > 300.f)
@@ -268,7 +270,7 @@ class ArmorDetector final
                 bool isInteraction = false;
                 for(uint32_t k = i + 1; k < j; ++k) {
                     const auto& minRect = rect.boundingRect();
-                    if(lights[k].center.y > minRect.tl().y || lights[k].center.y < minRect.br().y) {
+                    if(lights[k].center.y > minRect.tl().y && lights[k].center.y < minRect.br().y) {
                         isInteraction = true;
                         break;
                     }
@@ -280,39 +282,39 @@ class ArmorDetector final
             }
         }
 
-        //        debugView("potential", src, [&](cv::Mat& frame) {
-        //            uint32_t idx = 0;
-        //            for(auto& light : lights) {
-        //                cv::ellipse(frame, light, cv::Scalar{ 255, 255, 0 }, 1);
-        //                cv::Point2f offset{ -std::sin(glm::radians(light.angle)) * light.size.height,
-        //                                    std::cos(glm::radians(light.angle)) * light.size.height };
-        //                const auto p0 = light.center + offset;
-        //                const auto p1 = light.center - offset;
-        //                cv::line(frame, p0, p1, cv::Scalar{ 255, 0, 255 });
-        //                cv::putText(frame, std::to_string(idx++),
-        //                            { static_cast<int32_t>(light.center.x), static_cast<int32_t>(light.center.y) },
-        //                            cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 0, 0, 255 });
-        //            }
-        //            for(auto& [i, j, s] : pairs) {
-        //                const auto& lhs = lights[i];
-        //                const auto& rhs = lights[j];
-        //
-        //                std::vector<cv::Point2f> pts(8);
-        //                lhs.points(pts.data());
-        //                rhs.points(pts.data() + 4);
-        //
-        //                auto rect = cv::minAreaRect(pts);
-        //                if(rect.size.width < rect.size.height) {
-        //                    std::swap(rect.size.width, rect.size.height);
-        //                    rect.angle += 90.0;
-        //                }
-        //
-        //                drawRotatedRect(frame, rect, cv::Scalar{ 0, 0, 255 });
-        //                cv::putText(frame, fmt::format("{:.3f}", rect.size.height / rect.size.width),
-        //                            { static_cast<int32_t>(rect.center.x), static_cast<int32_t>(rect.center.y) },
-        //                            cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 255 });
-        //            }
-        //        });
+//        debugView("potential", src, [&](cv::Mat& frame) {
+//            uint32_t idx = 0;
+//            for(auto& light : lights) {
+//                cv::ellipse(frame, light, cv::Scalar{ 255, 255, 0 }, 1);
+//                cv::Point2f offset{ -std::sin(glm::radians(light.angle)) * light.size.height,
+//                                    std::cos(glm::radians(light.angle)) * light.size.height };
+//                const auto p0 = light.center + offset;
+//                const auto p1 = light.center - offset;
+//                cv::line(frame, p0, p1, cv::Scalar{ 255, 0, 255 });
+//                cv::putText(frame, std::to_string(idx++),
+//                            { static_cast<int32_t>(light.center.x), static_cast<int32_t>(light.center.y) },
+//                            cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 0, 0, 255 });
+//            }
+//            for(auto& [i, j, s] : pairs) {
+//                const auto& lhs = lights[i];
+//                const auto& rhs = lights[j];
+//
+//                std::vector<cv::Point2f> pts(8);
+//                lhs.points(pts.data());
+//                rhs.points(pts.data() + 4);
+//
+//                auto rect = cv::minAreaRect(pts);
+//                if(rect.size.width < rect.size.height) {
+//                    std::swap(rect.size.width, rect.size.height);
+//                    rect.angle += 90.0;
+//                }
+//
+//                drawRotatedRect(frame, rect, cv::Scalar{ 0, 0, 255 });
+//                cv::putText(frame, fmt::format("{:.3f}", s),
+//                            { static_cast<int32_t>(rect.center.x), static_cast<int32_t>(rect.center.y) },
+//                            cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 255 });
+//            }
+//        });
 
         std::sort(pairs.begin(), pairs.end(),
                   [](const auto& lhs, const auto& rhs) { return std::get<float>(lhs) < std::get<float>(rhs); });
