@@ -148,9 +148,11 @@ class ArmorDetector final
         for(auto& lightContour : contours) {
             // if(cv::contourArea(lightContour) < 300.0)
             //     fixContour(color, binary, lightContour);
+            // minAreaRect 返回的旋转矩形定义如下：
+            //水平线顺时针旋转碰的第一条边为宽，角度为
             auto lightRect = cv::minAreaRect(lightContour);
 
-            //长边为高，短边为宽，角度为水平线顺时针旋转到长边的角度
+            //长边为高，短边为宽，此代码中定义的角度为水平线顺时针旋转到长边的角度
             if(lightRect.size.width > lightRect.size.height) {
                 std::swap(lightRect.size.width, lightRect.size.height);
             } else {
@@ -167,7 +169,7 @@ class ArmorDetector final
             if(ratio < mConfig.minLightRectRatio || ratio > mConfig.maxLightRectRatio)
                 continue;
 
-            //灯条倾斜角度太平了, 矫正后的定义矩形角度范围在(0, minLightAngle, minLightAngle, pi)
+            //灯条倾斜角度太平了, 角度范围在(0, minLightAngle] [minLightAngle, pi]内,不符合要求
             if(std::sin(glm::radians(lightRect.angle)) < std::sin(glm::radians(mConfig.minLightAngle))) {
                 continue;
             }
@@ -210,7 +212,7 @@ class ArmorDetector final
                 rhs.points(pts.data() + 4);
 
                 auto rect = cv::minAreaRect(pts);
-                //长边为宽，短边为高，角度为水平线顺时针旋转到长边的角度
+                //长边为宽，短边为高，此代码中定义的角度为水平线顺时针旋转到长边的角度
                 if(rect.size.width < rect.size.height) {
                     std::swap(rect.size.width, rect.size.height);
                     rect.angle += 90.0f;
