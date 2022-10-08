@@ -2,15 +2,23 @@
 
 constexpr double maxDeltaTime = 0.2;
 
+glm::dvec3 KalmanFilter::getPredictedVel(){
+    return predictedVel;
+}
+
 void KalmanFilter::initialKalmanFilter() {
     mX.resize(6);
     mF.setIdentity(6, 6);
     mP.setIdentity(6, 6);
     mQ.setIdentity(6, 6);
     mH.resize(3, 6);
-    mH << 1.0, 0.0, 0.0, 0.0, 1.0, 0.0;
+    mH << 1.0, 0.0, 0.0,  //
+        0.0, 1.0, 0.0,    //
+        0.0, 0.0, 1.0;    //
     mR.resize(3, 3);
-    mR << 0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01;
+    mR << 0.01, 0.0, 0.0,  //
+        0.0, 0.01, 0.0,    //
+        0.0, 0.0, 0.01;
 }
 
 void KalmanFilter::Prediction() {
@@ -27,7 +35,24 @@ void KalmanFilter::UpdateMeasurement(const Eigen::VectorXd z) {
     mP = (I - K * mH) * mP;
 }
 
-void KalmanFilter::KmFilter(const glm::dvec3& pos, double dt) {}
+void KalmanFilter::KmFilter(const glm::dvec3& pos, double dt) {
+
+    Eigen::MatrixXd inputF(6, 6);
+    inputF << 1.0, 0.0, 0.0, dt, 0.0, 0.0,  //
+        0.0, 1.0, 0.0, 0.0, dt, 0.0,        //
+        0.0, 0.0, 1.0, 0.0, 0.0, dt,        //
+        0.0, 0.0, 0.0, 1.0, 0.0, 0.0,       //
+        0.0, 0.0, 0.0, 0.0, 1.0, 0.0,       //
+        0.0, 0.0, 0.0, 0.0, 0.0, 1.0;       //
+    mF << inputF;
+
+    Prediction();
+    Eigen::VectorXd measuredZ(3, 1);
+    measuredZ << pos.x, pos.y, pos.z;
+    UpdateMeasurement(measuredZ);
+
+    mPredictedVec = { mX(3), mX(4), mX(5) };
+}
 
 void KalmanFilter::RunFilter(const glm::dvec3& measuredPos, const TimePoint& curTimePoint) {
     double deltaTime = static_cast<double>((curTimePoint - mLastTimePoint).time_since_epoch().count()) / 1e9;
