@@ -1,12 +1,21 @@
 #include "ArmorPredictor.hpp"
 
 constexpr double maxDeltaTime = 0.2;
+constexpr int32_t maxCntWrongData = 5;
+
+constexpr double maxJumpXDist = 0.5;
+constexpr double maxJumpYDist = 0.5;
+constexpr double maxJumpZDist = 0.5;
+
+constexpr double maxXVel = 3.0;
+constexpr double maxYVel = 3.0;
+constexpr double maxZVel = 1.0;
 
 glm::dvec3 KalmanFilter::getPredictedVel(){
-    return predictedVel;
+    return mPredictedVel;
 }
 
-void KalmanFilter::initialKalmanFilter() {
+void KalmanFilter::initialKalmanFilter(const glm::dvec3& measuredPos, const TimePoint& curTimePoint) {
     mX.resize(6);
     mF.setIdentity(6, 6);
     mP.setIdentity(6, 6);
@@ -19,6 +28,11 @@ void KalmanFilter::initialKalmanFilter() {
     mR << 0.01, 0.0, 0.0,  //
         0.0, 0.01, 0.0,    //
         0.0, 0.0, 0.01;
+
+    mLastPos = measuredPos;
+    mLastTimePoint = curTimePoint;
+    setX(measuredPos);
+    mInitFlag = true;
 }
 
 void KalmanFilter::Prediction() {
@@ -51,14 +65,68 @@ void KalmanFilter::KmFilter(const glm::dvec3& pos, double dt) {
     measuredZ << pos.x, pos.y, pos.z;
     UpdateMeasurement(measuredZ);
 
-    mPredictedVec = { mX(3), mX(4), mX(5) };
+    mPredictedVel = { mX(3), mX(4), mX(5) };
+    if (mPredictedVel.x > maxXVel){
+        mPredictedVel.x = maxXVel;
+    }
+    if (mPredictedVel.y > maxYVel){
+        mPredictedVel.y = maxYVel;
+    }
+    if (mPredictedVel.z > maxZVel){
+        mPredictedVel.z = maxZVel;
+    }
 }
 
 void KalmanFilter::RunFilter(const glm::dvec3& measuredPos, const TimePoint& curTimePoint) {
-    double deltaTime = static_cast<double>((curTimePoint - mLastTimePoint).time_since_epoch().count()) / 1e9;
-    if(deltaTime > maxDeltaTime) {
-        mLastPos = measuredPos;
-        mLastTimePoint = curTimePoint;
+    if (!mInitFlag){
+        initialKalmanFilter(measuredPos, curTimePoint);
         return;
     }
+
+    double deltaTime = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(curTimePoint - mLastTimePoint).count()) / 1e6;
+    if(deltaTime > maxDeltaTime) {      
+        initialKalmanFilter(measuredPos, curTimePoint);
+        return;
+    }
+    const auto filterPos = filterWrongData(measuredPos);
+    if (!mInitFlag){
+        initialKalmanFilter(measuredPos, curTimePoint);
+        return;
+    }
+    KmFilter(filterPos, deltaTime);
+}
+
+void KalmanFilter::setX(const glm::dvec3& measuredPos){
+    Eigen::VectorXd initX(6, 1);
+    initX << measuredPos.x, measuredPos.y, measuredPos.z, 0.0, 0.0, 0.0;
+}
+
+glm::dvec3 KalmanFilter::filterWrongData(const glm::dvec3& measuredPos){
+    glm::dvec3 filterRes = measuredPos;
+    bool isWrongData = false;
+    if (mCntWrongData < maxCntWrongData){
+        if (std::fabs(measuredPos.x - mLastPos.x) > maxJumpXDist){
+            isWrongData = true;
+            filterRes.x = mLastPos.x;
+        }
+        if (std::fabs(measuredPos.y - mLastPos.y) > maxJumpYDist){
+            isWrongData = true;
+            filterRes.y = mLastPos.y;
+        }
+        if (std::fabs(measuredPos.z - mLastPos.z) > maxJumpXDist){
+            isWrongData = true;
+            filterRes.z = mLastPos.z;
+        }
+    }else{
+        mInitFlag = false;
+        mCntWrongData = 0;
+    }
+
+    if (isWrongData){
+        mCntWrongData = 0;
+    }else{
+        ++mCntWrongData;
+    }
+    return filterRes;
+
 }
