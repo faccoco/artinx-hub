@@ -110,7 +110,7 @@ public:
     caf::behavior make_behavior() override {
         return {
             [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-            [this](set_target_atom, Identifier key) {
+            [this](predict_success_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(predict_success_atom, TypedIdentifier<SelectedTarget>);
                 ACTOR_EXCEPTION_PROBE();
 
@@ -131,12 +131,9 @@ public:
                 HubLogger::watch("z", positionOfReferenceRobot.raw().z);
 
                 //(forward:+y,right:+x)
-                glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
-                auto targetVec = data.value().selected.value().velocity;
-
                 glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x, -positionOfReferenceRobot.raw().z,
                                                    positionOfReferenceRobot.raw().y };
-                transformedLinearVelocity = { -linearVel.raw().x, +linearVel.raw().z, -linearVel.raw().y };
+                glm::dvec3  transformedLinearVelocity = { -linearVel.raw().x, +linearVel.raw().z, -linearVel.raw().y };
                 // logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y,
                 // linearVelocity.raw().z));
                 transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x,

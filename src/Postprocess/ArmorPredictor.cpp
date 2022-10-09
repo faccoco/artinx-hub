@@ -37,7 +37,7 @@ bool inspect(Inspector& f, ArmorPredictorSettings& x) {
 }
 
 class ArmorPredictor final
-    : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, armor_detect_available_atom, image_frame_atom> {
+    : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, predict_success_atom> {
     Identifier mKey, mIMUKey, mHeadKey;
     GroupMask mGroupMask;
 
@@ -172,13 +172,13 @@ class ArmorPredictor final
     }
 
 public:
-    ArmorPredictor(caf::actor_config& base, const Hubconfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    ArmorPredictor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
 
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [this](set_target_atom, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>(SelectedTarget));
+                ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
@@ -205,7 +205,7 @@ public:
                 }
 
                 sendMasked(predict_success_atom_v, mGroupMask,
-                           BlackBoard::instance().updateSync<SelectedTarget>(Identifier{ mKey.val }, data));
+                           BlackBoard::instance().updateSync<SelectedTarget>(Identifier{ mKey.val }, data.value()));
             },
             [this](update_head_atom, GroupMask, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
