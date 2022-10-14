@@ -88,9 +88,7 @@ class ArmorLocatorTester final
 
         mExpected.push(decltype(mExpected)::value_type{ center });
 
-        DetectedArmorsOfCar armors;
-        armors.roi = cv::Rect{ 0, 0, static_cast<int>(mConfig.imageWidth), static_cast<int>(mConfig.imageHeight) };
-        armors.armors.push_back({ generateRotatedRect(horizontal), generateRotatedRect(-horizontal) });
+        Armor armor{ 0, PairedLight{ generateRotatedRect(horizontal), generateRotatedRect(-horizontal) } };
 
         DetectedArmorArray res;
 
@@ -107,7 +105,7 @@ class ArmorLocatorTester final
                                    mConfig.imageWidth,
                                    mConfig.imageHeight },
                                  cv::Mat{} };
-        res.armors.push_back(std::move(armors));
+        res.armors.push_back(std::move(armor));
 
         sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
     }

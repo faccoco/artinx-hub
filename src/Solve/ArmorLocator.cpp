@@ -128,18 +128,14 @@ public:
 
                      auto debugView = data.frame.frame.clone();
 
-                     for(const auto& [roi, id, armors] : data.armors) {
-                         for(auto& armor : armors) {
-                             auto armorLight = armor;
-                             armorLight.r1.center += cv::Point2f{ roi.tl() };
-                             armorLight.r2.center += cv::Point2f{ roi.tl() };
+                     for(const auto& [id, armor] : data.armors) {
+                         auto armorLight = armor;
 
-                             const auto [point, type] = solve(debugView, cameraInfo.cameraMatrix, armorLight);
+                         const auto [point, type] = solve(debugView, cameraInfo.cameraMatrix, armorLight);
 
-                             // TODO: projected area
-                             res.targets.push_back({ transform(point), 0.0, id, type,
-                                                     decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
-                         }
+                         // TODO: projected area
+                         res.targets.push_back(
+                             { transform(point), 0.0, id, type, decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
                      }
 
 #ifdef ARTINXHUB_DEBUG
