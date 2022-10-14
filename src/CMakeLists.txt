@@ -12,7 +12,6 @@ set(SOURCE
 "DataLink/SerialPort.cpp"
 "Detect/ArmorDetector.cpp"
 "Detect/EnergyDetector.cpp"
-"Detect/FakeCarDetector.cpp"
 "Detect/OreAlignment.cpp"
 "Detect/OreExchangeRectifier.cpp"
 "HubMain.cpp"
