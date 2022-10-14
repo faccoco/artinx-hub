@@ -12,4 +12,4 @@
 + 去掉了HeadInfo结构体中yawspeed和pitchspeed变量
 + 去掉了PostureData结构体中的角速度和角加速度等多余的变量
 + 去掉fakeCarDetector这一层actor
-+ 修改了装甲板识别actor的处理结果的结构结构体，具体见DetectedArmor.hpp
++ 修改了装甲板识别actor的处理结果的结构体，具体见DetectedArmor.hpp
