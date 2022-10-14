@@ -4,9 +4,7 @@
 
 struct HeadInfo final {
     TimePoint lastUpdate;
-    Transform<FrameOfReference::Robot, FrameOfReference::Gun, true> transform;
-    double yawSpeed;
-    double pitchSpeed;
+    Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> transform;
 };
 
 ACTOR_PROTOCOL_DEFINE(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);

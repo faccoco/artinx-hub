@@ -138,44 +138,33 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
             const HeadInfo infoUp{ SynchronizedClock::instance().now(),
                                    decltype(HeadInfo::transform){ glm::lookAtRH(
-                                       glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1},
+                                       glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
                                        glm::dvec3{ std::cos(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
                                                        std::cos(static_cast<double>(fdb.pitch)),
                                                    mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
-                                                   mConfig.headForwardOffset1 - std::sin(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
-                                                       std::cos(static_cast<double>(fdb.pitch)) },
-                                       glm::dvec3{ 0.0, 1.0, 0.0 }) },
-                                   0.0, 0.0 };
+                                                   mConfig.headForwardOffset1 -
+                                                       std::sin(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
+                                                           std::cos(static_cast<double>(fdb.pitch)) },
+                                       glm::dvec3{ 0.0, 1.0, 0.0 }) } };
             const HeadInfo infoDown{ SynchronizedClock::instance().now(),
                                      decltype(HeadInfo::transform){ glm::lookAtRH(
                                          glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
                                          glm::dvec3{ std::cos(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
                                                          std::cos(static_cast<double>(fdb.downPitch)),
                                                      mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
-                                                     mConfig.headForwardOffset2 - std::sin(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
-                                                         std::cos(static_cast<double>(fdb.downPitch)) },
-                                         glm::dvec3{ 0.0, 1.0, 0.0 }) },
-                                     0.0, 0.0 };
+                                                     mConfig.headForwardOffset2 -
+                                                         std::sin(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
+                                                             std::cos(static_cast<double>(fdb.downPitch)) },
+                                         glm::dvec3{ 0.0, 1.0, 0.0 }) } };
 
             PostureData posture;
             posture.lastUpdate = SynchronizedClock::instance().now();
-            posture.postureOfRobot = Transform<FrameOfReference::Ground, FrameOfReference::Robot>{ glm::identity<glm::dmat4>() };
-            posture.angularAccelerationOfRobot =
-                Vector<UnitType::AngularAcceleration, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
-            posture.angularVelocityOfRobot =
-                Vector<UnitType::AngularVelocity, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
-            const auto deltaTime = static_cast<float>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                                                          lastReceivedTime - SynchronizedClock::instance().now())
-                                                          .count()) /
-                1000.0f;
-            posture.linearAccelerationOfRobot =
-                Vector<UnitType::LinearAcceleration, FrameOfReference::Ground>{ { (fdb.speedX - lastSpeedX) / deltaTime,
-                                                                                  0.0f, -(fdb.speedY - lastSpeedY) / deltaTime } };
+            posture.postureOfRobot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
             lastReceivedTime = SynchronizedClock::instance().now();
             lastSpeedX = fdb.speedX;
             lastSpeedY = fdb.speedY;
             posture.linearVelocityOfRobot =
-                Vector<UnitType::LinearVelocity, FrameOfReference::Ground>{ { fdb.speedX, 0, -fdb.speedY } };
+                Vector<UnitType::LinearVelocity, FrameOfRef::Ground>{ { fdb.speedX, 0, -fdb.speedY } };
 
             sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
             sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoUp));

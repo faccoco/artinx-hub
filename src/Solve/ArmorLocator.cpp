@@ -52,7 +52,7 @@ class ArmorLocator final
         return -evalArea(p1, p2, p3) - evalArea(p1, p3, p4);
     }
 
-    std::pair<Point<UnitType::Distance, FrameOfReference::Camera>, ArmorType>
+    std::pair<Point<UnitType::Distance, FrameOfRef::Camera>, ArmorType>
     solve([[maybe_unused]] cv::Mat& debugView, const cv::Mat& cameraMatrix, const PairedLight& armor) {
         boxRect(mImagePoint, armor.r1);
         const auto area1 = armor.r1.size.area();
@@ -99,7 +99,7 @@ class ArmorLocator final
                           static_cast<float>(ratio > ratioThreshold ? widthOfLargeArmor : widthOfSmallArmor) * 0.5f);
 #endif
 
-        return { Point<UnitType::Distance, FrameOfReference::Camera>{ p0 },
+        return { Point<UnitType::Distance, FrameOfRef::Camera>{ p0 },
                  ratio > ratioThreshold ? ArmorType::Large : ArmorType::Small };
     }
 
@@ -117,14 +117,13 @@ public:
                      res.lastUpdate = data.frame.lastUpdate;
                      const auto& cameraInfo = data.frame.info;
 
-                     Transform<FrameOfReference::Gun, FrameOfReference::Camera, true> transform;
+                     Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> transform;
                      if(cameraInfo.transform.index() == 0) {
                          transform = std::get<0>(cameraInfo.transform);
                      } else {
                          const auto& trans = std::get<1>(cameraInfo.transform);
                          const auto headTrans = BlackBoard::instance().get<HeadInfo>(mHeadKey).value().transform;
-                         transform =
-                             static_cast<Transform<FrameOfReference::Gun, FrameOfReference::Robot, true>>(headTrans) * trans;
+                         transform = static_cast<Transform<FrameOfRef::Gun, FrameOfRef::Robot, true>>(headTrans) * trans;
                      }
 
                      auto debugView = data.frame.frame.clone();
@@ -142,7 +141,7 @@ public:
                                                      decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
                          }
                      }
- 
+
 #ifdef ARTINXHUB_DEBUG
                      std::swap(debugView, data.frame.frame);
                      sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(data.frame)));

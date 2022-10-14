@@ -73,8 +73,8 @@ public:
                                                glm::dvec3{ 3.0 * mConfig.detectLinearStd });
                         }
 
-                        data.targets.push_back(DetectedTarget{ pos + Vector<UnitType::Distance, FrameOfReference::Gun>(noise),
-                                                               0.0, 0, ArmorType::Small,
+                        data.targets.push_back(DetectedTarget{ pos + Vector<UnitType::Distance, FrameOfRef::Gun>(noise), 0.0, 0,
+                                                               ArmorType::Small,
                                                                decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
                     }
 

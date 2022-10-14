@@ -43,7 +43,7 @@ class ArmorLocatorTester final
     : public HubHelper<caf::event_based_actor, ArmorLocatorTesterSettings, armor_detect_available_atom> {
     Identifier mKey;
     glm::dmat4 mMat;
-    std::queue<Point<UnitType::Distance, FrameOfReference::Gun>> mExpected{};
+    std::queue<Point<UnitType::Distance, FrameOfRef::Gun>> mExpected{};
     uint32_t mCount = 0;
     double mMeanError = 0.0;
 
@@ -99,15 +99,14 @@ class ArmorLocatorTester final
              mConfig.imageHeight / 2 / tan(glm::radians(mConfig.fov) / 2), mConfig.imageHeight / 2, 0, 0, 1);
         const cv::Mat distCoefficients;
 
-        res.frame =
-            CameraFrame{ SynchronizedClock::instance().now(),
-                         { { Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>{ glm::identity<glm::dmat4>() } },
-                           "ArmorLocatorTester",
-                           cameraMatrix,
-                           distCoefficients,
-                           mConfig.imageWidth,
-                           mConfig.imageHeight },
-                         cv::Mat{} };
+        res.frame = CameraFrame{ SynchronizedClock::instance().now(),
+                                 { { Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>{ glm::identity<glm::dmat4>() } },
+                                   "ArmorLocatorTester",
+                                   cameraMatrix,
+                                   distCoefficients,
+                                   mConfig.imageWidth,
+                                   mConfig.imageHeight },
+                                 cv::Mat{} };
         res.armors.push_back(std::move(armors));
 
         sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));

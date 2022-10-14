@@ -87,8 +87,6 @@ public:
     }
 };
 
-
-
 class LargeCircleMotionController final : public MotionController {
     double mSpinningSpeed;
 
@@ -153,7 +151,7 @@ public:
 class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
     Identifier mKey, mHeadKey{};
 
-    std::vector<std::pair<glm::dvec3, glm::dvec3>> mBullets;    //[pose velocity]
+    std::vector<std::pair<glm::dvec3, glm::dvec3>> mBullets;  //[pose velocity]
     std::pair<MotionState, std::unique_ptr<MotionController>> mTarget;
     std::vector<std::pair<MotionState, double>> mTargetArmors;
     std::pair<MotionState, std::unique_ptr<MotionController>> mSource;
@@ -359,7 +357,7 @@ public:
                 [&](timer_atom) { ACTOR_PROTOCOL_CHECK(timer_atom); });
 
             const auto headData = BlackBoard::instance().get<HeadInfo>(mHeadKey);
-            Transform<FrameOfReference::Robot, FrameOfReference::Gun> transA{ glm::identity<glm::dmat4>() };
+            Transform<FrameOfRef::Robot, FrameOfRef::Gun> transA{ glm::identity<glm::dmat4>() };
             if(headData.has_value()) {
                 transA = headData.value().transform;
             }
@@ -376,7 +374,7 @@ public:
                 GlobalSettings::get().bulletSpeed = v;
 
                 const auto velocity =
-                    glm::normalize(transform(Vector<UnitType::Distance, FrameOfReference::Gun>{ { 0.0, 0.0, -1.0f } }).raw()) * v;
+                    glm::normalize(transform(Vector<UnitType::Distance, FrameOfRef::Gun>{ { 0.0, 0.0, -1.0f } }).raw()) * v;
 
                 mBullets.emplace_back(origin, vSrc + velocity);
 
@@ -399,7 +397,7 @@ public:
                 logInfo(fmt::format("Ref dir {:.3f} {:.3f} {:.3f}", diff.x, diff.y, diff.z));
 
                 const auto real =
-                    glm::normalize(transform(Vector<UnitType::Distance, FrameOfReference::Gun>{ { 0.0, 0.0, -1.0f } }).raw());
+                    glm::normalize(transform(Vector<UnitType::Distance, FrameOfRef::Gun>{ { 0.0, 0.0, -1.0f } }).raw());
                 logInfo(fmt::format("Gun dir {:.3f} {:.3f} {:.3f}", real.x, real.y, real.z));
 
                 const auto& motion = mTarget.first;

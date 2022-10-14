@@ -58,7 +58,7 @@ private:
             (cv::Mat_<double>(3, 3) << mConfig.width / 2 / std::tan(glm::radians(mConfig.fov) / 2), 0, mConfig.width / 2, 0,
              mConfig.height / 2 / std::tan(glm::radians(mConfig.fov) / 2), mConfig.height / 2, 0, 0, 1);
         res.info.distCoefficients = cv::Mat_<double>{};
-        res.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(glm::identity<glm::dmat4>());
+        res.info.transform = Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>(glm::identity<glm::dmat4>());
         res.lastUpdate = SynchronizedClock::instance().now();
 
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));

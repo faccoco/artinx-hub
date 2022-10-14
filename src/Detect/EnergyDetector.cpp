@@ -246,7 +246,7 @@ class EnergyDetector final
     };
     std::vector<cv::Point2f> mImagePoint{ 4 };
 
-    Point<UnitType::Distance, FrameOfReference::Camera> solve(const cv::Mat& cameraMatrix, const cv::RotatedRect& armor) {
+    Point<UnitType::Distance, FrameOfRef::Camera> solve(const cv::Mat& cameraMatrix, const cv::RotatedRect& armor) {
         // armor.points(mImagePoint.data());
         boxRect(mImagePoint, armor);
         if(std::hypot(mImagePoint[0].x - mImagePoint[1].x, mImagePoint[0].y, mImagePoint[1].y) >
@@ -263,7 +263,7 @@ class EnergyDetector final
         if(p0.z > 0.0)
             p0 = -p0;
 
-        return Point<UnitType::Distance, FrameOfReference::Camera>{ p0 };
+        return Point<UnitType::Distance, FrameOfRef::Camera>{ p0 };
     }
 
     cv::Mat circleLeastFit(const cv::Mat& armorPoints, glm::dvec3& energyCenter, double& radius) {
@@ -369,8 +369,8 @@ class EnergyDetector final
         return a * static_cast<float>(data_n + 1) + b;
     }
 
-    Point<UnitType::Distance, FrameOfReference::Gun> predict(const cv::Mat& armorPoints, const glm::dvec3 data,
-                                                             const int direction, const float angle) {
+    Point<UnitType::Distance, FrameOfRef::Gun> predict(const cv::Mat& armorPoints, const glm::dvec3 data, const int direction,
+                                                       const float angle) {
         ACTOR_EXCEPTION_PROBE();
         glm::dvec3 energyCenter;
         double radius;
@@ -400,7 +400,7 @@ class EnergyDetector final
                         r.at<float>(1, 0) * cos(preAngle) + orthoVector.at<float>(1, 0) * sin(preAngle) + energyCenter.y,
                         r.at<float>(2, 0) * cos(preAngle) + orthoVector.at<float>(2, 0) * sin(preAngle) + energyCenter.z };
 
-        return Point<UnitType::Distance, FrameOfReference::Gun>{ preCenter };
+        return Point<UnitType::Distance, FrameOfRef::Gun>{ preCenter };
     }
 
     bool getDirection(std::vector<double> angles, int& direction) {
