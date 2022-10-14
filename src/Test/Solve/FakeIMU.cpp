@@ -70,25 +70,15 @@ public:
                         glm::decompose(posture.postureOfRobot.rawInverse(), scale, quat, translate, skew, perspective);
                         glm::decompose(lastData.postureOfRobot.rawInverse(), scale, quatOld, translateOld, skew, perspective);
 
-                        Point<UnitType::Distance, FrameOfReference::Ground> pos{ translate };
-                        Point<UnitType::Distance, FrameOfReference::Ground> posOld{ translateOld };
+                        Point<UnitType::Distance, FrameOfRef::Ground> pos{ translate };
+                        Point<UnitType::Distance, FrameOfRef::Ground> posOld{ translateOld };
 
-                        Point<UnitType::Angle, FrameOfReference::Ground> angle{ glm::eulerAngles(quat) };
-                        Point<UnitType::Angle, FrameOfReference::Ground> angleOld{ glm::eulerAngles(quatOld) };
+                        Point<UnitType::Angle, FrameOfRef::Ground> angle{ glm::eulerAngles(quat) };
+                        Point<UnitType::Angle, FrameOfRef::Ground> angleOld{ glm::eulerAngles(quatOld) };
 
                         posture.linearVelocityOfRobot = (pos - posOld) / dt;
-                        posture.angularVelocityOfRobot = (angle - angleOld) / dt;
-
-                        posture.linearAccelerationOfRobot = (posture.linearVelocityOfRobot - lastData.linearVelocityOfRobot) / dt;
-                        posture.angularAccelerationOfRobot =
-                            (posture.angularVelocityOfRobot - lastData.angularVelocityOfRobot) / dt;
                     } else {
                         posture.linearVelocityOfRobot = decltype(PostureData::linearVelocityOfRobot){ glm::zero<glm::dvec3>() };
-                        posture.angularVelocityOfRobot = decltype(PostureData::angularVelocityOfRobot){ glm::zero<glm::dvec3>() };
-                        posture.linearAccelerationOfRobot =
-                            decltype(PostureData::linearAccelerationOfRobot){ glm::zero<glm::dvec3>() };
-                        posture.angularAccelerationOfRobot =
-                            decltype(PostureData::angularAccelerationOfRobot){ glm::zero<glm::dvec3>() };
                     }
                     mLastData = posture;
 

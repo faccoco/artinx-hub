@@ -128,8 +128,8 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         frameData.info.identifier = mCameraSerialNumber;
         frameData.info.width = width;
         frameData.info.height = height;
-        frameData.info.transform = Transform<FrameOfReference::Gun, FrameOfReference::Camera, true>(
-            glm::translate(glm::identity<glm::dmat4>(), -mConfig.offset));
+        frameData.info.transform =
+            Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>(glm::translate(glm::identity<glm::dmat4>(), -mConfig.offset));
 
         // if (mDoUndistort) {
         //     auto src = bgr.clone();

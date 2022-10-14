@@ -28,25 +28,21 @@ public:
                      const cv::Scalar red{ 0, 0, 255 };
                      const cv::Scalar green{ 255, 0, 0 };
 
-                     for(auto& car : data.armors) {
-                         for(auto& armor : car.armors) {
-                             auto r1 = armor.r1, r2 = armor.r2;
-                             r1.center += cv::Point2f{ car.roi.tl() };
-                             r2.center += cv::Point2f{ car.roi.tl() };
+                     for(auto& armor : data.armors) {
+                         auto r1 = armor.pairedLight.r1, r2 = armor.pairedLight.r2;
 
-                             drawRotatedRect(labeled, r1, green);
-                             drawRotatedRect(labeled, r2, green);
+                         drawRotatedRect(labeled, r1, green);
+                         drawRotatedRect(labeled, r2, green);
 
-                             cv::Point2f pts[4];
-                             std::vector<cv::Point2f> pts8;
-                             pts8.reserve(8);
-                             r1.points(pts);
-                             pts8.insert(pts8.cend(), pts, pts + 4);
-                             r2.points(pts);
-                             pts8.insert(pts8.cend(), pts, pts + 4);
+                         cv::Point2f pts[4];
+                         std::vector<cv::Point2f> pts8;
+                         pts8.reserve(8);
+                         r1.points(pts);
+                         pts8.insert(pts8.cend(), pts, pts + 4);
+                         r2.points(pts);
+                         pts8.insert(pts8.cend(), pts, pts + 4);
 
-                             drawRotatedRect(labeled, cv::minAreaRect(pts8), red);
-                         }
+                         drawRotatedRect(labeled, cv::minAreaRect(pts8), red);
                      }
 
                      CameraFrame frame;

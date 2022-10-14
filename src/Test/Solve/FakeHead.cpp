@@ -81,19 +81,15 @@ public:
 
                      // const auto [_, targetYaw, targetPitch] = cur.value();
                      const auto targetYaw = mTargetYaw, targetPitch = mTargetPitch;
-                     double yaw, pitch, yawSpeed, pitchSpeed;
+                     double yaw, pitch;
                      if(mConfig.enablePID) {
                          auto [yawPID, yawSpeedPID] = mYaw.step(diff, targetYaw, mConfig.headMaxSpeed, glm::two_pi<double>());
                          auto [pitchPID, pitchSpeedPID] = mPitch.step(diff, targetPitch, mConfig.headMaxSpeed);
                          yaw = yawPID;
                          pitch = pitchPID;
-                         yawSpeed = yawSpeedPID;
-                         pitchSpeed = pitchSpeedPID;
                      } else {
                          yaw = targetYaw;
                          pitch = targetPitch;
-                         yawSpeed = (targetYaw - mLastYaw) / diff;
-                         pitchSpeed = (targetPitch - mLastPitch) / diff;
 
                          mLastYaw = targetYaw;
                          mLastPitch = targetPitch;
@@ -106,27 +102,18 @@ public:
                                              3.0 * mConfig.headPosStd);
                      }
 
-                     if(mConfig.headSpeedStd > 1e-6) {
-                         yawSpeed += std::clamp(glm::gaussRand(0.0, mConfig.headSpeedStd), -3.0 * mConfig.headSpeedStd,
-                                                3.0 * mConfig.headSpeedStd);
-                         pitchSpeed += std::clamp(glm::gaussRand(0.0, mConfig.headSpeedStd), -3.0 * mConfig.headSpeedStd,
-                                                  3.0 * mConfig.headSpeedStd);
-                     }
-
                      const HeadInfo info{ mCurrent,
                                           decltype(HeadInfo::transform){ glm::lookAtRH(
                                               glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
                                               glm::dvec3{ std::cos(yaw + glm::half_pi<double>()) * std::cos(pitch),
                                                           mConfig.headHeightOffset + std::sin(pitch),
                                                           -std::sin(yaw + glm::half_pi<double>()) * std::cos(pitch) },
-                                              glm::dvec3{ 0.0, 1.0, 0.0 }) },
-                                          yawSpeed, pitchSpeed };
+                                              glm::dvec3{ 0.0, 1.0, 0.0 }) } };
 
                      sendAll(update_head_atom_v, 1U, BlackBoard::instance().updateSync(mKey, info));
                      sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, info));
                      sendMasked(update_head_atom_v, 2U, 2U,
-                       BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, info));
-
+                                BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, info));
                  },
                  [&](set_target_info_atom, GroupMask, Clock::rep, const double yaw, const double pitch, bool) {
                      ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);

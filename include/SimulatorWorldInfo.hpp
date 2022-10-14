@@ -6,9 +6,9 @@
 struct SimulatorWorldInfo final {
     TimePoint lastUpdate;
 
-    Transform<FrameOfReference::Ground, FrameOfReference::Robot, true> posture;
+    Transform<FrameOfRef::Ground, FrameOfRef::Robot, true> posture;
 
-    std::vector<Point<UnitType::Distance, FrameOfReference::Ground>> targets;
+    std::vector<Point<UnitType::Distance, FrameOfRef::Ground>> targets;
 };
 
 ACTOR_PROTOCOL_DEFINE(simulator_step_atom, TypedIdentifier<SimulatorWorldInfo>);

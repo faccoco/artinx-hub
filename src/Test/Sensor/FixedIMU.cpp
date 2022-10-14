@@ -23,16 +23,9 @@ public:
                     ACTOR_PROTOCOL_CHECK(timer_atom);
                     PostureData posture;
                     posture.lastUpdate = SynchronizedClock::instance().now();
-                    posture.postureOfRobot =
-                        Transform<FrameOfReference::Ground, FrameOfReference::Robot>{ glm::identity<glm::dmat4>() };
-                    posture.angularAccelerationOfRobot =
-                        Vector<UnitType::AngularAcceleration, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
-                    posture.angularVelocityOfRobot =
-                        Vector<UnitType::AngularVelocity, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
-                    posture.linearAccelerationOfRobot =
-                        Vector<UnitType::LinearAcceleration, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
+                    posture.postureOfRobot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
                     posture.linearVelocityOfRobot =
-                        Vector<UnitType::LinearVelocity, FrameOfReference::Ground>{ glm::zero<glm::dvec3>() };
+                        Vector<UnitType::LinearVelocity, FrameOfRef::Ground>{ glm::zero<glm::dvec3>() };
 
                     sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
                 },

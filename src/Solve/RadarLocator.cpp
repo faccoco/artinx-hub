@@ -70,7 +70,7 @@ public:
                      const auto data = BlackBoard::instance().get<RadarCameraPointsArray>(key).value();
                      const auto& info = data.cameraInfo;
                      if(const auto radarTransform = locatePosition(info.cameraMatrix, data.imagePoints, data.selfColor)) {
-                         const Transform<FrameOfReference::Camera, FrameOfReference::Ground, true> transform{ glm::inverse(
+                         const Transform<FrameOfRef::Camera, FrameOfRef::Ground, true> transform{ glm::inverse(
                              radarTransform.value()) };
                          sendAll(radar_locate_succeed_atom_v, BlackBoard::instance().updateSync(mKey, transform));
                      }

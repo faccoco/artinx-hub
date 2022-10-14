@@ -12,7 +12,6 @@ set(SOURCE
 "DataLink/SerialPort.cpp"
 "Detect/ArmorDetector.cpp"
 "Detect/EnergyDetector.cpp"
-"Detect/FakeCarDetector.cpp"
 "Detect/OreAlignment.cpp"
 "Detect/OreExchangeRectifier.cpp"
 "HubMain.cpp"
@@ -110,6 +109,7 @@ add_custom_command(TARGET ArtinxHub PRE_BUILD
         ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:ArtinxHub>/data)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+    target_compile_options(ArtinxHub PRIVATE /W4 /WX-)
     add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${DAHENG_SDK_PATH}/../../APIDll/Win64/GxIAPI.dll $<TARGET_FILE_DIR:ArtinxHub>)
     set(INFERENCE_ENGINE_ROOT $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine)
     file(GLOB INFERENCE_ENGINE_DLLS ${INFERENCE_ENGINE_ROOT}/bin/intel64/${CMAKE_BUILD_TYPE}/*.dll)
