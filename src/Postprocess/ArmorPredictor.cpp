@@ -36,8 +36,7 @@ bool inspect(Inspector& f, ArmorPredictorSettings& x) {
     return f.object(x).fields(f.field("enalePredictor", x.enablePredictor));
 }
 
-class ArmorPredictor final
-    : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, predict_success_atom> {
+class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, predict_success_atom> {
     Identifier mKey, mIMUKey, mHeadKey;
     GroupMask mGroupMask;
 
@@ -188,16 +187,15 @@ public:
                      dataPosture.has_value()))
                     return;
 
-                Vector<UnitType::Distance, FrameOfReference::Gun> positionOfReferenceGun(
-                    data.value().selected.value().center.raw());
-                Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot =
-                    dataHeadInfo.value().transform(positionOfReferenceGun);
-                Vector<UnitType::LinearVelocity, FrameOfReference::Ground> linearVelocity(
+                Vector<UnitType::Distance, FrameOfRef::Gun> positionOfRefGun(data.value().selected.value().center.raw());
+                Vector<UnitType::Distance, FrameOfRef::Robot> positionOfRefRobot =
+                    dataHeadInfo.value().transform(positionOfRefGun);
+                Vector<UnitType::LinearVelocity, FrameOfRef::Ground> linearVelocity(
                     dataPosture.value().linearVelocityOfRobot.raw());
-                data.value().position = positionOfReferenceRobot;
+                data.value().position = positionOfRefRobot;
 
                 if(mConfig.enablePredictor) {  //如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
-                    glm::dvec3 measuredPos = positionOfReferenceRobot.raw();
+                    glm::dvec3 measuredPos = positionOfRefRobot.raw();
                     runFilter(measuredPos, data.value().lastUpdate);
                     data.value().selected.value().velocity.setValue(mPredictedVel);
                 } else {  //如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反

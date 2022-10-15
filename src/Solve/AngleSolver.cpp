@@ -126,14 +126,14 @@ public:
 
                 const auto delayTime = mConfig.delay;
 
-                Vector<UnitType::Distance, FrameOfReference::Robot> positionOfReferenceRobot = data.value().position;
-                Vector<UnitType::LinearVelocity, FrameOfReference::Robot> linearVel = data.value().selected.value().velocity;
+                Vector<UnitType::Distance, FrameOfRef::Robot> positionOfReferenceRobot = data.value().position;
+                Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data.value().selected.value().velocity;
                 HubLogger::watch("z", positionOfReferenceRobot.raw().z);
 
                 //(forward:+y,right:+x)
                 glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x, -positionOfReferenceRobot.raw().z,
                                                    positionOfReferenceRobot.raw().y };
-                glm::dvec3  transformedLinearVelocity = { -linearVel.raw().x, +linearVel.raw().z, -linearVel.raw().y };
+                glm::dvec3 transformedLinearVelocity = { -linearVel.raw().x, +linearVel.raw().z, -linearVel.raw().y };
                 // logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y,
                 // linearVelocity.raw().z));
                 transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x,

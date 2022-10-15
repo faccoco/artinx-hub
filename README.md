@@ -170,10 +170,11 @@ Artinx视觉组 集成框架
 ### Windows
 
 - 安装IDE Visual Studio 2019（桌面C++ + 英文语言包）
-- 安装插件 Resharper++
 - 按照Genetic步骤安装依赖
+- 添加环境变量 `ONEAPI_ROOT=<path>\intel`
+ `DAHENG_SDK=<path>\GalaxySDK\Samples\VC SDK`
 - clone仓库
-- 用VS打开文件夹
+- 用VS打开文件夹,填写cmake参数`-DARTINX_HUB_CAMERA=USB3 -DCMAKE_TOOLCHAIN_FILE=<path to vcpkg>/scripts/buildsystems/vcpkg.cmake`
 - 点击项目-配置ArtinxHub 生成构建文件
 - 点击生成-全部生成 编译程序
 - 点击调试-调试和启动ArtinxHub的设置，配置args字段（config文件路径）
@@ -188,8 +189,8 @@ Artinx视觉组 集成框架
 sudo vim /etc/profile                           #打开/etc/profile文件
 
 #在文件末尾加入以后命令
-export DAHENG_SDK=<PATH>/SDK/Galaxy_camera     #PATH为相机SDK所在目录
-export ONEAPI_ROOT=/opt/intel                  #/opt/intel 为ONEAPI默认安装目录，若不在请修改
+export DAHENG_SDK=<PATH>/Galaxy_camera     #PATH为相机SDK所在目录
+export ONEAPI_ROOT=/opt/intel                  #/opt/intel 为ONEAPI默认安装目录，若不在,请修改
 source /opt/intel/openvino_2021/bin/setupvars.sh
 ```
 + clone仓库
@@ -203,7 +204,7 @@ source /opt/intel/openvino_2021/bin/setupvars.sh
 ### Genetic
 
 - 克隆[vcpkg](https://github.com/microsoft/vcpkg)，并执行bootstrap脚本
-- 用vcpkg安装以下软件包：
+- 用vcpkg安装以下软件包(windows下, 软件包名称后加`:x64-windows`)：
   - nlohmann-json
   - caf
   - glm
@@ -215,6 +216,7 @@ source /opt/intel/openvino_2021/bin/setupvars.sh
   - glew
   - glfw3
   - opengl
+  - eigen3
   - boost
   如遇任何问题，请按照错误提示用apt补足缺少的软件包或更换网络重试一次
 + 集成vcpkg安装包，运行
@@ -222,7 +224,7 @@ source /opt/intel/openvino_2021/bin/setupvars.sh
 
 - 安装OneAPI [Download the Intel® oneAPI Base Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
   - 仅勾选TBB即可，其它没用
-- 安装OpenVINO [Download Intel® Distribution of OpenVINO™ Toolkit](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit-download.html)
+- 安装2021 离线版OpenVINO [Download Intel® Distribution of OpenVINO™ Toolkit](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit-download.html)
   - 也要安装在OneAPI文件夹下
 
 - 根据需求(USB2/USB3)安装大恒相机驱动[Daheng Imaging](https://daheng-imaging.com/list-58-1.html), 对应CMake参数的ARTINX_HUB_CAMERA=USB2/USB3

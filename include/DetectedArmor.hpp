@@ -13,15 +13,14 @@ struct PairedLight final {
     cv::RotatedRect r2;
 };
 
-struct DetectedArmorsOfCar final {
-    cv::Rect roi;
+struct Armor final {
     int id;
-    std::vector<PairedLight> armors;
+    PairedLight pairedLight;
 };
 
 struct DetectedArmorArray final {
     CameraFrame frame;
-    std::vector<DetectedArmorsOfCar> armors;
+    std::vector<Armor> armors;
 };
 
 ACTOR_PROTOCOL_DEFINE(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);

@@ -6,11 +6,11 @@
 enum class ArmorType { Small, Large };
 
 struct DetectedTarget final {
-    Point<UnitType::Distance, FrameOfReference::Gun> center;
+    Point<UnitType::Distance, FrameOfRef::Gun> center;
     double area;
     int32_t id;
     ArmorType type;
-    Vector<UnitType::LinearVelocity, FrameOfReference::Robot> velocity;
+    Vector<UnitType::LinearVelocity, FrameOfRef::Robot> velocity;
 };
 
 struct DetectedTargetArray final {

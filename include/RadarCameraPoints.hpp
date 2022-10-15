@@ -10,5 +10,4 @@ struct RadarCameraPointsArray final {
 };
 
 ACTOR_PROTOCOL_DEFINE(radar_locate_request_atom, TypedIdentifier<RadarCameraPointsArray>);
-ACTOR_PROTOCOL_DEFINE(radar_locate_succeed_atom,
-                      TypedIdentifier<Transform<FrameOfReference::Camera, FrameOfReference::Ground, true>>);
+ACTOR_PROTOCOL_DEFINE(radar_locate_succeed_atom, TypedIdentifier<Transform<FrameOfRef::Camera, FrameOfRef::Ground, true>>);

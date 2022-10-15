@@ -7,7 +7,7 @@
 
 #include "SuppressWarningEnd.hpp"
 
-enum class FrameOfReference : uint32_t { Ground, Robot, Gun, Camera };
+enum class FrameOfRef : uint32_t { Ground, Robot, Gun, Camera };
 
 enum class UnitType : uint32_t {
     Distance,
@@ -55,7 +55,7 @@ struct Scalar final {
     double val;
 };
 
-template <UnitType Unit, FrameOfReference FoR>
+template <UnitType Unit, FrameOfRef FoR>
 class Vector final {
     glm::dvec3 mValue;
 
@@ -104,22 +104,22 @@ public:
     }
 };
 
-template <UnitType Lhs, UnitType Rhs, FrameOfReference FoR>
+template <UnitType Lhs, UnitType Rhs, FrameOfRef FoR>
 auto operator*(Scalar<Lhs> lhs, Vector<Rhs, FoR> rhs) noexcept {
     return rhs * lhs;
 }
 
-template <UnitType Unit, FrameOfReference FoR>
+template <UnitType Unit, FrameOfRef FoR>
 auto length(Vector<Unit, FoR> val) noexcept {
     return Scalar<Unit>{ glm::length(val.raw()) };
 }
 
-template <UnitType Unit, FrameOfReference FoR>
+template <UnitType Unit, FrameOfRef FoR>
 auto lerp(Vector<Unit, FoR> a, Vector<Unit, FoR> b, double u) noexcept {
     return Vector<Unit, FoR>{ glm::mix(a.raw(), b.raw(), u) };
 }
 
-template <UnitType Unit, FrameOfReference FoR>
+template <UnitType Unit, FrameOfRef FoR>
 class Point final {
     glm::dvec3 mValue;
 
@@ -158,19 +158,19 @@ public:
     }
 };
 
-template <UnitType Unit, FrameOfReference FoR>
+template <UnitType Unit, FrameOfRef FoR>
 auto lerp(Point<Unit, FoR> a, Point<Unit, FoR> b, double u) noexcept {
     return Point<Unit, FoR>{ glm::mix(a.raw(), b.raw(), u) };
 }
 
-template <UnitType Unit, FrameOfReference FoR>
+template <UnitType Unit, FrameOfRef FoR>
 auto distance(Point<Unit, FoR> a, Point<Unit, FoR> b) noexcept {
     return Scalar<Unit>{ glm::distance(a.raw(), b.raw()) };
 }
 
 struct Normalized final {};
 
-template <FrameOfReference FoR>
+template <FrameOfRef FoR>
 class Normal final {
     glm::dvec3 mValue;
 
@@ -191,32 +191,32 @@ public:
     }
 };
 
-template <FrameOfReference FoR>
+template <FrameOfRef FoR>
 auto cross(Normal<FoR> a, Normal<FoR> b) noexcept {
     return Normal<FoR>{ glm::cross(a, b), Normalized{} };
 }
 
-template <FrameOfReference FoR>
+template <FrameOfRef FoR>
 auto dot(Normal<FoR> a, Normal<FoR> b) noexcept {
     return glm::dot(a.raw(), b.raw());
 }
 
-template <UnitType Unit, FrameOfReference FoR>
+template <UnitType Unit, FrameOfRef FoR>
 auto dot(Vector<Unit, FoR> a, Normal<FoR> b) noexcept {
     return Scalar<Unit>{ glm::dot(a.raw(), b.raw()) };
 }
 
-template <UnitType Unit, FrameOfReference FoR>
+template <UnitType Unit, FrameOfRef FoR>
 auto normalize(Vector<Unit, FoR> v) {
     return Normal<FoR>{ v };
 }
 
-template <FrameOfReference A, FrameOfReference B, bool HasTranslate = false>
+template <FrameOfRef A, FrameOfRef B, bool HasTranslate = false>
 class Transform final {
     glm::dmat4 mTransform;         // A to B
     glm::dmat4 mInverseTransform;  // B to A
 
-    template <FrameOfReference RhsA, FrameOfReference RhsB, bool RhsHasTranslate>
+    template <FrameOfRef RhsA, FrameOfRef RhsB, bool RhsHasTranslate>
     friend class Transform;
 
 public:
@@ -257,7 +257,7 @@ public:
         return Normal<A>{ glm::dvec3{ glm::dvec4{ val.raw(), 0.0 } * mTransform }, Normalized{} };
     }
 
-    template <FrameOfReference C, bool RhsHasTranslate>
+    template <FrameOfRef C, bool RhsHasTranslate>
     auto operator*(const Transform<B, C, RhsHasTranslate>& rhs) const noexcept {
         return Transform < A, C,
                HasTranslate && RhsHasTranslate > { rhs.mTransform * mTransform, mInverseTransform * rhs.mInverseTransform };
