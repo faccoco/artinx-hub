@@ -114,6 +114,7 @@ class SentryMotionController final : public MotionController {
     }
 };
 
+// Simulate the movement of objects on the horizontal plane
 class Translate2DMotionController final : public MotionController {
     static constexpr double alpha = 0.001;
 
@@ -125,15 +126,15 @@ class Translate2DMotionController final : public MotionController {
 
     void updateSpeed(const double dt) {
         mT += dt;
-        if(mT >= 2.0) {
-            mSpeedX = std::clamp(mDistribution(mGenerator), -mMaxV, mMaxV);
+        if(mT >= 2.0) {                                                      // Random generation velecity every two seconds
+            mSpeedX = std::clamp(mDistribution(mGenerator), -mMaxV, mMaxV);  // Limit the speed of random generation
             mSpeedZ = std::clamp(mDistribution(mGenerator), -mMaxV, mMaxV);
 
             mT -= 2.0;
         }
 
-        mSmoothX = (1.0 - alpha) * mSmoothX + alpha * mSpeedX;
-        mSmoothZ = (1.0 - alpha) * mSmoothZ + alpha * mSpeedZ;
+        mSmoothX = (1.0 - alpha) * mSmoothX;  // alpha mean to simulate measurement error
+        mSmoothZ = (1.0 - alpha) * mSmoothZ;
     }
 
 public:
@@ -144,16 +145,16 @@ public:
     void step(MotionState& motionState, const double dt) override {
         updateSpeed(dt);
 
-        motionState = MotionState{ glm::translate(motionState, glm::dvec3{ mSmoothX * dt, 0.0, mSmoothZ * dt }) };
+        motionState = MotionState{ glm::translate(motionState, glm::dvec3{ mSpeedX * dt, 0.0, mSmoothZ * dt }) };
     }
 };
 
 class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
     Identifier mKey, mHeadKey{};
 
-    std::vector<std::pair<glm::dvec3, glm::dvec3>> mBullets;  //[pose velocity]
+    std::vector<std::pair<glm::dvec3, glm::dvec3>> mBullets;  // pair : [pose velocity]
     std::pair<MotionState, std::unique_ptr<MotionController>> mTarget;
-    std::vector<std::pair<MotionState, double>> mTargetArmors;
+    std::vector<std::pair<MotionState, double>> mTargetArmors;  // pair : [MotionState distanceThreshold]
     std::pair<MotionState, std::unique_ptr<MotionController>> mSource;
     std::mt19937_64 mEngine{ static_cast<uint64_t>(Clock::now().time_since_epoch().count()) };
 
@@ -196,7 +197,7 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                 } break;
                 case TargetType::Sentry: {
                     for(uint32_t i = 0; i < 2; ++i) {
-                        mTargetArmors.emplace_back(
+                        mTargetArmors.emplace_back(  // sqrt(w * h) / 2 -> Geometric average is used as threshold to judge hit
                             glm::translate(glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>() * static_cast<double>(i),
                                                        { 0.0, 1.0, 0.0 }),
                                            { 0.0, 0.0, radiusOfInfantry * 0.5 }),
@@ -273,7 +274,7 @@ public:
 
         while(runFlag) {
             for(auto& [pos, v] : mBullets) {
-                if(pos.y < 0.0)
+                if(pos.y < 0.0)       
                     continue;
 
                 if(mConfig.printBulletPos) {
