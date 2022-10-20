@@ -34,4 +34,4 @@ struct NNetDetectedArmorArray final {
 };
 
 ACTOR_PROTOCOL_DEFINE(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
-ACTOR_PROTOCOL_DEFINE(armor_detect_available_atom, TypedIdentifier<NNetDetectedArmorArray>);
+ACTOR_PROTOCOL_DEFINE(armor_nnetdetect_available_atom, TypedIdentifier<NNetDetectedArmorArray>);
