@@ -18,7 +18,9 @@
 
 #include "SuppressWarningEnd.hpp"
 
-struct ArmorLocatorSettings final {};
+struct ArmorLocatorSettings final {
+
+};
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorSettings& x) {
