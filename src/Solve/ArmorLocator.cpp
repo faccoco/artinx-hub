@@ -25,8 +25,7 @@ struct ArmorLocatorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorSettings& x) {
     return f.object(x).fields(
-        f.field("ratioThreshold",x.ratioThreshold)
-);
+        f.field("ratioThreshold",x.ratioThreshold));
 }
 
 class ArmorLocator final
