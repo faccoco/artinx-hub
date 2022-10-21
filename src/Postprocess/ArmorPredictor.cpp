@@ -94,9 +94,9 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
         mP.setIdentity(6, 6);
         mQ.setIdentity(6, 6);
         mH.resize(3, 6);
-        mH << 1.0, 0.0, 0.0,  //
-            0.0, 1.0, 0.0,    //
-            0.0, 0.0, 1.0;    //
+        mH << 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //
+            0.0, 1.0, 0.0, 0.0, 0.0, 0.0,  //
+            0.0, 0.0, 1.0, 0.0, 0.0, 0.0;    //
         mR.resize(3, 3);
         mR << 0.01, 0.0, 0.0,  //
             0.0, 0.01, 0.0,    //
