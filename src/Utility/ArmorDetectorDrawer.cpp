@@ -55,7 +55,7 @@ public:
                      sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frame)));
                  },
                  [&](armor_nnet_detect_available_atom, Identifier key) {
-                     const auto array = BlackBoard::instance().get<NNetDetectedArmorArray>(key).value();
+                     auto array = BlackBoard::instance().get<NNetDetectedArmorArray>(key).value();
                      cv::Mat showImg = array.showFrame.frame;
                      for(auto armor : array.armors) {
                          // 绘制十字瞄准线
@@ -88,6 +88,8 @@ public:
                              cv::putText(showImg, "None_"+std::to_string(id), cv::Point(box_top_x + 2, box_top_y), cv::FONT_HERSHEY_TRIPLEX, 1,
                                          cv::Scalar(0, 255, 0));
                      }
+                     array.showFrame.frame = showImg;
+                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(array.showFrame)));
                  } };
     }
 };
