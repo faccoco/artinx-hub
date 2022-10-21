@@ -202,8 +202,7 @@ public:
                     data.value().selected.value().velocity.setValue(-linearVelocity.raw());
                 }
 
-                sendMasked(predict_success_atom_v, mGroupMask,
-                           BlackBoard::instance().updateSync<SelectedTarget>(Identifier{ mKey.val }, data.value()));
+                sendAll(predict_success_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(Identifier{ mKey.val }, data.value()));
             },
             [this](update_head_atom, GroupMask, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
@@ -217,3 +216,5 @@ public:
         };
     }
 };
+
+HUB_REGISTER_CLASS(ArmorPredictor);
