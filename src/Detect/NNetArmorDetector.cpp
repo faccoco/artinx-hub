@@ -28,13 +28,13 @@ struct NNetArmorDetectorSettings final {
     std::string networkPath;  // network training file path
     int inputWidth;
     int inputHeight;
-    int numClasses;  // Number of classes 8
-    int numColors;   // Number of color 4
-    float bboxConfThresh; //0.6
+    int numClasses;          // Number of classes 8
+    int numColors;           // Number of color 4
+    float bboxConfThresh;    // 0.6
     long unsigned int topK;  // TopK
-    float nmsThresh;      //0.3
-    float fftConfError;  // 0.15
-    float fftMinIou;     // 0.9
+    float nmsThresh;         // 0.3
+    float fftConfError;      // 0.15
+    float fftMinIou;         // 0.9
 };
 
 template <class Inspector>
@@ -57,7 +57,7 @@ struct GridAndStride {
 };
 
 class NNetArmorDetector final
-    : public HubHelper<caf::event_based_actor, NNetArmorDetectorSettings, armor_detect_available_atom, image_frame_atom> {
+    : public HubHelper<caf::event_based_actor, NNetArmorDetectorSettings, armor_nnet_detect_available_atom, image_frame_atom> {
     Identifier mKey;
     InferenceEngine::Core mIe;
     InferenceEngine::CNNNetwork mNetwork;
@@ -172,7 +172,7 @@ class NNetArmorDetector final
 
     void generateYoloxProposals(std::vector<GridAndStride> gridStrides, const float* featPtr,
                                 Eigen::Matrix<float, 3, 3>& transformMatrix, float probThreshold,
-                                std::vector<NNetDetectedArmorArray>& armors) {
+                                std::vector<NNetDetectedArmor>& armors) {
 
         const int numAnchors = gridStrides.size();
         // Travel all the anchors
@@ -200,14 +200,14 @@ class NNetArmorDetector final
 
             float boxObjectness = (featPtr[basicPos + 8]);
 
-//            float colorConf = (featPtr[basicPos + 9 + boxColor]);
-//            float clsConf = (featPtr[basicPos + 9 + mConfig.numColors + boxClass]);
+            //            float colorConf = (featPtr[basicPos + 9 + boxColor]);
+            //            float clsConf = (featPtr[basicPos + 9 + mConfig.numColors + boxClass]);
 
             // float box_prob = (box_objectness + cls_conf + color_conf) / 3.0;
             float boxProb = boxObjectness;
 
             if(boxProb >= probThreshold) {
-                NNetDetectedArmorArray armor;
+                NNetDetectedArmor armor;
 
                 Eigen::Matrix<float, 3, 4> light4PointNorm;
                 Eigen::Matrix<float, 3, 4> light4PointDst;
@@ -234,12 +234,12 @@ class NNetArmorDetector final
         }  // point anchor loop
     }
 
-    inline float intersectionArea(const NNetDetectedArmorArray& a, const NNetDetectedArmorArray& b) {
+    inline float intersectionArea(const NNetDetectedArmor& a, const NNetDetectedArmor& b) {
         cv::Rect_<float> inter = a.lightRect & b.lightRect;
         return inter.area();
     }
 
-    void qsortDescentInplace(std::vector<NNetDetectedArmorArray>& faceObjects, int left, int right) {
+    void qsortDescentInplace(std::vector<NNetDetectedArmor>& faceObjects, int left, int right) {
         int i = left;
         int j = right;
         float p = faceObjects[(left + right) / 2].prob;
@@ -260,28 +260,28 @@ class NNetArmorDetector final
             }
         }
 
-/*#pragma omp parallel sections
-        {
-#pragma omp section
-            {
-                if(left < j)
-                    qsortDescentInplace(faceObjects, left, j);
-            }
-#pragma omp section
-            {
-                if(i < right)
-                    qsortDescentInplace(faceObjects, i, right);
-            }
-        }*/
+        /*#pragma omp parallel sections
+                {
+        #pragma omp section
+                    {
+                        if(left < j)
+                            qsortDescentInplace(faceObjects, left, j);
+                    }
+        #pragma omp section
+                    {
+                        if(i < right)
+                            qsortDescentInplace(faceObjects, i, right);
+                    }
+                }*/
     }
 
-    void qsortDescentInplace(std::vector<NNetDetectedArmorArray>& objects) {
+    void qsortDescentInplace(std::vector<NNetDetectedArmor>& objects) {
         if(objects.empty())
             return;
         qsortDescentInplace(objects, 0, objects.size() - 1);
     }
 
-    void nmsSortedBboxes(std::vector<NNetDetectedArmorArray>& faceObjects, std::vector<int>& picked, float nmsThreshold) {
+    void nmsSortedBboxes(std::vector<NNetDetectedArmor>& faceObjects, std::vector<int>& picked, float nmsThreshold) {
         picked.clear();
 
         const int n = faceObjects.size();
@@ -292,11 +292,11 @@ class NNetArmorDetector final
         }
 
         for(int i = 0; i < n; i++) {
-            NNetDetectedArmorArray& a = faceObjects[i];
+            NNetDetectedArmor& a = faceObjects[i];
 
             int keep = 1;
             for(int j = 0; j < (int)picked.size(); j++) {
-                NNetDetectedArmorArray& b = faceObjects[picked[j]];
+                NNetDetectedArmor& b = faceObjects[picked[j]];
 
                 // intersection over union
                 float interArea = intersectionArea(a, b);
@@ -320,9 +320,9 @@ class NNetArmorDetector final
         }
     }
 
-    void decodeOutputs(const float* prob, std::vector<NNetDetectedArmorArray>& armors,
-                       Eigen::Matrix<float, 3, 3>& transformMatrix, const int imgwidth, const int imgHeight) {
-        std::vector<NNetDetectedArmorArray> proposals;
+    void decodeOutputs(const float* prob, std::vector<NNetDetectedArmor>& armors, Eigen::Matrix<float, 3, 3>& transformMatrix,
+                       const int imgwidth, const int imgHeight) {
+        std::vector<NNetDetectedArmor> proposals;
         std::vector<int> strides = { 8, 16, 32 };
         std::vector<GridAndStride> gridStrides;
 
@@ -368,7 +368,7 @@ class NNetArmorDetector final
         return calcTriangleArea(&pts[0]) + calcTriangleArea(&pts[1]);
     }
 
-    bool detect(cv::Mat& imageFromCamera, std::vector<NNetDetectedArmorArray>& armors) {
+    bool detect(cv::Mat& imageFromCamera, std::vector<NNetDetectedArmor>& armors) {
         if(imageFromCamera.empty()) {
             fmt::print(fmt::fg(fmt::color::red), "[DETECT] ERROR: 传入了空的image\n");
             LOG(ERROR) << "[DETECT] ERROR: 传入了空的src";
@@ -430,11 +430,10 @@ class NNetArmorDetector final
             return false;
     }
 
-    NNetDetectedArmorArray& solve(cv::Mat imageFromCamera, std::vector<NNetDetectedArmorArray>& armors) {
+    void solve(cv::Mat imageFromCamera, std::vector<NNetDetectedArmor>& armors) {
         initModel(mConfig.networkPath);  // 初始化网络模型
 
         detect(imageFromCamera, armors);
-        return armors[0];
     }
 
 public:
@@ -447,12 +446,17 @@ public:
                      ACTOR_EXCEPTION_PROBE();
 
                      const auto frame = BlackBoard::instance().get<CameraFrame>(key).value();
-                     std::vector<NNetDetectedArmorArray> armors;
+                     std::vector<NNetDetectedArmor> armors;
                      NNetDetectedArmorArray res;
 
-                     res = solve(frame.frame, armors);
+                     res.showFrame = frame;
+                     solve(frame.frame, armors);
 
-                     sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
+                     for(auto armor : armors) {
+                         res.armors.push_back(armor);
+                     }
+
+                     sendAll(armor_nnet_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
 };
