@@ -92,8 +92,8 @@ class NNetArmorDetector final
     }
 
     bool initModel(std::string networkPath) {
-        mIe.SetConfig({ { CONFIG_KEY(CACHE_DIR), "../.cache" } });
-        mIe.SetConfig({ { CONFIG_KEY(GPU_THROUGHPUT_STREAMS), "1" } });
+//        mIe.SetConfig({ { CONFIG_KEY(CACHE_DIR), "../.cache" } });
+//        mIe.SetConfig({ { CONFIG_KEY(GPU_THROUGHPUT_STREAMS), "1" } });
         // 1. 读取网络
         mNetwork = mIe.ReadNetwork(networkPath);
         if(mNetwork.getOutputsInfo().size() != 1) {
@@ -106,23 +106,20 @@ class NNetArmorDetector final
         mInputName = mNetwork.getInputsInfo().begin()->first;
         // 输出blob
         if(mNetwork.getOutputsInfo().empty()) {
-            std::cerr << "Network out put is empty" << std::endl;
+            logError(fmt::format("Network out put is empty"));
             return EXIT_FAILURE;
         }
         InferenceEngine::DataPtr outputInfo = mNetwork.getOutputsInfo().begin()->second;
         mOutputName = mNetwork.getOutputsInfo().begin()->first;
 
         // 3. loading the nnet_model to device
-        mExeNetwork = mIe.LoadNetwork(mNetwork, "GPU");
+        mExeNetwork = mIe.LoadNetwork(mNetwork, "CPU");
 
         // 4. 创建推理请求
         mInferRequest = mExeNetwork.CreateInferRequest();
         const InferenceEngine::Blob::Ptr outputBlob = mInferRequest.GetBlob(mOutputName);
         mOutput = InferenceEngine::as<InferenceEngine::MemoryBlob>(outputBlob);
-        if(!mOutput) {
-            throw std::logic_error("We expect output to be inherited from MemoryBlob, "
-                                   "but by fact we were not able to cast output to MemoryBlob");
-        }
+
         return true;
     }
 
@@ -155,7 +152,7 @@ class NNetArmorDetector final
 
             for(int g1 = 0; g1 < num_grid_h; g1++) {
                 for(int g0 = 0; g0 < num_grid_w; g0++) {
-                    grid_strides.push_back((GridAndStride){ g0, g1, stride });
+                    grid_strides.push_back({ g0, g1, stride });
                 }
             }
         }
@@ -370,8 +367,7 @@ class NNetArmorDetector final
 
     bool detect(cv::Mat& imageFromCamera, std::vector<NNetDetectedArmor>& armors) {
         if(imageFromCamera.empty()) {
-            fmt::print(fmt::fg(fmt::color::red), "[DETECT] ERROR: 传入了空的image\n");
-            LOG(ERROR) << "[DETECT] ERROR: 传入了空的src";
+            logInfo(fmt::format("[DETECT] ERROR: 传入了空的img"));
             return false;
         }
         cv::Mat resizedImg = scaledResize(imageFromCamera, mTransformMatrix);
@@ -422,7 +418,7 @@ class NNetArmorDetector final
                 (*armor).light4Point[2] = detectedArmorsFinal[2];
                 (*armor).light4Point[3] = detectedArmorsFinal[3];
             }
-            (*armor).rectArea = (int)(calcTetragonArea((*armor).light4Point));
+            (*armor).rectArea = static_cast<int>(calcTetragonArea((*armor).light4Point));
         }
         if(armors.size() != 0)
             return true;
@@ -431,13 +427,13 @@ class NNetArmorDetector final
     }
 
     void solve(cv::Mat imageFromCamera, std::vector<NNetDetectedArmor>& armors) {
-        initModel(mConfig.networkPath);  // 初始化网络模型
-
         detect(imageFromCamera, armors);
     }
 
 public:
-    NNetArmorDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    NNetArmorDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
+        initModel(mConfig.networkPath);  // 初始化网络模型
+    }
 
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
