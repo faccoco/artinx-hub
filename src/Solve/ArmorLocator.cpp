@@ -18,11 +18,14 @@
 
 #include "SuppressWarningEnd.hpp"
 
-struct ArmorLocatorSettings final {};
+struct ArmorLocatorSettings final {
+    float ratioThreshold;
+};
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorSettings& x) {
-    return f.object(x).fields();
+    return f.object(x).fields(
+        f.field("ratioThreshold",x.ratioThreshold));
 }
 
 class ArmorLocator final
@@ -83,11 +86,10 @@ class ArmorLocator final
          */
         const auto ratio = area / std::fmax(0.001, area1 + area2);
         HubLogger::watch("armor ratio", ratio);
-        constexpr auto ratioThreshold = 16.0;
 
         mImagePoint = { lt, lb, rb, rt };
         [[maybe_unused]] const auto res =
-            cv::solvePnP(ratio > ratioThreshold ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint, cameraMatrix, distCoeff,
+            cv::solvePnP(ratio > mConfig.ratioThreshold ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint, cameraMatrix, distCoeff,
                          rvec, tvec, false, cv::SOLVEPNP_IPPE);
         glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
 
@@ -96,11 +98,11 @@ class ArmorLocator final
 
 #ifdef ARTINXHUB_DEBUG
         cv::drawFrameAxes(debugView, cameraMatrix, distCoeff, rvec, tvec,
-                          static_cast<float>(ratio > ratioThreshold ? widthOfLargeArmor : widthOfSmallArmor) * 0.5f);
+                          static_cast<float>(ratio > mConfig.ratioThreshold ? widthOfLargeArmor : widthOfSmallArmor) * 0.5f);
 #endif
 
         return { Point<UnitType::Distance, FrameOfRef::Camera>{ p0 },
-                 ratio > ratioThreshold ? ArmorType::Large : ArmorType::Small };
+                 ratio > mConfig.ratioThreshold ? ArmorType::Large : ArmorType::Small };
     }
 
 public:
