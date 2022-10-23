@@ -133,8 +133,8 @@ class Translate2DMotionController final : public MotionController {
             mT -= 2.0;
         }
 
-        mSmoothX = (1.0 - alpha) * mSmoothX;  // alpha mean to simulate measurement error
-        mSmoothZ = (1.0 - alpha) * mSmoothZ;
+        mSmoothX = (1.0 - alpha) * mSmoothX + alpha * mSpeedX;
+        mSmoothZ = (1.0 - alpha) * mSmoothZ + alpha * mSpeedZ;
     }
 
 public:
@@ -145,7 +145,7 @@ public:
     void step(MotionState& motionState, const double dt) override {
         updateSpeed(dt);
 
-        motionState = MotionState{ glm::translate(motionState, glm::dvec3{ mSpeedX * dt, 0.0, mSmoothZ * dt }) };
+        motionState = MotionState{ glm::translate(motionState, glm::dvec3{ mSmoothX * dt, 0.0, mSmoothZ * dt }) };
     }
 };
 
@@ -274,7 +274,7 @@ public:
 
         while(runFlag) {
             for(auto& [pos, v] : mBullets) {
-                if(pos.y < 0.0)       
+                if(pos.y < 0.0)
                     continue;
 
                 if(mConfig.printBulletPos) {

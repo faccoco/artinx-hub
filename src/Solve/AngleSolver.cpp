@@ -126,39 +126,33 @@ public:
 
                 const auto delayTime = mConfig.delay;
 
-                Vector<UnitType::Distance, FrameOfRef::Robot> positionOfReferenceRobot = data.value().position;
+                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data.value().position;
                 Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data.value().selected.value().velocity;
-                HubLogger::watch("z", positionOfReferenceRobot.raw().z);
+                HubLogger::watch("z", posRefRobot.raw().z);
 
                 //(forward:+y,right:+x)
-                glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x, -positionOfReferenceRobot.raw().z,
-                                                   positionOfReferenceRobot.raw().y };
-                glm::dvec3 transformedLinearVelocity = { -linearVel.raw().x, +linearVel.raw().z, -linearVel.raw().y };
+                glm::dvec3 tfPos = { posRefRobot.raw().x, -posRefRobot.raw().z, posRefRobot.raw().y };
+                glm::dvec3 tfLinearVel = { linearVel.raw().x, -linearVel.raw().z, linearVel.raw().y };
                 // logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y,
                 // linearVelocity.raw().z));
-                transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x,
-                                        transformedPosition.y + delayTime * transformedLinearVelocity.y,
-                                        transformedPosition.z + delayTime * transformedLinearVelocity.z };
+                tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
+                          tfPos.z + delayTime * tfLinearVel.z };
 
-                double airDuration = ferrari(
-                    1, 0,
-                    -(4 * g * transformedPosition.z + 4 * square(bulletSpeed) - 4 * square(transformedLinearVelocity.x) -
-                      4 * square(transformedLinearVelocity.y)) /
-                        square(g),
-                    (8 * transformedPosition.x * transformedLinearVelocity.x +
-                     8 * transformedPosition.y * transformedLinearVelocity.y) /
-                        square(g),
-                    (4 * square(transformedPosition.x) + 4 * square(transformedPosition.y) + 4 * square(transformedPosition.z)) /
-                        square(g));
-                double verticalSpeed = transformedPosition.z / airDuration - 0.5 * g * airDuration;
-                double horizontalSpeedX = (transformedPosition.x + transformedLinearVelocity.x * airDuration) / airDuration;
-                double horizontalSpeedY = (transformedPosition.y + transformedLinearVelocity.y * airDuration) / airDuration;
+                double airDuration =
+                    ferrari(1, 0,
+                            -(4 * g * tfPos.z + 4 * square(bulletSpeed) - 4 * square(tfLinearVel.x) - 4 * square(tfLinearVel.y)) /
+                                square(g),
+                            (8 * tfPos.x * tfLinearVel.x + 8 * tfPos.y * tfLinearVel.y) / square(g),
+                            (4 * square(tfPos.x) + 4 * square(tfPos.y) + 4 * square(tfPos.z)) / square(g));
+                double verticalSpeed = tfPos.z / airDuration - 0.5 * g * airDuration;
+                double horizontalSpeedX = (tfPos.x + tfLinearVel.x * airDuration) / airDuration;
+                double horizontalSpeedY = (tfPos.y + tfLinearVel.y * airDuration) / airDuration;
 
                 double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
                 double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 
                 bool isFire = true;
-                logInfo(fmt::format("x:{}, y:{}, z:{}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
+                logInfo(fmt::format("x:{}, y:{}, z:{}", tfPos.x, tfPos.y, tfPos.z));
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
                         pitchAngle, isFire);
             },

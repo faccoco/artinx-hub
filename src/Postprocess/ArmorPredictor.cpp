@@ -94,8 +94,8 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
         mP.setIdentity(6, 6);
         mQ.setIdentity(6, 6);
         mH.resize(3, 6);
-        mH << 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, //
-            0.0, 1.0, 0.0, 0.0, 0.0, 0.0,  //
+        mH << 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,  //
+            0.0, 1.0, 0.0, 0.0, 0.0, 0.0,    //
             0.0, 0.0, 1.0, 0.0, 0.0, 0.0;    //
         mR.resize(3, 3);
         mR << 0.01, 0.0, 0.0,  //
@@ -187,22 +187,22 @@ public:
                      dataPosture.has_value()))
                     return;
 
-                Vector<UnitType::Distance, FrameOfRef::Gun> positionOfRefGun(data.value().selected.value().center.raw());
-                Vector<UnitType::Distance, FrameOfRef::Robot> positionOfRefRobot =
-                    dataHeadInfo.value().transform(positionOfRefGun);
+                Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data.value().selected.value().center.raw());
+                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = dataHeadInfo.value().transform(posOfRefGun);
                 Vector<UnitType::LinearVelocity, FrameOfRef::Ground> linearVelocity(
                     dataPosture.value().linearVelocityOfRobot.raw());
-                data.value().position = positionOfRefRobot;
+                data.value().position = posRefRobot;
 
                 if(mConfig.enablePredictor) {  //如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
-                    glm::dvec3 measuredPos = positionOfRefRobot.raw();
+                    glm::dvec3 measuredPos = posRefRobot.raw();
                     runFilter(measuredPos, data.value().lastUpdate);
                     data.value().selected.value().velocity.setValue(mPredictedVel);
                 } else {  //如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
                     data.value().selected.value().velocity.setValue(-linearVelocity.raw());
                 }
 
-                sendAll(predict_success_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(Identifier{ mKey.val }, data.value()));
+                sendAll(predict_success_atom_v,
+                        BlackBoard::instance().updateSync<SelectedTarget>(Identifier{ mKey.val }, data.value()));
             },
             [this](update_head_atom, GroupMask, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);

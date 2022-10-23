@@ -23,7 +23,7 @@ public:
                     ACTOR_PROTOCOL_CHECK(timer_atom);
                     PostureData posture;
                     posture.lastUpdate = SynchronizedClock::instance().now();
-                    posture.postureOfRobot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
+                    posture.tfGround2Robot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
                     posture.linearVelocityOfRobot =
                         Vector<UnitType::LinearVelocity, FrameOfRef::Ground>{ glm::zero<glm::dvec3>() };
 
