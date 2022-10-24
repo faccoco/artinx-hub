@@ -95,7 +95,6 @@ else()
 target_include_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/inc)
 target_link_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/lib/x64)
 endif()
-target_link_directories(ArtinxHub PRIVATE /home/xjp/intel/openvino_2021/inference_engine)
 
 target_link_libraries(ArtinxHub PRIVATE gxiapi)
 #target_link_libraries(ArtinxHub PRIVATE LinearMath Bullet3Common BulletDynamics BulletCollision)

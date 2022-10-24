@@ -91,9 +91,9 @@ class NNetArmorDetector final
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame)));
     }
 
-    bool initModel(std::string networkPath) {
-//        mIe.SetConfig({ { CONFIG_KEY(CACHE_DIR), "../.cache" } });
-//        mIe.SetConfig({ { CONFIG_KEY(GPU_THROUGHPUT_STREAMS), "1" } });
+    void initModel(std::string networkPath) {
+        //        mIe.SetConfig({ { CONFIG_KEY(CACHE_DIR), "../.cache" } });
+        //        mIe.SetConfig({ { CONFIG_KEY(GPU_THROUGHPUT_STREAMS), "1" } });
         // 1. 读取网络
         mNetwork = mIe.ReadNetwork(networkPath);
         if(mNetwork.getOutputsInfo().size() != 1) {
@@ -107,7 +107,6 @@ class NNetArmorDetector final
         // 输出blob
         if(mNetwork.getOutputsInfo().empty()) {
             logError(fmt::format("Network out put is empty"));
-            return EXIT_FAILURE;
         }
         InferenceEngine::DataPtr outputInfo = mNetwork.getOutputsInfo().begin()->second;
         mOutputName = mNetwork.getOutputsInfo().begin()->first;
@@ -119,17 +118,15 @@ class NNetArmorDetector final
         mInferRequest = mExeNetwork.CreateInferRequest();
         const InferenceEngine::Blob::Ptr outputBlob = mInferRequest.GetBlob(mOutputName);
         mOutput = InferenceEngine::as<InferenceEngine::MemoryBlob>(outputBlob);
-
-        return true;
     }
 
-    inline cv::Mat scaledResize(cv::Mat& img, Eigen::Matrix<float, 3, 3>& transformMatrix) {
+    cv::Mat scaledResize(const cv::Mat& img, Eigen::Matrix<float, 3, 3>& transformMatrix) {
         float r = std::min(mConfig.inputWidth / (img.cols * 1.0), mConfig.inputHeight / (img.rows * 1.0));
-        int unpad_w = r * img.cols;
-        int unpad_h = r * img.rows;
+        int unpadWidth = r * img.cols;
+        int unpadHeight = r * img.rows;
 
-        int dw = mConfig.inputWidth - unpad_w;
-        int dh = mConfig.inputHeight - unpad_h;
+        int dw = mConfig.inputWidth - unpadWidth;
+        int dh = mConfig.inputHeight - unpadHeight;
 
         dw /= 2;
         dh /= 2;
@@ -137,28 +134,28 @@ class NNetArmorDetector final
         transformMatrix << 1.0 / r, 0, -dw / r, 0, 1.0 / r, -dh / r, 0, 0, 1;
 
         cv::Mat re;
-        cv::resize(img, re, cv::Size(unpad_w, unpad_h));
+        cv::resize(img, re, cv::Size(unpadWidth, unpadHeight));
         cv::Mat out;
         cv::copyMakeBorder(re, out, dh, dh, dw, dw, cv::BorderTypes::BORDER_CONSTANT);
 
         return out;
     }
 
-    void generateGridsAndStride(const int target_w, const int target_h, std::vector<int>& strides,
-                                std::vector<GridAndStride>& grid_strides) {
+    void generateGridsAndStride(const int targetWidth, const int targetHeight, std::vector<int>& strides,
+                                std::vector<GridAndStride>& gridStrides) {
         for(auto stride : strides) {
-            int num_grid_w = target_w / stride;
-            int num_grid_h = target_h / stride;
+            int numGridWidth = targetWidth / stride;
+            int numGridHeight = targetHeight / stride;
 
-            for(int g1 = 0; g1 < num_grid_h; g1++) {
-                for(int g0 = 0; g0 < num_grid_w; g0++) {
-                    grid_strides.push_back({ g0, g1, stride });
+            for(int g1 = 0; g1 < numGridHeight; g1++) {
+                for(int g0 = 0; g0 < numGridWidth; g0++) {
+                    gridStrides.push_back({ g0, g1, stride });
                 }
             }
         }
     }
 
-    inline int argmax(const float* ptr, int len) {
+    int argmax(const float* ptr, int len) {
         int maxArg = 0;
         for(int i = 1; i < len; i++) {
             if(ptr[i] > ptr[maxArg])
@@ -168,7 +165,7 @@ class NNetArmorDetector final
     }
 
     void generateYoloxProposals(std::vector<GridAndStride> gridStrides, const float* featPtr,
-                                Eigen::Matrix<float, 3, 3>& transformMatrix, float probThreshold,
+                                const Eigen::Matrix<float, 3, 3>& transformMatrix, float probThreshold,
                                 std::vector<NNetDetectedArmor>& armors) {
 
         const int numAnchors = gridStrides.size();
@@ -231,8 +228,8 @@ class NNetArmorDetector final
         }  // point anchor loop
     }
 
-    inline float intersectionArea(const NNetDetectedArmor& a, const NNetDetectedArmor& b) {
-        cv::Rect_<float> inter = a.lightRect & b.lightRect;
+    float intersectionArea(const NNetDetectedArmor& a, const NNetDetectedArmor& b) {
+        cv::Rect2f inter = a.lightRect & b.lightRect;
         return inter.area();
     }
 
@@ -256,20 +253,6 @@ class NNetArmorDetector final
                 j--;
             }
         }
-
-        /*#pragma omp parallel sections
-                {
-        #pragma omp section
-                    {
-                        if(left < j)
-                            qsortDescentInplace(faceObjects, left, j);
-                    }
-        #pragma omp section
-                    {
-                        if(i < right)
-                            qsortDescentInplace(faceObjects, i, right);
-                    }
-                }*/
     }
 
     void qsortDescentInplace(std::vector<NNetDetectedArmor>& objects) {
@@ -317,8 +300,8 @@ class NNetArmorDetector final
         }
     }
 
-    void decodeOutputs(const float* prob, std::vector<NNetDetectedArmor>& armors, Eigen::Matrix<float, 3, 3>& transformMatrix,
-                       const int imgwidth, const int imgHeight) {
+    void decodeOutputs(const float* prob, std::vector<NNetDetectedArmor>& armors,
+                       const Eigen::Matrix<float, 3, 3>& transformMatrix, int imgwidth, int imgHeight) {
         std::vector<NNetDetectedArmor> proposals;
         std::vector<int> strides = { 8, 16, 32 };
         std::vector<GridAndStride> gridStrides;
@@ -345,7 +328,7 @@ class NNetArmorDetector final
      * @param pts 三角形顶点
      * @return float 面积
      */
-    float calcTriangleArea(cv::Point2f pts[3]) {
+    static float calcTriangleArea(cv::Point2f pts[3]) {
         auto a = sqrt(pow((pts[0] - pts[1]).x, 2) + pow((pts[0] - pts[1]).y, 2));
         auto b = sqrt(pow((pts[1] - pts[2]).x, 2) + pow((pts[1] - pts[2]).y, 2));
         auto c = sqrt(pow((pts[2] - pts[0]).x, 2) + pow((pts[2] - pts[0]).y, 2));
@@ -361,11 +344,11 @@ class NNetArmorDetector final
      * @param pts 四边形顶点
      * @return float 面积
      */
-    float calcTetragonArea(cv::Point2f pts[4]) {
+    static float calcTetragonArea(cv::Point2f pts[4]) {
         return calcTriangleArea(&pts[0]) + calcTriangleArea(&pts[1]);
     }
 
-    bool detect(cv::Mat& imageFromCamera, std::vector<NNetDetectedArmor>& armors) {
+    bool detect(const cv::Mat& imageFromCamera, std::vector<NNetDetectedArmor>& armors) {
         if(imageFromCamera.empty()) {
             logInfo(fmt::format("[DETECT] ERROR: 传入了空的img"));
             return false;
@@ -398,14 +381,14 @@ class NNetArmorDetector final
 
         decodeOutputs(netPred, armors, mTransformMatrix, imgWidth, imgHeight);
 
-        for(auto armor = armors.begin(); armor != armors.end(); ++armor) {
+        for(auto& armor : armors) {
             // 对候选框预测角点进行平均,降低误差
-            if((*armor).detectedArmors.size() >= 8) {
-                auto N = (*armor).detectedArmors.size();
+            if(armor.detectedArmors.size() >= 8) {
+                auto N = armor.detectedArmors.size();
                 cv::Point2f detectedArmorsFinal[4];
 
                 for(long unsigned int i = 0; i < N; i++) {
-                    detectedArmorsFinal[i % 4] += (*armor).detectedArmors[i];
+                    detectedArmorsFinal[i % 4] += armor.detectedArmors[i];
                 }
 
                 for(int i = 0; i < 4; i++) {
@@ -413,21 +396,17 @@ class NNetArmorDetector final
                     detectedArmorsFinal[i].y = detectedArmorsFinal[i].y / (N / 4);
                 }
 
-                (*armor).light4Point[0] = detectedArmorsFinal[0];
-                (*armor).light4Point[1] = detectedArmorsFinal[1];
-                (*armor).light4Point[2] = detectedArmorsFinal[2];
-                (*armor).light4Point[3] = detectedArmorsFinal[3];
+                armor.light4Point[0] = detectedArmorsFinal[0];
+                armor.light4Point[1] = detectedArmorsFinal[1];
+                armor.light4Point[2] = detectedArmorsFinal[2];
+                armor.light4Point[3] = detectedArmorsFinal[3];
             }
-            (*armor).rectArea = static_cast<int>(calcTetragonArea((*armor).light4Point));
+            armor.rectArea = static_cast<int>(calcTetragonArea(armor.light4Point));
         }
         if(armors.size() != 0)
             return true;
         else
             return false;
-    }
-
-    void solve(cv::Mat imageFromCamera, std::vector<NNetDetectedArmor>& armors) {
-        detect(imageFromCamera, armors);
     }
 
 public:
@@ -445,11 +424,9 @@ public:
                      std::vector<NNetDetectedArmor> armors;
                      NNetDetectedArmorArray res;
 
-                     res.showFrame = frame;
-                     solve(frame.frame, armors);
-
-                     for(auto armor : armors) {
-                         res.armors.push_back(armor);
+                     res.frame = frame;
+                     if(detect(frame.frame, armors)) {
+                         res.armors = std::move(armors);
                      }
 
                      sendAll(armor_nnet_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));

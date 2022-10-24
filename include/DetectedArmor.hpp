@@ -35,7 +35,7 @@ struct NNetDetectedArmor final {
 
 struct NNetDetectedArmorArray final {
     std::vector<NNetDetectedArmor> armors;
-    CameraFrame showFrame;
+    CameraFrame frame;
 };
 
 ACTOR_PROTOCOL_DEFINE(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
