@@ -64,14 +64,14 @@ public:
 
                          // 绘制四点
                          for (int i = 0; i < 4; i++) {
-                             cv::circle(showImg, cv::Point(armor.light4Point[i].x, armor.light4Point[i].y), 3, cv::Scalar(100, 200, 0), 5);
+                             cv::circle(showImg, cv::Point(armor.light4Point[i].x, armor.light4Point[i].y), 3, cv::Scalar(100, 200, 0), 3);
                          }
                          // 绘制左上角顶点
-                         cv::circle(showImg, cv::Point(armor.light4Point->x, armor.light4Point->y),3,cv::Scalar(255, 255, 0),8 );
+                         cv::circle(showImg, cv::Point(armor.light4Point->x, armor.light4Point->y),3,cv::Scalar(255, 255, 0),3);
 
                          // 绘制装甲板四点矩形
                          for (int i = 0; i < 4; i++) {
-                             cv::line(showImg, armor.light4Point[i], armor.light4Point[(i + 1) % 4], cv::Scalar(100, 200, 0), 3);
+                             cv::line(showImg, armor.light4Point[i], armor.light4Point[(i + 1) % 4], cv::Scalar(100, 200, 0), 1);
                          }
 
                          // 绘制目标颜色与类别
