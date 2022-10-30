@@ -111,7 +111,7 @@ class NNetArmorDetector final
         InferenceEngine::DataPtr outputInfo = mNetwork.getOutputsInfo().begin()->second;
         mOutputName = mNetwork.getOutputsInfo().begin()->first;
 
-        // 3. loading the nnet_model to device
+        // 3. loading the armor_detect to device
         mExeNetwork = mIe.LoadNetwork(mNetwork, "CPU");
 
         // 4. 创建推理请求
