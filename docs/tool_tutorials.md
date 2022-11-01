@@ -1,4 +1,37 @@
-[TOC]
+- [Linux命令](#linux命令)
+  - [1.文件查看](#1文件查看)
+  - [2.文件内容筛选](#2文件内容筛选)
+    - [(1)cut 用指定规制切分文本](#1cut-用指定规制切分文本)
+    - [(2) sort 对文件内容进行排序](#2-sort-对文件内容进行排序)
+    - [（3）wc 统计单词的数量](#3wc-统计单词的数量)
+  - [3.文件内容增删改查](#3文件内容增删改查)
+    - [(1) grep](#1-grep)
+    - [(2) sed](#2-sed)
+    - [(3) awk](#3-awk)
+- [Vim 命令](#vim-命令)
+  - [1.普通模式](#1普通模式)
+  - [2. 进入编辑模式](#2-进入编辑模式)
+  - [3. 编辑模式](#3-编辑模式)
+- [git命令](#git命令)
+  - [1. 基本概念](#1-基本概念)
+    - [（1）四个区](#1四个区)
+  - [2. 初始化配置](#2-初始化配置)
+  - [3. git 分支操作](#3-git-分支操作)
+  - [4. git 删除撤销操作](#4-git-删除撤销操作)
+- [docker](#docker)
+  - [1. docker 安装](#1-docker-安装)
+  - [2. 配置阿里云镜像加速](#2-配置阿里云镜像加速)
+  - [3. docker常用命令](#3-docker常用命令)
+  - [docker启动](#docker启动)
+    - [镜像命令](#镜像命令)
+    - [容器命令](#容器命令)
+    - [容器数据卷](#容器数据卷)
+    - [dockerfile](#dockerfile)
+- [remote debug setting](#remote-debug-setting)
+  - [1. Install ssh server](#1-install-ssh-server)
+  - [2. vscode](#2-vscode)
+  - [4.build and run](#4build-and-run)
+  - [3. httpServer visualization](#3-httpserver-visualization)
 
 # Linux命令
 
@@ -7,13 +40,13 @@
 |         常用命令          |             作用             |
 | :-----------------------: | :--------------------------: |
 |        stat file1         |       查看文件详细属性       |
-|         cat file1         |         查看⽂件内容         |
-|       cat -n file1        |      查看内容并标示⾏数      |
-|         tac file1         |  从最后⼀⾏开始反看⽂件内容  |
+|         cat file1         |         查看⽂件内容          |
+|       cat -n file1        |      查看内容并标示⾏数       |
+|         tac file1         |   从最后⼀⾏开始反看⽂件内容    |
 |        more file1         |    一页一页的显示文件内容    |
 |        less file1         | 类似more命令，但允许反向操作 |
-|       head -2 file1       |        查看⽂件前两⾏        |
-|       tail -2 file1       |        查看⽂件后两⾏        |
+|       head -2 file1       |         查看⽂件前两⾏         |
+|       tail -2 file1       |         查看⽂件后两⾏         |
 | head -20 file1 \| tail -5 |     查看文件第15行到20行     |
 
 ## 2.文件内容筛选
@@ -70,12 +103,12 @@
 
 ## 2. 进入编辑模式
 
-| 命令 |          作用          |
-| :--: | :--------------------: |
-|  i   |   在光标当前位置插入   |
-|  I   | 在光标所在位置行首插入 |
-|  a   |     在光标后面插入     |
-|  A   |     在光标行尾插入     |
+| 命令  |          作用          |
+| :---: | :--------------------: |
+|   i   |   在光标当前位置插入   |
+|   I   | 在光标所在位置行首插入 |
+|   a   |     在光标后面插入     |
+|   A   |     在光标行尾插入     |
 
 ## 3. 编辑模式
 
@@ -167,14 +200,14 @@ git push -u origin main
 
     ```shell
     # (1)当前branch1支没有写完，且不想提交但是有紧急需求需要切换分支branch2
-    git stash save "message"
+    git stash save "<message>"
     git checkout branch2
     #	处理完紧急需求后
     git checkout branch1
     git stash pop
     
     # (1)本来想在branch1分支上开发，但是开发过程中发现处在branch2分支上，想强制将工作区间代码迁到A分支
-    git stash save "message"
+    git stash save "<message>"
     git checkout branch1
     git stash pop
     //解决所有冲突后
@@ -235,10 +268,19 @@ git push -u origin main
 
     
 
-+ git 删除某次提交中的一个文件夹
++ git 删除文件夹
 
-    ```shell 
-    git rm --cached file
+    ```shell
+    # 删除暂存区或者本地仓库的文件 
+    git rm --cached <filename> #递归删除添加-r
+
+    ## 删除工作空间和本地仓库的文件
+    git rm <filename> 
+
+    ## 批量删除
+    #修改.gitignore
+    git rm -r --cached .
+
     git commit -m "message"
     # 如果不想再写commit message
     git commit --amend --allow-empty
