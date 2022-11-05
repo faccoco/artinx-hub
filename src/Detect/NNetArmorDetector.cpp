@@ -30,9 +30,8 @@ struct NNetArmorDetectorSettings final {
     int numClasses;        // Number of classes 8
     int numColors;         // Number of color 4
     float bboxConfThresh;  // 0.6
-    uint32_t topK;     // TopK
+    uint32_t topK;         // TopK
     float nmsThresh;       // 0.3
-    float fftConfError;    // 0.15
     float fftMinIou;       // 0.9
 };
 
@@ -315,7 +314,7 @@ class NNetArmorDetector final
 
     bool blobImg(const cv::Mat& imageFromCamera, float* blobDataPtr) {
         if(imageFromCamera.empty()) {
-            logInfo(fmt::format("[DETECT] ERROR: 传入了空的img"));
+            logWarning(fmt::format("NNet Armor Detector receive  empty img!"));
             return false;
         }
         cv::Mat resizedImg = scaledResize(imageFromCamera, mTransformMatrix);
@@ -327,7 +326,9 @@ class NNetArmorDetector final
         auto imgOffset = mConfig.inputHeight * mConfig.inputWidth;
         // 将img拷贝进blob
         for(int c = 0; c < 3; c++) {
-            memcpy(blobDataPtr, preSplit[c].data, imgOffset * sizeof(float));
+            // memcpy(blobDataPtr, preSplit[c].data, imgOffset * sizeof(float));
+            std::copy(reinterpret_cast<float*>(preSplit[c].data),
+                      reinterpret_cast<float*>(preSplit[c].data) + imgOffset * sizeof(uchar), blobDataPtr);
             blobDataPtr += imgOffset;
         }
 
