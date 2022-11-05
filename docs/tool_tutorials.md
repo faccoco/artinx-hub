@@ -353,6 +353,20 @@ docker run -d -v volume01:/home ubuntu /bin/bash
 docker build -f <dockerfile path> -t <image name> . #构建镜像
 docker push         #发布镜像
 ```
+### docker清理
+```shell
+# 删除所有已经停止的容器
+docker rm $(docker ps -a|grep Exited |awk '{print $1}')docker rm $(docker ps -qf status=exited)
+
+#删除所有未打标签的镜像
+docker rmi $(docker images -q -f dangling=true)
+
+#删除所有无用的volune
+docker volume rm $(docker volume ls -qf dangling=true)
+
+#清理磁盘、删除关闭的容器、无用的数据卷和网络
+docker system prune
+```
 
 # remote debug setting
 
