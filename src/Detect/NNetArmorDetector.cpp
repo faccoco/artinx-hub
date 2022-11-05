@@ -1,11 +1,9 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
-#include "DetectedCar.hpp"
 #include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
-#include <cstdint>
 
 #include <string>
 #include <utility>
@@ -19,22 +17,23 @@
 #include "SuppressWarningEnd.hpp"
 
 #include <Eigen/Core>
-#include <fmt/color.h>
 #include <glog/logging.h>
 #include <inference_engine.hpp>
 #include <string.h>
+
+namespace IE = InferenceEngine;
 
 struct NNetArmorDetectorSettings final {
     std::string networkPath;  // network training file path
     int inputWidth;
     int inputHeight;
-    int numClasses;          // Number of classes 8
-    int numColors;           // Number of color 4
-    float bboxConfThresh;    // 0.6
-    long unsigned int topK;  // TopK
-    float nmsThresh;         // 0.3
-    float fftConfError;      // 0.15
-    float fftMinIou;         // 0.9
+    int numClasses;        // Number of classes 8
+    int numColors;         // Number of color 4
+    float bboxConfThresh;  // 0.6
+    uint32_t topK;     // TopK
+    float nmsThresh;       // 0.3
+    float fftConfError;    // 0.15
+    float fftMinIou;       // 0.9
 };
 
 template <class Inspector>
@@ -50,7 +49,7 @@ bool inspect(Inspector& f, NNetArmorDetectorSettings& x) {
  * @brief 存储任务所需数据的结构体
  *
  */
-struct GridAndStride {
+struct GridAndStride final {
     int grid0;
     int grid1;
     int stride;
@@ -59,13 +58,14 @@ struct GridAndStride {
 class NNetArmorDetector final
     : public HubHelper<caf::event_based_actor, NNetArmorDetectorSettings, armor_nnet_detect_available_atom, image_frame_atom> {
     Identifier mKey;
-    InferenceEngine::Core mIe;
-    InferenceEngine::CNNNetwork mNetwork;
-    InferenceEngine::ExecutableNetwork mExeNetwork;
-    InferenceEngine::InferRequest mInferRequest;
-    InferenceEngine::MemoryBlob::CPtr mOutput;
-    std::string mInputName;
-    std::string mOutputName;
+    IE::Core mIe;
+    IE::CNNNetwork mNetwork;
+    IE::ExecutableNetwork mExeNetwork;
+    IE::InferRequest mInferRequest;
+
+    InferenceEngine::MemoryBlob::Ptr mInputMemBlobPtr;
+    InferenceEngine::MemoryBlob::CPtr mOutputMemBlobPtr;
+
     Eigen::Matrix<float, 3, 3> mTransformMatrix;
 
     void debugView(const std::string_view& name, const cv::Mat& src, const std::function<void(cv::Mat&)>& func) {
@@ -91,35 +91,6 @@ class NNetArmorDetector final
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame)));
     }
 
-    void initModel(std::string networkPath) {
-        //        mIe.SetConfig({ { CONFIG_KEY(CACHE_DIR), "../.cache" } });
-        //        mIe.SetConfig({ { CONFIG_KEY(GPU_THROUGHPUT_STREAMS), "1" } });
-        // 1. 读取网络
-        mNetwork = mIe.ReadNetwork(networkPath);
-        if(mNetwork.getOutputsInfo().size() != 1) {
-            throw std::logic_error("Sample supports topologies with 1 output only");
-        }
-
-        // 2. 配置输入输出blob
-        // 输入blob
-        InferenceEngine::InputInfo::Ptr inputInfo = mNetwork.getInputsInfo().begin()->second;
-        mInputName = mNetwork.getInputsInfo().begin()->first;
-        // 输出blob
-        if(mNetwork.getOutputsInfo().empty()) {
-            logError(fmt::format("Network out put is empty"));
-        }
-        InferenceEngine::DataPtr outputInfo = mNetwork.getOutputsInfo().begin()->second;
-        mOutputName = mNetwork.getOutputsInfo().begin()->first;
-
-        // 3. loading the armor_detect to device
-        mExeNetwork = mIe.LoadNetwork(mNetwork, "CPU");
-
-        // 4. 创建推理请求
-        mInferRequest = mExeNetwork.CreateInferRequest();
-        const InferenceEngine::Blob::Ptr outputBlob = mInferRequest.GetBlob(mOutputName);
-        mOutput = InferenceEngine::as<InferenceEngine::MemoryBlob>(outputBlob);
-    }
-
     cv::Mat scaledResize(const cv::Mat& img, Eigen::Matrix<float, 3, 3>& transformMatrix) {
         float r = std::min(mConfig.inputWidth / (img.cols * 1.0), mConfig.inputHeight / (img.rows * 1.0));
         int unpadWidth = r * img.cols;
@@ -141,7 +112,7 @@ class NNetArmorDetector final
         return out;
     }
 
-    void generateGridsAndStride(const int targetWidth, const int targetHeight, std::vector<int>& strides,
+    void generateGridsAndStride(int targetWidth, int targetHeight, std::vector<int>& strides,
                                 std::vector<GridAndStride>& gridStrides) {
         for(auto stride : strides) {
             int numGridWidth = targetWidth / stride;
@@ -149,7 +120,7 @@ class NNetArmorDetector final
 
             for(int g1 = 0; g1 < numGridHeight; g1++) {
                 for(int g0 = 0; g0 < numGridWidth; g0++) {
-                    gridStrides.push_back({ g0, g1, stride });
+                    gridStrides.push_back(GridAndStride{ g0, g1, stride });
                 }
             }
         }
@@ -164,7 +135,7 @@ class NNetArmorDetector final
         return maxArg;
     }
 
-    void generateYoloxProposals(std::vector<GridAndStride> gridStrides, const float* featPtr,
+    void generateYoloxProposals(const std::vector<GridAndStride>& gridStrides, const float* featPtr,
                                 const Eigen::Matrix<float, 3, 3>& transformMatrix, float probThreshold,
                                 std::vector<NNetDetectedArmor>& armors) {
 
@@ -175,6 +146,7 @@ class NNetArmorDetector final
             const int grid1 = gridStrides[anchorIndex].grid1;
             const int stride = gridStrides[anchorIndex].stride;
 
+            // 9 means(x1, y1, x2, y2, x3, y3, x4, y4, confidence).size()
             const int basicPos = anchorIndex * (9 + mConfig.numColors + mConfig.numClasses);
 
             // yolox/models/yolo_head.py decode logic
@@ -192,13 +164,7 @@ class NNetArmorDetector final
             int boxColor = argmax(featPtr + basicPos + 9, mConfig.numColors);
             int boxClass = argmax(featPtr + basicPos + 9 + mConfig.numColors, mConfig.numClasses);
 
-            float boxObjectness = (featPtr[basicPos + 8]);
-
-            //            float colorConf = (featPtr[basicPos + 9 + boxColor]);
-            //            float clsConf = (featPtr[basicPos + 9 + mConfig.numColors + boxClass]);
-
-            // float box_prob = (box_objectness + cls_conf + color_conf) / 3.0;
-            float boxProb = boxObjectness;
+            float boxProb = (featPtr[basicPos + 8]);
 
             if(boxProb >= probThreshold) {
                 NNetDetectedArmor armor;
@@ -291,7 +257,6 @@ class NNetArmorDetector final
                             b.detectedArmors.push_back(a.light4Point[k]);
                         }
                     }
-                    // cout<<b.pts_x.size()<<endl;
                 }
             }
 
@@ -348,7 +313,7 @@ class NNetArmorDetector final
         return calcTriangleArea(&pts[0]) + calcTriangleArea(&pts[1]);
     }
 
-    bool detect(const cv::Mat& imageFromCamera, std::vector<NNetDetectedArmor>& armors) {
+    bool blobImg(const cv::Mat& imageFromCamera, float* blobDataPtr) {
         if(imageFromCamera.empty()) {
             logInfo(fmt::format("[DETECT] ERROR: 传入了空的img"));
             return false;
@@ -359,35 +324,24 @@ class NNetArmorDetector final
         resizedImg.convertTo(pre, CV_32F);
         cv::split(pre, preSplit);
 
-        InferenceEngine::Blob::Ptr imgBlob = mInferRequest.GetBlob(mInputName);
-        InferenceEngine::MemoryBlob::Ptr mblob = InferenceEngine::as<InferenceEngine::MemoryBlob>(imgBlob);
-        auto mblobHolder = mblob->wmap();
-        float* blobData = mblobHolder.as<float*>();
-
         auto imgOffset = mConfig.inputHeight * mConfig.inputWidth;
         // 将img拷贝进blob
         for(int c = 0; c < 3; c++) {
-            memcpy(blobData, preSplit[c].data, mConfig.inputHeight * mConfig.inputWidth * sizeof(float));
-            blobData += imgOffset;
+            memcpy(blobDataPtr, preSplit[c].data, imgOffset * sizeof(float));
+            blobDataPtr += imgOffset;
         }
 
-        mInferRequest.Infer();
+        return true;
+    }
 
-        auto moutputHolder = mOutput->rmap();
-        const float* netPred =
-            moutputHolder.as<const InferenceEngine::PrecisionTrait<InferenceEngine::Precision::FP32>::value_type*>();
-        int imgWidth = imageFromCamera.cols;
-        int imgHeight = imageFromCamera.rows;
-
-        decodeOutputs(netPred, armors, mTransformMatrix, imgWidth, imgHeight);
-
+    void postProcess(std::vector<NNetDetectedArmor>& armors) {
         for(auto& armor : armors) {
             // 对候选框预测角点进行平均,降低误差
             if(armor.detectedArmors.size() >= 8) {
                 auto N = armor.detectedArmors.size();
                 cv::Point2f detectedArmorsFinal[4];
 
-                for(long unsigned int i = 0; i < N; i++) {
+                for(uint32_t i = 0; i < N; i++) {
                     detectedArmorsFinal[i % 4] += armor.detectedArmors[i];
                 }
 
@@ -403,15 +357,33 @@ class NNetArmorDetector final
             }
             armor.rectArea = static_cast<int>(calcTetragonArea(armor.light4Point));
         }
-        if(armors.size() != 0)
-            return true;
-        else
-            return false;
     }
 
 public:
     NNetArmorDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-        initModel(mConfig.networkPath);  // 初始化网络模型
+        // 1. 读取网络
+        mNetwork = mIe.ReadNetwork(mConfig.networkPath);
+        if(mNetwork.getOutputsInfo().size() != 1) {
+            throw std::logic_error("Sample supports topologies with 1 output only");
+        }
+
+        // 2. 配置输入输出blob
+        // 输入blob
+        auto [inputName, inputInfo] = *mNetwork.getInputsInfo().begin();
+
+        auto [outputName, outputInfo] = *mNetwork.getOutputsInfo().begin();
+
+        // 3. 加载网络
+        mExeNetwork = mIe.LoadNetwork(mNetwork, "CPU");
+
+        // 4. 创建推理请求
+        mInferRequest = mExeNetwork.CreateInferRequest();
+
+        const auto inputBlob = mInferRequest.GetBlob(inputName);
+        mInputMemBlobPtr = IE::as<IE::MemoryBlob>(inputBlob);
+
+        const IE::Blob::Ptr outputBlob = mInferRequest.GetBlob(outputName);
+        mOutputMemBlobPtr = IE::as<IE::MemoryBlob>(outputBlob);
     }
 
     caf::behavior make_behavior() override {
@@ -422,16 +394,26 @@ public:
 
                      const auto t0 = Clock::now();
                      const auto frame = BlackBoard::instance().get<CameraFrame>(key).value();
-                     std::vector<NNetDetectedArmor> armors;
                      NNetDetectedArmorArray res;
-
                      res.frame = frame;
-                     if(detect(frame.frame, armors)) {
-                         res.armors = std::move(armors);
+
+                     auto inputBlobHolder = mInputMemBlobPtr->wmap();
+                     float* blobDataPtr = inputBlobHolder.as<float*>();
+                     if(!blobImg(res.frame.frame, blobDataPtr)) {
+                         return;
                      }
 
+                     mInferRequest.Infer();
+
+                     auto outputHolder = mOutputMemBlobPtr->rmap();
+                     const float* netPredict = outputHolder.as<const IE::PrecisionTrait<IE::Precision::FP32>::value_type*>();
+                     decodeOutputs(netPredict, res.armors, mTransformMatrix, res.frame.info.width, res.frame.info.height);
+
+                     postProcess(res.armors);
+
                      const auto t1 = Clock::now();
-                     logInfo(fmt::format("decode time {:.4f}s", static_cast<double>((t1 - t0).count()) / 1e9));
+                     logInfo(
+                         fmt::format("NNet armor detector:decode time {:.4f}s", static_cast<double>((t1 - t0).count()) / 1e9));
 
                      sendAll(armor_nnet_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
