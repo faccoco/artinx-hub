@@ -8,13 +8,15 @@
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
+#include <exception>
+#include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "SuppressWarningEnd.hpp"
 
 struct ImageSequenceReplaySettings final {
     std::string path;
-    std::string extension;  // .jpg, .png, etc.
+    std::string extension;  // jpg, png, etc.
     double fps;
     double fov;
     uint32_t width;
@@ -31,6 +33,7 @@ bool inspect(Inspector& f, ImageSequenceReplaySettings& x) {
 
 class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, ImageSequenceReplaySettings, image_frame_atom> {
     Identifier mKey;
+    std::vector<std::string> mImages;
     uint32_t mCount = 0;
 
     cv::Mat resize(const cv::Mat& frame) const {
@@ -40,13 +43,10 @@ class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, Image
     }
 
     void next() {
-        const auto path = mConfig.path + '/' + std::to_string(mCount) + mConfig.extension;
-        if(!fs::exists(path)) {
-            mCount = 0;
-            return;
-        }
+        const auto path = mImages[mCount % mImages.size()];
 
         auto img = cv::imread(path);
+
         CameraFrame res;
         res.frame = (mConfig.width == static_cast<uint32_t>(img.cols) && mConfig.height == static_cast<uint32_t>(img.rows)) ?
             std::move(img) :
@@ -67,8 +67,21 @@ class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, Image
     }
 
 public:
-    ImageSequenceReplay(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    ImageSequenceReplay(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
+        mImages.reserve(1000);
+        for(auto const& dir_entry : std::filesystem::directory_iterator{ mConfig.path }) {
+            const auto filePath = dir_entry.path().string();
+            if(filePath.find(mConfig.extension) == std::string::npos)
+                continue;
+            mImages.push_back(dir_entry.path().string());
+
+            if(mImages.size() == 0) {
+                const auto errInfo =
+                    fmt::format("Path:{} do not exsit picture with extension {}", mConfig.path, mConfig.extension);
+                throw std::invalid_argument::exception();
+            }
+        }
+    }
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
                     ACTOR_PROTOCOL_CHECK(start_atom);
