@@ -78,7 +78,7 @@ public:
             if(mImages.size() == 0) {
                 const auto errInfo =
                     fmt::format("Path:{} do not exsit picture with extension {}", mConfig.path, mConfig.extension);
-                logErr(errInfo);
+                logError(errInfo);
                 throw std::invalid_argument::exception();
             }
         }
