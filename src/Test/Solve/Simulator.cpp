@@ -100,41 +100,50 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
         {
             switch(magic_enum::enum_cast<TargetType>(mConfig.targetType).value()) {
                 case TargetType::Infantry: {
+                    const glm::dmat4 baseTransform =
+                        glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, -radiusOfInfantry }),
+                                    15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 });
                     mTargetArmors.clear();
                     mTargetArmors.reserve(4);
+                    mTargetArmors.emplace_back(baseTransform, std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
                     mTargetArmors.emplace_back(
-                        glm::rotate(glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, radiusOfInfantry }),
-                                                glm::pi<double>(), { 0.0, 1.0, 0.0 }),
-                                    15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 }),
+                        glm::rotate(glm::identity<glm::dmat4>(), glm::half_pi<double>(), { 0.0, 1.0, 0.0 }) * baseTransform,
                         std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
+                    mTargetArmors.emplace_back(glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>(), { 0.0, 1.0, 0.0 }) *
+                                                   baseTransform,
+                                               std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
                     mTargetArmors.emplace_back(
-                        glm::rotate(glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { radiusOfInfantry, 0.0, 0.0 }),
-                                                glm::three_over_two_pi<double>(), { 0.0, 1.0, 0.0 }),
-                                    15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 }),
-                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
-                    mTargetArmors.emplace_back(
-                        glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, -radiusOfInfantry }),
-                                    15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 }),
-                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
-                    mTargetArmors.emplace_back(
-                        glm::rotate(glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { -radiusOfInfantry, 0.0, 0.0 }),
-                                                glm::half_pi<double>(), { 0.0, 1.0, 0.0 }),
-                                    15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 }),
+                        glm::rotate(glm::identity<glm::dmat4>(), glm::three_over_two_pi<double>(), { 0.0, 1.0, 0.0 }) *
+                            baseTransform,
                         std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
                     break;
                 }
                 case TargetType::Sentry: {
+                    const glm::dmat4 baseTransform =
+                        glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, -radiusOfInfantry * 0.5 }),
+                                    -15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 });
                     mTargetArmors.clear();
                     mTargetArmors.reserve(2);
+                    mTargetArmors.emplace_back(baseTransform, std::make_pair(widthOfLargeArmor, heightOfLargeArmor), 0);
+                    mTargetArmors.emplace_back(glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>(), { 0.0, 1.0, 0.0 }) *
+                                                   baseTransform,
+                                               std::make_pair(widthOfLargeArmor, heightOfLargeArmor), 0);
+                    break;
+                }
+                case TargetType::Outpost: {
+                    const glm::dmat4 baseTransform =
+                        glm::translate((glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, -radiusOfOutpost }),
+                                                    -15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 })),
+                                       { 0.0, -heightOfSmallArmor / 2, 0.0 });
+                    mTargetArmors.clear();
+                    mTargetArmors.reserve(3);
+                    mTargetArmors.emplace_back(baseTransform, std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
                     mTargetArmors.emplace_back(
-                        glm::rotate(glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, radiusOfInfantry * 0.5 }),
-                                                glm::pi<double>(), { 0.0, 1.0, 0.0 }),
-                                    -15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 }),
-                        std::make_pair(widthOfLargeArmor, heightOfLargeArmor), 0);
+                        glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>() * 2 / 3, { 0.0, 1.0, 0.0 }) * baseTransform,
+                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
                     mTargetArmors.emplace_back(
-                        glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, -radiusOfInfantry * 0.5 }),
-                                    -15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 }),
-                        std::make_pair(widthOfLargeArmor, heightOfLargeArmor), 0);
+                        glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>() * 4 / 3, { 0.0, 1.0, 0.0 }) * baseTransform,
+                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
                     break;
                 }
 
@@ -147,8 +156,6 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                 case TargetType::BaseExpanded:
                     [[fallthrough]];
                 case TargetType::Fans:
-                    [[fallthrough]];
-                case TargetType::Outpost:
                     throw NotImplemented{};
             }
         }
@@ -287,7 +294,7 @@ public:
                             posible[i] = false;
                         else
                             posible[i] = true;
-                        }
+                    }
                 }
             }
 

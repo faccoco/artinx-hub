@@ -40,6 +40,7 @@ constexpr double angleOfArmorForSentry = glm::radians(-15.0);
 constexpr double angleOfArmorForInfantry = glm::radians(15.0);
 
 constexpr double radiusOfInfantry = 0.3;
+constexpr double radiusOfOutpost = 0.2765;
 
 constexpr double speedThresholdFor17mm = 12.0;
 constexpr double speedThresholdFor42mmA = 8.0;
