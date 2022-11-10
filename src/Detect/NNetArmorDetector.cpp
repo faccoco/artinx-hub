@@ -17,7 +17,6 @@
 #include "SuppressWarningEnd.hpp"
 
 #include <Eigen/Core>
-#include <glog/logging.h>
 #include <inference_engine.hpp>
 #include <string.h>
 
@@ -32,6 +31,7 @@ struct NNetArmorDetectorSettings final {
     float bboxConfThresh;  // 0.6
     uint32_t topK;         // TopK
     float nmsThresh;       // 0.3
+    float fftConfError;    // 0.15
     float fftMinIou;       // 0.9
 };
 

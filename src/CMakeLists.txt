@@ -10,6 +10,7 @@ set(SOURCE
 "DataLink/AsyncSerial/AsyncSerial.cpp"
 "DataLink/AsyncSerial/BufferedAsyncSerial.cpp"
 "DataLink/SerialPort.cpp"
+"Detect/ArmorDetector.cpp"
 "Detect/NNetArmorDetector.cpp"
 "Detect/EnergyDetector.cpp"
 "Detect/OreAlignment.cpp"
@@ -74,8 +75,6 @@ find_package(Boost REQUIRED system)
 set(InferenceEngine_DIR $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine/share/)
 find_package(InferenceEngine CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
-find_package(glog CONFIG REQUIRED)
-
 
 add_executable(ArtinxHub ${SOURCE})
 target_include_directories(ArtinxHub PRIVATE ${CAF_INCLUDE_DIRS})
@@ -103,7 +102,6 @@ target_link_libraries(ArtinxHub PRIVATE fmt::fmt)
 target_link_libraries(ArtinxHub PRIVATE ${InferenceEngine_LIBRARIES})
 target_link_libraries(ArtinxHub PRIVATE nlohmann_json nlohmann_json::nlohmann_json)
 target_link_libraries(ArtinxHub PRIVATE Eigen3::Eigen)
-target_link_libraries(ArtinxHub PRIVATE glog::glog)
 
 
 add_custom_command(TARGET ArtinxHub PRE_BUILD
