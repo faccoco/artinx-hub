@@ -135,7 +135,7 @@ public:
 
                          // TODO: projected area
                          res.targets.push_back(
-                             { transform(point), 0.0, id, type, decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
+                             { transform.inverse()(point), 0.0, id, type, decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
                      }
 
 #ifdef ARTINXHUB_DEBUG

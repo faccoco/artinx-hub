@@ -7,7 +7,7 @@
 
 #include "SuppressWarningEnd.hpp"
 
-enum class FrameOfRef : uint32_t { Ground, Robot, Gun, Camera };
+enum class FrameOfRef : uint32_t { Ground, Robot, Gun, Camera, Armor };
 
 enum class UnitType : uint32_t {
     Distance,
@@ -53,222 +53,444 @@ constexpr UnitType division<UnitType::AngularVelocity, UnitType::Time> = UnitTyp
 template <UnitType Unit>
 struct Scalar final {
     double val;
+
+    constexpr Scalar() {}
+    constexpr Scalar(double _val) : val(_val) {}
+    constexpr Scalar(const Scalar<Unit>& rhs) : val(rhs.val) {}
+
+    constexpr Scalar& operator=(double _val) {
+        val = _val;
+        return *this;
+    }
+    constexpr Scalar& operator=(const Scalar<Unit>& rhs) {
+        val = rhs.val;
+        return *this;
+    }
+
+    Scalar<Unit> operator+(Scalar rhs) const noexcept {
+        return Scalar<Unit>{ val + rhs.val };
+    }
+    Scalar<Unit>& operator+=(Scalar rhs) noexcept {
+        val += rhs.val;
+        return (*this);
+    }
+    Scalar<Unit> operator-(Scalar rhs) const noexcept {
+        return Scalar<Unit>{ val - rhs.val };
+    }
+    Scalar<Unit>& operator-=(Scalar rhs) noexcept {
+        val -= rhs.val;
+        return (*this);
+    }
+    template <UnitType RhsUnit>
+    Scalar<multiply<Unit, RhsUnit>> operator*(Scalar<RhsUnit> rhs) const noexcept {
+        return Scalar<multiply<Unit, RhsUnit>>{ val * rhs.val };
+    }
+    template <UnitType RhsUnit>
+    Scalar<division<Unit, RhsUnit>> operator/(Scalar<RhsUnit> rhs) const noexcept {
+        return Scalar<division<Unit, RhsUnit>>{ val / rhs.val };
+    }
+    bool operator>(Scalar rhs) const noexcept {
+        return val > rhs.val;
+    }
+    bool operator>=(Scalar rhs) const noexcept {
+        return val >= rhs.val;
+    }
+    bool operator<(Scalar rhs) const noexcept {
+        return val < rhs.val;
+    }
+    bool operator<=(Scalar rhs) const noexcept {
+        return val <= rhs.val;
+    }
+    bool operator==(Scalar rhs) const noexcept {
+        return val == rhs.val;
+    }
+    bool operator!=(Scalar rhs) const noexcept {
+        return val != rhs.val;
+    }
 };
 
 template <UnitType Unit, FrameOfRef FoR>
 class Vector final {
-    glm::dvec3 mValue;
-
 public:
-    Vector() = default;
-    explicit Vector(const glm::dvec3& val) : mValue{ val } {}
+    glm::dvec3 val;
 
-    [[nodiscard]] glm::dvec3 raw() const noexcept {
-        return mValue;
+    constexpr Vector() = default;
+    constexpr Vector(const double x, const double y, const double z) : val(x, y, z) {}
+    constexpr Vector(const Vector& rhs) = default;
+    constexpr Vector(Vector&& rhs) = default;
+    constexpr Vector(const glm::dvec3& val) : val(val) {}
+    constexpr Vector(glm::dvec3&& val) : val(std::move(val)) {}
+
+    constexpr Vector& operator=(const Vector& rhs) = default;
+    constexpr Vector& operator=(Vector&& rhs) = default;
+    constexpr Vector& operator=(const glm::dvec3& rhsVal) {
+        val = rhsVal;
+        return *this;
+    }
+    constexpr Vector& operator=(glm::dvec3&& rhsVal) {
+        val = std::move(rhsVal);
+        return *this;
+    }
+
+    [[nodiscard]] constexpr glm::dvec3& raw() noexcept {
+        return val;
+    }
+    [[nodiscard]] constexpr const glm::dvec3& raw() const noexcept {
+        return val;
+    }
+    [[nodiscard]] constexpr auto& operator[](int i) noexcept {
+        return val[i];
+    }
+    [[nodiscard]] constexpr const auto& operator[](int i) const noexcept {
+        return val[i];
     }
 
     void setZero() noexcept {
-        mValue = { 0, 0, 0 };
+        val = glm::dvec3{ 0, 0, 0 };
     }
 
-    void setValue(const glm::dvec3& val) noexcept {
-        mValue = val;
+    void setValue(const glm::dvec3& rhsVal) noexcept {
+        val = rhsVal;
+    }
+    void setValue(glm::dvec3&& rhsVal) noexcept {
+        val = std::move(rhsVal);
     }
 
-    Vector operator+(Vector rhs) const noexcept {
-        return Vector{ mValue + rhs.mValue };
+    constexpr bool operator==(const Vector& rhs) const noexcept {
+        return val == rhs.val;
     }
-    Vector& operator+=(Vector rhs) noexcept {
-        mValue += rhs.mValue;
+    constexpr bool operator!=(const Vector& rhs) const noexcept {
+        return val != rhs.val;
+    }
+
+    constexpr Vector operator+(const Vector& rhs) const noexcept {
+        return val + rhs.val;
+    }
+    constexpr Vector& operator+=(const Vector& rhs) noexcept {
+        val += rhs.val;
         return *this;
     }
 
-    Vector operator-(Vector rhs) const noexcept {
-        return Vector{ mValue - rhs.mValue };
+    constexpr Vector operator-(const Vector& rhs) const noexcept {
+        return val - rhs.val;
     }
-    Vector& operator-=(Vector rhs) noexcept {
-        mValue -= rhs.mValue;
+    constexpr Vector& operator-=(const Vector& rhs) noexcept {
+        val -= rhs.val;
         return *this;
     }
 
     template <UnitType RhsUnit>
-    auto operator*(Scalar<RhsUnit> rhs) const noexcept {
-        return Vector<multiply<Unit, RhsUnit>, FoR>{ mValue * rhs.val };
+    constexpr auto operator*(const Scalar<RhsUnit>& rhs) const noexcept {
+        return Vector<multiply<Unit, RhsUnit>, FoR>(val * rhs.val);
     }
     template <UnitType RhsUnit>
-    auto operator/(Scalar<RhsUnit> rhs) const noexcept {
-        return Vector<division<Unit, RhsUnit>, FoR>{ mValue / rhs.val };
+    constexpr auto operator/(const Scalar<RhsUnit>& rhs) const noexcept {
+        return Vector<division<Unit, RhsUnit>, FoR>(val / rhs.val);
     }
-    Vector operator-() const noexcept {
-        return Vector{ -mValue };
+    constexpr Vector operator-() const noexcept {
+        return -val;
     }
 };
 
 template <UnitType Lhs, UnitType Rhs, FrameOfRef FoR>
-auto operator*(Scalar<Lhs> lhs, Vector<Rhs, FoR> rhs) noexcept {
+constexpr auto operator*(const Scalar<Lhs>& lhs, const Vector<Rhs, FoR>& rhs) noexcept {
     return rhs * lhs;
 }
 
 template <UnitType Unit, FrameOfRef FoR>
-auto length(Vector<Unit, FoR> val) noexcept {
-    return Scalar<Unit>{ glm::length(val.raw()) };
+auto length(const Vector<Unit, FoR>& val) noexcept {
+    return Scalar<Unit>{ glm::length(val.val) };
 }
 
 template <UnitType Unit, FrameOfRef FoR>
-auto lerp(Vector<Unit, FoR> a, Vector<Unit, FoR> b, double u) noexcept {
-    return Vector<Unit, FoR>{ glm::mix(a.raw(), b.raw(), u) };
+auto lerp(const Vector<Unit, FoR>& a, const Vector<Unit, FoR>& b, double u) noexcept {
+    return Vector<Unit, FoR>{ glm::mix(a.val, b.val, u) };
 }
 
 template <UnitType Unit, FrameOfRef FoR>
 class Point final {
-    glm::dvec3 mValue;
-
 public:
-    Point() = default;
-    explicit Point(const glm::dvec3& val) : mValue{ val } {}
+    glm::dvec3 val;
 
-    [[nodiscard]] glm::dvec3 raw() const noexcept {
-        return mValue;
+    constexpr Point() = default;
+    constexpr Point(const double x, const double y, const double z) : val(x, y, z) {}
+    constexpr Point(const Point& rhs) = default;
+    constexpr Point(Point&& rhs) = default;
+    constexpr Point(const glm::dvec3& val) : val(val) {}
+    constexpr Point(glm::dvec3&& val) : val(std::move(val)) {}
+
+    constexpr Point& operator=(const Point& rhs) = default;
+    constexpr Point& operator=(Point&& rhs) = default;
+    constexpr Point& operator=(const glm::dvec3& rhsVal) {
+        val = rhsVal;
+        return *this;
+    }
+    constexpr Point& operator=(glm::dvec3&& rhsVal) {
+        val = std::move(rhsVal);
+        return *this;
+    }
+
+    [[nodiscard]] constexpr glm::dvec3& raw() noexcept {
+        return val;
+    }
+    [[nodiscard]] constexpr const glm::dvec3& raw() const noexcept {
+        return val;
+    }
+    [[nodiscard]] constexpr auto& operator[](int i) noexcept {
+        return val[i];
+    }
+    [[nodiscard]] constexpr const auto& operator[](int i) const noexcept {
+        return val[i];
     }
 
     void setZero() noexcept {
-        mValue = { 0, 0, 0 };
+        val = glm::dvec3{ 0, 0, 0 };
     }
 
-    void setValue(const glm::dvec3& val) noexcept {
-        mValue = val;
+    void setValue(const glm::dvec3& rhsVal) noexcept {
+        val = rhsVal;
+    }
+    void setValue(glm::dvec3&& rhsVal) noexcept {
+        val = std::move(rhsVal);
     }
 
-    Point operator+(Vector<Unit, FoR> rhs) const noexcept {
-        return Point{ mValue + rhs.raw() };
+    constexpr bool operator==(const Point& rhs) const noexcept {
+        return val == rhs.val;
     }
-    Point& operator+=(Vector<Unit, FoR> rhs) noexcept {
-        mValue += rhs.raw();
+    constexpr bool operator!=(const Point& rhs) const noexcept {
+        return val != rhs.val;
+    }
+
+    constexpr Point operator+(const Vector<Unit, FoR>& rhs) const noexcept {
+        return val + rhs.val;
+    }
+    constexpr Point& operator+=(const Vector<Unit, FoR>& rhs) noexcept {
+        val += rhs.val;
         return *this;
     }
-    Point operator-(Vector<Unit, FoR> rhs) const noexcept {
-        return { mValue - rhs.raw() };
+
+    constexpr Point operator-(const Vector<Unit, FoR>& rhs) const noexcept {
+        return val - rhs.val;
     }
-    Point& operator-=(Vector<Unit, FoR> rhs) noexcept {
-        mValue -= rhs.raw();
+    constexpr Point& operator-=(const Vector<Unit, FoR>& rhs) noexcept {
+        val -= rhs.val;
         return *this;
     }
-    Vector<Unit, FoR> operator-(Point rhs) const noexcept {
-        return Vector<Unit, FoR>{ mValue - rhs.mValue };
+    constexpr Vector<Unit, FoR> operator-(const Point& rhs) const noexcept {
+        return val - rhs.val;
     }
 };
 
 template <UnitType Unit, FrameOfRef FoR>
-auto lerp(Point<Unit, FoR> a, Point<Unit, FoR> b, double u) noexcept {
-    return Point<Unit, FoR>{ glm::mix(a.raw(), b.raw(), u) };
+auto lerp(const Point<Unit, FoR>& a, const Point<Unit, FoR>& b, double u) noexcept {
+    return Point<Unit, FoR>{ glm::mix(a.val, b.val, u) };
 }
 
 template <UnitType Unit, FrameOfRef FoR>
-auto distance(Point<Unit, FoR> a, Point<Unit, FoR> b) noexcept {
-    return Scalar<Unit>{ glm::distance(a.raw(), b.raw()) };
+auto distance(const Point<Unit, FoR>& a, const Point<Unit, FoR>& b) noexcept {
+    return Scalar<Unit>{ glm::distance(a.val, b.val) };
 }
 
 struct Normalized final {};
 
-template <FrameOfRef FoR>
+template <UnitType Unit, FrameOfRef FoR>
 class Normal final {
-    glm::dvec3 mValue;
-
 public:
-    Normal(const glm::dvec3& val, Normalized) : mValue{ val } {}
-    template <UnitType Unit>
-    explicit Normal(const Vector<Unit, FoR> v) : mValue{ glm::normalize(v) } {}
-    template <UnitType Unit>
-    auto operator*(const Scalar<Unit> distance) const noexcept {
-        return Vector<Unit, FoR>{ mValue * distance.val };
+    glm::dvec3 val;
+
+    Normal() = delete;
+    Normal(const double x, const double y, const double z) : val(glm::normalize(glm::dvec3{ x, y, z })) {}
+    constexpr Normal(const double x, const double y, const double z, Normalized) : val(x, y, z) {}
+    constexpr Normal(const Normal&) = default;
+    constexpr Normal(Normal&&) = default;
+    Normal(const glm::dvec3& val) : val(glm::normalize(val)) {}
+    constexpr Normal(const glm::dvec3& val, Normalized) : val(val) {}
+    Normal(glm::dvec3&& val) : val(std::move(glm::normalize(val))) {}
+    constexpr Normal(glm::dvec3&& val, Normalized) : val(std::move(val)) {}
+    Normal(const Vector<Unit, FoR>& v) : val(glm::normalize(v.val)) {}
+    constexpr Normal(const Vector<Unit, FoR>& v, Normalized) : val(v.val) {}
+    Normal(Vector<Unit, FoR>&& v) : val(std::move(glm::normalize(v.val))) {}
+    constexpr Normal(Vector<Unit, FoR>&& v, Normalized) : val(v.val) {}
+
+    constexpr Normal& operator=(const Normal& rhs) = default;
+    constexpr Normal& operator=(Normal&& rhs) = default;
+    constexpr Normal& operator=(const glm::dvec3& rhs) {
+        val = glm::normalize(rhs);
+        return *this;
     }
-    Normal operator-() const noexcept {
-        return { -mValue, Normalized{} };
+    constexpr Normal& operator=(const Vector<Unit, FoR>& rhs) {
+        val = glm::normalize(rhs.val);
+        return *this;
     }
 
-    [[nodiscard]] glm::dvec3 raw() const noexcept {
-        return mValue;
+    [[nodiscard]] constexpr glm::dvec3& raw() noexcept {
+        return val;
+    }
+    [[nodiscard]] constexpr const glm::dvec3& raw() const noexcept {
+        return val;
+    }
+    [[nodiscard]] constexpr auto& operator[](int i) noexcept {
+        return val[i];
+    }
+    [[nodiscard]] constexpr const auto& operator[](int i) const noexcept {
+        return val[i];
+    }
+
+    constexpr Normal operator+(const Vector<Unit, FoR>& rhs) const noexcept {
+        return val + rhs.val;
+    }
+    constexpr Normal& operator+=(const Vector<Unit, FoR>& rhs) noexcept {
+        val = glm::normalize(val + rhs.val);
+        return *this;
+    }
+
+    constexpr Normal operator-(const Vector<Unit, FoR>& rhs) const noexcept {
+        return val - rhs.val;
+    }
+    constexpr Normal& operator-=(const Vector<Unit, FoR>& rhs) noexcept {
+        val = glm::normalize(val - rhs.val);
+        return *this;
+    }
+    constexpr Vector<Unit, FoR> operator*(const Scalar<Unit> s) const noexcept {
+        return val * s.val;
+    }
+    constexpr Normal operator-() const noexcept {
+        return -val;
     }
 };
 
-template <FrameOfRef FoR>
-auto cross(Normal<FoR> a, Normal<FoR> b) noexcept {
-    return Normal<FoR>{ glm::cross(a, b), Normalized{} };
-}
-
-template <FrameOfRef FoR>
-auto dot(Normal<FoR> a, Normal<FoR> b) noexcept {
-    return glm::dot(a.raw(), b.raw());
+template <UnitType Unit, FrameOfRef FoR>
+constexpr auto cross(const Normal<Unit, FoR>& a, const Normal<Unit, FoR>& b) noexcept {
+    return Normal<Unit, FoR>{ glm::cross(a, b), Normalized{} };
 }
 
 template <UnitType Unit, FrameOfRef FoR>
-auto dot(Vector<Unit, FoR> a, Normal<FoR> b) noexcept {
-    return Scalar<Unit>{ glm::dot(a.raw(), b.raw()) };
+constexpr auto dot(const Normal<Unit, FoR>& a, const Normal<Unit, FoR>& b) noexcept {
+    return glm::dot(a.val, b.val);
 }
 
 template <UnitType Unit, FrameOfRef FoR>
-auto normalize(Vector<Unit, FoR> v) {
-    return Normal<FoR>{ v };
+constexpr auto dot(const Vector<Unit, FoR>& a, const Normal<Unit, FoR>& b) noexcept {
+    return glm::dot(a.val, b.val);
+}
+
+template <UnitType Unit, FrameOfRef FoR>
+constexpr auto dot(const Normal<Unit, FoR>& a, const Vector<Unit, FoR>& b) noexcept {
+    return glm::dot(a.val, b.val);
+}
+
+template <UnitType Unit, FrameOfRef FoR>
+constexpr auto dot(const Vector<Unit, FoR>& a, const Vector<Unit, FoR>& b) noexcept {
+    return glm::dot(a.val, b.val);
+}
+
+template <UnitType Unit, FrameOfRef FoR>
+constexpr auto normalize(Vector<Unit, FoR> v) {
+    return Normal<Unit, FoR>{ v };
 }
 
 template <FrameOfRef A, FrameOfRef B, bool HasTranslate = false>
 class Transform final {
-    glm::dmat4 mTransform;         // A to B
-    glm::dmat4 mInverseTransform;  // B to A
-
-    template <FrameOfRef RhsA, FrameOfRef RhsB, bool RhsHasTranslate>
-    friend class Transform;
-
 public:
+    glm::dmat4 val;
+
     Transform() = default;
-    explicit Transform(const glm::dmat4& transform) : mTransform{ transform }, mInverseTransform{ glm::inverse(transform) } {}
-    explicit Transform(const glm::dmat4& transform, const glm::dmat4& inverseTransform)
-        : mTransform{ transform }, mInverseTransform{ inverseTransform } {}
+    Transform(const Transform& rhs) = default;
+    Transform(Transform&& rhs) = default;
+    template <bool RhsTranslate, typename = std::enable_if_t<RhsTranslate || !HasTranslate>>
+    Transform(const Transform<B, A, RhsTranslate>& rhs) : val(rhs.inverse().val) {}
+    Transform(const glm::dmat4& transform) : val(transform) {}
+    Transform(glm::dmat4&& transform) : val(std::move(transform)) {}
 
-    [[nodiscard]] const glm::dmat4& raw() const noexcept {
-        return mTransform;
+    Transform& operator=(const Transform&) = default;
+    Transform& operator=(Transform&&) = default;
+    Transform& operator=(const glm::dmat4& rhs) {
+        val = rhs;
+        return *this;
+    }
+    Transform& operator=(glm::dmat4&& rhs) {
+        val = std::move(rhs);
+        return *this;
     }
 
-    [[nodiscard]] const glm::dmat4& rawInverse() const noexcept {
-        return mInverseTransform;
+    [[nodiscard]] constexpr glm::dmat4& raw() noexcept {
+        return val;
+    }
+    [[nodiscard]] constexpr const glm::dmat4& raw() const noexcept {
+        return val;
+    }
+    [[nodiscard]] constexpr auto& operator[](int i) noexcept {
+        return val[i];
+    }
+    [[nodiscard]] constexpr const auto& operator[](int i) const noexcept {
+        return val[i];
+    }
+
+    auto inverse() const noexcept {
+        return Transform<B, A, HasTranslate>(glm::inverse(val));
     }
 
     template <UnitType Unit>
-    std::enable_if_t<HasTranslate, Point<Unit, B>> operator()(const Point<Unit, A> val) const noexcept {
-        return Point<Unit, B>{ glm::dvec3{ mTransform * glm::dvec4{ val.raw(), 1.0 } } };
+    std::enable_if_t<HasTranslate, Point<Unit, B>> operator()(const Point<Unit, A> rhs) const noexcept {
+        return glm::dvec3{ val * glm::dvec4{ rhs.val, 1.0 } };
     }
     template <UnitType Unit>
-    Vector<Unit, B> operator()(const Vector<Unit, A> val) const noexcept {
-        return Vector<Unit, B>{ glm::dvec3{ mTransform * glm::dvec4{ val.raw(), 0.0 } } };
-    }
-    Normal<B> operator()(const Normal<A> val) const noexcept {
-        return Normal<B>{ glm::dvec3{ glm::dvec4{ val.raw(), 0.0 } * mInverseTransform }, Normalized{} };
-    }
-
-    template <UnitType Unit>
-    std::enable_if_t<HasTranslate, Point<Unit, A>> operator()(const Point<Unit, B> val) const noexcept {
-        return Point<Unit, A>{ glm::dvec3{ mInverseTransform * glm::dvec4{ val.raw(), 1.0 } } };
+    Vector<Unit, B> operator()(const Vector<Unit, A> rhs) const noexcept {
+        return glm::dvec3{ val * glm::dvec4{ rhs.val, 0.0 } };
     }
     template <UnitType Unit>
-    Vector<Unit, A> operator()(const Vector<Unit, B> val) const noexcept {
-        return Vector<Unit, A>{ glm::dvec3{ mInverseTransform * glm::dvec4{ val.raw(), 0.0 } } };
-    }
-    Normal<A> operator()(const Normal<B> val) const noexcept {
-        return Normal<A>{ glm::dvec3{ glm::dvec4{ val.raw(), 0.0 } * mTransform }, Normalized{} };
+    Normal<Unit, B> operator()(const Normal<Unit, A> rhs) const noexcept {
+        return glm::dvec3{ val * glm::dvec4{ rhs.val, 0.0 } };
     }
 
     template <FrameOfRef C, bool RhsHasTranslate>
     auto operator*(const Transform<B, C, RhsHasTranslate>& rhs) const noexcept {
-        return Transform < A, C,
-               HasTranslate && RhsHasTranslate > { rhs.mTransform * mTransform, mInverseTransform * rhs.mInverseTransform };
+        return Transform < A, C, HasTranslate && RhsHasTranslate > (rhs.val * val);
     }
-
-    template <bool NeedTranslate, typename = std::enable_if_t<HasTranslate || !NeedTranslate>>
-    operator Transform<B, A, NeedTranslate>() const noexcept {
-        return Transform<B, A, NeedTranslate>{ mInverseTransform, mTransform };
+    template <FrameOfRef C, bool RhsHasTranslate>
+    auto operator*(const Transform<C, A, RhsHasTranslate>& rhs) const noexcept {
+        return Transform < C, B, HasTranslate && RhsHasTranslate > (val * rhs.val);
+    }
+    template <FrameOfRef C, bool RhsHasTranslate>
+    auto operator()(const Transform<B, C, RhsHasTranslate>& rhs) const noexcept {
+        return Transform < A, C, HasTranslate && RhsHasTranslate > (rhs.val * val);
+    }
+    template <FrameOfRef C, bool RhsHasTranslate>
+    auto operator()(const Transform<C, A, RhsHasTranslate>& rhs) const noexcept {
+        return Transform < C, B, HasTranslate && RhsHasTranslate > (val * rhs.val);
     }
 
     operator Transform<A, B, false>() const noexcept {
-        return Transform<A, B, false>{ mTransform, mInverseTransform };
+        return Transform<A, B, false>(val);
+    }
+
+    // displacement under B
+    const Point<UnitType::Distance, B>& displacement() const {
+        return reinterpret_cast<const Point<UnitType::Distance, B>&>(val[3]);
+    }
+
+    Point<UnitType::Distance, B>& displacement() {
+        return reinterpret_cast<Point<UnitType::Distance, B>&>(val[3]);
     }
 };
+
+template <FrameOfRef A, FrameOfRef B, bool LhsHasTranslate, bool RhsHasTranslate>
+auto combine(const Transform<A, B, LhsHasTranslate>& first, const Transform<A, B, RhsHasTranslate>& second) noexcept {
+    return Transform < A, B, LhsHasTranslate && RhsHasTranslate > (second.val * first.val);
+}
+
+template <FrameOfRef A, FrameOfRef B, FrameOfRef C, bool LhsHasTranslate, bool RhsHasTranslate>
+auto combine(const Transform<A, B, LhsHasTranslate>& first, const Transform<B, C, RhsHasTranslate>& second) noexcept {
+    return Transform < A, C, LhsHasTranslate && RhsHasTranslate > (second.val * first.val);
+}
+
+template <FrameOfRef A, FrameOfRef B, FrameOfRef C, bool LhsHasTranslate, bool RhsHasTranslate>
+auto combine(const Transform<B, C, LhsHasTranslate>& second, const Transform<A, B, RhsHasTranslate>& first) noexcept {
+    return Transform < A, C, LhsHasTranslate && RhsHasTranslate > (second.val * first.val);
+}
+
+#define COMMA ,
+static_assert((offsetof(Point<UnitType::Undefined COMMA FrameOfRef::Ground>, val.x) == offsetof(glm::dvec4, x)) &&
+              (offsetof(Point<UnitType::Undefined COMMA FrameOfRef::Ground>, val.y) == offsetof(glm::dvec4, y)) &&
+              (offsetof(Point<UnitType::Undefined COMMA FrameOfRef::Ground>, val.z) == offsetof(glm::dvec4, z)));
+#undef COMMA

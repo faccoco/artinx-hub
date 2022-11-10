@@ -67,8 +67,8 @@ public:
                         glm::dvec3 scale, translate, translateOld, skew;
                         glm::dvec4 perspective;
                         glm::dquat quat, quatOld;
-                        glm::decompose(posture.tfGround2Robot.rawInverse(), scale, quat, translate, skew, perspective);
-                        glm::decompose(lastData.tfGround2Robot.rawInverse(), scale, quatOld, translateOld, skew, perspective);
+                        glm::decompose(posture.tfGround2Robot.inverse().val, scale, quat, translate, skew, perspective);
+                        glm::decompose(lastData.tfGround2Robot.inverse().val, scale, quatOld, translateOld, skew, perspective);
 
                         Point<UnitType::Distance, FrameOfRef::Ground> pos{ translate };
                         Point<UnitType::Distance, FrameOfRef::Ground> posOld{ translateOld };

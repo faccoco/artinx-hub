@@ -92,9 +92,9 @@ public:
 
                         auto& center = selTarget.selected.value().center;
                         if(mask == 1U) {
-                            center = headInfo1.transform(headInfo2.transform(center));
+                            center = headInfo1.transform(headInfo2.transform.inverse()(center));
                         } else {
-                            center = headInfo2.transform(headInfo1.transform(center));
+                            center = headInfo2.transform(headInfo1.transform.inverse()(center));
                         }
                     }
                 }

@@ -188,7 +188,7 @@ public:
                     return;
 
                 Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data.value().selected.value().center.raw());
-                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = dataHeadInfo.value().transform(posOfRefGun);
+                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = dataHeadInfo.value().transform.inverse()(posOfRefGun);
                 Vector<UnitType::LinearVelocity, FrameOfRef::Ground> linearVelocity(
                     dataPosture.value().linearVelocityOfRobot.raw());
                 data.value().position = posRefRobot;

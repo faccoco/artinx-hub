@@ -2,10 +2,12 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
+#include "SimulatorMotionType.hpp"
 #include "SimulatorWorldInfo.hpp"
 #include "Transform.hpp"
 #include "Utility.hpp"
 #include <random>
+#include <tuple>
 
 #include "SuppressWarningBegin.hpp"
 
@@ -57,111 +59,22 @@ bool inspect(Inspector& f, SimulatorSettings& x) {
         f.field("expectedCount", x.expectedCount), f.field("printBulletPos", x.printBulletPos).fallback(false));
 }
 
-enum class TargetType : uint32_t { Infantry, Hero, BalancedInfantry, Sentry, Outpost, BaseClosed, BaseExpanded, Fans };
-
-enum class TargetMotionType : uint32_t { Static, Spinning, Translate2D, Translate3D, LargeCircle, Fans, Sentry };
-
-enum class SourceMotionType : uint32_t { Static, Vibration, Translate2D, Translate3D, Sentry, UAV };
-
-using MotionState = glm::dmat4;
-
-class MotionController {
-public:
-    virtual void step(MotionState& motionState, double dt) = 0;
-    virtual ~MotionController() = default;
-};
-
-class StaticMotionController final : public MotionController {
-public:
-    void step(MotionState&, double) override {}
-};
-
-class SpinMotionController final : public MotionController {
-    double mSpinningSpeed;
-
-public:
-    explicit SpinMotionController(const double spinningSpeed) : mSpinningSpeed{ spinningSpeed } {}
-    void step(MotionState& motionState, const double dt) override {
-        motionState =
-            MotionState{ glm::rotate(motionState, glm::two_pi<double>() * mSpinningSpeed * dt, glm::dvec3{ 0.0, 1.0, 0.0 }) };
-    }
-};
-
-class LargeCircleMotionController final : public MotionController {
-    double mSpinningSpeed;
-
-public:
-    explicit LargeCircleMotionController(const double spinningSpeed) : mSpinningSpeed{ spinningSpeed } {}
-    void step(MotionState& motionState, const double dt) override {
-        motionState =
-            MotionState{ glm::rotate(motionState, glm::two_pi<double>() * mSpinningSpeed * dt, glm::dvec3{ 0.0, 1.0, 0.0 }) };
-    }
-};
-
-class SentryMotionController final : public MotionController {
-    bool mMovingDirection = false;
-    void step(MotionState& motionState, const double dt) override {
-        const auto translation = motionState * glm::dvec4{ 0.0, 0.0, 0.0, 1.0 };
-        const auto x = translation.x;
-        constexpr auto speed = 0.5;
-        if(x > 2.0)
-            mMovingDirection = false;
-        else if(x < -2.0)
-            mMovingDirection = true;
-
-        motionState =
-            MotionState{ glm::translate(motionState, glm::dvec3{ (mMovingDirection ? speed : -speed) * dt, 0.0, 0.0 }) };
-    }
-};
-
-// Simulate the movement of objects on the horizontal plane
-class Translate2DMotionController final : public MotionController {
-    static constexpr double alpha = 0.001;
-
-    std::default_random_engine mGenerator;
-    double mMaxV;
-    std::normal_distribution<double> mDistribution;
-    double mSpeedX, mSpeedZ, mT = 0.0;
-    double mSmoothX = 0.0, mSmoothZ = 0.0;
-
-    void updateSpeed(const double dt) {
-        mT += dt;
-        if(mT >= 2.0) {                                                      // Random generation velecity every two seconds
-            mSpeedX = std::clamp(mDistribution(mGenerator), -mMaxV, mMaxV);  // Limit the speed of random generation
-            mSpeedZ = std::clamp(mDistribution(mGenerator), -mMaxV, mMaxV);
-
-            mT -= 2.0;
-        }
-
-        mSmoothX = (1.0 - alpha) * mSmoothX + alpha * mSpeedX;
-        mSmoothZ = (1.0 - alpha) * mSmoothZ + alpha * mSpeedZ;
-    }
-
-public:
-    explicit Translate2DMotionController(const double maxV) : mMaxV{ maxV }, mDistribution{ 0, maxV / 3.0 } {
-        updateSpeed(2.0 + 1e-5);
-    }
-
-    void step(MotionState& motionState, const double dt) override {
-        updateSpeed(dt);
-
-        motionState = MotionState{ glm::translate(motionState, glm::dvec3{ mSmoothX * dt, 0.0, mSmoothZ * dt }) };
-    }
-};
-
 class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
     Identifier mKey, mHeadKey{};
 
-    std::vector<std::pair<glm::dvec3, glm::dvec3>> mBullets;  // pair : [pose velocity]
+    std::vector<std::pair<Point<UnitType::Distance, FrameOfRef::Ground>, Vector<UnitType::LinearVelocity, FrameOfRef::Ground>>>
+        mBullets;  // pair : [pose velocity]
     std::pair<MotionState, std::unique_ptr<MotionController>> mTarget;
-    std::vector<std::pair<MotionState, double>> mTargetArmors;  // pair : [MotionState distanceThreshold]
+    std::vector<std::tuple<Transform<FrameOfRef::Armor, FrameOfRef::Robot, true>,
+                           std::pair<Scalar<UnitType::Distance>, Scalar<UnitType::Distance>>, std::vector<bool>>>
+        mTargetArmors;  // tuple : [relatedPosi [width height] posibleToBeShooted]
     std::pair<MotionState, std::unique_ptr<MotionController>> mSource;
     std::mt19937_64 mEngine{ static_cast<uint64_t>(Clock::now().time_since_epoch().count()) };
 
     void initializeTestCase() {
         {
             // SourceMotion
-            mSource.first = MotionState{ glm::translate(glm::identity<glm::dmat4>(), { 0.0, mConfig.sourceHeight, 0.0 }) };
+            mSource.first = glm::translate(glm::identity<glm::dmat4>(), { 0.0, mConfig.sourceHeight, 0.0 });
 
             switch(magic_enum::enum_cast<SourceMotionType>(mConfig.sourceMotionType).value()) {
                 case SourceMotionType::Static:
@@ -187,23 +100,43 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
         {
             switch(magic_enum::enum_cast<TargetType>(mConfig.targetType).value()) {
                 case TargetType::Infantry: {
-                    for(uint32_t i = 0; i < 4; ++i) {
-                        mTargetArmors.emplace_back(
-                            glm::translate(glm::rotate(glm::identity<glm::dmat4>(),
-                                                       glm::half_pi<double>() * static_cast<double>(i), { 0.0, 1.0, 0.0 }),
-                                           { 0.0, 0.0, radiusOfInfantry }),
-                            std::sqrt(widthOfSmallArmor * heightOfSmallArmor) * 0.5);
-                    }
-                } break;
+                    mTargetArmors.clear();
+                    mTargetArmors.reserve(4);
+                    mTargetArmors.emplace_back(
+                        glm::rotate(glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, radiusOfInfantry }),
+                                                glm::pi<double>(), { 0.0, 1.0, 0.0 }),
+                                    15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 }),
+                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
+                    mTargetArmors.emplace_back(
+                        glm::rotate(glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { radiusOfInfantry, 0.0, 0.0 }),
+                                                glm::three_over_two_pi<double>(), { 0.0, 1.0, 0.0 }),
+                                    15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 }),
+                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
+                    mTargetArmors.emplace_back(
+                        glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, -radiusOfInfantry }),
+                                    15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 }),
+                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
+                    mTargetArmors.emplace_back(
+                        glm::rotate(glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { -radiusOfInfantry, 0.0, 0.0 }),
+                                                glm::half_pi<double>(), { 0.0, 1.0, 0.0 }),
+                                    15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 }),
+                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
+                    break;
+                }
                 case TargetType::Sentry: {
-                    for(uint32_t i = 0; i < 2; ++i) {
-                        mTargetArmors.emplace_back(  // sqrt(w * h) / 2 -> Geometric average is used as threshold to judge hit
-                            glm::translate(glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>() * static_cast<double>(i),
-                                                       { 0.0, 1.0, 0.0 }),
-                                           { 0.0, 0.0, radiusOfInfantry * 0.5 }),
-                            std::sqrt(widthOfLargeArmor * heightOfLargeArmor) * 0.5);
-                    }
-                } break;
+                    mTargetArmors.clear();
+                    mTargetArmors.reserve(2);
+                    mTargetArmors.emplace_back(
+                        glm::rotate(glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, radiusOfInfantry * 0.5 }),
+                                                glm::pi<double>(), { 0.0, 1.0, 0.0 }),
+                                    -15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 }),
+                        std::make_pair(widthOfLargeArmor, heightOfLargeArmor), 0);
+                    mTargetArmors.emplace_back(
+                        glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, -radiusOfInfantry * 0.5 }),
+                                    -15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 }),
+                        std::make_pair(widthOfLargeArmor, heightOfLargeArmor), 0);
+                    break;
+                }
 
                 case TargetType::Hero:
                     [[fallthrough]];
@@ -223,8 +156,7 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
         // TargetMotion
         {
             auto& [motion, controller] = mTarget;
-            motion = MotionState{ glm::translate(glm::identity<glm::dmat4>(),
-                                                 { 0.0, mConfig.targetHeight, -mConfig.standardDistance }) };
+            motion = glm::translate(glm::identity<glm::dmat4>(), { 0.0, mConfig.targetHeight, -mConfig.standardDistance });
 
             switch(magic_enum::enum_cast<TargetMotionType>(mConfig.targetMotionType).value()) {
                 case TargetMotionType::Static: {
@@ -257,48 +189,48 @@ public:
     }
 
     void act() override {
-        double time = 0.0;
+        Scalar<UnitType::Time> time{ 0.0 };
         bool runFlag = true;
         bool shoot = false;
-        double lastShoot = -2 * mConfig.shootInterval;
+        Scalar<UnitType::Time> lastShoot{ -2 * mConfig.shootInterval };
         uint32_t hitCount = 0;
         uint32_t bulletCount = 0;
         auto& globalSettings = GlobalSettings::get();
-        const auto dt = mConfig.step;
+        const Scalar<UnitType::Time> dt{ mConfig.step };
 
         globalSettings.bulletSpeed = mConfig.v0;
         std::normal_distribution vGen{ mConfig.v0, std::fmax(mConfig.v0Std, 1e-3) };
-        const auto maxVelocity = mConfig.v0 + 3.0 * mConfig.v0Std;
-        const auto minVelocity = mConfig.v0 - 3.0 * mConfig.v0Std;
-        const auto bulletRadius = GlobalSettings::get().bulletRadius();
+        const Scalar<UnitType::LinearVelocity> maxVelocity{ mConfig.v0 + 3.0 * mConfig.v0Std };
+        const Scalar<UnitType::LinearVelocity> minVelocity{ mConfig.v0 - 3.0 * mConfig.v0Std };
+        const Scalar<UnitType::Distance> bulletRadius{ GlobalSettings::get().bulletRadius() };
 
         while(runFlag) {
             for(auto& [pos, v] : mBullets) {
-                if(pos.y < 0.0)
+                if(pos.val.y < 0.0)
                     continue;
 
                 if(mConfig.printBulletPos) {
-                    logInfo(fmt::format("bullet {:.2f} {:.2f} {:.2f}", pos.x, pos.y, pos.z));
+                    logInfo(fmt::format("bullet {:.2f} {:.2f} {:.2f}", pos.val.x, pos.val.y, pos.val.z));
                 }
             }
 
             // update drag forces
 
             // step:update source pose and velocity
-            auto vSrc = glm::zero<glm::dvec3>();
+            Vector<UnitType::LinearVelocity, FrameOfRef::Ground> vSrc;
             {
-                const auto p1 = mSource.first * glm::dvec4{ 0.0, 0.0, 0.0, 1.0 };
-                mSource.second->step(mSource.first, dt);
-                const auto p2 = mSource.first * glm::dvec4{ 0.0, 0.0, 0.0, 1.0 };
+                const auto p1 = mSource.first.displacement();
+                mSource.second->step(mSource.first, dt.val);
+                const auto p2 = mSource.first.displacement();
                 vSrc = (p2 - p1) / dt;
             }
-            mTarget.second->step(mTarget.first, dt);
+            mTarget.second->step(mTarget.first, dt.val);
 
             for(auto& [pos, v] : mBullets) {
-                if(pos.y < 0.0)
+                if(pos.val.y < 0.0)
                     continue;
                 pos += v * dt;
-                v += glm::dvec3{ 0.0, GlobalSettings::get().gForce * dt, 0.0 };
+                v += glm::dvec3{ 0.0, GlobalSettings::get().gForce * dt.val, 0.0 };
             }
 
             time += dt;
@@ -307,18 +239,17 @@ public:
             {
                 SimulatorWorldInfo info;
 
-                info.lastUpdate =
-                    TimePoint{ static_cast<Duration>(static_cast<Clock::rep>(time * Clock::period::den / Clock::period::num)) };
+                info.lastUpdate = TimePoint{ static_cast<Duration>(
+                    static_cast<Clock::rep>(time.val * Clock::period::den / Clock::period::num)) };
                 SynchronizedClock::instance().setSimulationTime(info.lastUpdate);
 
-                info.posture = decltype(info.posture){ glm::inverse(mSource.first) };
+                info.posture = mSource.first.inverse();
 
                 {
-                    const auto& motion = mTarget.first;
+                    const auto& targetMotion = mTarget.first;
 
-                    for(auto& trans : mTargetArmors) {
-                        const auto pos = motion * trans.first * glm::dvec4{ 0.0, 0.0, 0.0, 1.0 };
-                        info.targets.emplace_back(pos);
+                    for(auto& [armorRelatedMotion, threshold, posible] : mTargetArmors) {
+                        info.targets.emplace_back(combine(targetMotion, armorRelatedMotion).displacement());
                     }
                 }
 
@@ -327,20 +258,36 @@ public:
 
             // update collisions
             {
-                const auto& motion = mTarget.first;
-                for(auto& trans : mTargetArmors) {
-                    const auto pos = glm::dvec3{ motion * (trans.first * glm::dvec4{ 0.0, 0.0, 0.0, 1.0 }) };
+                const auto& targetMotion = mTarget.first;
+                const Normal<UnitType::Distance, FrameOfRef::Armor> normal{ 0.0, 1.0, 0.0 };
+                for(auto& [armorRelatedMotion, area, posible] : mTargetArmors) {
+                    const auto armorMotion = combine(targetMotion, armorRelatedMotion);
+                    const auto armorTransform = armorMotion.inverse();
 
-                    const auto d = trans.second + bulletRadius;
-                    for(auto& [p, v] : mBullets) {
-                        if(p.y < 0.0)
+                    for(size_t i = 0; i < posible.size(); i++) {
+                        if(mBullets[i].first.val.y < 0.0)
                             continue;
-                        if(glm::distance(p, pos) < d) {
-                            p.y = -1.0;
-                            logInfo(fmt::format("Hit at ({:.2f},{:.2f},{:.2f})", pos.x, pos.y, pos.z));
+                        auto p = armorTransform(mBullets[i].first);
+                        // a bullet hit if the bullet is possible and behind armor and it's projection is within armor
+                        if(posible[i] && p.val.z >= 0 && p.val.x <= area.first.val / 2 && p.val.x >= -area.first.val / 2 &&
+                           p.val.y <= area.second.val / 2 && p.val.y >= -area.second.val / 2) {
+                            mBullets[i].first.val.y = -1.0;
+                            logInfo(fmt::format("Hit at ({:.2f},{:.2f},{:.2f})", armorMotion.displacement().val.x,
+                                                armorMotion.displacement().val.y, armorMotion.displacement().val.z));
                             ++hitCount;
                         }
                     }
+                    posible.resize(mBullets.size());
+                    for(size_t i = 0; i < mBullets.size(); i++) {
+                        if(mBullets[i].first.val.y < 0.0)
+                            continue;
+                        auto p = armorTransform(mBullets[i].first);
+                        // a bullet is possible when it's on the front of armor
+                        if(p.val.z > 0.0)
+                            posible[i] = false;
+                        else
+                            posible[i] = true;
+                        }
                 }
             }
 
@@ -358,60 +305,57 @@ public:
                 [&](timer_atom) { ACTOR_PROTOCOL_CHECK(timer_atom); });
 
             const auto headData = BlackBoard::instance().get<HeadInfo>(mHeadKey);
-            Transform<FrameOfRef::Robot, FrameOfRef::Gun> transA{ glm::identity<glm::dmat4>() };
+            Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> headTrans{ glm::identity<glm::dmat4>() };
             if(headData.has_value()) {
-                transA = headData.value().transform;
+                headTrans = headData.value().transform;
             }
 
-            const auto transB = decltype(SimulatorWorldInfo::posture){ glm::inverse(mSource.first) };
-            const auto transform = transB * transA;
+            const auto transform = combine(headTrans.inverse(), mSource.first);
 
             // shoot
             if(shoot && bulletCount < mConfig.bulletCount && time - lastShoot > mConfig.shootInterval) {
-                const glm::dmat4 transformMat = transform.rawInverse();
-                const glm::dvec3 origin = transformMat * glm::dvec4{ 0.0, 0.0, 0.0, 1.0 };
-
-                const auto v = std::clamp(vGen(mEngine), minVelocity, maxVelocity);
-                GlobalSettings::get().bulletSpeed = v;
+                const Scalar<UnitType::LinearVelocity> v{ std::clamp(vGen(mEngine), minVelocity.val, maxVelocity.val) };
+                GlobalSettings::get().bulletSpeed = v.val;
 
                 const auto velocity =
-                    glm::normalize(transform(Vector<UnitType::Distance, FrameOfRef::Gun>{ { 0.0, 0.0, -1.0f } }).raw()) * v;
+                    transform(Normal<UnitType::LinearVelocity, FrameOfRef::Gun>{ 0.0, 0.0, -1.0f, Normalized() }) * v;
 
-                mBullets.emplace_back(origin, vSrc + velocity);
+                mBullets.emplace_back(transform.displacement(), vSrc + velocity);
 
                 lastShoot = time;
                 ++bulletCount;
             }
 
-            logInfo(fmt::format("Simulator time {:.3f}s bullet count {} hit {} shoot {}", time, bulletCount, hitCount, shoot));
+            logInfo(
+                fmt::format("Simulator time {:.3f}s bullet count {} hit {} shoot {}", time.val, bulletCount, hitCount, shoot));
             {
-                const auto posSrc = mSource.first * glm::dvec4{ 0.0, 0.0, 0.0, 1.0 };
+                const auto posSrc = mSource.first.displacement();
 
-                logInfo(fmt::format("Source {:.3f} {:.3f} {:.3f}", posSrc.x, posSrc.y, posSrc.z));
+                logInfo(fmt::format("Source {:.3f} {:.3f} {:.3f}", posSrc.val.x, posSrc.val.y, posSrc.val.z));
 
-                const auto posDst = mTarget.first * glm::dvec4{ 0.0, 0.0, 0.0, 1.0 };
+                const auto posDst = mTarget.first.displacement();
 
-                logInfo(fmt::format("Target {:.3f} {:.3f} {:.3f}", posDst.x, posDst.y, posDst.z));
+                logInfo(fmt::format("Target {:.3f} {:.3f} {:.3f}", posDst.val.x, posDst.val.y, posDst.val.z));
 
-                auto diff = glm::normalize(posDst - posSrc);
+                auto diff = normalize(posDst - posSrc);
 
-                logInfo(fmt::format("Ref dir {:.3f} {:.3f} {:.3f}", diff.x, diff.y, diff.z));
+                logInfo(fmt::format("Ref dir {:.3f} {:.3f} {:.3f}", diff.val.x, diff.val.y, diff.val.z));
 
-                const auto real =
-                    glm::normalize(transform(Vector<UnitType::Distance, FrameOfRef::Gun>{ { 0.0, 0.0, -1.0f } }).raw());
-                logInfo(fmt::format("Gun dir {:.3f} {:.3f} {:.3f}", real.x, real.y, real.z));
+                const auto real = normalize(transform(Vector<UnitType::Distance, FrameOfRef::Gun>{ 0.0, 0.0, -1.0f }));
+                logInfo(fmt::format("Gun dir {:.3f} {:.3f} {:.3f}", real.val.x, real.val.y, real.val.z));
 
-                const auto& motion = mTarget.first;
-                double minDist = 1e10;
-                std::optional<std::pair<glm::dvec3, glm::dvec3>> closest = std::nullopt;
+                Scalar<UnitType::Distance> minDist{ 1e10 };
+                std::optional<
+                    std::pair<Point<UnitType::Distance, FrameOfRef::Ground>, Point<UnitType::Distance, FrameOfRef::Ground>>>
+                    closest = std::nullopt;
 
                 for(auto& trans : mTargetArmors) {
-                    const auto pos = glm::dvec3{ motion * (trans.first * glm::dvec4{ 0.0, 0.0, 0.0, 1.0 }) };
+                    const auto pos = combine(mTarget.first, std::get<0>(trans)).displacement();
 
-                    for(auto& [p, v] : mBullets) {
-                        if(p.y < 0.0)
+                    for(const auto& [p, v] : mBullets) {
+                        if(p.val.y < 0.0)
                             continue;
-                        if(const auto dist = glm::distance(p, pos); dist < minDist) {
+                        if(const auto dist = distance(p, pos); dist < minDist) {
                             minDist = dist;
                             closest = { pos, p };
                         }
@@ -421,7 +365,7 @@ public:
                 if(closest) {
                     const auto [p1, p2] = closest.value();
                     logInfo(fmt::format("Closest pair armor {:.3f} {:.3f} {:.3f} <-> bullet {:.3f} {:.3f} {:.3f} : {:.3f} m",
-                                        p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, minDist));
+                                        p1.val.x, p1.val.y, p1.val.z, p2.val.x, p2.val.y, p2.val.z, minDist.val));
                 }
             }
 
@@ -431,7 +375,7 @@ public:
             if(runFlag && bulletCount == mConfig.bulletCount) {
                 runFlag = false;
                 for(auto& [p, v] : mBullets) {
-                    if(p.y >= 0.0) {
+                    if(p.val.y >= 0.0) {
                         runFlag = true;
                         break;
                     }
