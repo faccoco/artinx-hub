@@ -1,6 +1,8 @@
 # 2023赛季视觉开源内容整理
 
-## 2022赛季
+
+
+# 2022赛季
 
 ## 上海工程技术——步兵
 
@@ -28,6 +30,14 @@ https://github.com/Birdiebot/bubble/blob/main/.github/README_zhCN.md
 - 大小符识别预测
 - 自瞄
 - 反陀螺
+
+## 华南师范大学——通用
+[chenjunnn/rm_vision](https://github.com/chenjunnn/rm_vision)
+
+实现内容
++ 基于ros2的视觉自瞄代码
++ 传统视觉 + 神经网络数字识别
++ 反陀螺算法（具反映小陀螺低速的时候效果较好，高转速全部预测到了车辆外面）
 
 ## 西安电子科技大学
 
@@ -85,9 +95,9 @@ https://rmcv.52pika.cn/
 
 
 
-## 2021赛季
+# 2021赛季
 
-## 华南理工——步兵
+## 华南理工广州学院——步兵
 
 https://github.com/wildwolf-team/WolfVision.git
 
@@ -178,7 +188,7 @@ https://github.com/Ash1104/RoboMaster2021-FOSU-AWAKENLION-OpenSource
 
 
 
-## 2020赛季
+# 2020赛季
 
 ## 华北理工——步兵
 
@@ -205,4 +215,58 @@ https://github.com/QunShanHe/JLURoboVision
 - 传统视觉识别装甲板 + SVM数字识别确定装甲板
 - 大小符识别——传统视觉
 
-## 
+
+
+# 2019赛季
+
+
+
+## 北京理工-珠海学院——步兵
+
+https://github.com/Brauzz/YIHENG_ZHBIT_VISION
+
+#### 实现内容：
+
+- 颜色轮廓+灰度轮廓装甲板
+- 大小符
+
+#### 亮点
+
+- 装甲板识别加入了多线程操作
+
+## 华盛顿大学——步兵自瞄
+
+https://github.com/uw-advanced-robotics/aruw-vision-platform-2019
+
+#### 实现内容：
+
+- 神经网络识别装甲板
+- 深度相机实现三维空间定位
+- 机器人里程表（作用未知，据描述称是为了对己方机器人的移动进行抵消）
+- 较为完善的弹道修正（己方移动，对方移动，重力，弹速等）
+
+#### 提到：
+
+深度相机进行识别可能存在拖影问题，需要在数据集中加入包含拖影的图片
+
+
+
+## 上海交通大学——步兵
+
+https://github.com/xinyang-go/SJTU-RM-CV-2019
+
+#### 注：2021赛季上交提供了一份新的装甲板识别算法，因此这里只列出打符部分
+
+#### 实现内容：传统视觉识别能量机关
+
+
+
+## 深圳大学——步兵
+
+https://github.com/yarkable/RP_Infantry_Plus
+
+#### 实现内容
+
+传统视觉识别装甲板
+
+深度学习+传统视觉识别能量机关
