@@ -11,6 +11,7 @@ set(SOURCE
 "DataLink/AsyncSerial/BufferedAsyncSerial.cpp"
 "DataLink/SerialPort.cpp"
 "Detect/ArmorDetector.cpp"
+"Detect/NNetArmorDetector.cpp"
 "Detect/EnergyDetector.cpp"
 "Detect/OreAlignment.cpp"
 "Detect/OreExchangeRectifier.cpp"
@@ -74,6 +75,9 @@ message(${ARTINX_HUB_CAMERA} ":" ${DAHENG_SDK_PATH})
 find_package(magic_enum CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(Boost REQUIRED system)
+set(InferenceEngine_DIR $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine/share/)
+find_package(InferenceEngine CONFIG REQUIRED)
+find_package(Eigen3 CONFIG REQUIRED)
 
 add_executable(ArtinxHub ${SOURCE})
 target_include_directories(ArtinxHub PRIVATE ${CAF_INCLUDE_DIRS})
