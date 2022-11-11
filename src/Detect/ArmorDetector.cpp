@@ -136,7 +136,7 @@ class ArmorDetector final
         }
 
         // cv::medianBlur(result, result, 3);
-        // debugView("binary", result, [](auto) {});
+        //        debugView("binary", result, [](auto) {});
         return result;
     }
 
@@ -154,6 +154,11 @@ class ArmorDetector final
                 // fitEllipse 返回的旋转矩形角度定义为水平线顺时针旋转到与短轴平行处所转过的角度,范围在[0, 180]
                 lightRect = cv::fitEllipse(lightContour);  // produce as ellipse
             } else {
+                lightRect = cv::minAreaRect(lightContour);
+                if(lightRect.size.height < lightRect.size.width) {
+                    std::swap(lightRect.size.width, lightRect.size.height);
+                    lightRect.angle += 90;
+                }
                 continue;
             }
 
@@ -164,9 +169,9 @@ class ArmorDetector final
             if(lightRect.size.width > 20.0f)
                 continue;
             //灯条矩形的比率不符合要求
-            const auto ratio = lightRect.size.width / lightRect.size.height;
-            if(ratio < mConfig.minLightRectRatio || ratio > mConfig.maxLightRectRatio)
-                continue;
+            //            const auto ratio = lightRect.size.width / lightRect.size.height;
+            //            if(ratio < mConfig.minLightRectRatio || ratio > mConfig.maxLightRectRatio)
+            //                continue;
 
             //灯条倾斜角度太平了(水平线顺时针旋转到短边的角度太大), 角度范围在 [maxLightAngle, pi - maxLightAngle]内不符合要求
             if(std::sin(glm::radians(lightRect.angle)) > std::sin(glm::radians(mConfig.maxLightAngle))) {
@@ -174,27 +179,27 @@ class ArmorDetector final
             }
 
             //外接矩形对应的椭圆的面积比外接轮廓的面积大太多了
-            if(static_cast<double>(lightRect.size.width) * static_cast<double>(lightRect.size.height) *
-                   glm::quarter_pi<double>() >
-               mConfig.maxAreaRatio * cv::contourArea(lightContour))
-                continue;
+            //            if(static_cast<double>(lightRect.size.width) * static_cast<double>(lightRect.size.height) *
+            //                   glm::quarter_pi<double>() >
+            //               mConfig.maxAreaRatio * cv::contourArea(lightContour))
+            //                continue;
 
             lights.emplace_back(lightRect);
         }
 
-        //                debugView("contour", color, [&](cv::Mat& src) {
-        //                    for(auto& light : lights) {
-        //                        cv::Point2f rotateVertices[4];
-        //                        light.points(rotateVertices);
-        //                        for(int i = 0; i < 4; ++i) {
-        //                            cv::line(src, rotateVertices[i], rotateVertices[(i + 1) % 4], cv::Scalar(0, 255, 255), 1);
-        //                        }
-        //                        // cv::rectangle(src, light.boundingRect(), cv::Scalar{ 0, 255, 255 }, 1);
-        //                        cv::putText(src, fmt::format("({:.2f}", light.angle),
-        //                                    { static_cast<int32_t>(light.center.x), static_cast<int32_t>(light.center.y) },
-        //                                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 255 });
-        //                    }
-        //                });
+        //        debugView("contour", color, [&](cv::Mat& src) {
+        //            for(auto& light : lights) {
+        //                cv::Point2f rotateVertices[4];
+        //                light.points(rotateVertices);
+        //                for(int i = 0; i < 4; ++i) {
+        //                    cv::line(src, rotateVertices[i], rotateVertices[(i + 1) % 4], cv::Scalar(0, 255, 255), 1);
+        //                }
+        //                // cv::rectangle(src, light.boundingRect(), cv::Scalar{ 0, 255, 255 }, 1);
+        //                cv::putText(src, fmt::format("({:.2f}", light.angle),
+        //                            { static_cast<int32_t>(light.center.x), static_cast<int32_t>(light.center.y) },
+        //                            cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 255 });
+        //            }
+        //        });
 
         std::sort(lights.begin(), lights.end(), [](const auto& lhs, const auto& rhs) { return lhs.center.x < rhs.center.x; });
         return lights;
@@ -228,9 +233,20 @@ class ArmorDetector final
                     continue;
 
                 //装甲板矩形高和宽的比不符合比率范围
-                const auto ratio = rect.size.height / rect.size.width;
+                const auto ratio = rect.size.width / rect.size.height;
                 if(ratio > mConfig.maxArmorRectRatio || ratio < mConfig.minArmorRectRatio)
                     continue;
+
+                constexpr auto largeRatio = widthOfLargeArmor / heightOfLargeArmor;
+                constexpr auto smallRatio = widthOfSmallArmor / heightOfSmallArmor;
+
+                auto diff = static_cast<float>(std::fabs((ratio - smallRatio) / smallRatio));
+                const auto diffLarge = static_cast<float>(std ::fabs(ratio - largeRatio) / largeRatio);
+                bool largeArmor = false;
+                if(diffLarge < diff) {
+                    diff = diffLarge;
+                    largeArmor = true;
+                }
 
                 const auto area1 = lhs.size.area();
                 const auto area2 = rhs.size.area();
@@ -278,7 +294,7 @@ class ArmorDetector final
                 if(isInteraction)
                     continue;
                 // logInfo(fmt::format("diff:{}, large_diff:{}", smalldiff, diffLarge));
-                pairs.emplace_back(i, j, tanRectAngle);
+                pairs.emplace_back(i, j, diff + par + (largeArmor ? 1e3f : 0.0f));
             }
         }
 
@@ -312,7 +328,8 @@ class ArmorDetector final
         //                drawRotatedRect(frame, rect, cv::Scalar{ 0, 0, 255 });
         //                cv::putText(frame, fmt::format("{:.3f}", s),
         //                            { static_cast<int32_t>(rect.center.x), static_cast<int32_t>(rect.center.y) },
-        //                            cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 255 });
+        //                            cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 255, 255, 0 });
+        //                logInfo(fmt::format("{:.3f}", s));
         //            }
         //        });
 

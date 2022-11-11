@@ -42,6 +42,7 @@ set(SOURCE
 "Test/Solve/FakeIMU.cpp"
 "Test/Solve/SimpleStrategy.cpp"
 "Test/Solve/Simulator.cpp"
+"Test/Solve/SimulatorMotionType.cpp"
 "Test/TestHelper.cpp"
 "Utility/ArmorDetectorDrawer.cpp"
 "Utility/CarDetectorDrawer.cpp"
@@ -58,6 +59,8 @@ find_package(glm CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_path(CPP_HTTPLIB_INCLUDE_DIRS "httplib.h")
 find_package(OpenCV CONFIG REQUIRED)
+find_package(Eigen3 CONFIG REQUIRED)
+
 
 if(${ARTINX_HUB_CAMERA} STREQUAL "USB3")
     set(DAHENG_SDK_PATH $ENV{DAHENG_SDK})
@@ -102,7 +105,6 @@ target_link_libraries(ArtinxHub PRIVATE fmt::fmt)
 target_link_libraries(ArtinxHub PRIVATE ${InferenceEngine_LIBRARIES})
 target_link_libraries(ArtinxHub PRIVATE nlohmann_json nlohmann_json::nlohmann_json)
 target_link_libraries(ArtinxHub PRIVATE Eigen3::Eigen)
-
 
 add_custom_command(TARGET ArtinxHub PRE_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory

@@ -8,8 +8,11 @@
 + 发现minAreaRect对轮廓拟合返回的旋转矩形形状很奇怪，无法拟合灯条形状
 + 将fitEllipse()函数返回的旋转矩形作为拟合灯条的矩形
 + 增加`tool_tutorials`文件的内容
-## 10.14 更新
+## 10.14更新
 + 去掉了HeadInfo结构体中yawspeed和pitchspeed变量
 + 去掉了PostureData结构体中的角速度和角加速度等多余的变量
 + 去掉fakeCarDetector这一层actor
 + 修改了装甲板识别actor的处理结果的结构体，具体见DetectedArmor.hpp
+## 10.23更新
++ 将装甲板排序标准改回到原来根据装甲板到大小装甲板比率那个更接近的排序方式
++ 将装甲板定位中，大小装甲板判别方式的比率设为了一个可调节参数

@@ -40,7 +40,7 @@ public:
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
                      selected.selected = { data.point, 0.0, 1, ArmorType::Large,
-                                           Vector<UnitType::LinearVelocity, FrameOfRef::Gun>{ glm::zero<glm::dvec3>() } };
+                                           Vector<UnitType::LinearVelocity, FrameOfRef::Robot>{ glm::zero<glm::dvec3>() } };
 
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                  },

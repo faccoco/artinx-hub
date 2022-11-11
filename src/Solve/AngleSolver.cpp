@@ -30,10 +30,6 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
     Identifier mKey, mIMUKey, mHeadKey;
 
-private:
-    glm::dvec3 sumVec = { 0, 0, 0 };
-    glm::dvec3 avgVec = { 0, 0, 0 };
-
 public:
     AngleSolver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
 
@@ -114,17 +110,13 @@ public:
     caf::behavior make_behavior() override {
         return {
             [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-            [this](set_target_atom, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);
+            [this](predict_success_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(predict_success_atom, TypedIdentifier<SelectedTarget>);
                 ACTOR_EXCEPTION_PROBE();
 
-                const auto data = BlackBoard::instance().get<SelectedTarget>(key);
-                const auto dataHeadInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
-                const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
-                if(!(data.has_value() && data.value().selected.has_value() && dataHeadInfo.has_value() &&
-                     dataPosture.has_value()))
+                auto data = BlackBoard::instance().get<SelectedTarget>(key);
+                if(!(data.has_value() && data.value().selected.has_value()))
                     return;
-
                 HubLogger::watch("armor type", magic_enum::enum_name(data.value().selected.value().type));
 
                 const auto& globalSettings = GlobalSettings::get();
@@ -134,58 +126,37 @@ public:
 
                 const auto delayTime = mConfig.delay;
 
-                logInfo(fmt::format("Beform transform:x: {}, y: {}, z: {}", data.value().selected.value().center.raw().x,
-                                    -data.value().selected.value().center.raw().z, data.value().selected.value().center.raw().y));
-                Vector<UnitType::Distance, FrameOfRef::Gun> positionOfReferenceGun(data.value().selected.value().center.raw());
-                Vector<UnitType::Distance, FrameOfRef::Robot> positionOfReferenceRobot =
-                    dataHeadInfo.value().transform(positionOfReferenceGun);
-                Vector<UnitType::LinearVelocity, FrameOfRef::Ground> linearVelocity(
-                    dataPosture.value().linearVelocityOfRobot.raw());
-
-                HubLogger::watch("z", positionOfReferenceRobot.raw().z);
+                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data.value().position;
+                Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data.value().selected.value().velocity;
+                HubLogger::watch("z", posRefRobot.raw().z);
 
                 //(forward:+y,right:+x)
-                glm::dvec3 transformedLinearVelocity = { 0, 0, 0 };
-                glm::dvec3 transformedPosition = { positionOfReferenceRobot.raw().x, -positionOfReferenceRobot.raw().z,
-                                                   positionOfReferenceRobot.raw().y };
-                transformedLinearVelocity = { avgVec.x - linearVelocity.raw().x, avgVec.y + linearVelocity.raw().z,
-                                              avgVec.z - linearVelocity.raw().y };
+                glm::dvec3 tfPos = { posRefRobot.raw().x, -posRefRobot.raw().z, posRefRobot.raw().y };
+                glm::dvec3 tfLinearVel = { linearVel.raw().x, -linearVel.raw().z, linearVel.raw().y };
                 // logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y,
                 // linearVelocity.raw().z));
-                transformedPosition = { transformedPosition.x + delayTime * transformedLinearVelocity.x,
-                                        transformedPosition.y + delayTime * transformedLinearVelocity.y,
-                                        transformedPosition.z + delayTime * transformedLinearVelocity.z };
+                tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
+                          tfPos.z + delayTime * tfLinearVel.z };
 
-                double airDuration = ferrari(
-                    1, 0,
-                    -(4 * g * transformedPosition.z + 4 * square(bulletSpeed) - 4 * square(transformedLinearVelocity.x) -
-                      4 * square(transformedLinearVelocity.y)) /
-                        square(g),
-                    (8 * transformedPosition.x * transformedLinearVelocity.x +
-                     8 * transformedPosition.y * transformedLinearVelocity.y) /
-                        square(g),
-                    (4 * square(transformedPosition.x) + 4 * square(transformedPosition.y) + 4 * square(transformedPosition.z)) /
-                        square(g));
-                double verticalSpeed = transformedPosition.z / airDuration - 0.5 * g * airDuration;
-                double horizontalSpeedX = (transformedPosition.x + transformedLinearVelocity.x * airDuration) / airDuration;
-                double horizontalSpeedY = (transformedPosition.y + transformedLinearVelocity.y * airDuration) / airDuration;
+                double airDuration =
+                    ferrari(1, 0,
+                            -(4 * g * tfPos.z + 4 * square(bulletSpeed) - 4 * square(tfLinearVel.x) - 4 * square(tfLinearVel.y)) /
+                                square(g),
+                            (8 * tfPos.x * tfLinearVel.x + 8 * tfPos.y * tfLinearVel.y) / square(g),
+                            (4 * square(tfPos.x) + 4 * square(tfPos.y) + 4 * square(tfPos.z)) / square(g));
+                double verticalSpeed = tfPos.z / airDuration - 0.5 * g * airDuration;
+                double horizontalSpeedX = (tfPos.x + tfLinearVel.x * airDuration) / airDuration;
+                double horizontalSpeedY = (tfPos.y + tfLinearVel.y * airDuration) / airDuration;
 
                 double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
                 double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 
                 bool isFire = true;
-                logInfo(fmt::format("x:{}, y:{}, z:{}", transformedPosition.x, transformedPosition.y, transformedPosition.z));
+                logInfo(fmt::format("x:{}, y:{}, z:{}", tfPos.x, tfPos.y, tfPos.z));
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
                         pitchAngle, isFire);
             },
-            [this](update_head_atom, GroupMask, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
-                mHeadKey = key;
-            },
-            [this](update_posture_atom, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);
-                mIMUKey = key;
-            }
+
         };
     }
 };

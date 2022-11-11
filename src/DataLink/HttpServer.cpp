@@ -12,12 +12,12 @@
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
 #define CPPHTTPLIB_SEND_FLAGS 0x4000
+#include <fmt/format.h>
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <string>
-#include <fmt/format.h>
 #ifdef ARTINXHUB_WINDOWS
 #define NOMINMAX
 #include <Windows.h>
@@ -49,15 +49,15 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_lo
 
 #if defined(ARTINXHUB_LINUX)
 #define ETH_NAME "wlp0s20f3"
-     std::string getHostIpAddress(){
-        int                 sockFd;
-        struct sockaddr_in  sockIn;
-        struct ifreq        ifReq;
+    std::string getHostIpAddress() {
+        int sockFd;
+        struct sockaddr_in sockIn;
+        struct ifreq ifReq;
 
         sockFd = socket(AF_INET, SOCK_DGRAM, 0);
-        if (sockFd != -1) {
-            strncpy(ifReq.ifr_name, ETH_NAME, IFNAMSIZ);                            //Interface name
-            if (ioctl(sockFd, SIOCGIFADDR, &ifReq) == 0) {                          //SIOCGIFADDR 获取interface address
+        if(sockFd != -1) {
+            strncpy(ifReq.ifr_name, ETH_NAME, IFNAMSIZ);   // Interface name
+            if(ioctl(sockFd, SIOCGIFADDR, &ifReq) == 0) {  // SIOCGIFADDR obtain interface address
                 memcpy(&sockIn, &ifReq.ifr_addr, sizeof(ifReq.ifr_addr));
                 return inet_ntoa(sockIn.sin_addr);
             }
@@ -178,11 +178,11 @@ public:
                     ACTOR_PROTOCOL_CHECK(start_atom);
                     [[maybe_unused]] const auto res =
 #if defined(ARTINXHUB_WINDOWS)
-                    ShellExecuteA(nullptr, "open", "http://localhost:5630/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
+                        ShellExecuteA(nullptr, "open", "http://localhost:5630/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
 #elif defined(ARTINXHUB_LINUX)
-                    ::system(fmt::format("xdg-open http://{}:5630/pages/index.html", mhostIpAddress).c_str());
+                        ::system(fmt::format("xdg-open http://{}:5630/pages/index.html", mhostIpAddress).c_str());
 #else
-                    0;
+                        0;
 #endif
                 },
                  [this](image_frame_atom, Identifier key) {
@@ -194,4 +194,3 @@ public:
 };
 
 HUB_REGISTER_CLASS(HttpServer);
-
