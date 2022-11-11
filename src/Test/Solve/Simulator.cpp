@@ -67,7 +67,7 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
     std::pair<MotionState, std::unique_ptr<MotionController>> mTarget;
     std::vector<std::tuple<Transform<FrameOfRef::Armor, FrameOfRef::Robot, true>,
                            std::pair<Scalar<UnitType::Distance>, Scalar<UnitType::Distance>>, std::vector<bool>>>
-        mTargetArmors;  // tuple : [relatedPosi [width height] posibleToBeShooted]
+        mTargetArmors;  // tuple : [relatedPosition [width height] possibleToBeShot]
     std::pair<MotionState, std::unique_ptr<MotionController>> mSource;
     std::mt19937_64 mEngine{ static_cast<uint64_t>(Clock::now().time_since_epoch().count()) };
 
@@ -267,16 +267,16 @@ public:
             {
                 const auto& targetMotion = mTarget.first;
                 const Normal<UnitType::Distance, FrameOfRef::Armor> normal{ 0.0, 1.0, 0.0 };
-                for(auto& [armorRelatedMotion, area, posible] : mTargetArmors) {
+                for(auto& [armorRelatedMotion, area, possible] : mTargetArmors) {
                     const auto armorMotion = combine(targetMotion, armorRelatedMotion);
                     const auto armorTransform = armorMotion.inverse();
 
-                    for(size_t i = 0; i < posible.size(); i++) {
+                    for(size_t i = 0; i < possible.size(); i++) {
                         if(mBullets[i].first.val.y < 0.0)
                             continue;
                         auto p = armorTransform(mBullets[i].first);
                         // a bullet hit if the bullet is possible and behind armor and it's projection is within armor
-                        if(posible[i] && p.val.z >= 0 && p.val.x <= area.first.val / 2 && p.val.x >= -area.first.val / 2 &&
+                        if(possible[i] && p.val.z >= 0 && p.val.x <= area.first.val / 2 && p.val.x >= -area.first.val / 2 &&
                            p.val.y <= area.second.val / 2 && p.val.y >= -area.second.val / 2) {
                             mBullets[i].first.val.y = -1.0;
                             logInfo(fmt::format("Hit at ({:.2f},{:.2f},{:.2f})", armorMotion.displacement().val.x,
@@ -284,16 +284,16 @@ public:
                             ++hitCount;
                         }
                     }
-                    posible.resize(mBullets.size());
+                    possible.resize(mBullets.size());
                     for(size_t i = 0; i < mBullets.size(); i++) {
                         if(mBullets[i].first.val.y < 0.0)
                             continue;
                         auto p = armorTransform(mBullets[i].first);
                         // a bullet is possible when it's on the front of armor
                         if(p.val.z > 0.0)
-                            posible[i] = false;
+                            possible[i] = false;
                         else
-                            posible[i] = true;
+                            possible[i] = true;
                     }
                 }
             }
