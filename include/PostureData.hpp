@@ -5,7 +5,7 @@
 struct PostureData final {
     TimePoint lastUpdate;
 
-    Transform<FrameOfRef::Ground, FrameOfRef::Robot> postureOfRobot;
+    Transform<FrameOfRef::Ground, FrameOfRef::Robot> tfGround2Robot;
 
     Vector<UnitType::LinearVelocity, FrameOfRef::Ground> linearVelocityOfRobot;
 };

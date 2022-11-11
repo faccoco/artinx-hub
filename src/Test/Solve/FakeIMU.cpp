@@ -29,7 +29,7 @@ bool inspect(Inspector& f, FakeIMUSettings& x) {
 class FakeIMU final : public HubHelper<caf::event_based_actor, FakeIMUSettings, update_posture_atom> {
     Identifier mKey;
     Duration mDelay;
-    std::queue<std::pair<TimePoint, decltype(PostureData::postureOfRobot)>> mQueue;
+    std::queue<std::pair<TimePoint, decltype(PostureData::tfGround2Robot)>> mQueue;
 
     std::optional<PostureData> mLastData;
 
@@ -45,7 +45,7 @@ public:
 
                     TimePoint current = mQueue.back().first;
 
-                    std::optional<decltype(PostureData::postureOfRobot)> cur;
+                    std::optional<decltype(PostureData::tfGround2Robot)> cur;
                     while(!mQueue.empty() && current - mQueue.front().first > mDelay) {
                         cur = mQueue.front().second;
                         mQueue.pop();
@@ -58,7 +58,7 @@ public:
 
                     PostureData posture;
                     posture.lastUpdate = current;
-                    posture.postureOfRobot = info;
+                    posture.tfGround2Robot = info;
                     if(mLastData.has_value()) {
                         const auto& lastData = mLastData.value();
                         const auto dt = Scalar<UnitType::Time>{ static_cast<double>((current - lastData.lastUpdate).count()) /
@@ -67,8 +67,8 @@ public:
                         glm::dvec3 scale, translate, translateOld, skew;
                         glm::dvec4 perspective;
                         glm::dquat quat, quatOld;
-                        glm::decompose(posture.postureOfRobot.rawInverse(), scale, quat, translate, skew, perspective);
-                        glm::decompose(lastData.postureOfRobot.rawInverse(), scale, quatOld, translateOld, skew, perspective);
+                        glm::decompose(posture.tfGround2Robot.inverse().val, scale, quat, translate, skew, perspective);
+                        glm::decompose(lastData.tfGround2Robot.inverse().val, scale, quatOld, translateOld, skew, perspective);
 
                         Point<UnitType::Distance, FrameOfRef::Ground> pos{ translate };
                         Point<UnitType::Distance, FrameOfRef::Ground> posOld{ translateOld };

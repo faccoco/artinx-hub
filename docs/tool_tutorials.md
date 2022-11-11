@@ -315,6 +315,8 @@ docker pull      #拉取镜像
 docker rmi       #删除镜像
 
 docker commit -m "描述信息" -a "作者" 容器名 目标镜像名:[tag]  #编辑容器后提交容器成为一个新镜像
+
+docker system prune #清理docker缓存
 ```
 ### 容器命令
 ```shell

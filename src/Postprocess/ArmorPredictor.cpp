@@ -1,142 +1,219 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
-#include "DetectedTarget.hpp"
 #include "ExceptionProbe.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
+#include "PostureData.hpp"
+#include "SelectedTarget.hpp"
 #include "Utility.hpp"
 #include <cstdint>
+#include <utility>
 
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
-#include <glm/glm.hpp>
-#include <opencv2/video/tracking.hpp>
+#include <eigen3/Eigen/Dense>
+#include <fmt/format.h>
+#include <magic_enum.hpp>
 
-#include "SuppressWarningEnd.hpp"
+constexpr double maxDeltaTime = 0.2;
+constexpr int32_t maxCntWrongData = 5;
+
+constexpr double maxJumpXDist = 0.5;
+constexpr double maxJumpYDist = 0.5;
+constexpr double maxJumpZDist = 0.5;
+
+constexpr double maxXVel = 3.0;
+constexpr double maxYVel = 3.0;
+constexpr double maxZVel = 1.0;
 
 struct ArmorPredictorSettings final {
-    double maxDistance;
-    double step;
-    double fixedDelay;
+    bool enablePredictor;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorPredictorSettings& x) {
-    return f.object(x).fields(f.field("maxDistance", x.maxDistance), f.field("step", x.step),
-                              f.field("fixedDelay", x.fixedDelay));
+    return f.object(x).fields(f.field("enalePredictor", x.enablePredictor));
 }
 
-class Filter final {
-    cv::KalmanFilter mKF{ 2, 1, 0, CV_64F };
-    double mLastValue;
+class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, predict_success_atom> {
+    Identifier mKey, mIMUKey, mHeadKey;
+    GroupMask mGroupMask;
+
+    bool mInitFlag = false;
+    int32_t mCntWrongData = 0;
+    glm::dvec3 mLastPos;
+    TimePoint mLastTimePoint;
+    glm::dvec3 mPredictedVel;
+    Eigen::VectorXd mX;  // State vector(Position & Velocity)
+    Eigen::MatrixXd mF;  // State transform mat
+    Eigen::MatrixXd mP;  // State covariance mat
+    Eigen::MatrixXd mQ;  // Process covariance mat
+    Eigen::MatrixXd mH;  // Measurement mat
+    Eigen::MatrixXd mR;  // Measurement covariance mat
+
+    void setX(const glm::dvec3& measuredPos) {
+        Eigen::VectorXd initX(6, 1);
+        initX << measuredPos.x, measuredPos.y, measuredPos.z, 0.0, 0.0, 0.0;
+        mX = initX;
+    }
+
+    //检查数据是否跳变，跳变数据连续出现五次，则重新初始化滤波器
+    glm::dvec3 filterWrongData(const glm::dvec3& measuredPos) {
+        glm::dvec3 filterRes = measuredPos;
+        bool isWrongData = false;
+        if(mCntWrongData < maxCntWrongData) {  //如果跳变数据小于maxCntWrongData,则继续计数
+            if(std::fabs(measuredPos.x - mLastPos.x) > maxJumpXDist) {
+                isWrongData = true;
+                filterRes.x = mLastPos.x;
+            }
+            if(std::fabs(measuredPos.y - mLastPos.y) > maxJumpYDist) {
+                isWrongData = true;
+                filterRes.y = mLastPos.y;
+            }
+            if(std::fabs(measuredPos.z - mLastPos.z) > maxJumpXDist) {
+                isWrongData = true;
+                filterRes.z = mLastPos.z;
+            }
+        } else {  //跳变数据个数超过maxCntWrongData, 则重新初始化滤波器
+            mInitFlag = false;
+            mCntWrongData = 0;
+        }
+
+        if(isWrongData) {  //无跳变数据出现,为正常数据，对目标进行速度预测
+            mCntWrongData = 0;
+        } else {
+            ++mCntWrongData;  //跳变数据出现，进行计数
+        }
+        return filterRes;
+    }
+
+    void initialKalmanFilter(const glm::dvec3& measuredPos, const TimePoint& curTimePoint) {
+        mX.resize(6);
+        mF.setIdentity(6, 6);
+        mP.setIdentity(6, 6);
+        mQ.setIdentity(6, 6);
+        mH.resize(3, 6);
+        mH << 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,  //
+            0.0, 1.0, 0.0, 0.0, 0.0, 0.0,    //
+            0.0, 0.0, 1.0, 0.0, 0.0, 0.0;    //
+        mR.resize(3, 3);
+        mR << 0.01, 0.0, 0.0,  //
+            0.0, 0.01, 0.0,    //
+            0.0, 0.0, 0.01;
+
+        mLastPos = measuredPos;
+        mLastTimePoint = curTimePoint;
+        setX(measuredPos);
+        mInitFlag = true;
+    }
+
+    void Prediction() {
+        mX = mF * mX;
+        mP = mF * mP * mF.transpose() + mQ;
+    }
+
+    void UpdateMeasurement(const Eigen::VectorXd z) {
+        const auto y = z - mH * mX;  // Measure
+        const auto S = mH * mP * mH.transpose() + mR;
+        const auto K = mP * mH.transpose() * S.inverse();  // Kalman Gain
+        mX = mX + (K * y);                                 // Optimal estimate
+        const auto I = Eigen::MatrixXd::Identity(mX.size(), mX.size());
+        mP = (I - K * mH) * mP;
+    }
+
+    void KmFilter(const glm::dvec3& pos, double dt) {
+        Eigen::MatrixXd inputF(6, 6);
+        inputF << 1.0, 0.0, 0.0, dt, 0.0, 0.0,  //
+            0.0, 1.0, 0.0, 0.0, dt, 0.0,        //
+            0.0, 0.0, 1.0, 0.0, 0.0, dt,        //
+            0.0, 0.0, 0.0, 1.0, 0.0, 0.0,       //
+            0.0, 0.0, 0.0, 0.0, 1.0, 0.0,       //
+            0.0, 0.0, 0.0, 0.0, 0.0, 1.0;       //
+        mF << inputF;
+
+        Prediction();
+        Eigen::VectorXd measuredZ(3, 1);
+        measuredZ << pos.x, pos.y, pos.z;
+        UpdateMeasurement(measuredZ);
+
+        mPredictedVel = { mX(3), mX(4), mX(5) };
+        if(mPredictedVel.x > maxXVel) {  //限幅滤波
+            mPredictedVel.x = maxXVel;
+        }
+        if(mPredictedVel.y > maxYVel) {
+            mPredictedVel.y = maxYVel;
+        }
+        if(mPredictedVel.z > maxZVel) {
+            mPredictedVel.z = maxZVel;
+        }
+    }
+
+    void runFilter(const glm::dvec3& measuredPos, const TimePoint& curTimePoint) {
+        if(!mInitFlag) {
+            initialKalmanFilter(measuredPos, curTimePoint);
+            return;
+        }
+
+        double deltaTime =
+            static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(curTimePoint - mLastTimePoint).count()) /
+            1e6;
+        if(deltaTime > maxDeltaTime) {
+            initialKalmanFilter(measuredPos, curTimePoint);
+            return;
+        }
+        const auto filterPos = filterWrongData(measuredPos);
+        if(!mInitFlag) {
+            initialKalmanFilter(measuredPos, curTimePoint);
+            return;
+        }
+        KmFilter(filterPos, deltaTime);
+    }
 
 public:
-    Filter(const double value) : mLastValue{ value } {
-        mKF.transitionMatrix = (cv::Mat_<double>(2, 2) << 1, 1, 0, 1);
-        setIdentity(mKF.measurementMatrix);
-        setIdentity(mKF.processNoiseCov, cv::Scalar::all(1e-5));
-        setIdentity(mKF.measurementNoiseCov, cv::Scalar::all(1e-1));
-        setIdentity(mKF.errorCovPost, cv::Scalar::all(1));
+    ArmorPredictor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
 
-        mKF.statePost = (cv::Mat_<double>(2, 1) << value, 0);
-    }
-    std::pair<double, double> update(const double value, const int32_t dt, const double predictTime) {
-        for(int32_t idx = 0; idx < dt; ++idx)
-            mKF.predict();
-        mKF.correct((cv::Mat_<double>(1, 1) << value));
-        mLastValue = value;
-        return { mKF.statePost.at<double>(0) + mKF.statePost.at<double>(1) * predictTime, mKF.statePost.at<double>(1) };
-    }
-};
-
-class SpaceFilter final {
-    Filter mX, mY, mZ;
-    glm::dvec3 mLast;
-
-public:
-    explicit SpaceFilter(const glm::dvec3& pos) : mX{ pos.x }, mY{ pos.y }, mZ{ pos.z }, mLast{ pos } {}
-    double distance(const glm::dvec3& pos) const noexcept {
-        return glm::distance(mLast, pos);
-    }
-    std::pair<glm::dvec3, glm::dvec3> update(const glm::dvec3& pos, const int32_t dt, const double predictTime) {
-        mLast = pos;
-        const auto [px, vx] = mX.update(pos.x, dt, predictTime);
-        const auto [py, vy] = mY.update(pos.y, dt, predictTime);
-        const auto [pz, vz] = mZ.update(pos.z, dt, predictTime);
-        return { { px, py, pz }, { vx, vy, vz } };
-    }
-};
-
-class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, detect_available_atom> {
-    Identifier mKey;
-    TimePoint mLastUpdate{ 0s };
-    int64_t mAccumulatedTime = 0, mTimeStep = 100'000'000;
-    std::vector<SpaceFilter> mTargets;
-    static constexpr double timeScale = static_cast<double>(Clock::period::den) / static_cast<double>(Clock::period::num);
-
-public:
-    ArmorPredictor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-        mTimeStep = static_cast<int64_t>(mConfig.step * timeScale);
-    }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [&](detect_available_atom, GroupMask mask, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
-                     ACTOR_EXCEPTION_PROBE();
+        return {
+            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [this](set_target_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);
+                ACTOR_EXCEPTION_PROBE();
 
-                     auto res = BlackBoard::instance().get<DetectedTargetArray>(key).value();
+                auto data = BlackBoard::instance().get<SelectedTarget>(key);
+                const auto dataHeadInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
+                const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
+                if(!(data.has_value() && data.value().selected.has_value() && dataHeadInfo.has_value() &&
+                     dataPosture.has_value()))
+                    return;
 
-                     if(res.lastUpdate - mLastUpdate < 1s)
-                         mAccumulatedTime += (res.lastUpdate - mLastUpdate).count();
-                     else {
-                         mTargets.clear();
-                         mAccumulatedTime = 0;
-                     }
+                Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data.value().selected.value().center.raw());
+                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = dataHeadInfo.value().transform.inverse()(posOfRefGun);
+                Vector<UnitType::LinearVelocity, FrameOfRef::Ground> linearVelocity(
+                    dataPosture.value().linearVelocityOfRobot.raw());
+                data.value().position = posRefRobot;
 
-                     mLastUpdate = res.lastUpdate;
+                if(mConfig.enablePredictor) {  //如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
+                    glm::dvec3 measuredPos = posRefRobot.raw();
+                    runFilter(measuredPos, data.value().lastUpdate);
+                    data.value().selected.value().velocity.setValue(mPredictedVel);
+                } else {  //如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
+                    data.value().selected.value().velocity.setValue(-linearVelocity.raw());
+                }
 
-                     std::vector<double> w;
-                     w.reserve(mTargets.size() * res.targets.size());
-                     for(auto& old : mTargets)
-                         for(auto& cur : res.targets) {
-                             const auto dist = old.distance(cur.center.raw());
-                             if(dist < mConfig.maxDistance)
-                                 w.push_back(1e7 - dist);
-                             else
-                                 w.push_back(0.0);
-                         }
+                sendAll(predict_success_atom_v,
+                        BlackBoard::instance().updateSync<SelectedTarget>(Identifier{ mKey.val }, data.value()));
+            },
+            [this](update_head_atom, GroupMask, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
+                mHeadKey = key;
+            },
+            [this](update_posture_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);
+                mIMUKey = key;
+            }
 
-                     const auto match =
-                         solveKM(static_cast<uint32_t>(mTargets.size()), static_cast<uint32_t>(res.targets.size()), w);
-
-                     const auto dt = static_cast<int32_t>(mAccumulatedTime / mTimeStep);
-                     mAccumulatedTime -= dt * mTimeStep;
-
-                     const auto predictTime =
-                         (static_cast<double>(mAccumulatedTime + (SynchronizedClock::instance().now() - mLastUpdate).count()) /
-                              timeScale +
-                          mConfig.fixedDelay) /
-                         mConfig.step;
-
-                     std::vector<bool> use(mTargets.size());
-                     for(uint32_t idx = 0; idx < res.targets.size(); ++idx) {
-                         auto& cur = res.targets[idx];
-                         if(match[idx] != std::numeric_limits<uint32_t>::max()) {
-                             auto& old = mTargets[match[idx]];
-                             const auto [p, v] = old.update(cur.center.raw(), dt, predictTime);
-                             cur.center = decltype(cur.center){ p };
-                             cur.velocity = decltype(cur.velocity){ v };
-                             use[match[idx]] = true;
-                         } else
-                             mTargets.push_back(SpaceFilter{ cur.center.raw() });
-                     }
-                     for(int32_t idx = static_cast<int32_t>(use.size()) - 1; idx >= 0; --idx)
-                         if(!use[idx])
-                             mTargets.erase(mTargets.cbegin() + idx);
-
-                     sendAll(detect_available_atom_v, mask, BlackBoard::instance().updateSync(mKey, std::move(res)));
-                 } };
+        };
     }
 };
 

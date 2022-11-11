@@ -159,7 +159,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
             PostureData posture;
             posture.lastUpdate = SynchronizedClock::instance().now();
-            posture.postureOfRobot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
+            posture.tfGround2Robot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
             lastReceivedTime = SynchronizedClock::instance().now();
             lastSpeedX = fdb.speedX;
             lastSpeedY = fdb.speedY;
