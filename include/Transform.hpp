@@ -55,30 +55,29 @@ template <UnitType Unit>
 struct Scalar final {
     double mVal;
 
-    Scalar() {}
+    Scalar() = default;
     Scalar(double val) : mVal(val) {}
-    Scalar(const Scalar<Unit>& rhs) : mVal(rhs.mVal) {}
 
     constexpr Scalar& operator=(double val) {
         mVal = val;
         return *this;
     }
-    constexpr Scalar& operator=(const Scalar<Unit>& rhs) {
+    constexpr Scalar& operator=(const Scalar& rhs) {
         mVal = rhs.mVal;
         return *this;
     }
 
-    Scalar<Unit> operator+(Scalar rhs) const noexcept {
-        return Scalar<Unit>{ mVal + rhs.mVal };
+    Scalar operator+(const Scalar& rhs) const noexcept {
+        return mVal + rhs.mVal;
     }
-    Scalar<Unit>& operator+=(Scalar rhs) noexcept {
+    Scalar& operator+=(const Scalar& rhs) noexcept {
         mVal += rhs.mVal;
         return (*this);
     }
-    Scalar<Unit> operator-(Scalar rhs) const noexcept {
-        return Scalar<Unit>{ mVal - rhs.mVal };
+    Scalar operator-(const Scalar& rhs) const noexcept {
+        return mVal - rhs.mVal;
     }
-    Scalar<Unit>& operator-=(Scalar rhs) noexcept {
+    Scalar& operator-=(const Scalar& rhs) noexcept {
         mVal -= rhs.mVal;
         return (*this);
     }
@@ -90,22 +89,22 @@ struct Scalar final {
     Scalar<division<Unit, RhsUnit>> operator/(Scalar<RhsUnit> rhs) const noexcept {
         return Scalar<division<Unit, RhsUnit>>{ mVal / rhs.mVal };
     }
-    bool operator>(Scalar rhs) const noexcept {
+    bool operator>(const Scalar& rhs) const noexcept {
         return mVal > rhs.mVal;
     }
-    bool operator>=(Scalar rhs) const noexcept {
+    bool operator>=(const Scalar& rhs) const noexcept {
         return mVal >= rhs.mVal;
     }
-    bool operator<(Scalar rhs) const noexcept {
+    bool operator<(const Scalar& rhs) const noexcept {
         return mVal < rhs.mVal;
     }
-    bool operator<=(Scalar rhs) const noexcept {
+    bool operator<=(const Scalar& rhs) const noexcept {
         return mVal <= rhs.mVal;
     }
-    bool operator==(Scalar rhs) const noexcept {
+    bool operator==(const Scalar& rhs) const noexcept {
         return mVal == rhs.mVal;
     }
-    bool operator!=(Scalar rhs) const noexcept {
+    bool operator!=(const Scalar& rhs) const noexcept {
         return mVal != rhs.vmVall;
     }
 };
@@ -119,6 +118,11 @@ public:
     Vector(double x, double y, double z) : mVal(x, y, z) {}
     Vector(const glm::dvec3& val) : mVal(val) {}
     Vector(glm::dvec3&& val) : mVal(std::move(val)) {}
+
+    Vector& operator=(const glm::dvec3& rhsVal) {
+        mVal = rhsVal;
+        return *this;
+    }
 
     Vector& operator=(glm::dvec3&& rhsVal) {
         mVal = std::move(rhsVal);
@@ -253,15 +257,21 @@ class Normal final {
     glm::dvec3 mVal;
 
 public:
-    Normal(const glm::dvec3& val, Normalized) : mVal(val)  {}
+    Normal(const glm::dvec3& val, Normalized) : mVal(val) {}
     Normal(const glm::dvec3& val) : mVal(glm::normalize(val)) {}
 
+    template <UnitType Unit>
+    explicit Normal(const Vector<Unit, FoR>& v, Normalized) : mVal{ v.mVal } {}
     template <UnitType Unit>
     explicit Normal(const Vector<Unit, FoR>& v) : mVal{ glm::normalize(v.mVal) } {}
 
     template <UnitType Unit>
     auto operator*(const Scalar<Unit> distance) const noexcept {
         return Vector<Unit, FoR>{ mVal * distance.mVal };
+    }
+    template <UnitType Unit>
+    auto operator*(const Vector<Unit, FoR> rhs) const noexcept {
+        return Scalar<Unit>{ mVal * rhs.mVal };
     }
     Normal operator-() const noexcept {
         return { -mVal, Normalized{} };
@@ -384,9 +394,3 @@ template <FrameOfRef A, FrameOfRef B, FrameOfRef C, bool LhsHasTranslate, bool R
 auto combine(const Transform<B, C, LhsHasTranslate>& second, const Transform<A, B, RhsHasTranslate>& first) noexcept {
     return Transform < A, C, LhsHasTranslate && RhsHasTranslate > (second.raw() * first.raw());
 }
-
-#define COMMA ,
-static_assert((offsetof(Point<UnitType::Undefined COMMA FrameOfRef::Ground>, mVal.x) == offsetof(glm::dvec4, x)) &&
-              (offsetof(Point<UnitType::Undefined COMMA FrameOfRef::Ground>, mVal.y) == offsetof(glm::dvec4, y)) &&
-              (offsetof(Point<UnitType::Undefined COMMA FrameOfRef::Ground>, mVal.z) == offsetof(glm::dvec4, z)));
-#undef COMMA

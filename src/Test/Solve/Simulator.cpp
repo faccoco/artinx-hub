@@ -64,8 +64,8 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
     std::vector<std::pair<Point<UnitType::Distance, FrameOfRef::Ground>, Vector<UnitType::LinearVelocity, FrameOfRef::Ground>>>
         mBullets;  // pair : [pose velocity]
     std::pair<MotionState, std::unique_ptr<MotionController>> mTarget;
-    std::vector<std::tuple<Transform<FrameOfRef::Armor, FrameOfRef::Robot, true>, std::pair<double, double>>>
-        mTargetArmors;  // tuple : (relatedPosition [width height])
+    std::vector<std::pair<Transform<FrameOfRef::Armor, FrameOfRef::Robot, true>, std::pair<double, double>>>
+        mTargetArmors;  // pair : (relatedPosition [width height])
     std::pair<MotionState, std::unique_ptr<MotionController>> mSource;
     std::mt19937_64 mEngine{ static_cast<uint64_t>(Clock::now().time_since_epoch().count()) };
 
@@ -267,7 +267,9 @@ public:
             // update collisions
             {
                 const auto& tfRobot2Ground = mTarget.first;
-                for(auto& [tfArmor2Robot, area] : mTargetArmors) {
+                for(size_t i = 0; i < mTargetArmors.size(); i++) {
+                    auto& tfArmor2Robot = mTargetArmors[i].first;
+                    auto& area = mTargetArmors[i].second;
                     const auto tfArmor2Ground = combine(tfRobot2Ground, tfArmor2Robot);
                     const auto tfGround2Armor = tfArmor2Ground.invTransformObj();
 
@@ -279,11 +281,12 @@ public:
 
                         /* If the projection of the velocity of the bullet in the normal direction of the armor plate is less
                         than a certain threshold and it's projection is within armor, the bullet can hit */
-                        if(posRefArmor.mVal.z > -bulletRadius.mVal  && std::fabs(posRefArmor.mVal.x) <= area.first &&
-                           std::fabs(posRefArmor.mVal.y) <= area.second && velRefArmor.mVal.z <= -mNorThresholdVel) {
+                        if(posRefArmor.mVal.z > -bulletRadius.mVal && std::fabs(posRefArmor.mVal.x) <= area.first / 2 &&
+                           std::fabs(posRefArmor.mVal.y) <= area.second / 2 && velRefArmor.mVal.z >= mNorThresholdVel) {
                             bullet.first.mVal.y = -1.0;
-                            logInfo(fmt::format("Hit at ({:.2f},{:.2f},{:.2f})", tfArmor2Ground.translatePoint().mVal.x,
-                                                tfArmor2Ground.translatePoint().mVal.y, tfArmor2Ground.translatePoint().mVal.z));
+                            logInfo(fmt::format("Hit at armor[{}] ({:.2f},{:.2f},{:.2f})", i,
+                                                tfArmor2Ground.translatePoint().mVal.x, tfArmor2Ground.translatePoint().mVal.y,
+                                                tfArmor2Ground.translatePoint().mVal.z));
                             ++hitCount;
                         }
                     }
@@ -316,7 +319,7 @@ public:
                 const Scalar<UnitType::LinearVelocity> v{ std::clamp(vGen(mEngine), minVelocity.mVal, maxVelocity.mVal) };
                 GlobalSettings::get().bulletSpeed = v.mVal;
 
-                const auto velocity = tfGun2Ground(Normal<FrameOfRef::Gun>( { 0.0, 0.0, -1.0f }, Normalized())) * v;
+                const auto velocity = tfGun2Ground(Normal<FrameOfRef::Gun>({ 0.0, 0.0, -1.0f }, Normalized())) * v;
 
                 mBullets.emplace_back(tfGun2Ground.translatePoint(), vSrc + velocity);
 
