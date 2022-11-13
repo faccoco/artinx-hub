@@ -131,8 +131,10 @@ public:
                 HubLogger::watch("z", posRefRobot.mVal.z);
 
                 //(forward:+y,right:+x)
-                glm::dvec3 tfPos =  posRefRobot.mVal;
-                glm::dvec3 tfLinearVel = linearVel.mVal;
+                //(forward:+y,right:+x)
+                glm::dvec3 tfPos = {posRefRobot.mVal.x, -posRefRobot.mVal.z, posRefRobot.mVal.y} ;
+                glm::dvec3 tfLinearVel = { linearVel.mVal.x, -linearVel.mVal.z, linearVel.mVal.y };
+
                 // logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y,
                 // linearVelocity.raw().z));
                 tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,

@@ -279,8 +279,8 @@ public:
 
                         /* If the projection of the velocity of the bullet in the normal direction of the armor plate is less
                         than a certain threshold and it's projection is within armor, the bullet can hit */
-                        if(std::fabs(posRefArmor.mVal.z) < bulletRadius.mVal && std::fabs(posRefArmor.mVal.x) < area.first &&
-                           std::fabs(posRefArmor.mVal.y) < area.second && velRefArmor.mVal.z < -mNorThresholdVel) {
+                        if(posRefArmor.mVal.z > -bulletRadius.mVal  && std::fabs(posRefArmor.mVal.x) <= area.first &&
+                           std::fabs(posRefArmor.mVal.y) <= area.second && velRefArmor.mVal.z <= -mNorThresholdVel) {
                             bullet.first.mVal.y = -1.0;
                             logInfo(fmt::format("Hit at ({:.2f},{:.2f},{:.2f})", tfArmor2Ground.translatePoint().mVal.x,
                                                 tfArmor2Ground.translatePoint().mVal.y, tfArmor2Ground.translatePoint().mVal.z));
@@ -329,15 +329,15 @@ public:
             {
                 const auto posSrc = mSource.first.translatePoint();
 
-                logInfo(fmt::format("Source(Self) position   {:.3f} {:.3f} {:.3f}", posSrc.mVal.x, posSrc.mVal.y, posSrc.mVal.z));
+                logInfo(fmt::format("Source position   {:.3f} {:.3f} {:.3f}", posSrc.mVal.x, posSrc.mVal.y, posSrc.mVal.z));
 
                 const auto posDst = mTarget.first.translatePoint();
 
-                logInfo(fmt::format("Target(Enemy) position  {:.3f} {:.3f} {:.3f}", posDst.mVal.x, posDst.mVal.y, posDst.mVal.z));
+                logInfo(fmt::format("Target position  {:.3f} {:.3f} {:.3f}", posDst.mVal.x, posDst.mVal.y, posDst.mVal.z));
 
                 auto diff = normalize(posDst - posSrc);
 
-                logInfo(fmt::format("Ref dir(Enemy ref Self) {:.3f} {:.3f} {:.3f}", diff.raw().x, diff.raw().y, diff.raw().z));
+                logInfo(fmt::format("Ref dir(Dst ref Src) {:.3f} {:.3f} {:.3f}", diff.raw().x, diff.raw().y, diff.raw().z));
 
                 const auto real = normalize(tfGun2Ground(Vector<UnitType::Distance, FrameOfRef::Gun>{ 0.0, 0.0, -1.0f }));
                 logInfo(fmt::format("Gun dir {:.3f} {:.3f} {:.3f}", real.raw().x, real.raw().y, real.raw().z));
