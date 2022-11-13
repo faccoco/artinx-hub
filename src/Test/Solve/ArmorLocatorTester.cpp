@@ -129,8 +129,8 @@ public:
                      const auto expected = mExpected.front();
                      mExpected.pop();
 
-                     const auto expectedRaw = expected.raw();
-                     const auto solvedRaw = solved.raw();
+                     const auto expectedRaw = expected.mVal;
+                     const auto solvedRaw = solved.mVal;
 
                      double error;
                      std::string message;
@@ -142,8 +142,8 @@ public:
                          error = angle / glm::pi<double>();
                          message = fmt::format("Error: {:.2f}% (degree {:.3f})", error * 100.0, glm::degrees(angle));
                      } else {
-                         const auto dist = distance(expected, solved).val;
-                         const auto scale = glm::length(expected.raw());
+                         const auto dist = distance(expected, solved).mVal;
+                         const auto scale = glm::length(expected.mVal);
                          error = dist / scale;  // relative error
                          message = fmt::format(
                              "Error: {:.2f}% ({:.3f}/{:.3f}) Expected {:.3f} {:.3f} {:.3f} Solved {:.3f} {:.3f} {:.3f}",

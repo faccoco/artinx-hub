@@ -35,7 +35,7 @@ public:
 
                      auto minDistance = std::numeric_limits<double>::max();
                      for(auto& target : data.targets) {
-                         const auto vec = target.center.raw();
+                         const auto vec = target.center.mVal;
                          const auto distance = vec.x * vec.x + vec.y * vec.y;
                          if(distance < minDistance) {
                              selected.selected = target;

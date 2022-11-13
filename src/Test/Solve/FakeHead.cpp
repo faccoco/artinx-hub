@@ -103,7 +103,7 @@ public:
                      }
 
                      const HeadInfo info{ mCurrent,
-                                          decltype(HeadInfo::transform){ glm::lookAtRH(
+                                          decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
                                               glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
                                               glm::dvec3{ std::cos(yaw + glm::half_pi<double>()) * std::cos(pitch),
                                                           mConfig.headHeightOffset + std::sin(pitch),

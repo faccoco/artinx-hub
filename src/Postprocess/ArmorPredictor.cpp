@@ -46,7 +46,7 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
     TimePoint mLastTimePoint;
     glm::dvec3 mPredictedVel;
     Eigen::VectorXd mX;  // State vector(Position & Velocity)
-    Eigen::MatrixXd mF;  // State transform mat
+    Eigen::MatrixXd mF;  // State tfRobot2Gun mat
     Eigen::MatrixXd mP;  // State covariance mat
     Eigen::MatrixXd mQ;  // Process covariance mat
     Eigen::MatrixXd mH;  // Measurement mat
@@ -187,18 +187,19 @@ public:
                      dataPosture.has_value()))
                     return;
 
-                Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data.value().selected.value().center.raw());
-                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = dataHeadInfo.value().transform.inverse()(posOfRefGun);
+                Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data.value().selected.value().center.mVal);
+                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot =
+                    dataHeadInfo.value().tfRobot2Gun.invTransform(posOfRefGun);
                 Vector<UnitType::LinearVelocity, FrameOfRef::Ground> linearVelocity(
-                    dataPosture.value().linearVelocityOfRobot.raw());
+                    dataPosture.value().linearVelocityOfRobot.mVal);
                 data.value().position = posRefRobot;
 
                 if(mConfig.enablePredictor) {  //如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
-                    glm::dvec3 measuredPos = posRefRobot.raw();
+                    glm::dvec3 measuredPos = posRefRobot.mVal;
                     runFilter(measuredPos, data.value().lastUpdate);
-                    data.value().selected.value().velocity.setValue(mPredictedVel);
+                    data.value().selected.value().velocity.mVal = mPredictedVel;
                 } else {  //如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
-                    data.value().selected.value().velocity.setValue(-linearVelocity.raw());
+                    data.value().selected.value().velocity.mVal = -linearVelocity.mVal;
                 }
 
                 sendAll(predict_success_atom_v,

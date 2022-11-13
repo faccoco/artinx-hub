@@ -6,7 +6,7 @@
 struct SimulatorWorldInfo final {
     TimePoint lastUpdate;
 
-    Transform<FrameOfRef::Ground, FrameOfRef::Robot, true> posture;
+    Transform<FrameOfRef::Ground, FrameOfRef::Robot, true> tfGround2Robot;
 
     std::vector<Point<UnitType::Distance, FrameOfRef::Ground>> targets;
 };

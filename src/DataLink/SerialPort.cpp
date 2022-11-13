@@ -137,7 +137,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             fdb.downYaw = (fdb.downYaw < 0.0f) ? fdb.downYaw + glm::two_pi<float>() : fdb.downYaw;
 
             const HeadInfo infoUp{ SynchronizedClock::instance().now(),
-                                   decltype(HeadInfo::transform){ glm::lookAtRH(
+                                   decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
                                        glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
                                        glm::dvec3{ std::cos(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
                                                        std::cos(static_cast<double>(fdb.pitch)),
@@ -147,7 +147,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                                                            std::cos(static_cast<double>(fdb.pitch)) },
                                        glm::dvec3{ 0.0, 1.0, 0.0 }) } };
             const HeadInfo infoDown{ SynchronizedClock::instance().now(),
-                                     decltype(HeadInfo::transform){ glm::lookAtRH(
+                                     decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
                                          glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
                                          glm::dvec3{ std::cos(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
                                                          std::cos(static_cast<double>(fdb.downPitch)),
