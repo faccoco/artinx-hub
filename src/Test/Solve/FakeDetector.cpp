@@ -62,7 +62,7 @@ public:
 
                     data.lastUpdate = current;
 
-                    const auto worldTrans = info.posture * head.transform;
+                    const auto worldTrans = combine(info.tfGround2Robot, head.tfRobot2Gun) ;
 
                     for(const auto& target : info.targets) {
                         const auto pos = worldTrans(target);

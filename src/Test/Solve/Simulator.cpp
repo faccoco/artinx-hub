@@ -14,7 +14,6 @@
 #include <caf/blocking_actor.hpp>
 #include <fmt/format.h>
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/matrix_decompose.hpp>
 #include <magic_enum.hpp>
 
 #include "SuppressWarningEnd.hpp"
@@ -65,11 +64,12 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
     std::vector<std::pair<Point<UnitType::Distance, FrameOfRef::Ground>, Vector<UnitType::LinearVelocity, FrameOfRef::Ground>>>
         mBullets;  // pair : [pose velocity]
     std::pair<MotionState, std::unique_ptr<MotionController>> mTarget;
-    std::vector<std::tuple<Transform<FrameOfRef::Armor, FrameOfRef::Robot, true>,
-                           std::pair<Scalar<UnitType::Distance>, Scalar<UnitType::Distance>>, std::vector<bool>>>
-        mTargetArmors;  // tuple : [relatedPosition [width height] possibleToBeShot]
+    std::vector<std::tuple<Transform<FrameOfRef::Armor, FrameOfRef::Robot, true>, std::pair<double, double>>>
+        mTargetArmors;  // tuple : (relatedPosition [width height])
     std::pair<MotionState, std::unique_ptr<MotionController>> mSource;
     std::mt19937_64 mEngine{ static_cast<uint64_t>(Clock::now().time_since_epoch().count()) };
+
+    const double mNorThresholdVel = 6.0;
 
     void initializeTestCase() {
         {
@@ -105,17 +105,17 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                                     15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 });
                     mTargetArmors.clear();
                     mTargetArmors.reserve(4);
-                    mTargetArmors.emplace_back(baseTransform, std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
+                    mTargetArmors.emplace_back(baseTransform, std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
                     mTargetArmors.emplace_back(
                         glm::rotate(glm::identity<glm::dmat4>(), glm::half_pi<double>(), { 0.0, 1.0, 0.0 }) * baseTransform,
-                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
+                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
                     mTargetArmors.emplace_back(glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>(), { 0.0, 1.0, 0.0 }) *
                                                    baseTransform,
-                                               std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
+                                               std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
                     mTargetArmors.emplace_back(
                         glm::rotate(glm::identity<glm::dmat4>(), glm::three_over_two_pi<double>(), { 0.0, 1.0, 0.0 }) *
                             baseTransform,
-                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
+                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
                     break;
                 }
                 case TargetType::Sentry: {
@@ -124,10 +124,10 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                                     -15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 });
                     mTargetArmors.clear();
                     mTargetArmors.reserve(2);
-                    mTargetArmors.emplace_back(baseTransform, std::make_pair(widthOfLargeArmor, heightOfLargeArmor), 0);
+                    mTargetArmors.emplace_back(baseTransform, std::make_pair(widthOfLargeArmor, heightOfLargeArmor));
                     mTargetArmors.emplace_back(glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>(), { 0.0, 1.0, 0.0 }) *
                                                    baseTransform,
-                                               std::make_pair(widthOfLargeArmor, heightOfLargeArmor), 0);
+                                               std::make_pair(widthOfLargeArmor, heightOfLargeArmor));
                     break;
                 }
                 case TargetType::Outpost: {
@@ -137,13 +137,13 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                                        { 0.0, -heightOfSmallArmor / 2, 0.0 });
                     mTargetArmors.clear();
                     mTargetArmors.reserve(3);
-                    mTargetArmors.emplace_back(baseTransform, std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
+                    mTargetArmors.emplace_back(baseTransform, std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
                     mTargetArmors.emplace_back(
                         glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>() * 2 / 3, { 0.0, 1.0, 0.0 }) * baseTransform,
-                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
+                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
                     mTargetArmors.emplace_back(
                         glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>() * 4 / 3, { 0.0, 1.0, 0.0 }) * baseTransform,
-                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor), 0);
+                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
                     break;
                 }
 
@@ -213,11 +213,12 @@ public:
 
         while(runFlag) {
             for(auto& [pos, v] : mBullets) {
-                if(pos.val.y < 0.0)
+                if(pos.mVal.y < 0.0)
                     continue;
 
                 if(mConfig.printBulletPos) {
-                    logInfo(fmt::format("bullet {:.2f} {:.2f} {:.2f}", pos.val.x, pos.val.y, pos.val.z));
+                    logInfo(fmt::format("bullet position: {:.2f} {:.2f} {:.2f}", pos.mVal.x, pos.mVal.y, pos.mVal.z));
+                    logInfo(fmt::format("bullet velocity: {:.2f} {:.2f} {:.2f}", v.mVal.x, v.mVal.y, v.mVal.z));
                 }
             }
 
@@ -226,18 +227,18 @@ public:
             // step:update source pose and velocity
             Vector<UnitType::LinearVelocity, FrameOfRef::Ground> vSrc;
             {
-                const auto p1 = mSource.first.displacement();
-                mSource.second->step(mSource.first, dt.val);
-                const auto p2 = mSource.first.displacement();
+                const auto p1 = mSource.first.translatePoint();
+                mSource.second->step(mSource.first, dt.mVal);
+                const auto p2 = mSource.first.translatePoint();
                 vSrc = (p2 - p1) / dt;
             }
-            mTarget.second->step(mTarget.first, dt.val);
+            mTarget.second->step(mTarget.first, dt.mVal);
 
             for(auto& [pos, v] : mBullets) {
-                if(pos.val.y < 0.0)
+                if(pos.mVal.y < 0.0)
                     continue;
                 pos += v * dt;
-                v += glm::dvec3{ 0.0, GlobalSettings::get().gForce * dt.val, 0.0 };
+                v += glm::dvec3{ 0.0, GlobalSettings::get().gForce * dt.mVal, 0.0 };
             }
 
             time += dt;
@@ -247,16 +248,16 @@ public:
                 SimulatorWorldInfo info;
 
                 info.lastUpdate = TimePoint{ static_cast<Duration>(
-                    static_cast<Clock::rep>(time.val * Clock::period::den / Clock::period::num)) };
+                    static_cast<Clock::rep>(time.mVal * Clock::period::den / Clock::period::num)) };
                 SynchronizedClock::instance().setSimulationTime(info.lastUpdate);
 
-                info.posture = mSource.first.inverse();
+                info.tfGround2Robot = mSource.first.invTransformObj();
 
                 {
                     const auto& targetMotion = mTarget.first;
 
-                    for(auto& [armorRelatedMotion, threshold, posible] : mTargetArmors) {
-                        info.targets.emplace_back(combine(targetMotion, armorRelatedMotion).displacement());
+                    for(auto& [armorRelatedMotion, threshold] : mTargetArmors) {
+                        info.targets.emplace_back(combine(targetMotion, armorRelatedMotion).translatePoint());
                     }
                 }
 
@@ -265,35 +266,26 @@ public:
 
             // update collisions
             {
-                const auto& targetMotion = mTarget.first;
-                const Normal<UnitType::Distance, FrameOfRef::Armor> normal{ 0.0, 1.0, 0.0 };
-                for(auto& [armorRelatedMotion, area, possible] : mTargetArmors) {
-                    const auto armorMotion = combine(targetMotion, armorRelatedMotion);
-                    const auto armorTransform = armorMotion.inverse();
+                const auto& tfRobot2Ground = mTarget.first;
+                for(auto& [tfArmor2Robot, area] : mTargetArmors) {
+                    const auto tfArmor2Ground = combine(tfRobot2Ground, tfArmor2Robot);
+                    const auto tfGround2Armor = tfArmor2Ground.invTransformObj();
 
-                    for(size_t i = 0; i < possible.size(); i++) {
-                        if(mBullets[i].first.val.y < 0.0)
+                    for(auto& bullet : mBullets) {
+                        if(bullet.first.mVal.y < 0.0)
                             continue;
-                        auto p = armorTransform(mBullets[i].first);
-                        // a bullet hit if the bullet is possible and behind armor and it's projection is within armor
-                        if(possible[i] && p.val.z >= 0 && p.val.x <= area.first.val / 2 && p.val.x >= -area.first.val / 2 &&
-                           p.val.y <= area.second.val / 2 && p.val.y >= -area.second.val / 2) {
-                            mBullets[i].first.val.y = -1.0;
-                            logInfo(fmt::format("Hit at ({:.2f},{:.2f},{:.2f})", armorMotion.displacement().val.x,
-                                                armorMotion.displacement().val.y, armorMotion.displacement().val.z));
+                        const auto posRefArmor = tfGround2Armor(bullet.first);
+                        const auto velRefArmor = tfGround2Armor(bullet.second);
+
+                        /* If the projection of the velocity of the bullet in the normal direction of the armor plate is less
+                        than a certain threshold and it's projection is within armor, the bullet can hit */
+                        if(std::fabs(posRefArmor.mVal.z) < bulletRadius.mVal && std::fabs(posRefArmor.mVal.x) < area.first &&
+                           std::fabs(posRefArmor.mVal.y) < area.second && velRefArmor.mVal.z < -mNorThresholdVel) {
+                            bullet.first.mVal.y = -1.0;
+                            logInfo(fmt::format("Hit at ({:.2f},{:.2f},{:.2f})", tfArmor2Ground.translatePoint().mVal.x,
+                                                tfArmor2Ground.translatePoint().mVal.y, tfArmor2Ground.translatePoint().mVal.z));
                             ++hitCount;
                         }
-                    }
-                    possible.resize(mBullets.size());
-                    for(size_t i = 0; i < mBullets.size(); i++) {
-                        if(mBullets[i].first.val.y < 0.0)
-                            continue;
-                        auto p = armorTransform(mBullets[i].first);
-                        // a bullet is possible when it's on the front of armor
-                        if(p.val.z > 0.0)
-                            possible[i] = false;
-                        else
-                            possible[i] = true;
                     }
                 }
             }
@@ -312,44 +304,43 @@ public:
                 [&](timer_atom) { ACTOR_PROTOCOL_CHECK(timer_atom); });
 
             const auto headData = BlackBoard::instance().get<HeadInfo>(mHeadKey);
-            Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> headTrans{ glm::identity<glm::dmat4>() };
+            Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun{ glm::identity<glm::dmat4>() };
             if(headData.has_value()) {
-                headTrans = headData.value().transform;
+                tfRobot2Gun = headData.value().tfRobot2Gun;
             }
 
-            const auto transform = combine(headTrans.inverse(), mSource.first);
+            const auto tfGun2Ground = combine(tfRobot2Gun.invTransformObj(), mSource.first);
 
             // shoot
             if(shoot && bulletCount < mConfig.bulletCount && time - lastShoot > mConfig.shootInterval) {
-                const Scalar<UnitType::LinearVelocity> v{ std::clamp(vGen(mEngine), minVelocity.val, maxVelocity.val) };
-                GlobalSettings::get().bulletSpeed = v.val;
+                const Scalar<UnitType::LinearVelocity> v{ std::clamp(vGen(mEngine), minVelocity.mVal, maxVelocity.mVal) };
+                GlobalSettings::get().bulletSpeed = v.mVal;
 
-                const auto velocity =
-                    transform(Normal<UnitType::LinearVelocity, FrameOfRef::Gun>{ 0.0, 0.0, -1.0f, Normalized() }) * v;
+                const auto velocity = tfGun2Ground(Normal<FrameOfRef::Gun>( { 0.0, 0.0, -1.0f }, Normalized())) * v;
 
-                mBullets.emplace_back(transform.displacement(), vSrc + velocity);
+                mBullets.emplace_back(tfGun2Ground.translatePoint(), vSrc + velocity);
 
                 lastShoot = time;
                 ++bulletCount;
             }
 
             logInfo(
-                fmt::format("Simulator time {:.3f}s bullet count {} hit {} shoot {}", time.val, bulletCount, hitCount, shoot));
+                fmt::format("Simulator time {:.3f}s bullet count {} hit {} shoot {}", time.mVal, bulletCount, hitCount, shoot));
             {
-                const auto posSrc = mSource.first.displacement();
+                const auto posSrc = mSource.first.translatePoint();
 
-                logInfo(fmt::format("Source {:.3f} {:.3f} {:.3f}", posSrc.val.x, posSrc.val.y, posSrc.val.z));
+                logInfo(fmt::format("Source(Self) position   {:.3f} {:.3f} {:.3f}", posSrc.mVal.x, posSrc.mVal.y, posSrc.mVal.z));
 
-                const auto posDst = mTarget.first.displacement();
+                const auto posDst = mTarget.first.translatePoint();
 
-                logInfo(fmt::format("Target {:.3f} {:.3f} {:.3f}", posDst.val.x, posDst.val.y, posDst.val.z));
+                logInfo(fmt::format("Target(Enemy) position  {:.3f} {:.3f} {:.3f}", posDst.mVal.x, posDst.mVal.y, posDst.mVal.z));
 
                 auto diff = normalize(posDst - posSrc);
 
-                logInfo(fmt::format("Ref dir {:.3f} {:.3f} {:.3f}", diff.val.x, diff.val.y, diff.val.z));
+                logInfo(fmt::format("Ref dir(Enemy ref Self) {:.3f} {:.3f} {:.3f}", diff.raw().x, diff.raw().y, diff.raw().z));
 
-                const auto real = normalize(transform(Vector<UnitType::Distance, FrameOfRef::Gun>{ 0.0, 0.0, -1.0f }));
-                logInfo(fmt::format("Gun dir {:.3f} {:.3f} {:.3f}", real.val.x, real.val.y, real.val.z));
+                const auto real = normalize(tfGun2Ground(Vector<UnitType::Distance, FrameOfRef::Gun>{ 0.0, 0.0, -1.0f }));
+                logInfo(fmt::format("Gun dir {:.3f} {:.3f} {:.3f}", real.raw().x, real.raw().y, real.raw().z));
 
                 Scalar<UnitType::Distance> minDist{ 1e10 };
                 std::optional<
@@ -357,10 +348,10 @@ public:
                     closest = std::nullopt;
 
                 for(auto& trans : mTargetArmors) {
-                    const auto pos = combine(mTarget.first, std::get<0>(trans)).displacement();
+                    const auto pos = combine(mTarget.first, std::get<0>(trans)).translatePoint();
 
                     for(const auto& [p, v] : mBullets) {
-                        if(p.val.y < 0.0)
+                        if(p.mVal.y < 0.0)
                             continue;
                         if(const auto dist = distance(p, pos); dist < minDist) {
                             minDist = dist;
@@ -372,7 +363,7 @@ public:
                 if(closest) {
                     const auto [p1, p2] = closest.value();
                     logInfo(fmt::format("Closest pair armor {:.3f} {:.3f} {:.3f} <-> bullet {:.3f} {:.3f} {:.3f} : {:.3f} m",
-                                        p1.val.x, p1.val.y, p1.val.z, p2.val.x, p2.val.y, p2.val.z, minDist.val));
+                                        p1.mVal.x, p1.mVal.y, p1.mVal.z, p2.mVal.x, p2.mVal.y, p2.mVal.z, minDist.mVal));
                 }
             }
 
@@ -382,7 +373,7 @@ public:
             if(runFlag && bulletCount == mConfig.bulletCount) {
                 runFlag = false;
                 for(auto& [p, v] : mBullets) {
-                    if(p.val.y >= 0.0) {
+                    if(p.mVal.y >= 0.0) {
                         runFlag = true;
                         break;
                     }

@@ -1,6 +1,8 @@
 #pragma once
 #include "Transform.hpp"
 #include <random>
+#include <algorithm>
+#include <glm/ext/matrix_transform.hpp>
 
 using MotionState = Transform<FrameOfRef::Robot, FrameOfRef::Ground, true>;
 
@@ -18,23 +20,32 @@ public:
 
 class StaticMotionController final : public MotionController {
 public:
-    void step(Transform<FrameOfRef::Robot, FrameOfRef::Ground, true>& motionState, double dt) override;
+    void step(Transform<FrameOfRef::Robot, FrameOfRef::Ground, true>& motionState, double dt) override{
+    };
 };
 
 class SpinMotionController final : public MotionController {
     double mSpinningSpeed;
 
 public:
-    explicit SpinMotionController(const double spinningSpeed);
-    void step(Transform<FrameOfRef::Robot, FrameOfRef::Ground, true>& motionState, double dt) override;
+    explicit SpinMotionController(const double spinningSpeed){};
+    void step(Transform<FrameOfRef::Robot, FrameOfRef::Ground, true>& motionState, double dt) override{
+        motionState =
+            glm::rotate(glm::identity<glm::dmat4>(), glm::two_pi<double>() * mSpinningSpeed * dt, glm::dvec3{ 0.0, 1.0, 0.0 }) *
+            motionState.raw();
+    };
 };
 
 class LargeCircleMotionController final : public MotionController {
     double mSpinningSpeed;
 
 public:
-    explicit LargeCircleMotionController(const double spinningSpeed);
-    void step(Transform<FrameOfRef::Robot, FrameOfRef::Ground, true>& motionState, const double dt) override;
+    explicit LargeCircleMotionController(const double spinningSpeed) : mSpinningSpeed(spinningSpeed){};
+    void step(Transform<FrameOfRef::Robot, FrameOfRef::Ground, true>& motionState, const double dt) override{
+        motionState =
+            glm::rotate(glm::identity<glm::dmat4>(), glm::two_pi<double>() * mSpinningSpeed * dt, glm::dvec3{ 0.0, 1.0, 0.0 }) *
+            motionState.raw();
+    };
 };
 
 class SentryMotionController final : public MotionController {
@@ -42,7 +53,15 @@ class SentryMotionController final : public MotionController {
     static constexpr double speed = 0.5f;
 
 public:
-    void step(Transform<FrameOfRef::Robot, FrameOfRef::Ground, true>& motionState, const double dt) override;
+    void step(Transform<FrameOfRef::Robot, FrameOfRef::Ground, true>& motionState, const double dt) override{
+        auto position = motionState.translatePoint();
+        if(position.mVal.x > 2.0)
+            mMovingDirection = false;
+        else if(position.mVal.x < -2.0)
+            mMovingDirection = true;
+
+        position.mVal.x += (mMovingDirection ? speed * dt : -speed * dt);
+    };
 };
 
 class Translate2DMotionController final : public MotionController {
@@ -57,6 +76,17 @@ class Translate2DMotionController final : public MotionController {
     void updateSpeed(const double dt);
 
 public:
-    explicit Translate2DMotionController(const double maxV);
-    void step(Transform<FrameOfRef::Robot, FrameOfRef::Ground, true>& motionState, const double dt) override;
+    explicit Translate2DMotionController(const double maxV) : mMaxV{ maxV }, mDistribution{ 0, maxV / 3.0 } {};
+    void step(Transform<FrameOfRef::Robot, FrameOfRef::Ground, true>& motionState, const double dt) override{
+        mT += dt;
+        if(mT >= 2.0) {                                                      // Random generation velocity every two seconds
+            mSpeedX = std::clamp(mDistribution(mGenerator), -mMaxV, mMaxV);  // Limit the speed of random generation
+            mSpeedZ = std::clamp(mDistribution(mGenerator), -mMaxV, mMaxV);
+
+            mT -= 2.0;
+        }
+
+        mSmoothX = (1.0 - alpha) * mSmoothX + alpha * mSpeedX;
+        mSmoothZ = (1.0 - alpha) * mSmoothZ + alpha * mSpeedZ;
+    };
 };

@@ -474,9 +474,9 @@ public:
 
                      DetectedEnergyInfo res;
                      res.lastUpdate = lastUpdate;
-                     res.point = transform.inverse()(point);
+                     res.point = transform.invTransform(point);
 
-                     const auto raw = res.point.raw();
+                     const auto raw = res.point.mVal;
                      // std::cout << "point" << raw.x << " " << raw.y << " " << raw.z << std::endl;
 
                      if(mCount < mConfig.preFrames) {

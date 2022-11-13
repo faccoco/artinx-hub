@@ -42,7 +42,6 @@ set(SOURCE
 "Test/Solve/FakeIMU.cpp"
 "Test/Solve/SimpleStrategy.cpp"
 "Test/Solve/Simulator.cpp"
-"Test/Solve/SimulatorMotionType.cpp"
 "Test/TestHelper.cpp"
 "Utility/ArmorDetectorDrawer.cpp"
 "Utility/CarDetectorDrawer.cpp"

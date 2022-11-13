@@ -665,7 +665,7 @@ if(rect.size.width < rect.size.height) {  // rotate rect
        * @param up				上向量
        */
     const HeadInfo infoUp{ SynchronizedClock::instance().now(),
-                                       decltype(HeadInfo::transform){ glm::lookAtRH(
+                                       decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
                                            glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1},
                                            glm::dvec3{ std::cos(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
                                                            std::cos(static_cast<double>(fdb.pitch)),
@@ -744,7 +744,7 @@ double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<
 ### `serial`
 
 + `mGroup`未设置，为1。
-+ `sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture))` 发送姿态信息
++ `sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, tfGround2Robot))` 发送姿态信息
 + `sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoUp))`。发送上云台枪管坐标系到机器人坐标变换矩阵信息。
 + ` sendMasked(update_head_atom_v, 2U, 2U, BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, infoDown))`;发送下云台枪管坐标系到机器人坐标系的变换矩阵信息。
 

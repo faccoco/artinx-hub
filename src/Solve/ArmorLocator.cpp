@@ -123,10 +123,11 @@ public:
                      if(cameraInfo.transform.index() == 0) {
                          transform = std::get<0>(cameraInfo.transform);
                      } else {
-                         const auto& trans = std::get<1>(cameraInfo.transform);
-                         const auto headTrans = BlackBoard::instance().get<HeadInfo>(mHeadKey).value().transform;
-                         transform = static_cast<Transform<FrameOfRef::Gun, FrameOfRef::Robot, true>>(headTrans) * trans;
+                         const auto& tfRobot2Camera = std::get<1>(cameraInfo.transform);
+                         const auto headInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey).value();
+                         transform = combine(headInfo.tfRobot2Gun.invTransformObj(), tfRobot2Camera);
                      }
+
 
                      auto debugView = data.frame.frame.clone();
 
@@ -137,7 +138,7 @@ public:
 
                          // TODO: projected area
                          res.targets.push_back(
-                             { transform.inverse()(point), 0.0, id, type, decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
+                             { transform.invTransform(point), 0.0, id, type, decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
                      }
 
 #ifdef ARTINXHUB_DEBUG

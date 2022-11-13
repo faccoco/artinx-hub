@@ -42,13 +42,12 @@ public:
 
                 SelectedTarget selTarget;
                 selTarget.lastUpdate = data.lastUpdate;
-                selTarget.position.setZero();
 
                 // Give priority to striking the nearest large armor plate target
                 auto minDistance = mConfig.distanceThreshold;
                 auto curArmorType = ArmorType::Small;
                 for(auto& target : data.targets) {  //遍历检测到的目标装甲板信息
-                    const auto distance = glm::length(target.center.raw());
+                    const auto distance = glm::length(target.center.mVal);
                     if(target.type == ArmorType::Large) {  //如果当前遍历的装甲板为大装甲板
                         if(curArmorType == ArmorType::Small ||
                            distance < minDistance) {  //之前遍历的装甲板为小装甲板或者距离比上一次遍历的装甲板距离近
@@ -92,9 +91,9 @@ public:
 
                         auto& center = selTarget.selected.value().center;
                         if(mask == 1U) {
-                            center = headInfo1.transform(headInfo2.transform.inverse()(center));
+                            center = headInfo1.tfRobot2Gun(headInfo2.tfRobot2Gun.invTransform(center));
                         } else {
-                            center = headInfo2.transform(headInfo1.transform.inverse()(center));
+                            center = headInfo2.tfRobot2Gun(headInfo1.tfRobot2Gun.invTransform(center));
                         }
                     }
                 }

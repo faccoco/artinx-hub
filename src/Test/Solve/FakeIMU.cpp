@@ -41,7 +41,7 @@ public:
         return { [&](simulator_step_atom, Identifier key) {
                     ACTOR_PROTOCOL_CHECK(simulator_step_atom, TypedIdentifier<SimulatorWorldInfo>);
                     const auto data = BlackBoard::instance().get<SimulatorWorldInfo>(key).value();
-                    mQueue.emplace(data.lastUpdate, data.posture);
+                    mQueue.emplace(data.lastUpdate, data.tfGround2Robot);
 
                     TimePoint current = mQueue.back().first;
 
@@ -67,8 +67,9 @@ public:
                         glm::dvec3 scale, translate, translateOld, skew;
                         glm::dvec4 perspective;
                         glm::dquat quat, quatOld;
-                        glm::decompose(posture.tfGround2Robot.inverse().val, scale, quat, translate, skew, perspective);
-                        glm::decompose(lastData.tfGround2Robot.inverse().val, scale, quatOld, translateOld, skew, perspective);
+                        glm::decompose(posture.tfGround2Robot.invTransformMat(), scale, quat, translate, skew, perspective);
+                        glm::decompose(lastData.tfGround2Robot.invTransformMat(), scale, quatOld, translateOld, skew,
+                                       perspective);
 
                         Point<UnitType::Distance, FrameOfRef::Ground> pos{ translate };
                         Point<UnitType::Distance, FrameOfRef::Ground> posOld{ translateOld };

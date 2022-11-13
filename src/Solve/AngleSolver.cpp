@@ -128,11 +128,11 @@ public:
 
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data.value().position;
                 Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data.value().selected.value().velocity;
-                HubLogger::watch("z", posRefRobot.raw().z);
+                HubLogger::watch("z", posRefRobot.mVal.z);
 
                 //(forward:+y,right:+x)
-                glm::dvec3 tfPos = { posRefRobot.raw().x, -posRefRobot.raw().z, posRefRobot.raw().y };
-                glm::dvec3 tfLinearVel = { linearVel.raw().x, -linearVel.raw().z, linearVel.raw().y };
+                glm::dvec3 tfPos =  posRefRobot.mVal;
+                glm::dvec3 tfLinearVel = linearVel.mVal;
                 // logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y,
                 // linearVelocity.raw().z));
                 tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
@@ -152,7 +152,7 @@ public:
                 double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
 
                 bool isFire = true;
-                logInfo(fmt::format("x:{}, y:{}, z:{}", tfPos.x, tfPos.y, tfPos.z));
+                // logInfo(fmt::format("x:{}, y:{}, z:{}", tfPos.x, tfPos.y, tfPos.z));
                 sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
                         pitchAngle, isFire);
             },
