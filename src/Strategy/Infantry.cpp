@@ -39,8 +39,12 @@ public:
                      const auto data = BlackBoard::instance().get<DetectedEnergyInfo>(key).value();
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
-                     selected.selected = { data.point, 0.0, 1, ArmorType::Large,
-                                           Vector<UnitType::LinearVelocity, FrameOfRef::Robot>{ glm::zero<glm::dvec3>() } };
+                     selected.selected = {
+                         data.point,
+                         0.0,
+                         1,
+                         ArmorType::Large,
+                     };
 
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                  },
@@ -52,6 +56,7 @@ public:
 
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
+                     selected.tfRobot2Gun = data.tfRobot2Gun;
 
                      auto minDistance = std::numeric_limits<double>::max();
                      for(auto& target : data.targets) {

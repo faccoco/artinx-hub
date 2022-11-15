@@ -111,13 +111,12 @@ public:
         return {
             [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [this](predict_success_atom, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(predict_success_atom, TypedIdentifier<SelectedTarget>);
+                ACTOR_PROTOCOL_CHECK(predict_success_atom, TypedIdentifier<PredictedTarget>);
                 ACTOR_EXCEPTION_PROBE();
 
-                auto data = BlackBoard::instance().get<SelectedTarget>(key);
-                if(!(data.has_value() && data.value().selected.has_value()))
+                auto data = BlackBoard::instance().get<PredictedTarget>(key);
+                if(!(data.has_value()))
                     return;
-                HubLogger::watch("armor type", magic_enum::enum_name(data.value().selected.value().type));
 
                 const auto& globalSettings = GlobalSettings::get();
                 const double g = globalSettings.gForce, bulletSpeed = globalSettings.bulletSpeed;
@@ -126,13 +125,12 @@ public:
 
                 const auto delayTime = mConfig.delay;
 
-                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data.value().position;
-                Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data.value().selected.value().velocity;
+                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->position;
+                Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->velocity;
                 HubLogger::watch("z", posRefRobot.mVal.z);
 
                 //(forward:+y,right:+x)
-                //(forward:+y,right:+x)
-                glm::dvec3 tfPos = {posRefRobot.mVal.x, -posRefRobot.mVal.z, posRefRobot.mVal.y} ;
+                glm::dvec3 tfPos = { posRefRobot.mVal.x, -posRefRobot.mVal.z, posRefRobot.mVal.y };
                 glm::dvec3 tfLinearVel = { linearVel.mVal.x, -linearVel.mVal.z, linearVel.mVal.y };
 
                 // logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y,

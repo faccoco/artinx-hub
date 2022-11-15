@@ -10,8 +10,8 @@
 #include "SuppressWarningEnd.hpp"
 
 struct CameraInfo final {
-    std::variant<Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>, Transform<FrameOfRef::Robot, FrameOfRef::Camera, true>>
-        transform;
+    Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> tfGun2Camera;
+    std::optional<Transform<FrameOfRef::Robot, FrameOfRef::Gun, true>> tfRobot2Gun;
     std::string identifier;
     cv::Mat cameraMatrix;
     cv::Mat distCoefficients;

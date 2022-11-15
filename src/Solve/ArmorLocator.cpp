@@ -24,8 +24,7 @@ struct ArmorLocatorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorSettings& x) {
-    return f.object(x).fields(
-        f.field("ratioThreshold",x.ratioThreshold));
+    return f.object(x).fields(f.field("ratioThreshold", x.ratioThreshold));
 }
 
 class ArmorLocator final
@@ -33,15 +32,15 @@ class ArmorLocator final
     Identifier mKey, mHeadKey{};
     const std::vector<cv::Point3d> mObjectPointsSmall = {
         { -widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-        { -widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
         { +widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
+        { +widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
+        { -widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
     };
     const std::vector<cv::Point3d> mObjectPointsLarge = {
         { -widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-        { -widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
         { +widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
+        { +widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
+        { -widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
     };
     std::vector<cv::Point2f> mImagePoint{ 4 };
 
@@ -55,8 +54,7 @@ class ArmorLocator final
         return -evalArea(p1, p2, p3) - evalArea(p1, p3, p4);
     }
 
-    std::pair<Point<UnitType::Distance, FrameOfRef::Camera>, ArmorType>
-    solve([[maybe_unused]] cv::Mat& debugView, const cv::Mat& cameraMatrix, const PairedLight& armor) {
+    bool initImgPointAndArmorType(const PairedLight& armor) {
         boxRect(mImagePoint, armor.r1);
         const auto area1 = armor.r1.size.area();
 
@@ -69,28 +67,22 @@ class ArmorLocator final
         const cv::Point2d rt = 0.5 * (mImagePoint[1] + mImagePoint[2]);
         const cv::Point2d rb = 0.5 * (mImagePoint[0] + mImagePoint[3]);
 
+        mImagePoint = { lt, rt, rb, lb };
         const auto area = evalArea(lt, lb, rb, rt);
 
-        const cv::Mat_<double> distCoeff;
-        cv::Mat rvec, tvec;
-
-        /*
-        const auto left = 0.5 * (lt + lb);
-        const auto right = 0.5 * (rt + rb);
-
-        const auto distHorizontal = std::hypot(left.x - right.x, left.y - right.y);
-        const auto distVertical = 0.5 * (std::hypot(lb.x - lt.x, lb.y - lt.y) + std::hypot(rb.x - rt.x, rb.y - rt.y));
-
-        const auto ratio = distHorizontal / distVertical;
-        constexpr auto ratioThreshold = 0.5 * (widthOfLargeArmor + widthOfSmallArmor) / heightOfArmorLightBar;
-         */
         const auto ratio = area / std::fmax(0.001, area1 + area2);
         HubLogger::watch("armor ratio", ratio);
 
-        mImagePoint = { lt, lb, rb, rt };
-        [[maybe_unused]] const auto res =
-            cv::solvePnP(ratio > mConfig.ratioThreshold ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint, cameraMatrix, distCoeff,
-                         rvec, tvec, false, cv::SOLVEPNP_IPPE);
+        return ratio > mConfig.ratioThreshold;
+    }
+
+    Point<UnitType::Distance, FrameOfRef::Camera> solve([[maybe_unused]] cv::Mat& debugView, const cv::Mat& cameraMatrix,
+                                                        bool isLargeArmor) {
+        const cv::Mat_<double> distCoeff;
+        cv::Mat rvec, tvec;
+
+        [[maybe_unused]] const auto res = cv::solvePnP(isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
+                                                       cameraMatrix, distCoeff, rvec, tvec, false, cv::SOLVEPNP_IPPE);
         glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
 
         if(p0.z > 0.0)
@@ -98,11 +90,10 @@ class ArmorLocator final
 
 #ifdef ARTINXHUB_DEBUG
         cv::drawFrameAxes(debugView, cameraMatrix, distCoeff, rvec, tvec,
-                          static_cast<float>(ratio > mConfig.ratioThreshold ? widthOfLargeArmor : widthOfSmallArmor) * 0.5f);
+                          static_cast<float>(isLargeArmor ? widthOfLargeArmor : widthOfSmallArmor) * 0.5f);
 #endif
 
-        return { Point<UnitType::Distance, FrameOfRef::Camera>{ p0 },
-                 ratio > mConfig.ratioThreshold ? ArmorType::Large : ArmorType::Small };
+        return Point<UnitType::Distance, FrameOfRef::Camera>{ p0 };
     }
 
 public:
@@ -114,31 +105,26 @@ public:
                      ACTOR_EXCEPTION_PROBE();
 
                      auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
-                     // logInfo(data.armors[0].armors.size());
                      DetectedTargetArray res;
                      res.lastUpdate = data.frame.lastUpdate;
                      const auto& cameraInfo = data.frame.info;
 
-                     Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> transform;
-                     if(cameraInfo.transform.index() == 0) {
-                         transform = std::get<0>(cameraInfo.transform);
-                     } else {
-                         const auto& tfRobot2Camera = std::get<1>(cameraInfo.transform);
-                         const auto headInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey).value();
-                         transform = combine(headInfo.tfRobot2Gun.invTransformObj(), tfRobot2Camera);
-                     }
-
-
                      auto debugView = data.frame.frame.clone();
 
+                     auto tfCamera2Gun = cameraInfo.tfGun2Camera.invTransformObj();
+
                      for(const auto& [id, armor] : data.armors) {
-                         auto armorLight = armor;
 
-                         const auto [point, type] = solve(debugView, cameraInfo.cameraMatrix, armorLight);
+                         bool isLargeArmor = initImgPointAndArmorType(armor);
 
-                         // TODO: projected area
-                         res.targets.push_back(
-                             { transform.invTransform(point), 0.0, id, type, decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
+                         const auto point = solve(debugView, cameraInfo.cameraMatrix, isLargeArmor);
+
+                         res.targets.push_back({
+                             tfCamera2Gun(point),
+                             0.0,
+                             id,
+                             isLargeArmor ? ArmorType::Large : ArmorType::Small,
+                         });
                      }
 
 #ifdef ARTINXHUB_DEBUG
@@ -148,10 +134,34 @@ public:
 
                      sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  },
-                 [&](update_head_atom, GroupMask, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
-                     mHeadKey = key;
-                 } };
+                 [&](armor_nnet_detect_available_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(armor_nnet_detect_available_atom, TypedIdentifier<NNetDetectedArmorArray>);
+                     ACTOR_EXCEPTION_PROBE();
+
+                     auto data = BlackBoard::instance().get<NNetDetectedArmorArray>(key).value();
+                     DetectedTargetArray res;
+                     res.lastUpdate = data.frame.lastUpdate;
+                     const auto& cameraInfo = data.frame.info;
+                     res.tfRobot2Gun = cameraInfo.tfRobot2Gun;
+
+                     auto debugView = data.frame.frame.clone();
+
+                     auto tfCamera2Gun = data.frame.info.tfGun2Camera.invTransformObj();
+
+                     for(const auto& armor : data.armors) {
+                         mImagePoint = armor.light4Point;
+
+                         bool isLargeArmor = armor.robotType >= 2 && armor.robotType <= 6 ? false : true;
+                         const auto point = solve(debugView, cameraInfo.cameraMatrix, isLargeArmor);
+
+                         res.targets.push_back(
+                             { tfCamera2Gun(point), 0.0, armor.robotType, isLargeArmor ? ArmorType::Large : ArmorType::Small });
+                     }
+
+                     sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
+                 }
+
+        };
     }
 };
 

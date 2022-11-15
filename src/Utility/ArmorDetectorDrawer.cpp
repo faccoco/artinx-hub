@@ -78,8 +78,8 @@ public:
 
                          // 绘制目标颜色与类别
                          int id = armor.robotType;
-                         int box_top_x = armor.light4Point->x;
-                         int box_top_y = armor.light4Point->y;
+                         int box_top_x = armor.light4Point[0].x;
+                         int box_top_y = armor.light4Point[0].y;
                          if(armor.robotColor == 0)
                              cv::putText(showImg, "Blue_" + std::to_string(id), cv::Point(box_top_x + 2, box_top_y),
                                          cv::FONT_HERSHEY_TRIPLEX, 1, cv::Scalar(255, 0, 0));

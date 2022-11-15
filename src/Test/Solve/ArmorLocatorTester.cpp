@@ -99,6 +99,7 @@ class ArmorLocatorTester final
 
         res.frame = CameraFrame{ SynchronizedClock::instance().now(),
                                  { { Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>{ glm::identity<glm::dmat4>() } },
+                                   {},
                                    "ArmorLocatorTester",
                                    cameraMatrix,
                                    distCoefficients,

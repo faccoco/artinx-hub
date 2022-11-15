@@ -470,7 +470,7 @@ public:
 
                      const auto point = solve(cameraInfo.cameraMatrix, armor);
 
-                     const auto& transform = std::get<0>(cameraInfo.transform);
+                     const auto& transform = cameraInfo.tfGun2Camera;
 
                      DetectedEnergyInfo res;
                      res.lastUpdate = lastUpdate;

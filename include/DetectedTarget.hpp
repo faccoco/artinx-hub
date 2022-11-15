@@ -10,11 +10,11 @@ struct DetectedTarget final {
     double area;
     int32_t id;
     ArmorType type;
-    Vector<UnitType::LinearVelocity, FrameOfRef::Robot> velocity;
 };
 
 struct DetectedTargetArray final {
     TimePoint lastUpdate;
+    std::optional<Transform<FrameOfRef::Robot, FrameOfRef::Gun, true>> tfRobot2Gun;
     std::vector<DetectedTarget> targets;
 };
 
