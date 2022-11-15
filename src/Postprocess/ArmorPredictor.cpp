@@ -33,11 +33,11 @@ struct ArmorPredictorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorPredictorSettings& x) {
-    return f.object(x).fields(f.field("enalePredictor", x.enablePredictor));
+    return f.object(x).fields(f.field("enablePredictor", x.enablePredictor));
 }
 
 class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, predict_success_atom> {
-    Identifier mKey, mIMUKey, mHeadKey;
+    Identifier mKey, mIMUKey;
     GroupMask mGroupMask;
 
     bool mInitFlag = false;
@@ -58,11 +58,11 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
         mX = initX;
     }
 
-    //检查数据是否跳变，跳变数据连续出现五次，则重新初始化滤波器
+    // 检查数据是否跳变，跳变数据连续出现五次，则重新初始化滤波器
     glm::dvec3 filterWrongData(const glm::dvec3& measuredPos) {
         glm::dvec3 filterRes = measuredPos;
         bool isWrongData = false;
-        if(mCntWrongData < maxCntWrongData) {  //如果跳变数据小于maxCntWrongData,则继续计数
+        if(mCntWrongData < maxCntWrongData) {  // 如果跳变数据小于maxCntWrongData,则继续计数
             if(std::fabs(measuredPos.x - mLastPos.x) > maxJumpXDist) {
                 isWrongData = true;
                 filterRes.x = mLastPos.x;
@@ -75,15 +75,15 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
                 isWrongData = true;
                 filterRes.z = mLastPos.z;
             }
-        } else {  //跳变数据个数超过maxCntWrongData, 则重新初始化滤波器
+        } else {  // 跳变数据个数超过maxCntWrongData, 则重新初始化滤波器
             mInitFlag = false;
             mCntWrongData = 0;
         }
 
-        if(isWrongData) {  //无跳变数据出现,为正常数据，对目标进行速度预测
+        if(isWrongData) {  // 无跳变数据出现,为正常数据，对目标进行速度预测
             mCntWrongData = 0;
         } else {
-            ++mCntWrongData;  //跳变数据出现，进行计数
+            ++mCntWrongData;  // 跳变数据出现，进行计数
         }
         return filterRes;
     }
@@ -138,7 +138,7 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
         UpdateMeasurement(measuredZ);
 
         mPredictedVel = { mX(3), mX(4), mX(5) };
-        if(mPredictedVel.x > maxXVel) {  //限幅滤波
+        if(mPredictedVel.x > maxXVel) {  // 限幅滤波
             mPredictedVel.x = maxXVel;
         }
         if(mPredictedVel.y > maxYVel) {
@@ -181,33 +181,27 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
-                const auto dataHeadInfo = BlackBoard::instance().get<HeadInfo>(mHeadKey);
                 const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
-                if(!(data.has_value() && data.value().selected.has_value() && dataHeadInfo.has_value() &&
-                     dataPosture.has_value()))
+                if(!(data->selected.has_value() && dataPosture.has_value() && data->tfRobot2Gun.has_value()))
                     return;
+                HubLogger::watch("armor type", magic_enum::enum_name(data->selected->type));
 
-                Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data.value().selected.value().center.mVal);
-                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot =
-                    dataHeadInfo.value().tfRobot2Gun.invTransform(posOfRefGun);
-                Vector<UnitType::LinearVelocity, FrameOfRef::Ground> linearVelocity(
-                    dataPosture.value().linearVelocityOfRobot.mVal);
-                data.value().position = posRefRobot;
+                PredictedTarget res;
+                res.lastUpdate = data->lastUpdate;
 
-                if(mConfig.enablePredictor) {  //如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
+                Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data->selected->center.mVal);
+                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->tfRobot2Gun->invTransform(posOfRefGun);
+                res.position = posRefRobot;
+
+                if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
                     glm::dvec3 measuredPos = posRefRobot.mVal;
                     runFilter(measuredPos, data.value().lastUpdate);
-                    data.value().selected.value().velocity.mVal = mPredictedVel;
-                } else {  //如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
-                    data.value().selected.value().velocity.mVal = -linearVelocity.mVal;
+                    res.velocity = mPredictedVel;
+                } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
+                    res.velocity = -dataPosture->linearVelocityOfRobot.mVal;
                 }
 
-                sendAll(predict_success_atom_v,
-                        BlackBoard::instance().updateSync<SelectedTarget>(Identifier{ mKey.val }, data.value()));
-            },
-            [this](update_head_atom, GroupMask, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
-                mHeadKey = key;
+                sendAll(predict_success_atom_v, BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
             },
             [this](update_posture_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);

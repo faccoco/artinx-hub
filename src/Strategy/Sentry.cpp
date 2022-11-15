@@ -42,23 +42,24 @@ public:
 
                 SelectedTarget selTarget;
                 selTarget.lastUpdate = data.lastUpdate;
+                selTarget.tfRobot2Gun = data.tfRobot2Gun;
 
                 // Give priority to striking the nearest large armor plate target
                 auto minDistance = mConfig.distanceThreshold;
                 auto curArmorType = ArmorType::Small;
-                for(auto& target : data.targets) {  //遍历检测到的目标装甲板信息
+                for(auto& target : data.targets) {  // 遍历检测到的目标装甲板信息
                     const auto distance = glm::length(target.center.mVal);
-                    if(target.type == ArmorType::Large) {  //如果当前遍历的装甲板为大装甲板
+                    if(target.type == ArmorType::Large) {  // 如果当前遍历的装甲板为大装甲板
                         if(curArmorType == ArmorType::Small ||
-                           distance < minDistance) {  //之前遍历的装甲板为小装甲板或者距离比上一次遍历的装甲板距离近
-                            selTarget.selected = target;  //选择当前遍历的装甲板为目标装甲板
+                           distance < minDistance) {  // 之前遍历的装甲板为小装甲板或者距离比上一次遍历的装甲板距离近
+                            selTarget.selected = target;  // 选择当前遍历的装甲板为目标装甲板
                             minDistance = distance;
                             curArmorType = ArmorType::Large;
                         }
-                    } else {  //否则，当前遍历的为小装甲板
+                    } else {  // 否则，当前遍历的为小装甲板
                         if(curArmorType == ArmorType::Small && distance < minDistance &&
                            target.id !=
-                               engineerId) {  //如果之前遍历的装甲板都是小装甲板,并且该次遍历的装甲板距离近，并且不是工程机器人的装甲板
+                               engineerId) {  // 如果之前遍历的装甲板都是小装甲板,并且该次遍历的装甲板距离近，并且不是工程机器人的装甲板
                             selTarget.selected = target;
                             minDistance = distance;
                         }
@@ -71,39 +72,12 @@ public:
                     selTarget = (mask == 1U) ? mLastSelected1 : mLastSelected2;
                     const auto& delta = Clock::now() - selTarget.lastUpdate;
                     if(!selTarget.selected.has_value() || !(delta.count() < static_cast<Clock::rep>(mConfig.detectedTTL * 1e9))) {
-#ifndef ENABLE_INTERACTION
                         return;
-#endif
-                        selTarget = (mask == 1U) ? mLastSelected2 : mLastSelected1;
-
-                        if(delta.count() > static_cast<Clock::rep>(mConfig.detectedTTL * 1e9))
-                            return;
-
-                        const auto head1 = BlackBoard::instance().get<HeadInfo>(mHead1);
-                        const auto head2 = BlackBoard::instance().get<HeadInfo>(mHead2);
-                        if(!(head1.has_value() && head2.has_value())) {
-                            logWarning("No head info for sentry");
-                            return;
-                        }
-
-                        const auto& headInfo1 = head1.value();
-                        const auto& headInfo2 = head2.value();
-
-                        auto& center = selTarget.selected.value().center;
-                        if(mask == 1U) {
-                            center = headInfo1.tfRobot2Gun(headInfo2.tfRobot2Gun.invTransform(center));
-                        } else {
-                            center = headInfo2.tfRobot2Gun(headInfo1.tfRobot2Gun.invTransform(center));
-                        }
                     }
                 }
 
                 sendMasked(set_target_atom_v, mask,
                            BlackBoard::instance().updateSync<SelectedTarget>(Identifier{ mKey.val ^ mask }, selTarget));
-            },
-            [&](update_head_atom, GroupMask mask, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
-                (mask == 1U ? mHead1 : mHead2) = key;
             }
         };
     }

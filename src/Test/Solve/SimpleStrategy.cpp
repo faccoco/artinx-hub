@@ -25,6 +25,8 @@ public:
 
                     SelectedTarget selected;
                     selected.lastUpdate = data.lastUpdate;
+                    selected.tfRobot2Gun = data.tfRobot2Gun;
+
                     auto minDistance = std::numeric_limits<double>::max();
                     for(auto& target : data.targets) {
                         if(const auto distance = glm::length(target.center.mVal); minDistance > distance) {

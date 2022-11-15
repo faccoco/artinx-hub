@@ -175,12 +175,13 @@ class NNetArmorDetector final
 
                 light4PointDst = transformMatrix * light4PointNorm;
 
+                armor.light4Point.resize(4);
                 for(int i = 0; i < 4; i++) {
                     armor.light4Point[i] = cv::Point2f(light4PointDst(0, i), light4PointDst(1, i));
-                    armor.detectedArmors.push_back(armor.light4Point[i]);
+                    armor.armorPts.push_back(armor.light4Point[i]);
                 }
 
-                std::vector<cv::Point2f> tmp(armor.light4Point, armor.light4Point + 4);
+                std::vector<cv::Point2f> tmp(armor.light4Point.data(), armor.light4Point.data() + 4);
                 armor.lightRect = cv::boundingRect(tmp);
 
                 armor.robotType = boxClass;
@@ -253,7 +254,7 @@ class NNetArmorDetector final
                     if(iou > mConfig.fftMinIou && abs(a.prob - b.prob) < mConfig.fftConfError && a.robotType == b.robotType &&
                        a.robotColor == b.robotColor) {
                         for(int k = 0; k < 4; k++) {
-                            b.detectedArmors.push_back(a.light4Point[k]);
+                            b.armorPts.push_back(a.light4Point[k]);
                         }
                     }
                 }
@@ -292,10 +293,10 @@ class NNetArmorDetector final
      * @param pts 三角形顶点
      * @return float 面积
      */
-    static float calcTriangleArea(cv::Point2f pts[3]) {
-        auto a = sqrt(pow((pts[0] - pts[1]).x, 2) + pow((pts[0] - pts[1]).y, 2));
-        auto b = sqrt(pow((pts[1] - pts[2]).x, 2) + pow((pts[1] - pts[2]).y, 2));
-        auto c = sqrt(pow((pts[2] - pts[0]).x, 2) + pow((pts[2] - pts[0]).y, 2));
+    static float calcTriangleArea(const cv::Point2f& pt0, const cv::Point2f& pt1, const cv::Point2f& pt2) {
+        auto a = sqrt(pow((pt0 - pt1).x, 2) + pow((pt0 - pt1).y, 2));
+        auto b = sqrt(pow((pt1 - pt2).x, 2) + pow((pt1 - pt2).y, 2));
+        auto c = sqrt(pow((pt2 - pt0).x, 2) + pow((pt2 - pt0).y, 2));
 
         auto p = (a + b + c) / 2.f;
 
@@ -308,8 +309,8 @@ class NNetArmorDetector final
      * @param pts 四边形顶点
      * @return float 面积
      */
-    static float calcTetragonArea(cv::Point2f pts[4]) {
-        return calcTriangleArea(&pts[0]) + calcTriangleArea(&pts[1]);
+    static float calcTetragonArea(std::vector<cv::Point2f> pts) {
+        return calcTriangleArea(pts[0], pts[1], pts[2]) + calcTriangleArea(pts[1], pts[2], pts[3]);
     }
 
     bool blobImg(const cv::Mat& imageFromCamera, float* blobDataPtr) {
@@ -337,13 +338,17 @@ class NNetArmorDetector final
 
     void postProcess(std::vector<NNetDetectedArmor>& armors) {
         for(auto& armor : armors) {
+            const  int enemyColor = GlobalSettings::get().selfColor == Color::Red ? 0 : 1;
+            if (armor.robotColor != enemyColor)
+                continue ;
+
             // 对候选框预测角点进行平均,降低误差
-            if(armor.detectedArmors.size() >= 8) {
-                auto N = armor.detectedArmors.size();
+            if(armor.armorPts.size() >= 8) {
+                auto N = armor.armorPts.size();
                 cv::Point2f detectedArmorsFinal[4];
 
                 for(uint32_t i = 0; i < N; i++) {
-                    detectedArmorsFinal[i % 4] += armor.detectedArmors[i];
+                    detectedArmorsFinal[i % 4] += armor.armorPts[i];
                 }
 
                 for(int i = 0; i < 4; i++) {

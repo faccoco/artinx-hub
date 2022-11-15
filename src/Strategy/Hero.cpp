@@ -32,6 +32,7 @@ public:
 
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
+                     selected.tfRobot2Gun = data.tfRobot2Gun;
 
                      auto minDistance = std::numeric_limits<double>::max();
                      for(auto& target : data.targets) {

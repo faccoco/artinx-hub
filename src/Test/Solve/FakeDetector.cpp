@@ -61,11 +61,12 @@ public:
                     DetectedTargetArray data;
 
                     data.lastUpdate = current;
+                    data.tfRobot2Gun = head.tfRobot2Gun;
 
-                    const auto worldTrans = combine(info.tfGround2Robot, head.tfRobot2Gun) ;
+                    const auto tfGround2Gun = combine(info.tfGround2Robot, head.tfRobot2Gun);
 
                     for(const auto& target : info.targets) {
-                        const auto pos = worldTrans(target);
+                        const auto pos = tfGround2Gun(target);
                         auto noise = glm::zero<glm::dvec3>();
                         if(mConfig.detectLinearStd > 1e-3) {
                             noise = glm::gaussRand(glm::zero<glm::dvec3>(), glm::dvec3{ mConfig.detectLinearStd });
@@ -73,9 +74,12 @@ public:
                                                glm::dvec3{ 3.0 * mConfig.detectLinearStd });
                         }
 
-                        data.targets.push_back(DetectedTarget{ pos + Vector<UnitType::Distance, FrameOfRef::Gun>(noise), 0.0, 0,
-                                                               ArmorType::Small,
-                                                               decltype(DetectedTarget::velocity){ glm::zero<glm::dvec3>() } });
+                        data.targets.push_back(DetectedTarget{
+                            pos + Vector<UnitType::Distance, FrameOfRef::Gun>(noise),
+                            0.0,
+                            0,
+                            ArmorType::Small,
+                        });
                     }
 
                     sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, data));

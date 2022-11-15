@@ -128,7 +128,7 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         frameData.info.identifier = mCameraSerialNumber;
         frameData.info.width = width;
         frameData.info.height = height;
-        frameData.info.transform =
+        frameData.info.tfGun2Camera =
             Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>(glm::translate(glm::identity<glm::dmat4>(), -mConfig.offset));
 
         // if (mDoUndistort) {
