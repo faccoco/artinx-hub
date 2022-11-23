@@ -42,8 +42,8 @@ struct GlobalSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, GlobalSettings& x) {
-    return f.object(x).fields(f.field("gForce", x.gForce), f.field("dragCoefficient", x.dragCoefficient),
-                              f.field("airDensity", x.airDensity), f.field("bullet42mm", x.bullet42mm));
+    return f.object(x).fields(f.field("gForce", x.gForce), f.field("dragCoefficient", x.dragCoefficient).fallback(0),
+                              f.field("airDensity", x.airDensity).fallback(0), f.field("bullet42mm", x.bullet42mm));
 }
 
 struct Identifier {

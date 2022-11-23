@@ -20,7 +20,7 @@ struct SimpleStrategySettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, SimpleStrategySettings& x) {
-    return f.object(x).fields(f.field("aimType", x.aimType));
+    return f.object(x).fields(f.field("aimType", x.aimType).fallback("Car"));
 }
 
 class SimpleStrategy final : public HubHelper<caf::event_based_actor, SimpleStrategySettings, set_target_atom, set_outpost_atom> {

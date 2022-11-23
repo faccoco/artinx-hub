@@ -57,7 +57,7 @@ bool inspect(Inspector& f, SimulatorSettings& x) {
         f.field("targetHeight", x.targetHeight), f.field("targetType", x.targetType),
         f.field("targetMotionType", x.targetMotionType), f.field("sourceMotionType", x.sourceMotionType),
         f.field("expectedCount", x.expectedCount), f.field("printBulletPos", x.printBulletPos).fallback(false),
-        f.field("printBulletInfo", x.printBulletInfo));
+        f.field("printBulletInfo", x.printBulletInfo).fallback(false));
 }
 
 class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
