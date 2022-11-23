@@ -17,6 +17,7 @@ set(SOURCE
 "Detect/OreExchangeRectifier.cpp"
 "HubMain.cpp"
 "Postprocess/ArmorPredictor.cpp"
+"Postprocess/OutpostPredictor.cpp"
 "Preprocess/ColorCalibration.cpp"
 "Preprocess/IMUFilter.cpp"
 "Preprocess/Undistort.cpp"
