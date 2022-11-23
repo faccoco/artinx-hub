@@ -9,11 +9,20 @@ struct SelectedTarget final {
     std::optional<DetectedTarget> selected;
 };
 
-struct PredictedTarget final{
+struct PredictedTarget final {
     TimePoint lastUpdate;
     Vector<UnitType::Distance, FrameOfRef::Robot> position;
     Vector<UnitType::LinearVelocity, FrameOfRef::Robot> velocity;
 };
 
+struct PredictedOutpost final {
+    TimePoint lastUpdate;
+    Vector<UnitType::Distance, FrameOfRef::Robot> centerOfOutpost;
+    Scalar<UnitType::Angle> theta;
+    Scalar<UnitType::AngularVelocity> angularVelocity;
+};
+
 ACTOR_PROTOCOL_DEFINE(set_target_atom, TypedIdentifier<SelectedTarget>);
+ACTOR_PROTOCOL_DEFINE(set_outpost_atom, TypedIdentifier<SelectedTarget>);
 ACTOR_PROTOCOL_DEFINE(predict_success_atom, TypedIdentifier<PredictedTarget>);
+ACTOR_PROTOCOL_DEFINE(outpost_predict_success_atom, TypedIdentifier<PredictedOutpost>);

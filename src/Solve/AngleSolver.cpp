@@ -8,14 +8,22 @@
 #include "Utility.hpp"
 #include <cmath>
 #include <complex>
+#include <limits>
+#include <queue>
 
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
+#include <glm/gtx/string_cast.hpp>
 #include <magic_enum.hpp>
 
 #include "SuppressWarningEnd.hpp"
+
+static constexpr double minShootTheta = glm::radians(30.0);
+static constexpr double maxShootTheta = glm::radians(150.0);
+
+constexpr Duration sendInterval = 1ms;
 
 struct AngleSolverSettings final {
     double precision;
@@ -30,8 +38,41 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
     Identifier mKey, mIMUKey, mHeadKey;
 
+    const double g, bulletSpeed, bulletMass, bulletRadius, dragCoefficient, airDensity, delayTime;
+    struct QueueType {
+        GroupMask mGroupMask;
+        Clock::rep time_since_epoch;
+        double yawAngle;
+        double pitchAngle;
+        TimePoint shootTime;
+        bool operator>(const QueueType& rhs) const {
+            return shootTime > rhs.shootTime;
+        }
+    };
+    std::priority_queue<QueueType, std::vector<QueueType>, std::greater<QueueType>> shootQueue;
+
+    static constexpr glm::dvec3 tf(const glm::dvec3& ori) {
+        return { ori.x, -ori.z, ori.y };
+    }
+
+    void refreshQueue(TimePoint nowTime) {
+        static TimePoint lastSend{ 0ms };
+        while(shootQueue.size() != 0 && nowTime >= shootQueue.top().shootTime) {
+            if(nowTime - lastSend >= sendInterval) {
+                auto& [mGroupMask, time_since_epoch, yawAngle, pitchAngle, shootTime] = shootQueue.top();
+                sendAllHighPriority(set_target_info_atom_v, mGroupMask, time_since_epoch, yawAngle, pitchAngle, true);
+                lastSend = nowTime;
+            }
+            shootQueue.pop();
+        }
+    }
+
 public:
-    AngleSolver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    AngleSolver(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ generateKey(this) }, g(GlobalSettings::get().gForce),
+          bulletSpeed(GlobalSettings::get().bulletSpeed), bulletMass(GlobalSettings::get().bulletMass()),
+          bulletRadius(GlobalSettings::get().bulletRadius()), dragCoefficient(GlobalSettings::get().dragCoefficient),
+          airDensity(GlobalSettings::get().airDensity), delayTime(mConfig.delay) {}
 
     static std::complex<double> sqrtN(const std::complex<double>& x, double n) {
         if(auto r = std::hypot(x.real(), x.imag()); r > 0.0) {
@@ -107,6 +148,48 @@ public:
         return ans;
     }
 
+    // tuple[time,yawAngle,pitchAngle]
+    std::tuple<double, double, double> solveWithoutAirDrag(glm::dvec3 targetPos, glm::dvec3 targetVel) {
+        constexpr auto square = [](const double x) { return x * x; };
+        double airDuration = ferrari(
+            1, 0,
+            -(4 * g * targetPos.z + 4 * square(bulletSpeed) - 4 * square(targetVel.x) - 4 * square(targetVel.y)) / square(g),
+            (8 * targetPos.x * targetVel.x + 8 * targetPos.y * targetVel.y) / square(g),
+            (4 * square(targetPos.x) + 4 * square(targetPos.y) + 4 * square(targetPos.z)) / square(g));
+        double verticalSpeed = targetPos.z / airDuration - 0.5 * g * airDuration;
+        double horizontalSpeedX = (targetPos.x + targetVel.x * airDuration) / airDuration;
+        double horizontalSpeedY = (targetPos.y + targetVel.y * airDuration) / airDuration;
+
+        double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
+        double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
+
+        return std::make_tuple(airDuration, yawAngle, pitchAngle);
+    }
+
+    /*
+        // tuple[time,yawAngle,pitchAngle]
+        std::tuple<double, double, double> solveWithAirDrag(glm::dvec3 targetPos, glm::dvec3 targetVel) {
+            double x = targetPos.x, y = targetPos.y, z = targetPos.z;
+            double vx = targetVel.x, vy = targetVel.y, vz = targetVel.z;
+            double k = 2 * bulletMass / (dragCoefficient * airDensity * bulletRadius * bulletRadius * glm::pi<double>());
+            double tmpx = glm::sqrt(k / (k - 2 * x)), tmpy = glm::sqrt(k / (k - 2 * y));
+            double a = g * g / 4;
+            double b = g * vz;
+            double c = vx * vx * tmpx * tmpx * tmpx + vy * vy * tmpy * tmpy * tmpy + g * z + vz * vz - bulletSpeed *
+       bulletSpeed; double d = 2 * k * (vx * (tmpx - 1) + vy * (tmpy - 1)) + 2 * vz * z; double e = 2 * k * (k - x - k / tmpx
+       + k - y - k / tmpy) + z * z;
+
+            double t = ferrari(a, b, c, d, e);
+            double v0x = k * (1 - glm::sqrt(1 - 2 * x / k - 2 * vx * t / k)) / t;
+            double v0y = k * (1 - glm::sqrt(1 - 2 * y / k - 2 * vy * t / k)) / t;
+            double v0z = g * t / 2 + vz + z / t;
+
+            double pitchAngle = std::asin(v0z / bulletSpeed);
+            double yawAngle = std::atan2(v0y, v0x) - glm::half_pi<double>();
+
+            return std::make_tuple(t, yawAngle, pitchAngle);
+        }
+     */
     caf::behavior make_behavior() override {
         return {
             [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
@@ -118,45 +201,68 @@ public:
                 if(!(data.has_value()))
                     return;
 
-                const auto& globalSettings = GlobalSettings::get();
-                const double g = globalSettings.gForce, bulletSpeed = globalSettings.bulletSpeed;
-
-                constexpr auto square = [=](const double x) { return x * x; };
-
-                const auto delayTime = mConfig.delay;
-
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->position;
                 Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->velocity;
                 HubLogger::watch("z", posRefRobot.mVal.z);
 
                 //(forward:+y,right:+x)
-                glm::dvec3 tfPos = { posRefRobot.mVal.x, -posRefRobot.mVal.z, posRefRobot.mVal.y };
-                glm::dvec3 tfLinearVel = { linearVel.mVal.x, -linearVel.mVal.z, linearVel.mVal.y };
+                glm::dvec3 tfPos = tf(posRefRobot.mVal);
+                glm::dvec3 tfLinearVel = tf(linearVel.mVal);
 
                 // logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y,
                 // linearVelocity.raw().z));
                 tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
                           tfPos.z + delayTime * tfLinearVel.z };
 
-                double airDuration =
-                    ferrari(1, 0,
-                            -(4 * g * tfPos.z + 4 * square(bulletSpeed) - 4 * square(tfLinearVel.x) - 4 * square(tfLinearVel.y)) /
-                                square(g),
-                            (8 * tfPos.x * tfLinearVel.x + 8 * tfPos.y * tfLinearVel.y) / square(g),
-                            (4 * square(tfPos.x) + 4 * square(tfPos.y) + 4 * square(tfPos.z)) / square(g));
-                double verticalSpeed = tfPos.z / airDuration - 0.5 * g * airDuration;
-                double horizontalSpeedX = (tfPos.x + tfLinearVel.x * airDuration) / airDuration;
-                double horizontalSpeedY = (tfPos.y + tfLinearVel.y * airDuration) / airDuration;
+                auto [time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
 
-                double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
-                double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
-
-                bool isFire = true;
                 // logInfo(fmt::format("x:{}, y:{}, z:{}", tfPos.x, tfPos.y, tfPos.z));
-                sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
-                        pitchAngle, isFire);
+                shootQueue.push(QueueType{ mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle, pitchAngle,
+                                           data.value().lastUpdate });
+                refreshQueue(data.value().lastUpdate);
             },
+            [this](outpost_predict_success_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(outpost_predict_success_atom, TypedIdentifier<PredictedOutpost>);
+                ACTOR_EXCEPTION_PROBE();
 
+                auto data = BlackBoard::instance().get<PredictedOutpost>(key);
+                if(!(data.has_value()))
+                    return;
+
+                HubLogger::watch("z", data->centerOfOutpost.mVal.z);
+
+                glm::dvec3 tfCenterPos = tf(data->centerOfOutpost.mVal);
+                double predictTime = 0.0667 * glm::sqrt(tfCenterPos.x * tfCenterPos.x + tfCenterPos.y * tfCenterPos.y) +
+                    0.0155 * tfCenterPos.z + 0.01;
+
+                for(;;) {
+                    double theta = data->theta.mVal + (predictTime + delayTime) * data->angularVelocity.mVal;
+                    if(theta > maxShootTheta) {
+                        theta -= glm::radians<double>(120);
+                        if(theta < minShootTheta)
+                            return;
+                    } else if(theta < minShootTheta) {
+                        theta += glm::radians<double>(120);
+                        if(theta > maxShootTheta)
+                            return;
+                    }
+                    glm::dvec3 finalPos = tfCenterPos + glm::dvec3{ glm::cos(theta), -glm::sin(theta), 0 } * radiusOfOutpost;
+
+                    auto [requiredTime, yawAngle, pitchAngle] = solveWithoutAirDrag(finalPos, glm::dvec3{ 0, 0, 0 });
+
+                    if(requiredTime < predictTime) {
+                        shootQueue.push(
+                            QueueType{ mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle, pitchAngle,
+                                       data.value().lastUpdate +
+                                           Duration(static_cast<Duration::rep>((predictTime - requiredTime) *
+                                                                               Duration::period::den / Duration::period::num)) });
+                        refreshQueue(data.value().lastUpdate);
+                        return;
+                    }
+                    logInfo("AngleSolver: predictTime too short");
+                    predictTime += 0.01;
+                }
+            },
         };
     }
 };

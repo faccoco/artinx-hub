@@ -19,6 +19,7 @@ enum class Color { Red, Blue };
 struct GlobalSettings final {
     double gForce;
     double dragCoefficient;
+    double airDensity;
     bool bullet42mm;
 
     Color selfColor = Color::Red;
@@ -42,7 +43,7 @@ struct GlobalSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, GlobalSettings& x) {
     return f.object(x).fields(f.field("gForce", x.gForce), f.field("dragCoefficient", x.dragCoefficient),
-                              f.field("bullet42mm", x.bullet42mm));
+                              f.field("airDensity", x.airDensity), f.field("bullet42mm", x.bullet42mm));
 }
 
 struct Identifier {
@@ -59,6 +60,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id);
 CAF_ADD_ATOM(ArtinxHub, start_atom);
 CAF_ADD_ATOM(ArtinxHub, detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_atom);
+CAF_ADD_ATOM(ArtinxHub, set_outpost_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_info_atom);
 CAF_ADD_ATOM(ArtinxHub, update_posture_atom);
 CAF_ADD_ATOM(ArtinxHub, update_head_atom);
@@ -70,6 +72,7 @@ CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, armor_nnet_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, energy_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, predict_success_atom);
+CAF_ADD_ATOM(ArtinxHub, outpost_predict_success_atom);
 CAF_ADD_ATOM(ArtinxHub, ore_instructions_atom);
 CAF_ADD_ATOM(ArtinxHub, ore_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_succeed_atom);
