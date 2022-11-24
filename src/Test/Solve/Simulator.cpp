@@ -46,6 +46,46 @@ struct SimulatorSettings final {
     bool printBulletInfo;
 };
 
+struct BulletInfo {
+    Scalar<UnitType::Time> time;
+    Scalar<UnitType::Time> shootTime;
+    Point<UnitType::Distance, FrameOfRef::Ground> shootPos;
+    Vector<UnitType::LinearVelocity, FrameOfRef::Ground> shootVel;
+    struct {
+        Point<UnitType::Distance, FrameOfRef::Ground> mPos;
+        Vector<UnitType::LinearVelocity, FrameOfRef::Ground> mVel;
+        Point<UnitType::Distance, FrameOfRef::Ground> armorPos;
+        Scalar<UnitType::Angle> theta;
+        Point<UnitType::Distance, FrameOfRef::Armor> mPosRefAromor;
+        Vector<UnitType::LinearVelocity, FrameOfRef::Armor> mVelRefAromor;
+        Scalar<UnitType::Distance> distance;
+        Scalar<UnitType::Time> time;
+    } closest;
+    bool printed;
+    std::string to_string() {
+        printed = true;
+        return fmt::format("flying "
+                           "time:{}\nshootTime:{}\nshootPos:{}\nshootVel:{}\ncloest:\n\tmPos:{}\n\trelatedPos:{}\n\tmVel:{}"
+                           "\n\tmPosRefArmor:{}\n\tmVelRefArmor:{}"
+                           "\n\tarmorPos:{}\n\ttheta:{}\n\tdistance:{}"
+                           "\n\ttime:{}\nstate:{}",
+                           time.mVal, shootTime.mVal, glm::to_string(shootPos.mVal), glm::to_string(shootVel.mVal),
+                           glm::to_string(closest.mPos.mVal), glm::to_string((closest.mPos - shootPos).mVal),
+                           glm::to_string(closest.mVel.mVal), glm::to_string(closest.mPosRefAromor.mVal),
+                           glm::to_string(closest.mVelRefAromor.mVal), glm::to_string(closest.armorPos.mVal),
+                           glm::degrees(closest.theta.mVal), closest.distance.mVal, closest.time.mVal,
+                           (state == flying  ? "flying" :
+                                state == hit ? "hit" :
+                                               "notHit"));
+    }
+    enum State { flying, hit, notHit } state;
+    BulletInfo(Scalar<UnitType::Time> shootTime, Point<UnitType::Distance, FrameOfRef::Ground> shootPos,
+               Vector<UnitType::LinearVelocity, FrameOfRef::Ground> shootVel)
+        : time(0), shootTime(shootTime), shootPos(shootPos),
+          shootVel(shootVel), closest{ glm::dvec3(), glm::dvec3(), glm::dvec3(), 0, glm::dvec3(), glm::dvec3(), 9999, 0 },
+          printed(false), state(flying) {}
+};
+
 template <class Inspector>
 bool inspect(Inspector& f, SimulatorSettings& x) {
     return f.object(x).fields(
@@ -65,45 +105,6 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
 
     std::vector<std::pair<Point<UnitType::Distance, FrameOfRef::Ground>, Vector<UnitType::LinearVelocity, FrameOfRef::Ground>>>
         mBullets;  // pair : [pose velocity]
-    struct BulletInfo {
-        Scalar<UnitType::Time> time;
-        Scalar<UnitType::Time> shootTime;
-        Point<UnitType::Distance, FrameOfRef::Ground> shootPos;
-        Vector<UnitType::LinearVelocity, FrameOfRef::Ground> shootVel;
-        struct {
-            Point<UnitType::Distance, FrameOfRef::Ground> mPos;
-            Vector<UnitType::LinearVelocity, FrameOfRef::Ground> mVel;
-            Point<UnitType::Distance, FrameOfRef::Ground> armorPos;
-            Scalar<UnitType::Angle> theta;
-            Point<UnitType::Distance, FrameOfRef::Armor> mPosRefAromor;
-            Vector<UnitType::LinearVelocity, FrameOfRef::Armor> mVelRefAromor;
-            Scalar<UnitType::Distance> distance;
-            Scalar<UnitType::Time> time;
-        } closest;
-        bool printed;
-        std::string to_string() {
-            printed = true;
-            return fmt::format("flying "
-                               "time:{}\nshootTime:{}\nshootPos:{}\nshootVel:{}\ncloest:\n\tmPos:{}\n\trelatedPos:{}\n\tmVel:{}"
-                               "\n\tmPosRefArmor:{}\n\tmVelRefArmor:{}"
-                               "\n\tarmorPos:{}\n\ttheta:{}\n\tdistance:{}"
-                               "\n\ttime:{}\nstate:{}",
-                               time.mVal, shootTime.mVal, glm::to_string(shootPos.mVal), glm::to_string(shootVel.mVal),
-                               glm::to_string(closest.mPos.mVal), glm::to_string((closest.mPos - shootPos).mVal),
-                               glm::to_string(closest.mVel.mVal), glm::to_string(closest.mPosRefAromor.mVal),
-                               glm::to_string(closest.mVelRefAromor.mVal), glm::to_string(closest.armorPos.mVal),
-                               glm::degrees(closest.theta.mVal), closest.distance.mVal, closest.time.mVal,
-                               (state == flying  ? "flying" :
-                                    state == hit ? "hit" :
-                                                   "notHit"));
-        }
-        enum State { flying, hit, notHit } state;
-        BulletInfo(Scalar<UnitType::Time> shootTime, Point<UnitType::Distance, FrameOfRef::Ground> shootPos,
-                   Vector<UnitType::LinearVelocity, FrameOfRef::Ground> shootVel)
-            : time(0), shootTime(shootTime), shootPos(shootPos),
-              shootVel(shootVel), closest{ glm::dvec3(), glm::dvec3(), glm::dvec3(), 0, glm::dvec3(), glm::dvec3(), 9999, 0 },
-              printed(false), state(flying) {}
-    };
     std::vector<BulletInfo> mBulletsInfo;
     std::pair<MotionState, std::unique_ptr<MotionController>> mTarget;
     std::vector<std::pair<Transform<FrameOfRef::Armor, FrameOfRef::Robot, true>, std::pair<double, double>>>

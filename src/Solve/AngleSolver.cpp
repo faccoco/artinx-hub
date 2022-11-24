@@ -23,8 +23,6 @@
 static constexpr double minShootTheta = glm::radians(30.0);
 static constexpr double maxShootTheta = glm::radians(150.0);
 
-constexpr Duration sendInterval = 1ms;
-
 struct AngleSolverSettings final {
     double precision;
     double delay;
@@ -38,7 +36,7 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
     Identifier mKey, mIMUKey, mHeadKey;
 
-    const double g, bulletSpeed, bulletMass, bulletRadius, dragCoefficient, airDensity, delayTime;
+    const double g, bulletMass, bulletRadius, dragCoefficient, airDensity, delayTime;
     struct QueueType {
         GroupMask mGroupMask;
         Clock::rep time_since_epoch;
@@ -56,12 +54,10 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
     }
 
     void refreshQueue(TimePoint nowTime) {
-        static TimePoint lastSend{ 0ms };
         while(shootQueue.size() != 0 && nowTime >= shootQueue.top().shootTime) {
-            if(nowTime - lastSend >= sendInterval) {
+            if(nowTime - shootQueue.top().shootTime <= 100ms) {
                 auto& [mGroupMask, time_since_epoch, yawAngle, pitchAngle, shootTime] = shootQueue.top();
                 sendAllHighPriority(set_target_info_atom_v, mGroupMask, time_since_epoch, yawAngle, pitchAngle, true);
-                lastSend = nowTime;
             }
             shootQueue.pop();
         }
@@ -70,9 +66,9 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
 public:
     AngleSolver(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ generateKey(this) }, g(GlobalSettings::get().gForce),
-          bulletSpeed(GlobalSettings::get().bulletSpeed), bulletMass(GlobalSettings::get().bulletMass()),
-          bulletRadius(GlobalSettings::get().bulletRadius()), dragCoefficient(GlobalSettings::get().dragCoefficient),
-          airDensity(GlobalSettings::get().airDensity), delayTime(mConfig.delay) {}
+          bulletMass(GlobalSettings::get().bulletMass()), bulletRadius(GlobalSettings::get().bulletRadius()),
+          dragCoefficient(GlobalSettings::get().dragCoefficient), airDensity(GlobalSettings::get().airDensity),
+          delayTime(mConfig.delay) {}
 
     static std::complex<double> sqrtN(const std::complex<double>& x, double n) {
         if(auto r = std::hypot(x.real(), x.imag()); r > 0.0) {
@@ -151,6 +147,7 @@ public:
     // tuple[time,yawAngle,pitchAngle]
     std::tuple<double, double, double> solveWithoutAirDrag(glm::dvec3 targetPos, glm::dvec3 targetVel) {
         constexpr auto square = [](const double x) { return x * x; };
+        const double bulletSpeed = GlobalSettings::get().bulletSpeed;
         double airDuration = ferrari(
             1, 0,
             -(4 * g * targetPos.z + 4 * square(bulletSpeed) - 4 * square(targetVel.x) - 4 * square(targetVel.y)) / square(g),
@@ -217,9 +214,8 @@ public:
                 auto [time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
 
                 // logInfo(fmt::format("x:{}, y:{}, z:{}", tfPos.x, tfPos.y, tfPos.z));
-                shootQueue.push(QueueType{ mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle, pitchAngle,
-                                           data.value().lastUpdate });
-                refreshQueue(data.value().lastUpdate);
+                sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
+                                    yawAngle, pitchAngle, true);
             },
             [this](outpost_predict_success_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(outpost_predict_success_atom, TypedIdentifier<PredictedOutpost>);

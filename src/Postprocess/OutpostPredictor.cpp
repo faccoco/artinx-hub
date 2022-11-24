@@ -3,7 +3,6 @@
 #include "ExceptionProbe.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
-#include "PostureData.hpp"
 #include "SelectedTarget.hpp"
 #include "Utility.hpp"
 
@@ -29,14 +28,15 @@ bool inspect(Inspector& f, ArmorPredictorSettings& x) {
 }
 
 class OutpostPredictor final : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, outpost_predict_success_atom> {
-    Identifier mKey, mIMUKey;
+    Identifier mKey;
     GroupMask mGroupMask;
 
-    std::queue<std::pair<TimePoint, Vector<UnitType::Distance, FrameOfRef::Robot>>> lastTwoPosition;
-    std::optional<Scalar<UnitType::Angle>> lastTheta;
+    std::queue<std::pair<TimePoint, Vector<UnitType::Distance, FrameOfRef::Robot>>> mLastTwoPosition;
+    std::optional<Scalar<UnitType::Angle>> mLastTheta;
+    int stopTimes = 0;
 
     // a,b,c mustn't be on the same line or on the same point
-    glm::dvec3 circleCenter(glm::dvec3 a, glm::dvec3 b, glm::dvec3 c) {
+    glm::dvec3 circleCenter(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c) {
         double a1, b1, c1, d1;
         double a2, b2, c2, d2;
         double a3, b3, c3, d3;
@@ -83,18 +83,8 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
-                const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
-                if(!(data->selected.has_value() && dataPosture.has_value() && data->tfRobot2Gun.has_value()))
+                if(!(data->selected.has_value() && data->tfRobot2Gun.has_value()))
                     return;
-                if(!(std::fabs(dataPosture->linearVelocityOfRobot.mVal.x) <= staticVelThreshold &&
-                     std::fabs(dataPosture->linearVelocityOfRobot.mVal.y) <= staticVelThreshold &&
-                     std::fabs(dataPosture->linearVelocityOfRobot.mVal.z) <= staticVelThreshold)) {
-                    logInfo("OutpostPredictor: out of static vel threshold");
-                    lastTwoPosition.pop();
-                    lastTwoPosition.pop();
-                    lastTheta = std::nullopt;
-                    return;
-                }
                 HubLogger::watch("armor type", magic_enum::enum_name(data->selected->type));
 
                 PredictedOutpost res;
@@ -107,82 +97,73 @@ public:
                 } else {                       // 如果不使用预测功能的话，不修正位置
                 }
                 {  //下面是不使用预测的
-                    static int stopTimes = 0;
-                    static bool stopPrinted = false;
+
                     static std::optional<int> direction;
                     if(stopTimes > 5) {
-                        if(!stopPrinted) {
-                            logInfo("stop");
-                            stopPrinted = true;
-                        }
+                        logInfo("outpost stop");
                         res.angularVelocity = 0;
                         res.theta = glm::radians(90.0);
                         res.centerOfOutpost = posRefRobot;
                         res.centerOfOutpost.mVal.z -= radiusOfOutpost;
                     } else {
-                        if(lastTwoPosition.size() == 0) {
-                            lastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
+                        if(mLastTwoPosition.size() == 0) {
+                            mLastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
                             return;
                         }
-                        if(posRefRobot == lastTwoPosition.back().second || posRefRobot == lastTwoPosition.front().second) {
+                        if(posRefRobot == mLastTwoPosition.back().second || posRefRobot == mLastTwoPosition.front().second) {
                             stopTimes += 1;
                             return;
                         }
-                        if(lastTwoPosition.size() == 1) {
-                            lastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
+                        if(mLastTwoPosition.size() == 1) {
+                            mLastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
                             return;
                         }
-                        if(data->lastUpdate - lastTwoPosition.front().first > maxWaitingTime) {
-                            if(glm::distance(posRefRobot.mVal, lastTwoPosition.front().second.mVal) > staticPosThreshold) {
-                                logInfo("remove stop");
-                                stopPrinted = false;
+                        if(data->lastUpdate - mLastTwoPosition.front().first > maxWaitingTime) {
+                            if(glm::distance(posRefRobot.mVal, mLastTwoPosition.front().second.mVal) > staticPosThreshold) {
+                                logInfo("outpost remove stop");
                                 stopTimes = 0;
                             } else {
                                 stopTimes += 1;
                             }
-                            lastTwoPosition.pop();
-                            lastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
-                            lastTheta = std::nullopt;
+                            mLastTwoPosition.pop();
+                            mLastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
+                            mLastTheta = std::nullopt;
                             return;
                         }
-                        res.centerOfOutpost = circleCenter(lastTwoPosition.front().second.mVal,
-                                                           lastTwoPosition.back().second.mVal, posRefRobot.mVal);
+                        res.centerOfOutpost = circleCenter(mLastTwoPosition.front().second.mVal,
+                                                           mLastTwoPosition.back().second.mVal, posRefRobot.mVal);
                         {
                             double x = posRefRobot.mVal.x - res.centerOfOutpost.mVal.x;
                             double z = posRefRobot.mVal.z - res.centerOfOutpost.mVal.z;
                             double l = glm::sqrt(x * x + z * z);
                             res.theta = glm::acos(x / l);
                         }
-                        if(!lastTheta.has_value()) {
-                            double x = lastTwoPosition.back().second.mVal.x - res.centerOfOutpost.mVal.x;
-                            double z = lastTwoPosition.back().second.mVal.z - res.centerOfOutpost.mVal.z;
+                        if(!mLastTheta.has_value()) {
+                            double x = mLastTwoPosition.back().second.mVal.x - res.centerOfOutpost.mVal.x;
+                            double z = mLastTwoPosition.back().second.mVal.z - res.centerOfOutpost.mVal.z;
                             double l = glm::sqrt(x * x + z * z);
-                            lastTheta = glm::acos(x / l);
+                            mLastTheta = glm::acos(x / l);
                         }
                         if(!direction.has_value()) {
-                            if(std::fabs((lastTheta.value() - res.theta).mVal) > maxJumpTheta)
-                                direction = (lastTheta.value() > res.theta ? 1 : -1);
+                            if(std::fabs((mLastTheta.value() - res.theta).mVal) > maxJumpTheta)
+                                direction = (mLastTheta.value() > res.theta ? 1 : -1);
                             else
-                                direction = (res.theta > lastTheta.value() ? 1 : -1);
+                                direction = (res.theta > mLastTheta.value() ? 1 : -1);
                         }
-                        if(std::fabs((lastTheta.value() - res.theta).mVal) > maxJumpTheta)
-                            lastTheta.value().mVal -= direction.value() * glm::radians<double>(120);
-                        res.angularVelocity = (res.theta - lastTheta.value()) /
+                        if(std::fabs((mLastTheta.value() - res.theta).mVal) > maxJumpTheta)
+                            mLastTheta.value().mVal -= direction.value() * glm::radians<double>(120);
+                        res.angularVelocity = (res.theta - mLastTheta.value()) /
                             Scalar<UnitType::Time>{ static_cast<double>(
-                                                        (data->lastUpdate - lastTwoPosition.back().first).count()) /
+                                                        (data->lastUpdate - mLastTwoPosition.back().first).count()) /
                                                     Clock::period::den * Clock::period::num };
-                        lastTheta = res.theta;
-                        lastTwoPosition.pop();
-                        lastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
+                        mLastTheta = res.theta;
+                        mLastTwoPosition.pop();
+                        mLastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
                     }
                 }
 
                 sendAll(outpost_predict_success_atom_v,
                         BlackBoard::instance().updateSync<PredictedOutpost>(Identifier{ mKey.val }, res));
-            },
-            [this](update_posture_atom, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);
-                mIMUKey = key;
             },
         };
     }
