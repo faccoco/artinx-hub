@@ -338,9 +338,9 @@ class NNetArmorDetector final
 
     void postProcess(std::vector<NNetDetectedArmor>& armors) {
         for(auto& armor : armors) {
-            const  int enemyColor = GlobalSettings::get().selfColor == Color::Red ? 0 : 1;
-            if (armor.robotColor != enemyColor)
-                continue ;
+            const int enemyColor = GlobalSettings::get().selfColor == Color::Red ? 0 : 1;
+            if(armor.robotColor != enemyColor)
+                continue;
 
             // 对候选框预测角点进行平均,降低误差
             if(armor.armorPts.size() >= 8) {

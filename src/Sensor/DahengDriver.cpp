@@ -2,7 +2,7 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include <cstdint>
+#include "HeadInfo.hpp"
 
 #include "SuppressWarningBegin.hpp"
 
@@ -83,6 +83,7 @@ static void initLib() {
 
 class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriverSettings, image_frame_atom> {
     Identifier mKey;
+    std::optional<Identifier> mHeadKey;
     GX_DEV_HANDLE mDevice;
     bool mStartFlag = false;
 
@@ -130,6 +131,10 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         frameData.info.height = height;
         frameData.info.tfGun2Camera =
             Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>(glm::translate(glm::identity<glm::dmat4>(), -mConfig.offset));
+        if (mHeadKey.has_value()) {
+            frameData.info.tfRobot2Gun = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->tfRobot2Gun;
+
+        }
 
         // if (mDoUndistort) {
         //     auto src = bgr.clone();
@@ -287,9 +292,15 @@ public:
 
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
-            ACTOR_PROTOCOL_CHECK(start_atom);
-            mStartFlag = true;
-        } };
+                    ACTOR_PROTOCOL_CHECK(start_atom);
+                    mStartFlag = true;
+                },
+                 [this](update_head_atom, GroupMask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
+                     mHeadKey = key;
+                 }
+
+        };
     }
 };
 
