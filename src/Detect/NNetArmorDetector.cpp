@@ -44,10 +44,6 @@ bool inspect(Inspector& f, NNetArmorDetectorSettings& x) {
                               f.field("fftMinIou", x.fftMinIou));
 }
 
-/**
- * @brief 存储任务所需数据的结构体
- *
- */
 struct GridAndStride final {
     int grid0;
     int grid1;
@@ -287,32 +283,6 @@ class NNetArmorDetector final
         }
     }
 
-    /**
-     * @brief 海伦公式计算三角形面积
-     *
-     * @param pts 三角形顶点
-     * @return float 面积
-     */
-    static float calcTriangleArea(const cv::Point2f& pt0, const cv::Point2f& pt1, const cv::Point2f& pt2) {
-        auto a = sqrt(pow((pt0 - pt1).x, 2) + pow((pt0 - pt1).y, 2));
-        auto b = sqrt(pow((pt1 - pt2).x, 2) + pow((pt1 - pt2).y, 2));
-        auto c = sqrt(pow((pt2 - pt0).x, 2) + pow((pt2 - pt0).y, 2));
-
-        auto p = (a + b + c) / 2.f;
-
-        return sqrt(p * (p - a) * (p - b) * (p - c));
-    }
-
-    /**
-     * @brief 计算四边形面积
-     *
-     * @param pts 四边形顶点
-     * @return float 面积
-     */
-    static float calcTetragonArea(std::vector<cv::Point2f> pts) {
-        return calcTriangleArea(pts[0], pts[1], pts[2]) + calcTriangleArea(pts[1], pts[2], pts[3]);
-    }
-
     bool blobImg(const cv::Mat& imageFromCamera, float* blobDataPtr) {
         if(imageFromCamera.empty()) {
             logWarning(fmt::format("NNet Armor Detector receive  empty img!"));
@@ -336,13 +306,16 @@ class NNetArmorDetector final
         return true;
     }
 
-    void postProcess(std::vector<NNetDetectedArmor>& armors) {
-        for(auto& armor : armors) {
-            const int enemyColor = GlobalSettings::get().selfColor == Color::Red ? 0 : 1;
-            if(armor.robotColor != enemyColor)
-                continue;
+    std::vector<NNetDetectedArmor> postProcess(const std::vector<NNetDetectedArmor>& armors) {
+        [[maybe_unused]]const int enemyColor = GlobalSettings::get().selfColor == Color::Red ? 0 : 1;
+        std::vector<NNetDetectedArmor> enemyArmors;
+
+        for(const auto& armor : armors) {
+//            if(armor.robotColor != enemyColor)
+//                continue;
 
             // 对候选框预测角点进行平均,降低误差
+            NNetDetectedArmor enemyArmor = armor;
             if(armor.armorPts.size() >= 8) {
                 auto N = armor.armorPts.size();
                 cv::Point2f detectedArmorsFinal[4];
@@ -356,13 +329,14 @@ class NNetArmorDetector final
                     detectedArmorsFinal[i].y = detectedArmorsFinal[i].y / (N / 4);
                 }
 
-                armor.light4Point[0] = detectedArmorsFinal[0];
-                armor.light4Point[1] = detectedArmorsFinal[1];
-                armor.light4Point[2] = detectedArmorsFinal[2];
-                armor.light4Point[3] = detectedArmorsFinal[3];
+                enemyArmor.light4Point[0] = detectedArmorsFinal[0];
+                enemyArmor.light4Point[1] = detectedArmorsFinal[1];
+                enemyArmor.light4Point[2] = detectedArmorsFinal[2];
+                enemyArmor.light4Point[3] = detectedArmorsFinal[3];
             }
-            armor.rectArea = static_cast<int>(calcTetragonArea(armor.light4Point));
+            enemyArmors.push_back(enemyArmor);
         }
+        return enemyArmors;
     }
 
 public:
@@ -411,11 +385,12 @@ public:
 
                      mInferRequest.Infer();
 
+                     std::vector<NNetDetectedArmor> allArmors;
                      auto outputHolder = mOutputMemBlobPtr->rmap();
                      const float* netPredict = outputHolder.as<const IE::PrecisionTrait<IE::Precision::FP32>::value_type*>();
-                     decodeOutputs(netPredict, res.armors, mTransformMatrix, res.frame.info.width, res.frame.info.height);
+                     decodeOutputs(netPredict, allArmors, mTransformMatrix, res.frame.info.width, res.frame.info.height);
 
-                     postProcess(res.armors);
+                     res.armors = postProcess(allArmors);
 
                      const auto t1 = Clock::now();
                      logInfo(
