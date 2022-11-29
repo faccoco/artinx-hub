@@ -3,6 +3,7 @@
 #include "DetectedArmor.hpp"
 #include "ExceptionProbe.hpp"
 #include "Hub.hpp"
+#include "SelectedTarget.hpp"
 #include "Utility.hpp"
 
 #include <string>
@@ -18,9 +19,12 @@
 
 #include <Eigen/Core>
 #include <inference_engine.hpp>
-#include <string.h>
 
 namespace IE = InferenceEngine;
+
+static constexpr Clock::duration maxDiffTime{500ms};
+static constexpr double maxDistance = 6.0;
+static constexpr int maxLostTargetCnt = 5;
 
 struct NNetArmorDetectorSettings final {
     std::string networkPath;  // network training file path
@@ -53,6 +57,8 @@ struct GridAndStride final {
 class NNetArmorDetector final
     : public HubHelper<caf::event_based_actor, NNetArmorDetectorSettings, armor_nnet_detect_available_atom, image_frame_atom> {
     Identifier mKey;
+    std::optional<Identifier> mROIKey;
+
     IE::Core mIe;
     IE::CNNNetwork mNetwork;
     IE::ExecutableNetwork mExeNetwork;
@@ -62,6 +68,9 @@ class NNetArmorDetector final
     InferenceEngine::MemoryBlob::CPtr mOutputMemBlobPtr;
 
     Eigen::Matrix<float, 3, 3> mTransformMatrix;
+
+    int mLostTargetCnt = 0;
+    bool useROI = true;
 
     void debugView(const std::string_view& name, const cv::Mat& src, const std::function<void(cv::Mat&)>& func) {
 #ifndef ARTINXHUB_DEBUG
@@ -86,7 +95,36 @@ class NNetArmorDetector final
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame)));
     }
 
-    cv::Mat scaledResize(const cv::Mat& img, Eigen::Matrix<float, 3, 3>& transformMatrix) {
+    cv::Mat getROIRegion(const cv::Mat& img, const cv::Point2f& centerROI){
+        cv::Mat roi;
+        const auto centerX = static_cast<int>(centerROI.x);
+        const auto centerY = static_cast<int>(centerROI.y);
+
+        cv::Point2i ltOfROI;   //left top point of ROI
+
+        //get left top point Coordinate of the roi rect
+        const auto getCroppedCoord = [](int center, int inputSize, int originSize){
+            int res;
+            if (center - inputSize / 2 >= 0 && center + inputSize / 2 <= originSize){
+                res = center - inputSize / 2;
+            }else if (center - inputSize / 2 < 0){
+                res  = 0;
+            }else if (center + inputSize / 2 > originSize){
+                res = originSize - inputSize;
+            }
+            return res;
+        };
+
+        ltOfROI.x = getCroppedCoord(centerX, mConfig.inputWidth, img.cols);
+        ltOfROI.y = getCroppedCoord(centerY, mConfig.inputHeight, img.rows);
+
+        mTransformMatrix << 1.0, 0, ltOfROI.x, 0, 1.0, ltOfROI.y, 0, 0, 1;
+
+        cv::Rect2i roiRect{ltOfROI, cv::Size{mConfig.inputWidth, mConfig.inputHeight}};
+        return img(roiRect).clone();
+    }
+
+    cv::Mat scaledResize(const cv::Mat& img) {
         float r = std::min(mConfig.inputWidth / (img.cols * 1.0), mConfig.inputHeight / (img.rows * 1.0));
         int unpadWidth = r * img.cols;
         int unpadHeight = r * img.rows;
@@ -97,7 +135,7 @@ class NNetArmorDetector final
         dw /= 2;
         dh /= 2;
 
-        transformMatrix << 1.0 / r, 0, -dw / r, 0, 1.0 / r, -dh / r, 0, 0, 1;
+        mTransformMatrix << 1.0 / r, 0, -dw / r, 0, 1.0 / r, -dh / r, 0, 0, 1;
 
         cv::Mat re;
         cv::resize(img, re, cv::Size(unpadWidth, unpadHeight));
@@ -105,6 +143,22 @@ class NNetArmorDetector final
         cv::copyMakeBorder(re, out, dh, dh, dw, dw, cv::BorderTypes::BORDER_CONSTANT);
 
         return out;
+    }
+
+    void blobImg(const cv::Mat& resizedImg, float* blobDataPtr) {
+        cv::Mat pre;
+        cv::Mat preSplit[3];
+        resizedImg.convertTo(pre, CV_32F);
+        cv::split(pre, preSplit);
+
+        auto imgOffset = mConfig.inputHeight * mConfig.inputWidth;
+        // 将img拷贝进blob
+        for(int c = 0; c < 3; c++) {
+            // memcpy(blobDataPtr, preSplit[c].data, imgOffset * sizeof(float));
+            std::copy(reinterpret_cast<float*>(preSplit[c].data),
+                      reinterpret_cast<float*>(preSplit[c].data) + imgOffset * sizeof(uchar), blobDataPtr);
+            blobDataPtr += imgOffset;
+        }
     }
 
     void generateGridsAndStride(int targetWidth, int targetHeight, std::vector<int>& strides,
@@ -130,8 +184,7 @@ class NNetArmorDetector final
         return maxArg;
     }
 
-    void generateYoloxProposals(const std::vector<GridAndStride>& gridStrides, const float* featPtr,
-                                const Eigen::Matrix<float, 3, 3>& transformMatrix, float probThreshold,
+    void generateYoloxProposals(const std::vector<GridAndStride>& gridStrides, const float* featPtr, float probThreshold,
                                 std::vector<NNetDetectedArmor>& armors) {
 
         const int numAnchors = gridStrides.size();
@@ -169,7 +222,7 @@ class NNetArmorDetector final
 
                 light4PointNorm << x1, x2, x3, x4, y1, y2, y3, y4, 1, 1, 1, 1;
 
-                light4PointDst = transformMatrix * light4PointNorm;
+                light4PointDst = mTransformMatrix * light4PointNorm;
 
                 armor.light4Point.resize(4);
                 for(int i = 0; i < 4; i++) {
@@ -261,14 +314,13 @@ class NNetArmorDetector final
         }
     }
 
-    void decodeOutputs(const float* prob, std::vector<NNetDetectedArmor>& armors,
-                       const Eigen::Matrix<float, 3, 3>& transformMatrix, int imgwidth, int imgHeight) {
+    void decodeOutputs(const float* prob, std::vector<NNetDetectedArmor>& armors) {
         std::vector<NNetDetectedArmor> proposals;
         std::vector<int> strides = { 8, 16, 32 };
         std::vector<GridAndStride> gridStrides;
 
         generateGridsAndStride(mConfig.inputWidth, mConfig.inputHeight, strides, gridStrides);
-        generateYoloxProposals(gridStrides, prob, transformMatrix, mConfig.bboxConfThresh, proposals);
+        generateYoloxProposals(gridStrides, prob, mConfig.bboxConfThresh, proposals);
         qsortDescentInplace(proposals);
 
         if(proposals.size() >= mConfig.topK)
@@ -283,36 +335,13 @@ class NNetArmorDetector final
         }
     }
 
-    bool blobImg(const cv::Mat& imageFromCamera, float* blobDataPtr) {
-        if(imageFromCamera.empty()) {
-            logWarning(fmt::format("NNet Armor Detector receive  empty img!"));
-            return false;
-        }
-        cv::Mat resizedImg = scaledResize(imageFromCamera, mTransformMatrix);
-        cv::Mat pre;
-        cv::Mat preSplit[3];
-        resizedImg.convertTo(pre, CV_32F);
-        cv::split(pre, preSplit);
-
-        auto imgOffset = mConfig.inputHeight * mConfig.inputWidth;
-        // 将img拷贝进blob
-        for(int c = 0; c < 3; c++) {
-            // memcpy(blobDataPtr, preSplit[c].data, imgOffset * sizeof(float));
-            std::copy(reinterpret_cast<float*>(preSplit[c].data),
-                      reinterpret_cast<float*>(preSplit[c].data) + imgOffset * sizeof(uchar), blobDataPtr);
-            blobDataPtr += imgOffset;
-        }
-
-        return true;
-    }
-
     std::vector<NNetDetectedArmor> postProcess(const std::vector<NNetDetectedArmor>& armors) {
-        [[maybe_unused]]const int enemyColor = GlobalSettings::get().selfColor == Color::Red ? 0 : 1;
+        [[maybe_unused]] const int enemyColor = GlobalSettings::get().selfColor == Color::Red ? 0 : 1;
         std::vector<NNetDetectedArmor> enemyArmors;
 
         for(const auto& armor : armors) {
-//            if(armor.robotColor != enemyColor)
-//                continue;
+            //            if(armor.robotColor != enemyColor)
+            //                continue;
 
             // 对候选框预测角点进行平均,降低误差
             NNetDetectedArmor enemyArmor = armor;
@@ -377,26 +406,57 @@ public:
                      NNetDetectedArmorArray res;
                      res.frame = frame;
 
-                     auto inputBlobHolder = mInputMemBlobPtr->wmap();
-                     float* blobDataPtr = inputBlobHolder.as<float*>();
-                     if(!blobImg(res.frame.frame, blobDataPtr)) {
+                     if (res.frame.frame.empty()){
+                         logWarning("Src img is empty!");
                          return;
                      }
+
+                     cv::Mat croppedImg;
+                     if (mROIKey.has_value() && useROI){
+                         const auto targetROI = BlackBoard::instance().get<TargetROI>(mROIKey.value());
+                         if (targetROI.has_value() && targetROI->lastUpdate - res.frame.lastUpdate < maxDiffTime && targetROI->dist < maxDistance){
+                             croppedImg = getROIRegion(res.frame.frame, targetROI->armorImgCenter);
+                         }
+                     }else{
+                         croppedImg = scaledResize(res.frame.frame);
+                     }
+
+                     auto inputBlobHolder = mInputMemBlobPtr->wmap();
+                     float* blobDataPtr = inputBlobHolder.as<float*>();
+                     blobImg(croppedImg, blobDataPtr);
+                     const auto t1 = Clock::now();
 
                      mInferRequest.Infer();
 
                      std::vector<NNetDetectedArmor> allArmors;
                      auto outputHolder = mOutputMemBlobPtr->rmap();
                      const float* netPredict = outputHolder.as<const IE::PrecisionTrait<IE::Precision::FP32>::value_type*>();
-                     decodeOutputs(netPredict, allArmors, mTransformMatrix, res.frame.info.width, res.frame.info.height);
+                     decodeOutputs(netPredict, allArmors);
 
                      res.armors = postProcess(allArmors);
 
-                     const auto t1 = Clock::now();
-                     logInfo(
-                         fmt::format("NNet armor detector:decode time {:.4f}s", static_cast<double>((t1 - t0).count()) / 1e9));
+
+                     if (res.armors.size() == 0){
+                         ++mLostTargetCnt;
+                         if (mLostTargetCnt >= maxLostTargetCnt){
+                             mLostTargetCnt = maxLostTargetCnt;
+                             useROI = false;
+                         }
+                     }else{
+                         mLostTargetCnt = 0;
+                         useROI = true;
+                     }
+
+                     const auto t2 = Clock::now();
+                     logInfo(fmt::format("NNet armor detector:prepare time {:.4f} decode time {:.4f}s",
+                                         static_cast<double>((t1 - t0).count()) / 1e9,
+                                         static_cast<double>((t2 - t1).count()) / 1e9));
 
                      sendAll(armor_nnet_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
+                 },
+                 [&](update_roi_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(update_roi_atom, TypedIdentifier<TargetROI>);
+                     mROIKey = key;
                  } };
     }
 };

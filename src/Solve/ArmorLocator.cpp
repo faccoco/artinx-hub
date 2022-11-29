@@ -54,6 +54,11 @@ class ArmorLocator final
         return -evalArea(p1, p2, p3) - evalArea(p1, p3, p4);
     }
 
+    cv::Point2f clcArmorImgCenter() {
+        return { (mImagePoint[0].x + mImagePoint[1].x + mImagePoint[2].x + mImagePoint[3].x) / 4,
+                 (mImagePoint[0].y + mImagePoint[1].y + mImagePoint[2].y + mImagePoint[3].y) / 4 };
+    }
+
     bool initImgPointAndArmorType(const PairedLight& armor) {
         boxRect(mImagePoint, armor.r1);
         const auto area1 = armor.r1.size.area();
@@ -120,13 +125,10 @@ public:
 
                          const auto point = solve(debugView, cameraInfo.cameraMatrix, isLargeArmor);
 
-                         res.targets.push_back({
-                             tfCamera2Gun(point),
-                             0.0,
-                             id,
-                             isLargeArmor ? ArmorType::Large : ArmorType::Small,
-                         });
-                         logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{}, y:{} z:{}", isLargeArmor, point.mVal.x, point.mVal.y, point.mVal.z));
+                         res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, id,
+                                                 isLargeArmor ? ArmorType::Large : ArmorType::Small });
+                         logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{}, y:{} z:{}", isLargeArmor, point.mVal.x,
+                                             point.mVal.y, point.mVal.z));
                      }
 
 #ifdef ARTINXHUB_DEBUG
@@ -156,9 +158,10 @@ public:
                          bool isLargeArmor = armor.robotType >= 2 && armor.robotType <= 6 ? false : true;
                          const auto point = solve(debugView, cameraInfo.cameraMatrix, isLargeArmor);
 
-                         res.targets.push_back(
-                             { tfCamera2Gun(point), 0.0, armor.robotType, isLargeArmor ? ArmorType::Large : ArmorType::Small });
-                         logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{}, y:{} z:{}", isLargeArmor, point.mVal.x, point.mVal.y, point.mVal.z));
+                         res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, armor.robotType,
+                                                 isLargeArmor ? ArmorType::Large : ArmorType::Small });
+                         logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{}, y:{} z:{}", isLargeArmor, point.mVal.x,
+                                             point.mVal.y, point.mVal.z));
                      }
 
                      sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
