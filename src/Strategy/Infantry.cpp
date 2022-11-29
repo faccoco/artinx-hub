@@ -20,7 +20,8 @@ bool inspect(Inspector& f, InfantryStrategySettings& x) {
     return f.object(x).fields();
 }
 
-class InfantryStrategy final : public HubHelper<caf::event_based_actor, InfantryStrategySettings, set_target_atom, update_roi_atom> {
+class InfantryStrategy final
+    : public HubHelper<caf::event_based_actor, InfantryStrategySettings, set_target_atom, update_roi_atom> {
     Identifier mKey;
     bool mEnergyMode = false;
 
@@ -40,11 +41,7 @@ public:
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
                      selected.selected = {
-                         {0.0, 0.0},
-                         data.point,
-                         0.0,
-                         1,
-                         ArmorType::Large,
+                         { 0.0, 0.0 }, data.point, 0.0, 1, ArmorType::Large
                      };
 
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
@@ -70,7 +67,7 @@ public:
                      }
                      if(!selected.selected.has_value())
                          return;
-                     TargetROI roi{selected.lastUpdate, minDistance, selected.selected->armorImgCenter};
+                     TargetROI roi{ selected.lastUpdate, minDistance, selected.selected->armorImgCenter };
 
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                      sendAll(update_roi_atom_v, BlackBoard::instance().updateSync<TargetROI>(mKey, roi));

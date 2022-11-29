@@ -415,9 +415,11 @@ public:
                      if (mROIKey.has_value() && useROI){
                          const auto targetROI = BlackBoard::instance().get<TargetROI>(mROIKey.value());
                          if (targetROI.has_value() && targetROI->lastUpdate - res.frame.lastUpdate < maxDiffTime && targetROI->dist < maxDistance){
+                             logInfo("use ROI!");
                              croppedImg = getROIRegion(res.frame.frame, targetROI->armorImgCenter);
                          }
                      }else{
+                         logInfo("not use ROI!");
                          croppedImg = scaledResize(res.frame.frame);
                      }
 
