@@ -121,6 +121,7 @@ class NNetArmorDetector final
         mTransformMatrix << 1.0, 0, ltOfROI.x, 0, 1.0, ltOfROI.y, 0, 0, 1;
 
         cv::Rect2i roiRect{ltOfROI, cv::Size{mConfig.inputWidth, mConfig.inputHeight}};
+        //cv::rectangle(img, roiRect, cv::Scalar(255, 255, 255), 1);
         return img(roiRect).clone();
     }
 
@@ -415,18 +416,19 @@ public:
                      if (mROIKey.has_value() && useROI){
                          const auto targetROI = BlackBoard::instance().get<TargetROI>(mROIKey.value());
                          if (targetROI.has_value() && targetROI->lastUpdate - res.frame.lastUpdate < maxDiffTime && targetROI->dist < maxDistance){
-                             logInfo("use ROI!");
+                             //logInfo("use ROI!");
                              croppedImg = getROIRegion(res.frame.frame, targetROI->armorImgCenter);
                          }
-                     }else{
-                         logInfo("not use ROI!");
+                     }
+
+                     if (croppedImg.empty()){
+                         //logInfo("not use ROI!");
                          croppedImg = scaledResize(res.frame.frame);
                      }
 
                      auto inputBlobHolder = mInputMemBlobPtr->wmap();
                      float* blobDataPtr = inputBlobHolder.as<float*>();
                      blobImg(croppedImg, blobDataPtr);
-                     const auto t1 = Clock::now();
 
                      mInferRequest.Infer();
 
@@ -449,10 +451,9 @@ public:
                          useROI = true;
                      }
 
-                     const auto t2 = Clock::now();
-                     logInfo(fmt::format("NNet armor detector:prepare time {:.4f} decode time {:.4f}s",
-                                         static_cast<double>((t1 - t0).count()) / 1e9,
-                                         static_cast<double>((t2 - t1).count()) / 1e9));
+                     const auto t1 = Clock::now();
+                     logInfo(fmt::format("NNet armor detector:decode time {:.4f}ms",
+                                         static_cast<double>((t1 - t0).count()) / 1e6));
 
                      sendAll(armor_nnet_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  },
