@@ -9,7 +9,6 @@
 #include <cmath>
 #include <complex>
 #include <limits>
-#include <queue>
 
 #include "SuppressWarningBegin.hpp"
 
@@ -22,6 +21,7 @@
 
 static constexpr double minShootTheta = glm::radians(30.0);
 static constexpr double maxShootTheta = glm::radians(150.0);
+static constexpr double minDelta = 0.001;  // s
 
 struct AngleSolverSettings final {
     double precision;
@@ -37,30 +37,9 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
     Identifier mKey, mIMUKey, mHeadKey;
 
     const double g, bulletMass, bulletRadius, dragCoefficient, airDensity, delayTime;
-    struct QueueType {
-        GroupMask mGroupMask;
-        Clock::rep time_since_epoch;
-        double yawAngle;
-        double pitchAngle;
-        TimePoint shootTime;
-        bool operator>(const QueueType& rhs) const {
-            return shootTime > rhs.shootTime;
-        }
-    };
-    std::priority_queue<QueueType, std::vector<QueueType>, std::greater<QueueType>> shootQueue;
 
     static constexpr glm::dvec3 tf(const glm::dvec3& ori) {
         return { ori.x, -ori.z, ori.y };
-    }
-
-    void refreshQueue(TimePoint nowTime) {
-        while(shootQueue.size() != 0 && nowTime >= shootQueue.top().shootTime) {
-            if(nowTime - shootQueue.top().shootTime <= 100ms) {
-                auto& [mGroupMask, time_since_epoch, yawAngle, pitchAngle, shootTime] = shootQueue.top();
-                sendAllHighPriority(set_target_info_atom_v, mGroupMask, time_since_epoch, yawAngle, pitchAngle, true);
-            }
-            shootQueue.pop();
-        }
     }
 
 public:
@@ -214,8 +193,8 @@ public:
                 auto [time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
 
                 // logInfo(fmt::format("x:{}, y:{}, z:{}", tfPos.x, tfPos.y, tfPos.z));
-                sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
-                                    yawAngle, pitchAngle, true);
+                sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
+                        pitchAngle, true);
             },
             [this](outpost_predict_success_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(outpost_predict_success_atom, TypedIdentifier<PredictedOutpost>);
@@ -231,7 +210,7 @@ public:
                 double predictTime = 0.0667 * glm::sqrt(tfCenterPos.x * tfCenterPos.x + tfCenterPos.y * tfCenterPos.y) +
                     0.0155 * tfCenterPos.z + 0.01;
 
-                for(;;) {
+                for(int i = 0;; i++) {
                     double theta = data->theta.mVal + (predictTime + delayTime) * data->angularVelocity.mVal;
                     if(theta > maxShootTheta) {
                         theta -= glm::radians<double>(120);
@@ -246,17 +225,14 @@ public:
 
                     auto [requiredTime, yawAngle, pitchAngle] = solveWithoutAirDrag(finalPos, glm::dvec3{ 0, 0, 0 });
 
-                    if(requiredTime < predictTime) {
-                        shootQueue.push(
-                            QueueType{ mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle, pitchAngle,
-                                       data.value().lastUpdate +
-                                           Duration(static_cast<Duration::rep>((predictTime - requiredTime) *
-                                                                               Duration::period::den / Duration::period::num)) });
-                        refreshQueue(data.value().lastUpdate);
-                        return;
+                    if(fabs(predictTime - requiredTime) <= minDelta) {
+                        sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
+                                pitchAngle, true);
+                        break;
+                    } else {
+                        logInfo(fmt::format("AngleSolver delta : {}", predictTime - requiredTime));
+                        predictTime = requiredTime;
                     }
-                    logInfo("AngleSolver: predictTime too short");
-                    predictTime += 0.01;
                 }
             },
         };
