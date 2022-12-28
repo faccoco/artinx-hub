@@ -380,8 +380,3 @@ CAF框架参见[actor_system.md](docs/actor_system.md)
 
 + 参见[code_details.md](docs/code_details.md)
 
-## 踩过的坑
-
-    记录神奇的错误
-
-- 不要在debug模式下跑CTest

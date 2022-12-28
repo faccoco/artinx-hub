@@ -22,7 +22,7 @@
 
 namespace IE = InferenceEngine;
 
-static constexpr Clock::duration maxDiffTime{500ms};
+static constexpr Clock::duration maxDiffTime{ 500ms };
 static constexpr double maxDistance = 6.0;
 static constexpr int maxLostTargetCnt = 5;
 
@@ -95,21 +95,21 @@ class NNetArmorDetector final
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame)));
     }
 
-    cv::Mat getROIRegion(const cv::Mat& img, const cv::Point2f& centerROI){
+    cv::Mat getROIRegion(const cv::Mat& img, const cv::Point2f& centerROI) {
         cv::Mat roi;
         const auto centerX = static_cast<int>(centerROI.x);
         const auto centerY = static_cast<int>(centerROI.y);
 
-        cv::Point2i ltOfROI;   //left top point of ROI
+        cv::Point2i ltOfROI;  // left top point of ROI
 
-        //get left top point Coordinate of the roi rect
-        const auto getCroppedCoord = [](int center, int inputSize, int originSize){
+        // get left top point Coordinate of the roi rect
+        const auto getCroppedCoord = [](int center, int inputSize, int originSize) {
             int res;
-            if (center - inputSize / 2 >= 0 && center + inputSize / 2 <= originSize){
+            if(center - inputSize / 2 >= 0 && center + inputSize / 2 <= originSize) {
                 res = center - inputSize / 2;
-            }else if (center - inputSize / 2 < 0){
-                res  = 0;
-            }else if (center + inputSize / 2 > originSize){
+            } else if(center - inputSize / 2 < 0) {
+                res = 0;
+            } else if(center + inputSize / 2 > originSize) {
                 res = originSize - inputSize;
             }
             return res;
@@ -120,8 +120,8 @@ class NNetArmorDetector final
 
         mTransformMatrix << 1.0, 0, ltOfROI.x, 0, 1.0, ltOfROI.y, 0, 0, 1;
 
-        cv::Rect2i roiRect{ltOfROI, cv::Size{mConfig.inputWidth, mConfig.inputHeight}};
-        //cv::rectangle(img, roiRect, cv::Scalar(255, 255, 255), 1);
+        cv::Rect2i roiRect{ ltOfROI, cv::Size{ mConfig.inputWidth, mConfig.inputHeight } };
+        // cv::rectangle(img, roiRect, cv::Scalar(255, 255, 255), 1);
         return img(roiRect).clone();
     }
 
@@ -249,34 +249,6 @@ class NNetArmorDetector final
         return inter.area();
     }
 
-    void qsortDescentInplace(std::vector<NNetDetectedArmor>& faceObjects, int left, int right) {
-        int i = left;
-        int j = right;
-        float p = faceObjects[(left + right) / 2].prob;
-
-        while(i <= j) {
-            while(faceObjects[i].prob > p)
-                i++;
-
-            while(faceObjects[j].prob < p)
-                j--;
-
-            if(i <= j) {
-                // swap
-                std::swap(faceObjects[i], faceObjects[j]);
-
-                i++;
-                j--;
-            }
-        }
-    }
-
-    void qsortDescentInplace(std::vector<NNetDetectedArmor>& objects) {
-        if(objects.empty())
-            return;
-        qsortDescentInplace(objects, 0, objects.size() - 1);
-    }
-
     void nmsSortedBboxes(std::vector<NNetDetectedArmor>& faceObjects, std::vector<int>& picked, float nmsThreshold) {
         picked.clear();
 
@@ -290,8 +262,8 @@ class NNetArmorDetector final
         for(int i = 0; i < n; i++) {
             NNetDetectedArmor& a = faceObjects[i];
 
-            int keep = 1;
-            for(int j = 0; j < (int)picked.size(); j++) {
+            bool keep = true;
+            for(uint32_t j = 0; j < picked.size(); j++) {
                 NNetDetectedArmor& b = faceObjects[picked[j]];
 
                 // intersection over union
@@ -299,7 +271,7 @@ class NNetArmorDetector final
                 float unionArea = areas[i] + areas[picked[j]] - interArea;
                 float iou = interArea / unionArea;
                 if(iou > nmsThreshold) {
-                    keep = 0;
+                    keep = false;
                     // Stored for FFT
                     if(iou > mConfig.fftMinIou && abs(a.prob - b.prob) < mConfig.fftConfError && a.robotType == b.robotType &&
                        a.robotColor == b.robotColor) {
@@ -322,7 +294,8 @@ class NNetArmorDetector final
 
         generateGridsAndStride(mConfig.inputWidth, mConfig.inputHeight, strides, gridStrides);
         generateYoloxProposals(gridStrides, prob, mConfig.bboxConfThresh, proposals);
-        qsortDescentInplace(proposals);
+
+        std::sort(proposals.begin(), proposals.end(), [](const auto& lhs, const auto& rhs) { return lhs.prob > rhs.prob; });
 
         if(proposals.size() >= mConfig.topK)
             proposals.resize(mConfig.topK);
@@ -407,22 +380,23 @@ public:
                      NNetDetectedArmorArray res;
                      res.frame = frame;
 
-                     if (res.frame.frame.empty()){
+                     if(res.frame.frame.empty()) {
                          logWarning("Src img is empty!");
                          return;
                      }
 
                      cv::Mat croppedImg;
-                     if (mROIKey.has_value() && useROI){
+                     if(mROIKey.has_value() && useROI) {
                          const auto targetROI = BlackBoard::instance().get<TargetROI>(mROIKey.value());
-                         if (targetROI.has_value() && targetROI->lastUpdate - res.frame.lastUpdate < maxDiffTime && targetROI->dist < maxDistance){
-                             //logInfo("use ROI!");
+                         if(targetROI.has_value() && targetROI->lastUpdate - res.frame.lastUpdate < maxDiffTime &&
+                            targetROI->dist < maxDistance) {
+                             // logInfo("use ROI!");
                              croppedImg = getROIRegion(res.frame.frame, targetROI->armorImgCenter);
                          }
                      }
 
-                     if (croppedImg.empty()){
-                         //logInfo("not use ROI!");
+                     if(croppedImg.empty()) {
+                         // logInfo("not use ROI!");
                          croppedImg = scaledResize(res.frame.frame);
                      }
 
@@ -439,21 +413,20 @@ public:
 
                      res.armors = postProcess(allArmors);
 
-
-                     if (res.armors.size() == 0){
+                     if(res.armors.size() == 0) {
                          ++mLostTargetCnt;
-                         if (mLostTargetCnt >= maxLostTargetCnt){
+                         if(mLostTargetCnt >= maxLostTargetCnt) {
                              mLostTargetCnt = maxLostTargetCnt;
                              useROI = false;
                          }
-                     }else{
+                     } else {
                          mLostTargetCnt = 0;
                          useROI = true;
                      }
 
                      const auto t1 = Clock::now();
-                     logInfo(fmt::format("NNet armor detector:decode time {:.4f}ms",
-                                         static_cast<double>((t1 - t0).count()) / 1e6));
+                     logInfo(
+                         fmt::format("NNet armor detector:decode time {:.4f}ms", static_cast<double>((t1 - t0).count()) / 1e6));
 
                      sendAll(armor_nnet_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  },
