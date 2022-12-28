@@ -96,6 +96,9 @@ public:
                      frame.lastUpdate = res.frame.lastUpdate;
                      frame.info = res.frame.info;
 
+                     cv::imshow("detecotr", frame.frame);
+                     cv::waitKey(1);
+
                      sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frame)));
                  } };
     }
