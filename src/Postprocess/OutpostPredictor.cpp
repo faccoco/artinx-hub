@@ -17,6 +17,7 @@
 static constexpr int dequeLength = 50;
 static constexpr double minRadius = 0.1;
 static constexpr double staticPosThreshold = 0.01;
+static constexpr double radiusThreshold = 0.1;
 static constexpr Duration maxWaitingTime = 50ms;
 static constexpr double maxJumpTheta = glm::radians<double>(10);
 static constexpr double deltaTheta = glm::radians<double>(120);
@@ -139,8 +140,14 @@ class OutpostPredictor final : public HubHelper<caf::event_based_actor, ArmorPre
         }
 
         double det = x * x - x * Ml + Cov_xz;
-        double Xcenter = (Mxl * (Mzz - x) - Mzl * Mxz) / det / 2;
-        double Zcenter = (Mzl * (Mxx - x) - Mxl * Mxz) / det / 2;
+        double Xcenter, Zcenter;
+        if(det == 0) {
+            Xcenter = 0;
+            Zcenter = 0;
+        } else {
+            Xcenter = (Mxl * (Mzz - x) - Mzl * Mxz) / det / 2;
+            Zcenter = (Mzl * (Mxx - x) - Mxl * Mxz) / det / 2;
+        }
         x = Xcenter + meanX;
         y = meanY;
         z = Zcenter + meanZ;
@@ -201,27 +208,35 @@ public:
                         return;
 
                     auto [center, radius] = CircleFitByTaubin(mLastPosition);
-                    res.centerOfOutpost = center;
+                    // static or all points on a line
+                    if(radius < radiusThreshold) {
+                        res.centerOfOutpost = mLastPosition.back().second;
+                        res.angularVelocity = 0;
+                        res.radius = 0;
+                        res.theta = glm::radians<double>(90);
+                    } else {
+                        res.centerOfOutpost = center;
 
-                    auto baseTime = mLastPosition[0].first.time_since_epoch().count();
-                    std::vector<std::pair<double, double>> time_theta;
-                    time_theta.reserve(dequeLength);
-                    double dTheta = 0;
-                    for(const auto& pt : mLastPosition) {
-                        double nowTheta = getTheta(center, pt.second.mVal);
-                        if(time_theta.size() > 0 && std::abs(nowTheta - time_theta.back().second) > maxJumpTheta) {
-                            nowTheta += (dTheta += (nowTheta > time_theta.back().second ? (-deltaTheta) : deltaTheta));
+                        auto baseTime = mLastPosition[0].first.time_since_epoch().count();
+                        std::vector<std::pair<double, double>> time_theta;
+                        time_theta.reserve(dequeLength);
+                        double dTheta = 0;
+                        for(const auto& pt : mLastPosition) {
+                            double nowTheta = getTheta(center, pt.second.mVal);
+                            if(time_theta.size() > 0 && std::abs(nowTheta - time_theta.back().second) > maxJumpTheta) {
+                                nowTheta += (dTheta += (nowTheta > time_theta.back().second ? (-deltaTheta) : deltaTheta));
+                            }
+                            time_theta.push_back(std::make_pair(double(pt.first.time_since_epoch().count() - baseTime) /
+                                                                    Clock::period::den * Clock::period::num,
+                                                                nowTheta));
                         }
-                        time_theta.push_back(std::make_pair(double(pt.first.time_since_epoch().count() - baseTime) /
-                                                                Clock::period::den * Clock::period::num,
-                                                            nowTheta));
+                        auto [k, m] = FitLine(time_theta);
+                        res.angularVelocity = k;
+                        res.theta = k * time_theta.back().first + m - dTheta;
                     }
-                    auto [k, m] = FitLine(time_theta);
-                    res.angularVelocity = k;
-                    res.theta = k * time_theta.back().first + m - dTheta;
-                    // logInfo(fmt::format("center:{},{},{}\nangularVelocity:{}\ntheta:{}", res.centerOfOutpost.mVal.x,
-                    //                     res.centerOfOutpost.mVal.y, res.centerOfOutpost.mVal.z, res.angularVelocity.mVal,
-                    //                     res.theta.mVal));
+                    logInfo(fmt::format("center:{},{},{} radius:{}\nangularVelocity:{}\ntheta:{}", res.centerOfOutpost.mVal.x,
+                                        res.centerOfOutpost.mVal.y, res.centerOfOutpost.mVal.z, radius, res.angularVelocity.mVal,
+                                        res.theta.mVal));
                 } else {  // 如果不使用预测功能的话，不修正位置
                     static std::optional<int> direction;
                     if(stopTimes > 5) {
@@ -276,6 +291,7 @@ public:
                         mLastTwoPosition.pop();
                         mLastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
                     }
+                    res.radius = radiusOfOutpost;
                     // logInfo(fmt::format("center:{},{},{}\nangularVelocity:{}\ntheta:{}", res.centerOfOutpost.mVal.x,
                     //                     res.centerOfOutpost.mVal.y, res.centerOfOutpost.mVal.z, res.angularVelocity.mVal,
                     //                     res.theta.mVal));

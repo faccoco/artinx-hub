@@ -18,6 +18,7 @@ struct PredictedTarget final {
 struct PredictedOutpost final {
     TimePoint lastUpdate;
     Vector<UnitType::Distance, FrameOfRef::Robot> centerOfOutpost;
+    Scalar<UnitType::Distance> radius;
     Scalar<UnitType::Angle> theta;
     Scalar<UnitType::AngularVelocity> angularVelocity;
 };

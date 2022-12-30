@@ -221,7 +221,7 @@ public:
                         if(theta > maxShootTheta)
                             return;
                     }
-                    glm::dvec3 finalPos = tfCenterPos + glm::dvec3{ glm::cos(theta), -glm::sin(theta), 0 } * radiusOfOutpost;
+                    glm::dvec3 finalPos = tfCenterPos + glm::dvec3{ glm::cos(theta), -glm::sin(theta), 0 } * data->radius.mVal;
 
                     auto [requiredTime, yawAngle, pitchAngle] = solveWithoutAirDrag(finalPos, glm::dvec3{ 0, 0, 0 });
 
