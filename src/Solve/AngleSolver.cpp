@@ -230,7 +230,7 @@ public:
                                 pitchAngle, true);
                         break;
                     } else {
-                        logInfo(fmt::format("AngleSolver delta : {}", predictTime - requiredTime));
+                        // logInfo(fmt::format("AngleSolver delta : {}", predictTime - requiredTime));
                         predictTime = requiredTime;
                     }
                 }

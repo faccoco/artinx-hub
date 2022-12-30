@@ -8,15 +8,18 @@
 
 #include "SuppressWarningBegin.hpp"
 
+#include <Eigen/Core>
 #include <caf/event_based_actor.hpp>
 #include <magic_enum.hpp>
 
 #include "SuppressWarningEnd.hpp"
 
-constexpr double staticVelThreshold = 0.1;
-constexpr double staticPosThreshold = 0.01;
-constexpr Duration maxWaitingTime = 50ms;
-constexpr double maxJumpTheta = glm::radians<double>(10);
+static constexpr int dequeLength = 50;
+static constexpr double minRadius = 0.1;
+static constexpr double staticPosThreshold = 0.01;
+static constexpr Duration maxWaitingTime = 50ms;
+static constexpr double maxJumpTheta = glm::radians<double>(10);
+static constexpr double deltaTheta = glm::radians<double>(120);
 
 struct ArmorPredictorSettings final {
     bool enablePredictor;
@@ -31,6 +34,10 @@ class OutpostPredictor final : public HubHelper<caf::event_based_actor, ArmorPre
     Identifier mKey;
     GroupMask mGroupMask;
 
+    // 用预测的
+    std::deque<std::pair<TimePoint, Vector<UnitType::Distance, FrameOfRef::Robot>>> mLastPosition;
+
+    // 不用预测的
     std::queue<std::pair<TimePoint, Vector<UnitType::Distance, FrameOfRef::Robot>>> mLastTwoPosition;
     std::optional<Scalar<UnitType::Angle>> mLastTheta;
     int stopTimes = 0;
@@ -73,6 +80,98 @@ class OutpostPredictor final : public HubHelper<caf::event_based_actor, ArmorPre
         return res;
     }
 
+    // pair[center,radius]
+    std::pair<glm::dvec3, double>
+    CircleFitByTaubin(const std::deque<std::pair<TimePoint, Vector<UnitType::Distance, FrameOfRef::Robot>>>& pts) {
+        static constexpr int maxIterTimes = 99;
+
+        int n = pts.size();
+        double x, y, z, meanX, meanY, meanZ, Mxx, Mzz, Mxz, Mxl, Mzl, Mll;
+        meanX = meanY = meanZ = Mxx = Mzz = Mxz = Mxl = Mzl = Mll = 0;
+
+        for(auto& pt : pts) {
+            meanX += pt.second.mVal.x;
+            meanY += pt.second.mVal.y;
+            meanZ += pt.second.mVal.z;
+        }
+        meanX /= n;
+        meanY /= n;
+        meanZ /= n;
+
+        for(auto& pt : pts) {
+            double xi = pt.second.mVal.x - meanX;
+            double zi = pt.second.mVal.z - meanZ;
+            double li = xi * xi + zi * zi;
+            Mxx += xi * xi;
+            Mzz += zi * zi;
+            Mxz += xi * zi;
+            Mxl += xi * li;
+            Mzl += zi * li;
+            Mll += li * li;
+        }
+        Mxx /= n;
+        Mzz /= n;
+        Mxz /= n;
+        Mxl /= n;
+        Mzl /= n;
+        Mll /= n;
+
+        double Ml = Mxx + Mzz;
+        double Cov_xz = Mxx * Mzz - Mxz * Mxz;
+        double Var_l = Mll - Ml * Ml;
+        double A3 = 4 * Ml;
+        double A2 = -3 * Ml * Ml - Mll;
+        double A1 = Var_l * Ml + 4 * Cov_xz * Ml - Mxl * Mxl - Mzl * Mzl;
+        double A0 = Mxl * (Mxl * Mzz - Mzl * Mxz) + Mzl * (Mzl * Mxx - Mxl * Mxz) - Var_l * Cov_xz;
+        double A22 = 2 * A2;
+        double A33 = 3 * A3;
+
+        int i;
+        for(x = 0, z = A0, i = 0; i < maxIterTimes; i++) {
+            double xnew = x - z / (A1 + x * (A22 + A33 * x));
+            if((xnew == x) || (!std::isfinite(xnew)))
+                break;
+            double znew = A0 + xnew * (A1 + xnew * (A2 + xnew * A3));
+            if(std::abs(znew) >= std::abs(z))
+                break;
+            x = xnew;
+            z = znew;
+        }
+
+        double det = x * x - x * Ml + Cov_xz;
+        double Xcenter = (Mxl * (Mzz - x) - Mzl * Mxz) / det / 2;
+        double Zcenter = (Mzl * (Mxx - x) - Mxl * Mxz) / det / 2;
+        x = Xcenter + meanX;
+        y = meanY;
+        z = Zcenter + meanZ;
+
+        return std::make_pair(glm::dvec3{ x, y, z }, std::sqrt(Xcenter * Xcenter + Zcenter * Zcenter + Ml));
+    }
+
+    // pair[k,m]
+    std::pair<double, double> FitLine(std::vector<std::pair<double, double>> pts) {
+        int n = pts.size();
+        double meanX = 0, meanY = 0, sigma1 = 0, sigma2 = 0, k, m;
+        for(const auto& pt : pts) {
+            meanX += pt.first;
+            meanY += pt.second;
+            sigma1 += pt.first * pt.second;
+            sigma2 += pt.first * pt.first;
+        }
+        meanX /= n;
+        meanY /= n;
+        k = (sigma1 - n * meanX * meanY) / (sigma2 - n * meanX * meanX);
+        m = meanY - k * meanX;
+        return std::make_pair(k, m);
+    }
+
+    double getTheta(const glm::dvec3& center, const glm::dvec3& point) {
+        double x = point.x - center.x;
+        double z = point.z - center.z;
+        double l = glm::sqrt(x * x + z * z);
+        return glm::acos(x / l);
+    }
+
 public:
     OutpostPredictor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
@@ -93,11 +192,37 @@ public:
                 Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data->selected->center.mVal);
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->tfRobot2Gun->invTransform(posOfRefGun);
 
-                if(mConfig.enablePredictor) {  // 如果使用预测功能的话，修正旋转中心及当前位置
-                } else {                       // 如果不使用预测功能的话，不修正位置
-                }
-                {  //下面是不使用预测的
+                if(mConfig
+                       .enablePredictor) {  // 如果使用预测功能的话，使用Taubin法获取圆心位置，使用最小二乘法线性拟合获取角速度和当前位置
+                    if(mLastPosition.size() == dequeLength)
+                        mLastPosition.pop_front();
+                    mLastPosition.push_back(std::make_pair(data->lastUpdate, posRefRobot));
+                    if(mLastPosition.size() < dequeLength)
+                        return;
 
+                    auto [center, radius] = CircleFitByTaubin(mLastPosition);
+                    res.centerOfOutpost = center;
+
+                    auto baseTime = mLastPosition[0].first.time_since_epoch().count();
+                    std::vector<std::pair<double, double>> time_theta;
+                    time_theta.reserve(dequeLength);
+                    double dTheta = 0;
+                    for(const auto& pt : mLastPosition) {
+                        double nowTheta = getTheta(center, pt.second.mVal);
+                        if(time_theta.size() > 0 && std::abs(nowTheta - time_theta.back().second) > maxJumpTheta) {
+                            nowTheta += (dTheta += (nowTheta > time_theta.back().second ? (-deltaTheta) : deltaTheta));
+                        }
+                        time_theta.push_back(std::make_pair(double(pt.first.time_since_epoch().count() - baseTime) /
+                                                                Clock::period::den * Clock::period::num,
+                                                            nowTheta));
+                    }
+                    auto [k, m] = FitLine(time_theta);
+                    res.angularVelocity = k;
+                    res.theta = k * time_theta.back().first + m - dTheta;
+                    // logInfo(fmt::format("center:{},{},{}\nangularVelocity:{}\ntheta:{}", res.centerOfOutpost.mVal.x,
+                    //                     res.centerOfOutpost.mVal.y, res.centerOfOutpost.mVal.z, res.angularVelocity.mVal,
+                    //                     res.theta.mVal));
+                } else {  // 如果不使用预测功能的话，不修正位置
                     static std::optional<int> direction;
                     if(stopTimes > 5) {
                         logInfo("outpost stop");
@@ -132,18 +257,9 @@ public:
                         }
                         res.centerOfOutpost = circleCenter(mLastTwoPosition.front().second.mVal,
                                                            mLastTwoPosition.back().second.mVal, posRefRobot.mVal);
-                        {
-                            double x = posRefRobot.mVal.x - res.centerOfOutpost.mVal.x;
-                            double z = posRefRobot.mVal.z - res.centerOfOutpost.mVal.z;
-                            double l = glm::sqrt(x * x + z * z);
-                            res.theta = glm::acos(x / l);
-                        }
-                        if(!mLastTheta.has_value()) {
-                            double x = mLastTwoPosition.back().second.mVal.x - res.centerOfOutpost.mVal.x;
-                            double z = mLastTwoPosition.back().second.mVal.z - res.centerOfOutpost.mVal.z;
-                            double l = glm::sqrt(x * x + z * z);
-                            mLastTheta = glm::acos(x / l);
-                        }
+                        res.theta = getTheta(res.centerOfOutpost.mVal, posRefRobot.mVal);
+                        if(!mLastTheta.has_value())
+                            mLastTheta = getTheta(res.centerOfOutpost.mVal, mLastTwoPosition.back().second.mVal);
                         if(!direction.has_value()) {
                             if(std::fabs((mLastTheta.value() - res.theta).mVal) > maxJumpTheta)
                                 direction = (mLastTheta.value() > res.theta ? 1 : -1);
@@ -160,6 +276,9 @@ public:
                         mLastTwoPosition.pop();
                         mLastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
                     }
+                    // logInfo(fmt::format("center:{},{},{}\nangularVelocity:{}\ntheta:{}", res.centerOfOutpost.mVal.x,
+                    //                     res.centerOfOutpost.mVal.y, res.centerOfOutpost.mVal.z, res.angularVelocity.mVal,
+                    //                     res.theta.mVal));
                 }
 
                 sendAll(outpost_predict_success_atom_v,
