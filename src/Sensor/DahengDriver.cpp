@@ -1,13 +1,15 @@
 #include "BlackBoard.hpp"
 #include "CameraFrame.hpp"
+#include "Common.hpp"
 #include "DataDesc.hpp"
-#include "Hub.hpp"
 #include "HeadInfo.hpp"
+#include "Hub.hpp"
 
 #include "SuppressWarningBegin.hpp"
 
 #include <GxIAPI.h>
 #include <caf/event_based_actor.hpp>
+#include <fmt/core.h>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/opencv.hpp>
@@ -43,6 +45,7 @@ struct DahengDriverSettings final {
     double exposureTime;
     bool flip;
     bool disableUndistort;
+    bool enableAutoWhiteBalance;
     glm::dvec3 offset;  // based on gun
 };
 
@@ -55,7 +58,8 @@ bool inspect(Inspector& f, DahengDriverSettings& x) {
         f.field("identifier", x.identifier),
         f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 500.0; }),
         f.field("fov", x.fov), f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
-        f.field("disableUndistort", x.disableUndistort).fallback(false), f.field("dx", x.offset.x).fallback(0.0),
+        f.field("disableUndistort", x.disableUndistort).fallback(false),
+        f.field("enableAutoWhiteBalance", x.enableAutoWhiteBalance).fallback(false), f.field("dx", x.offset.x).fallback(0.0),
         f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0));
 }
 
@@ -131,9 +135,8 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         frameData.info.height = height;
         frameData.info.tfGun2Camera =
             Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>(glm::translate(glm::identity<glm::dmat4>(), -mConfig.offset));
-        if (mHeadKey.has_value()) {
+        if(mHeadKey.has_value()) {
             frameData.info.tfRobot2Gun = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->tfRobot2Gun;
-
         }
 
         // if (mDoUndistort) {
@@ -227,6 +230,9 @@ public:
         checkGXStatus(GXSetInt(mDevice, GX_INT_HEIGHT, height));
         checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_X, 0));
         checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_Y, 0));
+
+        if(mConfig.enableAutoWhiteBalance)
+            checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BALANCE_WHITE_AUTO, GX_BALANCE_WHITE_AUTO_CONTINUOUS));
 
         loadCalibration(mConfig.disableUndistort, mCameraSerialNumber, static_cast<uint32_t>(width),
                         static_cast<uint32_t>(height), mConfig.fov, mCameraMatrix, mDistCoefficients, mDoUndistort);
