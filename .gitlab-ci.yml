@@ -14,7 +14,7 @@ build:
   script:
     - source /opt/intel/openvino_2021/bin/setupvars.sh
     - cmake -B ./build -DARTINX_HUB_CAMERA=USB3 -DCMAKE_MAKE_PROGRAM=make -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/home/artinx/visual_SDK/vcpkg/scripts/buildsystems/vcpkg.cmake
-    - cmake --build ./build --config Release
+    - cmake --build ./build --config Release -j 4
 
 test-job:
   stage: test
@@ -24,7 +24,7 @@ test-job:
     - cd ./build
     - source /opt/intel/openvino_2021/bin/setupvars.sh
     - find -name "*.log" | xargs rm -v
-    - make && ctest --build-config Release -j 17
+    - make && ctest --build-config Release -j 4
   artifacts:
     name: "report"
     when: on_success
