@@ -32,7 +32,7 @@ endif ()
 if (CMAKE_BUILD_TYPE MATCHES Debug)
     add_compile_definitions("ARTINXHUB_DEBUG")
 endif ()
-
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include_directories(BEFORE include)
 
 add_subdirectory(src)
