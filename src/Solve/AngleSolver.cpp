@@ -22,6 +22,7 @@
 static constexpr double minShootTheta = glm::radians(30.0);
 static constexpr double maxShootTheta = glm::radians(150.0);
 static constexpr double minDelta = 0.001;  // s
+static constexpr int maxCycleTimes = 5;
 
 struct AngleSolverSettings final {
     double precision;
@@ -210,7 +211,7 @@ public:
                 double predictTime = 0.0667 * glm::sqrt(tfCenterPos.x * tfCenterPos.x + tfCenterPos.y * tfCenterPos.y) +
                     0.0155 * tfCenterPos.z + 0.01;
 
-                for(int i = 0;; i++) {
+                for(int i = 0; i < maxCycleTimes; i++) {
                     double theta = data->theta.mVal + (predictTime + delayTime) * data->angularVelocity.mVal;
                     if(theta > maxShootTheta) {
                         theta -= glm::radians<double>(120);

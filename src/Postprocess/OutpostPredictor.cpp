@@ -17,7 +17,9 @@
 static constexpr int dequeLength = 50;
 static constexpr double minRadius = 0.1;
 static constexpr double staticPosThreshold = 0.01;
-static constexpr double radiusThreshold = 0.1;
+static constexpr double minRadiusThreshold = 0.1;
+static constexpr double maxRadiusThreshold = 0.5;
+static constexpr double standardDeviationThreshold = 0.025;
 static constexpr Duration maxWaitingTime = 50ms;
 static constexpr double maxJumpTheta = glm::radians<double>(10);
 static constexpr double deltaTheta = glm::radians<double>(120);
@@ -208,12 +210,22 @@ public:
                         return;
 
                     auto [center, radius] = CircleFitByTaubin(mLastPosition);
+
+                    double standardDeviation = 0;
+                    for(const auto& pos : mLastPosition)
+                        standardDeviation += glm::distance(center, pos.second.mVal) - radius;
+                    standardDeviation = std::sqrt(standardDeviation / dequeLength);
+                    logInfo(fmt::format("standardDeviation: {}", standardDeviation));
+
                     // static or all points on a line
-                    if(radius < radiusThreshold) {
+                    if(radius < minRadiusThreshold || radius > maxRadiusThreshold ||
+                       standardDeviation > standardDeviationThreshold) {
                         res.centerOfOutpost = mLastPosition.back().second;
                         res.angularVelocity = 0;
                         res.radius = 0;
                         res.theta = glm::radians<double>(90);
+                        logInfo("predictor: static");
+                        logInfo(fmt::format("center:{},{},{} radius:{}", center.x, center.y, center.z));
                     } else {
                         res.centerOfOutpost = center;
 
@@ -229,14 +241,15 @@ public:
                             time_theta.push_back(std::make_pair(double(pt.first.time_since_epoch().count() - baseTime) /
                                                                     Clock::period::den * Clock::period::num,
                                                                 nowTheta));
+                            logInfo(fmt::format("nowTheta:{}", nowTheta));
                         }
                         auto [k, m] = FitLine(time_theta);
                         res.angularVelocity = k;
                         res.theta = k * time_theta.back().first + m - dTheta;
+                        logInfo(fmt::format("center:{},{},{} radius:{}\nangularVelocity:{}\ntheta:{}", res.centerOfOutpost.mVal.x,
+                                            res.centerOfOutpost.mVal.y, res.centerOfOutpost.mVal.z, radius,
+                                            res.angularVelocity.mVal, res.theta.mVal));
                     }
-                    logInfo(fmt::format("center:{},{},{} radius:{}\nangularVelocity:{}\ntheta:{}", res.centerOfOutpost.mVal.x,
-                                        res.centerOfOutpost.mVal.y, res.centerOfOutpost.mVal.z, radius, res.angularVelocity.mVal,
-                                        res.theta.mVal));
                 } else {  // 如果不使用预测功能的话，不修正位置
                     static std::optional<int> direction;
                     if(stopTimes > 5) {

@@ -82,12 +82,11 @@ class ArmorLocator final
     }
 
     Point<UnitType::Distance, FrameOfRef::Camera> solve([[maybe_unused]] cv::Mat& debugView, const cv::Mat& cameraMatrix,
-                                                        bool isLargeArmor) {
-        const cv::Mat_<double> distCoeff;
+                                                        const cv::Mat& distCoeffs, bool isLargeArmor) {
         cv::Mat rvec, tvec;
 
         [[maybe_unused]] const auto res = cv::solvePnP(isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
-                                                       cameraMatrix, distCoeff, rvec, tvec, false, cv::SOLVEPNP_IPPE);
+                                                       cameraMatrix, distCoeffs, rvec, tvec, false, cv::SOLVEPNP_IPPE);
         glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
 
         if(p0.z > 0.0)
@@ -123,7 +122,7 @@ public:
 
                          bool isLargeArmor = initImgPointAndArmorType(armor);
 
-                         const auto point = solve(debugView, cameraInfo.cameraMatrix, isLargeArmor);
+                         const auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 
                          res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, id,
                                                  isLargeArmor ? ArmorType::Large : ArmorType::Small });
@@ -156,7 +155,7 @@ public:
                          mImagePoint = armor.light4Point;
 
                          bool isLargeArmor = armor.robotType >= 2 && armor.robotType <= 6 ? false : true;
-                         const auto point = solve(debugView, cameraInfo.cameraMatrix, isLargeArmor);
+                         const auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 
                          res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, armor.robotType,
                                                  isLargeArmor ? ArmorType::Large : ArmorType::Small });
