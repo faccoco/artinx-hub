@@ -8,3 +8,6 @@ bringup
 /record
 /record_down
 /record_up
+CMakeSettings.json
+.cache/
+compile_commands.json

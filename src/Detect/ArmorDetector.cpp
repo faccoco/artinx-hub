@@ -162,27 +162,27 @@ class ArmorDetector final
                 continue;
             }
 
-            //灯条矩形的长边不符合要求
+            // 灯条矩形的长边不符合要求
             if(lightRect.size.height < 6.0f || lightRect.size.height > 160.f)
                 continue;
-            //灯条矩形的短边太长了
+            // 灯条矩形的短边太长了
             if(lightRect.size.width > 20.0f)
                 continue;
-            //灯条矩形的比率不符合要求
-            //            const auto ratio = lightRect.size.width / lightRect.size.height;
-            //            if(ratio < mConfig.minLightRectRatio || ratio > mConfig.maxLightRectRatio)
-            //                continue;
+            // 灯条矩形的比率不符合要求
+            //             const auto ratio = lightRect.size.width / lightRect.size.height;
+            //             if(ratio < mConfig.minLightRectRatio || ratio > mConfig.maxLightRectRatio)
+            //                 continue;
 
-            //灯条倾斜角度太平了(水平线顺时针旋转到短边的角度太大), 角度范围在 [maxLightAngle, pi - maxLightAngle]内不符合要求
+            // 灯条倾斜角度太平了(水平线顺时针旋转到短边的角度太大), 角度范围在 [maxLightAngle, pi - maxLightAngle]内不符合要求
             if(std::sin(glm::radians(lightRect.angle)) > std::sin(glm::radians(mConfig.maxLightAngle))) {
                 continue;
             }
 
-            //外接矩形对应的椭圆的面积比外接轮廓的面积大太多了
-            //            if(static_cast<double>(lightRect.size.width) * static_cast<double>(lightRect.size.height) *
-            //                   glm::quarter_pi<double>() >
-            //               mConfig.maxAreaRatio * cv::contourArea(lightContour))
-            //                continue;
+            // 外接矩形对应的椭圆的面积比外接轮廓的面积大太多了
+            //             if(static_cast<double>(lightRect.size.width) * static_cast<double>(lightRect.size.height) *
+            //                    glm::quarter_pi<double>() >
+            //                mConfig.maxAreaRatio * cv::contourArea(lightContour))
+            //                 continue;
 
             lights.emplace_back(lightRect);
         }
@@ -220,19 +220,19 @@ class ArmorDetector final
                 // 角度为水平线顺时针旋转碰的第一条(该边为宽)所转过的角度
                 auto rect = cv::minAreaRect(pts);
 
-                //长边为宽，短边为高
+                // 长边为宽，短边为高
                 if(rect.size.width < rect.size.height) {
                     std::swap(rect.size.width, rect.size.height);
                 }
-                //装甲板矩形长度太长了
+                // 装甲板矩形长度太长了
                 if(rect.size.width > 300.f)
                     continue;
 
-                //装甲板矩形高度太小了
+                // 装甲板矩形高度太小了
                 if(rect.size.height < 3.0f)
                     continue;
 
-                //装甲板矩形高和宽的比不符合比率范围
+                // 装甲板矩形高和宽的比不符合比率范围
                 const auto ratio = rect.size.width / rect.size.height;
                 if(ratio > mConfig.maxArmorRectRatio || ratio < mConfig.minArmorRectRatio)
                     continue;
@@ -251,38 +251,38 @@ class ArmorDetector final
                 const auto area1 = lhs.size.area();
                 const auto area2 = rhs.size.area();
                 auto par = std::fmin(area1, area2) / std::fmax(area1, area2);
-                //两边灯条的面积差太大了
+                // 两边灯条的面积差太大了
                 if(par < 0.2f)
                     continue;
 
-                //两边灯条的面积占比矩形面积太大了
+                // 两边灯条的面积占比矩形面积太大了
                 if(area1 + area2 > 0.6f * rect.size.area())
                     continue;
 
-                //小的那个高度比外接矩形的高度低太多了
+                // 小的那个高度比外接矩形的高度低太多了
                 if(std::fmin(lhs.size.height, rhs.size.height) < mConfig.minLightHeightRatio * rect.size.height)
                     continue;
 
-                //装甲板矩形的倾斜角度太大了
+                // 装甲板矩形的倾斜角度太大了
                 const auto tanRectAngle =
-                    std::fabs((lhs.center.y - rhs.center.y) / (lhs.center.x - rhs.center.x + 1e-6));  //避免除0
+                    std::fabs((lhs.center.y - rhs.center.y) / (lhs.center.x - rhs.center.x + 1e-6));  // 避免除0
                 const auto rectAngele = std::atan(tanRectAngle);
                 if(rectAngele > glm::radians(mConfig.maxArmorAngle))
                     continue;
 
-                //灯条矩形和装甲板矩形的角度差太大了
+                // 灯条矩形和装甲板矩形的角度差太大了
                 auto sinDegree = [](auto degree) { return std::sin(glm::radians(degree)); };
                 if(std::fabs(sinDegree(rectAngele) - sinDegree(lhs.angle)) > sinDegree(mConfig.maxLightBaseAngle))
                     continue;
                 if(std::fabs(sinDegree(rectAngele) - sinDegree(lhs.angle)) > sinDegree(mConfig.maxLightBaseAngle))
                     continue;
 
-                //两个灯条的角度差太大了
+                // 两个灯条的角度差太大了
                 par = std::fabs(sinDegree(lhs.angle - rhs.angle));
                 if(par > sinDegree(mConfig.maxParallelAngle))
                     continue;
 
-                //两根灯条拼成的矩形中不会出现其他灯条
+                // 两根灯条拼成的矩形中不会出现其他灯条
                 bool isInteraction = false;
                 for(uint32_t k = i + 1; k < j; ++k) {
                     const auto& minRect = rect.boundingRect();
@@ -391,6 +391,7 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      ACTOR_EXCEPTION_PROBE();
 
+                     const auto t0 = Clock::now();
                      const auto frame = BlackBoard::instance().get<CameraFrame>(key).value();
 
                      DetectedArmorArray res;
@@ -401,6 +402,9 @@ public:
                      for(auto& pairedLight : pairedLightVec) {
                          res.armors.push_back({ 0, pairedLight });  // TODO id
                      }
+                     const auto t1 = Clock::now();
+                     logInfo(
+                         fmt::format("NNet armor detector:decode time {:.4f}s", static_cast<double>((t1 - t0).count()) / 1e9));
 
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };

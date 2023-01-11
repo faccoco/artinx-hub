@@ -32,15 +32,15 @@ class ArmorLocator final
     Identifier mKey, mHeadKey{};
     const std::vector<cv::Point3d> mObjectPointsSmall = {
         { -widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
         { -widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
+        { +widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
+        { +widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
     };
     const std::vector<cv::Point3d> mObjectPointsLarge = {
         { -widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
         { -widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
+        { +widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
+        { +widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
     };
     std::vector<cv::Point2f> mImagePoint{ 4 };
 
@@ -52,6 +52,11 @@ class ArmorLocator final
 
     static double evalArea(cv::Point2d p1, cv::Point2d p2, cv::Point2d p3, cv::Point2d p4) {
         return -evalArea(p1, p2, p3) - evalArea(p1, p3, p4);
+    }
+
+    cv::Point2f clcArmorImgCenter() {
+        return { (mImagePoint[0].x + mImagePoint[1].x + mImagePoint[2].x + mImagePoint[3].x) / 4,
+                 (mImagePoint[0].y + mImagePoint[1].y + mImagePoint[2].y + mImagePoint[3].y) / 4 };
     }
 
     bool initImgPointAndArmorType(const PairedLight& armor) {
@@ -67,7 +72,7 @@ class ArmorLocator final
         const cv::Point2d rt = 0.5 * (mImagePoint[1] + mImagePoint[2]);
         const cv::Point2d rb = 0.5 * (mImagePoint[0] + mImagePoint[3]);
 
-        mImagePoint = { lt, rt, rb, lb };
+        mImagePoint = { lt, lb, rb, rt };
         const auto area = evalArea(lt, lb, rb, rt);
 
         const auto ratio = area / std::fmax(0.001, area1 + area2);
@@ -107,6 +112,7 @@ public:
                      auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
                      DetectedTargetArray res;
                      res.lastUpdate = data.frame.lastUpdate;
+                     res.tfRobot2Gun = data.frame.info.tfRobot2Gun;
                      const auto& cameraInfo = data.frame.info;
 
                      auto debugView = data.frame.frame.clone();
@@ -119,12 +125,10 @@ public:
 
                          const auto point = solve(debugView, cameraInfo.cameraMatrix, isLargeArmor);
 
-                         res.targets.push_back({
-                             tfCamera2Gun(point),
-                             0.0,
-                             id,
-                             isLargeArmor ? ArmorType::Large : ArmorType::Small,
-                         });
+                         res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, id,
+                                                 isLargeArmor ? ArmorType::Large : ArmorType::Small });
+                         //  logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{}, y:{} z:{}", isLargeArmor, point.mVal.x,
+                         //                      point.mVal.y, point.mVal.z));
                      }
 
 #ifdef ARTINXHUB_DEBUG
@@ -154,8 +158,10 @@ public:
                          bool isLargeArmor = armor.robotType >= 2 && armor.robotType <= 6 ? false : true;
                          const auto point = solve(debugView, cameraInfo.cameraMatrix, isLargeArmor);
 
-                         res.targets.push_back(
-                             { tfCamera2Gun(point), 0.0, armor.robotType, isLargeArmor ? ArmorType::Large : ArmorType::Small });
+                         res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, armor.robotType,
+                                                 isLargeArmor ? ArmorType::Large : ArmorType::Small });
+                         //  logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{}, y:{} z:{}", isLargeArmor, point.mVal.x,
+                         //                      point.mVal.y, point.mVal.z));
                      }
 
                      sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));

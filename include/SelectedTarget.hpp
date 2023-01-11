@@ -9,6 +9,12 @@ struct SelectedTarget final {
     std::optional<DetectedTarget> selected;
 };
 
+struct TargetROI final{
+    TimePoint lastUpdate;
+    double dist;
+    cv::Point2f armorImgCenter;
+};
+
 struct PredictedTarget final {
     TimePoint lastUpdate;
     Vector<UnitType::Distance, FrameOfRef::Robot> position;
@@ -23,6 +29,7 @@ struct PredictedOutpost final {
     Scalar<UnitType::AngularVelocity> angularVelocity;
 };
 
+ACTOR_PROTOCOL_DEFINE(update_roi_atom, TypedIdentifier<TargetROI>);
 ACTOR_PROTOCOL_DEFINE(set_target_atom, TypedIdentifier<SelectedTarget>);
 ACTOR_PROTOCOL_DEFINE(set_outpost_atom, TypedIdentifier<SelectedTarget>);
 ACTOR_PROTOCOL_DEFINE(predict_success_atom, TypedIdentifier<PredictedTarget>);
