@@ -12,6 +12,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <magic_enum.hpp>
 #include <opencv2/opencv.hpp>
 
 #include "SuppressWarningEnd.hpp"
@@ -46,6 +47,7 @@ struct DahengDriverSettings final {
     bool flip;
     bool disableUndistort;
     bool enableAutoWhiteBalance;
+    double gain;
     glm::dvec3 offset;  // based on gun
 };
 
@@ -59,8 +61,9 @@ bool inspect(Inspector& f, DahengDriverSettings& x) {
         f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 500.0; }),
         f.field("fov", x.fov), f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
         f.field("disableUndistort", x.disableUndistort).fallback(false),
-        f.field("enableAutoWhiteBalance", x.enableAutoWhiteBalance).fallback(false), f.field("dx", x.offset.x).fallback(0.0),
-        f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0));
+        f.field("enableAutoWhiteBalance", x.enableAutoWhiteBalance).fallback(false), f.field("gain", x.gain).fallback(0.0),
+        f.field("dx", x.offset.x).fallback(0.0), f.field("dy", x.offset.y).fallback(0.0),
+        f.field("dz", x.offset.z).fallback(0.0));
 }
 
 static void checkGXStatus(const GX_STATUS status) {
@@ -233,6 +236,18 @@ public:
 
         if(mConfig.enableAutoWhiteBalance)
             checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BALANCE_WHITE_AUTO, GX_BALANCE_WHITE_AUTO_CONTINUOUS));
+
+        if(abs(mConfig.gain - 0.0) > DBL_EPSILON) {
+            GX_FLOAT_RANGE gainRange;
+            checkGXStatus(GXGetFloatRange(mDevice, GX_FLOAT_GAIN, &gainRange));
+            logInfo(fmt::format("Current camera gain range: {} to {}", gainRange.dMin, gainRange.dMax));
+            if(mConfig.gain > gainRange.dMax)
+                mConfig.gain = gainRange.dMax;
+            else if(mConfig.gain < gainRange.dMin)
+                mConfig.gain = gainRange.dMin;
+            checkGXStatus(GXSetEnum(mDevice, GX_ENUM_GAIN_SELECTOR, GX_GAIN_SELECTOR_ALL));
+            checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_GAIN, mConfig.gain));
+        }
 
         loadCalibration(mConfig.disableUndistort, mCameraSerialNumber, static_cast<uint32_t>(width),
                         static_cast<uint32_t>(height), mConfig.fov, mCameraMatrix, mDistCoefficients, mDoUndistort);
