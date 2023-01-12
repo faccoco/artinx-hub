@@ -179,7 +179,7 @@ public:
         mInputBlobName = inputBlobName;  // NOLINT(cppcoreguidelines-prefer-member-initializer)
     }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      ACTOR_EXCEPTION_PROBE();
@@ -203,7 +203,6 @@ public:
 
                      logInfo(fmt::format("infer time {:.4f}s decode time {:.4f}s", static_cast<double>((t1 - t0).count()) / 1e9,
                                          static_cast<double>((t2 - t1).count()) / 1e9));
-
                      sendAll(car_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }

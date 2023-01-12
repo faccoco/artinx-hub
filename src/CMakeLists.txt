@@ -10,6 +10,7 @@ set(SOURCE
 "DataLink/AsyncSerial/AsyncSerial.cpp"
 "DataLink/AsyncSerial/BufferedAsyncSerial.cpp"
 "DataLink/SerialPort.cpp"
+"Detect/CarDetector.cpp"
 "Detect/ArmorDetector.cpp"
 "Detect/NNetArmorDetector.cpp"
 "Detect/EnergyDetector.cpp"
