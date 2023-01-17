@@ -37,13 +37,7 @@ class OutpostPredictor final : public HubHelper<caf::event_based_actor, ArmorPre
     Identifier mKey;
     GroupMask mGroupMask;
 
-    // 用预测的
     std::deque<std::pair<TimePoint, Vector<UnitType::Distance, FrameOfRef::Robot>>> mLastPosition;
-
-    // 不用预测的
-    std::queue<std::pair<TimePoint, Vector<UnitType::Distance, FrameOfRef::Robot>>> mLastTwoPosition;
-    std::optional<Scalar<UnitType::Angle>> mLastTheta;
-    int stopTimes = 0;
 
     // a,b,c mustn't be on the same line or on the same point
     glm::dvec3 circleCenter(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c) {
@@ -193,121 +187,60 @@ public:
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
                 if(!(data->selected.has_value() && data->tfRobot2Gun.has_value()))
                     return;
+                auto tfGun2Robot = data->tfRobot2Gun->invTransformObj();
                 HubLogger::watch("armor type", magic_enum::enum_name(data->selected->type));
 
                 PredictedOutpost res;
                 res.lastUpdate = data->lastUpdate;
 
                 Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data->selected->center.mVal);
-                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->tfRobot2Gun->invTransform(posOfRefGun);
+                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = tfGun2Robot(posOfRefGun);
 
-                if(mConfig
-                       .enablePredictor) {  // 如果使用预测功能的话，使用Taubin法获取圆心位置，使用最小二乘法线性拟合获取角速度和当前位置
-                    if(mLastPosition.size() == dequeLength)
-                        mLastPosition.pop_front();
-                    mLastPosition.push_back(std::make_pair(data->lastUpdate, posRefRobot));
-                    if(mLastPosition.size() < dequeLength)
-                        return;
+                if(mLastPosition.size() == dequeLength)
+                    mLastPosition.pop_front();
+                mLastPosition.push_back(std::make_pair(data->lastUpdate, posRefRobot));
+                if(mLastPosition.size() < dequeLength)
+                    return;
 
-                    auto [center, radius] = CircleFitByTaubin(mLastPosition);
+                auto [center, radius] = CircleFitByTaubin(mLastPosition);
 
-                    double standardDeviation = 0;
-                    for(const auto& pos : mLastPosition)
-                        standardDeviation += glm::distance(center, pos.second.mVal) - radius;
-                    standardDeviation = std::sqrt(standardDeviation / dequeLength);
-                    logInfo(fmt::format("standardDeviation: {}", standardDeviation));
+                double standardDeviation = 0;
+                for(const auto& pos : mLastPosition)
+                    standardDeviation += glm::distance(center, pos.second.mVal) - radius;
+                standardDeviation = std::sqrt(standardDeviation / dequeLength);
+                logInfo(fmt::format("standardDeviation: {}", standardDeviation));
 
-                    // static or all points on a line
-                    if(radius < minRadiusThreshold || radius > maxRadiusThreshold ||
-                       standardDeviation > standardDeviationThreshold) {
-                        res.centerOfOutpost = mLastPosition.back().second;
-                        res.angularVelocity = 0;
-                        res.radius = 0;
-                        res.theta = glm::radians<double>(90);
-                        logInfo("predictor: static");
-                        logInfo(fmt::format("center:{},{},{} radius:{}", center.x, center.y, center.z));
-                    } else {
-                        res.centerOfOutpost = center;
+                // static or all points on a line
+                if(radius < minRadiusThreshold || radius > maxRadiusThreshold || standardDeviation > standardDeviationThreshold) {
+                    res.centerOfOutpost = mLastPosition.back().second;
+                    res.angularVelocity = 0;
+                    res.radius = 0;
+                    res.theta = glm::radians<double>(90);
+                    logInfo("predictor: static");
+                    logInfo(fmt::format("center:{},{},{} radius:{}", center.x, center.y, center.z));
+                } else {
+                    res.centerOfOutpost = center;
 
-                        auto baseTime = mLastPosition[0].first.time_since_epoch().count();
-                        std::vector<std::pair<double, double>> time_theta;
-                        time_theta.reserve(dequeLength);
-                        double dTheta = 0;
-                        for(const auto& pt : mLastPosition) {
-                            double nowTheta = getTheta(center, pt.second.mVal);
-                            if(time_theta.size() > 0 && std::abs(nowTheta - time_theta.back().second) > maxJumpTheta) {
-                                nowTheta += (dTheta += (nowTheta > time_theta.back().second ? (-deltaTheta) : deltaTheta));
-                            }
-                            time_theta.push_back(std::make_pair(double(pt.first.time_since_epoch().count() - baseTime) /
-                                                                    Clock::period::den * Clock::period::num,
-                                                                nowTheta));
-                            logInfo(fmt::format("nowTheta:{}", nowTheta));
+                    auto baseTime = mLastPosition[0].first.time_since_epoch().count();
+                    std::vector<std::pair<double, double>> time_theta;
+                    time_theta.reserve(dequeLength);
+                    double dTheta = 0, baseTheta = getTheta(center, tfGun2Robot.raw() * glm::dvec4{ 1, 0, 0, 0 });
+                    for(const auto& pt : mLastPosition) {
+                        double nowTheta = getTheta(center, pt.second.mVal) - baseTheta;
+                        if(time_theta.size() > 0 && std::abs(nowTheta - time_theta.back().second) > maxJumpTheta) {
+                            dTheta += (nowTheta > time_theta.back().second ? (-deltaTheta) : deltaTheta);
                         }
-                        auto [k, m] = FitLine(time_theta);
-                        res.angularVelocity = k;
-                        res.theta = k * time_theta.back().first + m - dTheta;
-                        logInfo(fmt::format("center:{},{},{} radius:{}\nangularVelocity:{}\ntheta:{}", res.centerOfOutpost.mVal.x,
-                                            res.centerOfOutpost.mVal.y, res.centerOfOutpost.mVal.z, radius,
-                                            res.angularVelocity.mVal, res.theta.mVal));
+                        time_theta.push_back(std::make_pair(double(pt.first.time_since_epoch().count() - baseTime) /
+                                                                Clock::period::den * Clock::period::num,
+                                                            nowTheta + dTheta));
+                        // logInfo(fmt::format("nowTheta:{}", nowTheta));
                     }
-                } else {  // 如果不使用预测功能的话，不修正位置
-                    static std::optional<int> direction;
-                    if(stopTimes > 5) {
-                        logInfo("outpost stop");
-                        res.angularVelocity = 0;
-                        res.theta = glm::radians(90.0);
-                        res.centerOfOutpost = posRefRobot;
-                        res.centerOfOutpost.mVal.z -= radiusOfOutpost;
-                    } else {
-                        if(mLastTwoPosition.size() == 0) {
-                            mLastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
-                            return;
-                        }
-                        if(posRefRobot == mLastTwoPosition.back().second || posRefRobot == mLastTwoPosition.front().second) {
-                            stopTimes += 1;
-                            return;
-                        }
-                        if(mLastTwoPosition.size() == 1) {
-                            mLastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
-                            return;
-                        }
-                        if(data->lastUpdate - mLastTwoPosition.front().first > maxWaitingTime) {
-                            if(glm::distance(posRefRobot.mVal, mLastTwoPosition.front().second.mVal) > staticPosThreshold) {
-                                logInfo("outpost remove stop");
-                                stopTimes = 0;
-                            } else {
-                                stopTimes += 1;
-                            }
-                            mLastTwoPosition.pop();
-                            mLastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
-                            mLastTheta = std::nullopt;
-                            return;
-                        }
-                        res.centerOfOutpost = circleCenter(mLastTwoPosition.front().second.mVal,
-                                                           mLastTwoPosition.back().second.mVal, posRefRobot.mVal);
-                        res.theta = getTheta(res.centerOfOutpost.mVal, posRefRobot.mVal);
-                        if(!mLastTheta.has_value())
-                            mLastTheta = getTheta(res.centerOfOutpost.mVal, mLastTwoPosition.back().second.mVal);
-                        if(!direction.has_value()) {
-                            if(std::fabs((mLastTheta.value() - res.theta).mVal) > maxJumpTheta)
-                                direction = (mLastTheta.value() > res.theta ? 1 : -1);
-                            else
-                                direction = (res.theta > mLastTheta.value() ? 1 : -1);
-                        }
-                        if(std::fabs((mLastTheta.value() - res.theta).mVal) > maxJumpTheta)
-                            mLastTheta.value().mVal -= direction.value() * glm::radians<double>(120);
-                        res.angularVelocity = (res.theta - mLastTheta.value()) /
-                            Scalar<UnitType::Time>{ static_cast<double>(
-                                                        (data->lastUpdate - mLastTwoPosition.back().first).count()) /
-                                                    Clock::period::den * Clock::period::num };
-                        mLastTheta = res.theta;
-                        mLastTwoPosition.pop();
-                        mLastTwoPosition.push(std::make_pair(data->lastUpdate, posRefRobot));
-                    }
-                    res.radius = radiusOfOutpost;
-                    // logInfo(fmt::format("center:{},{},{}\nangularVelocity:{}\ntheta:{}", res.centerOfOutpost.mVal.x,
-                    //                     res.centerOfOutpost.mVal.y, res.centerOfOutpost.mVal.z, res.angularVelocity.mVal,
-                    //                     res.theta.mVal));
+                    auto [k, m] = FitLine(time_theta);
+                    res.angularVelocity = k;
+                    res.theta = k * time_theta.back().first + m - dTheta;
+                    logInfo(fmt::format("center:{},{},{} radius:{}\nangularVelocity:{}\ntheta:{}", res.centerOfOutpost.mVal.x,
+                                        res.centerOfOutpost.mVal.y, res.centerOfOutpost.mVal.z, radius, res.angularVelocity.mVal,
+                                        res.theta.mVal));
                 }
 
                 sendAll(outpost_predict_success_atom_v,

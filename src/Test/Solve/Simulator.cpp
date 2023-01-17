@@ -33,6 +33,7 @@ struct SimulatorSettings final {
     double spinningSpeed;        // in circles/s
 
     double standardDistance;
+    double targetAngle;
     double sourceHeight;
     double targetHeight;
 
@@ -93,8 +94,8 @@ bool inspect(Inspector& f, SimulatorSettings& x) {
         f.field("v0Std", x.v0Std), f.field("shootInterval", x.shootInterval), f.field("maxTime", x.maxTime),
         f.field("bulletCount", x.bulletCount), f.field("vibrationLinearRange", x.vibrationLinearRange),
         f.field("vibrationAngleRange", x.vibrationAngleRange), f.field("spinningSpeed", x.spinningSpeed),
-        f.field("standardDistance", x.standardDistance), f.field("sourceHeight", x.sourceHeight),
-        f.field("targetHeight", x.targetHeight), f.field("targetType", x.targetType),
+        f.field("standardDistance", x.standardDistance), f.field("targetAngle", x.targetAngle).fallback(-90),
+        f.field("sourceHeight", x.sourceHeight), f.field("targetHeight", x.targetHeight), f.field("targetType", x.targetType),
         f.field("targetMotionType", x.targetMotionType), f.field("sourceMotionType", x.sourceMotionType),
         f.field("expectedCount", x.expectedCount), f.field("printBulletPos", x.printBulletPos).fallback(false),
         f.field("printBulletInfo", x.printBulletInfo).fallback(false));
@@ -200,7 +201,10 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
         // TargetMotion
         {
             auto& [motion, controller] = mTarget;
-            motion = glm::translate(glm::identity<glm::dmat4>(), { 0.0, mConfig.targetHeight, -mConfig.standardDistance });
+            motion =
+                glm::translate(glm::identity<glm::dmat4>(),
+                               { mConfig.standardDistance * std::cos(glm::radians(mConfig.targetAngle)), mConfig.targetHeight,
+                                 mConfig.standardDistance * std::sin(glm::radians(mConfig.targetAngle)) });
 
             switch(magic_enum::enum_cast<TargetMotionType>(mConfig.targetMotionType).value()) {
                 case TargetMotionType::Static: {
