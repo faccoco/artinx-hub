@@ -4,20 +4,21 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "RadarCameraPoints.hpp"
-#include "Utility.hpp"
-#include <cstdint>
-
 #include "SuppressWarningBegin.hpp"
-
+#include "Utility.hpp"
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
-#define CPPHTTPLIB_SEND_FLAGS 0x4000
+#include <cstdint>
 #include <fmt/format.h>
-#include <httplib.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <string>
+#include <utility>
+
+#define CPPHTTPLIB_SEND_FLAGS 0x4000
+#include <httplib.h>
+
 #ifdef ARTINXHUB_WINDOWS
 #define NOMINMAX
 #include <Windows.h>
@@ -31,9 +32,19 @@
 #include "SuppressWarningEnd.hpp"
 
 struct ImageWithFilter {
+    const char* name = "\0";
     cv::Mat image;
     bool isEnable = true;
 };
+
+struct HttpServerSettings final {
+    bool enableRadar;
+};
+
+template <typename Inspector>
+bool inspect(Inspector& f, HttpServerSettings& x) {
+    return f.object(x).fields(f.fields("enableRadar", x.enableRadar).fallback(false));
+}
 
 class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_locate_request_atom> {
     httplib::Server mServer;
@@ -88,12 +99,12 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_lo
             return std::nullopt;
         return data;
     }
+
     std::string generateFilterJson() {
         nlohmann::json result = nlohmann::json::array();
         std::lock_guard<std::mutex> guard{ mMutex };
-        for(const auto& v : mImage) {
-            result.push_back({ std::to_string(v.first), v.second.isEnable });
-        }
+        for(const auto& v : mImage)
+            result.push_back({ v.second.name + std::to_string(v.first), v.second.isEnable });
         return result.dump();
     }
 
@@ -118,14 +129,15 @@ public:
         //        mServer.Get("/parameters", [this](const httplib::Request& req, httplib::Response& res) {
         //            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
         //        });
-        mServer.Get(R"(/img/(\d+).*)", [this](const httplib::Request& req, httplib::Response& res) {
-            auto path = req.matches[1];
-            std::string p = path;
+        mServer.Get(R"(/img/.*?(\d+).*)", [this](const httplib::Request& req, httplib::Response& res) {
+            if(req.matches.empty())
+                return;
+            const auto&& path = req.matches[1].str();
             res.set_content_provider(
                 "multipart/x-mixed-replace;boundary=MJP",
-                [this, p](size_t, httplib::DataSink& sink) {
-                    if(const auto img = generateImageData(p)) {
-                        auto vec = img.value();
+                [this, path](size_t, httplib::DataSink& sink) {
+                    if(const auto&& img = generateImageData(path)) {
+                        auto& vec = img.value();
                         sink.os << "--MJP\r\n"
                                    "Content-Type: image/jpeg\r\n"
                                    "Content-Length: "
@@ -136,37 +148,52 @@ public:
                 },
                 [](bool) {});
         });
-        mServer.Get("/log", [this](const httplib::Request&, httplib::Response& res) {
-            res.set_content(mLogStream.str(), "text/plain");
-            mLogStream.str("");
-        });
+
+        //        mServer.Get("/log", [this](const httplib::Request&, httplib::Response& res) {
+        //            res.set_content(mLogStream.str(), "text/plain");
+        //            mLogStream.str("");
+        //        });
+
         mServer.Get("/watch", [](const httplib::Request&, httplib::Response& res) {
             res.set_content(nlohmann::json(HubLogger::watches).dump(), "application/json");
         });
-        mServer.Post("/filter", [this](const httplib::Request& req, httplib::Response& res) {
-            if(req.body.empty()) {
+
+        bool filterInit = false;
+        mServer.Post("/filter", [this, &filterInit](const httplib::Request& req, httplib::Response& res) {
+            if(!filterInit && req.body.empty()) {
                 res.set_content(generateFilterJson(), "text/plain");
                 return;
             }
-            auto j = nlohmann::json::parse(req.body);
+            filterInit = true;
+            auto reqJson = nlohmann::json::parse(req.body);
             std::lock_guard guard{ mMutex };
-            for(auto& [k, v] : j.items()) {
-                mImage[std::stoull(k)].isEnable = v;
-            }
+            for(const auto& [str, val] : reqJson.items())
+                try {
+                    uint64_t key = std::stoull(str);
+                    mImage[key].isEnable = val;
+                } catch(std::exception&) {
+#ifdef ARTINXHUB_DEBUG
+                    logError(fmt::format("HttpServer: invalid key {}", str));
+#endif
+                }
+
             res.set_content("", "text/plain");
         });
+
         mServer.Post("/radar", [this](const httplib::Request& req, httplib::Response&) {
             auto j = nlohmann::json::parse(req.body);
             const float x = j[0], y = j[1];
             RadarCameraPointsArray data;
-            // TODO
+            // TODO: radar
             data.imagePoints.emplace_back(x, y);
             sendAll(radar_locate_request_atom_v, BlackBoard::instance().updateSync(mKey, data));
         });
+
         mServer.Get("/exit", [this](const httplib::Request&, httplib::Response&) {
             mServer.stop();
             terminateSystem(*this, true);
         });
+
         mListener = std::thread{ [this] { mServer.listen(mhostIpAddress.c_str(), 5630); } };
     }
     ~HttpServer() override {
@@ -188,7 +215,8 @@ public:
                  [this](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      std::lock_guard<std::mutex> guard{ mMutex };
-                     mImage[key.val].image = BlackBoard::instance().get<CameraFrame>(key).value().frame;
+                     auto data = BlackBoard::instance().get<CameraFrame, const char*>(key);
+                     mImage[key.val] = { std::get<1>(data.value()), std::get<0>(data.value()).frame, true };
                  } };
     }
 };

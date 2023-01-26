@@ -22,7 +22,7 @@
 - 去掉fakeCarDetector这一层actor
 - 修改了装甲板识别actor的处理结果的结构体，具体见DetectedArmor.hpp
 
-#### 10.23更新
+### 10.23更新
 
 - 将装甲板排序标准改回到原来根据装甲板到大小装甲板比率那个更接近的排序方式
 - 将装甲板定位中，大小装甲板判别方式的比率设为了一个可调节参数
@@ -51,4 +51,10 @@
 - 相机驱动新增功能:
   - 自动白平衡
   - 全通道增益
+
+### 1.26更新
+
+- BlackBoard现在可以发送多个数据(多于一个时打包为tuple):
+- HttpServer接受数据格式改为"CameraFrame,const char*"
+eg: `sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), "VideoReplay"));`
 

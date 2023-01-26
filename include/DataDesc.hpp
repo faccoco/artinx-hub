@@ -49,9 +49,27 @@ struct Identifier {
     uint64_t val;
 };
 
-template <typename T>
-struct TypedIdentifier final : Identifier {
+template <size_t lhs, size_t rhs>
+struct StaticCompare {
+    const static bool result = lhs == rhs;
+};
+
+template <bool B, typename T, typename... TL>
+struct StaticIdentify {};
+
+template <typename T, typename... TL>
+struct StaticIdentify<true, T, TL...> {
     using Payload = T;
+};
+
+template <typename T, typename... TL>
+struct StaticIdentify<false, T, TL...> {
+    using Payload = std::tuple<T, TL...>;
+};
+
+template <typename T, typename... TL>
+struct TypedIdentifier final : Identifier {
+    using Payload = typename StaticIdentify<StaticCompare<sizeof...(TL), 0>::result, T, TL...>::Payload;
 };
 
 CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id);

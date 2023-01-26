@@ -19,7 +19,7 @@ public:
     ArmorDetectorDrawer(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](armor_detect_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
                      const auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
@@ -51,7 +51,7 @@ public:
                      frame.lastUpdate = data.frame.lastUpdate;
                      frame.info = data.frame.info;
 
-                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frame)));
+                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frame),"ArmorDetectorDrawer"));
                  },
                  [&](armor_nnet_detect_available_atom, Identifier key) {
                      auto res = BlackBoard::instance().get<NNetDetectedArmorArray>(key).value();
@@ -96,7 +96,7 @@ public:
                      frame.lastUpdate = res.frame.lastUpdate;
                      frame.info = res.frame.info;
 
-                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frame)));
+                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frame),"ArmorDetectorDrawer"));
                  } };
     }
 };

@@ -61,7 +61,8 @@ private:
         res.info.tfGun2Camera = Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>(glm::identity<glm::dmat4>());
         res.lastUpdate = SynchronizedClock::instance().now();
 
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, res));
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), "VideoReplay"));
     }
 
 public:

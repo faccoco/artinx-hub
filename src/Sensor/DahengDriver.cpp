@@ -4,7 +4,6 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
-
 #include "SuppressWarningBegin.hpp"
 
 #include <GxIAPI.h>
@@ -14,6 +13,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <magic_enum.hpp>
 #include <opencv2/opencv.hpp>
+#include <tuple>
 
 #include "SuppressWarningEnd.hpp"
 
@@ -148,7 +148,8 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         // }
 
         frameData.frame = std::move(bgr);
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData)));
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, frameData));
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData),"Origin"));
     }
 
 #ifdef ARTINX_DAHENG_USB2
@@ -164,9 +165,10 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
 
         const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer
 
-        // TODO: reduce reallocation
-        cv::Mat frame{ cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, pixelStorageFormat };
-        memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
+        // TODO: reduce reallocation(correctness need to be test)
+        cv::Mat frame(cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, pixelStorageFormat,
+                      const_cast<void*>(pFrameData->pImgBuf));
+        //        memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
         newFrameImpl(timeStamp, frame, pFrameData->nWidth, pFrameData->nHeight);
     }
 
