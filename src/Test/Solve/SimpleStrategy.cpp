@@ -23,15 +23,16 @@ bool inspect(Inspector& f, SimpleStrategySettings& x) {
     return f.object(x).fields(f.field("aimType", x.aimType).fallback("Car"));
 }
 
-class SimpleStrategy final : public HubHelper<caf::event_based_actor, SimpleStrategySettings, set_target_atom, set_outpost_atom> {
+class SimpleStrategy final : public HubHelper<caf::event_based_actor, SimpleStrategySettings, set_target_atom, set_outpost_atom,
+                                              set_period_target_atom> {
     Identifier mKey;
 
-    const enum AimType { Car, Outpost } aimType;
+    const enum PredictorType { Car, Outpost, Period } predictorType;
 
 public:
     SimpleStrategy(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ generateKey(this) }, aimType{
-              magic_enum::enum_cast<AimType>(mConfig.aimType).value()
+        : HubHelper{ base, config }, mKey{ generateKey(this) }, predictorType{
+              magic_enum::enum_cast<PredictorType>(mConfig.aimType).value()
           } {}
     caf::behavior make_behavior() override {
         return { [&](detect_available_atom, GroupMask, Identifier key) {
@@ -50,12 +51,15 @@ public:
                         }
                     }
 
-                    switch(aimType) {
-                        case AimType::Car:
+                    switch(predictorType) {
+                        case PredictorType::Car:
                             sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                             break;
-                        case AimType::Outpost:
+                        case PredictorType::Outpost:
                             sendAll(set_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                            break;
+                        case PredictorType::Period:
+                            sendAll(set_period_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                             break;
                         default:
                             break;

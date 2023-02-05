@@ -40,7 +40,6 @@ bool inspect(Inspector& f, ArmorPredictorSettings& x) {
 
 class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, predict_success_atom> {
     Identifier mKey, mIMUKey;
-    GroupMask mGroupMask;
 
     bool mInitFlag = false;
     int32_t mCntWrongData = 0;

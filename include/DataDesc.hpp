@@ -61,6 +61,7 @@ CAF_ADD_ATOM(ArtinxHub, start_atom);
 CAF_ADD_ATOM(ArtinxHub, detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_atom);
 CAF_ADD_ATOM(ArtinxHub, set_outpost_atom);
+CAF_ADD_ATOM(ArtinxHub, set_period_target_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_info_atom);
 CAF_ADD_ATOM(ArtinxHub, update_posture_atom);
 CAF_ADD_ATOM(ArtinxHub, update_head_atom);
@@ -74,6 +75,7 @@ CAF_ADD_ATOM(ArtinxHub, armor_nnet_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, energy_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, predict_success_atom);
 CAF_ADD_ATOM(ArtinxHub, outpost_predict_success_atom);
+CAF_ADD_ATOM(ArtinxHub, period_predict_success_atom);
 CAF_ADD_ATOM(ArtinxHub, ore_instructions_atom);
 CAF_ADD_ATOM(ArtinxHub, ore_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_succeed_atom);
@@ -100,12 +102,10 @@ struct __ImplActorProtocol final {
     }
 };
 
-#define ACTOR_PROTOCOL_DEFINE(...)                  \
-    template <>                                     \
-    struct __ImplActorProtocol<__VA_ARGS__> final { \
-        static constexpr bool check() noexcept {    \
-            return true;                            \
-        }                                           \
+#define ACTOR_PROTOCOL_DEFINE(...)                              \
+    template <>                                                 \
+    struct __ImplActorProtocol<__VA_ARGS__> final {             \
+        static constexpr bool check() noexcept { return true; } \
     }
 
 template <typename... Args>

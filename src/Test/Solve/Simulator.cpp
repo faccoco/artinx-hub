@@ -113,7 +113,8 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
     std::pair<MotionState, std::unique_ptr<MotionController>> mSource;
     std::mt19937_64 mEngine{ static_cast<uint64_t>(Clock::now().time_since_epoch().count()) };
 
-    const double mNorThresholdVel = 6.0;
+    static constexpr double mNorThresholdVel = 6.0;
+    static constexpr double mMinVisiblePitch = glm::radians<double>(30);
 
     void initializeTestCase() {
         {
@@ -234,6 +235,7 @@ public:
         initializeTestCase();
 
         Timer::instance().addTimer(this->address(), 10ms);
+        SynchronizedClock::instance().setSimulationTimeStep(doubleCastDuration(mConfig.step));
     }
 
     void act() override {
@@ -312,7 +314,12 @@ public:
                     const auto& targetMotion = mTarget.first;
 
                     for(auto& [armorRelatedMotion, threshold] : mTargetArmors) {
-                        info.targets.emplace_back(combine(targetMotion, armorRelatedMotion).translatePoint());
+                        auto tfArmor2Ground = combine(targetMotion, armorRelatedMotion);
+                        auto vecRefArmor =
+                            tfArmor2Ground.invTransform(mSource.first.translatePoint() - tfArmor2Ground.translatePoint());
+                        double pitch = glm::asin(-vecRefArmor.mVal.z / glm::length(vecRefArmor.mVal));
+                        if(pitch > mMinVisiblePitch)
+                            info.targets.emplace_back(tfArmor2Ground.translatePoint());
                     }
                 }
 
@@ -399,6 +406,8 @@ public:
                 ++bulletCount;
 
                 mBulletsInfo.emplace_back(time, tfGun2Ground.translatePoint(), vSrc + velocity);
+
+                shoot = false;
             }
 
             logInfo(

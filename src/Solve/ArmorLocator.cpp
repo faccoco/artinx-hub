@@ -93,7 +93,7 @@ class ArmorLocator final
             p0 = -p0;
 
 #ifdef ARTINXHUB_DEBUG
-        cv::drawFrameAxes(debugView, cameraMatrix, distCoeff, rvec, tvec,
+        cv::drawFrameAxes(debugView, cameraMatrix, distCoeffs, rvec, tvec,
                           static_cast<float>(isLargeArmor ? widthOfLargeArmor : widthOfSmallArmor) * 0.5f);
 #endif
 

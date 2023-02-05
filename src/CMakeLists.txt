@@ -18,6 +18,7 @@ set(SOURCE
 "HubMain.cpp"
 "Postprocess/ArmorPredictor.cpp"
 "Postprocess/OutpostPredictor.cpp"
+"Postprocess/PeriodPredictor.cpp"
 "Preprocess/ColorCalibration.cpp"
 "Preprocess/IMUFilter.cpp"
 "Preprocess/Undistort.cpp"
@@ -25,6 +26,8 @@ set(SOURCE
 "Sensor/ImageSequenceReplay.cpp"
 "Sensor/VideoReplay.cpp"
 "Solve/AngleSolver.cpp"
+"Solve/OutpostSolver.cpp"
+"Solve/PeriodSolver.cpp"
 "Solve/ArmorLocator.cpp"
 "Solve/RadarLocator.cpp"
 "Strategy/Hero.cpp"
@@ -52,6 +55,7 @@ set(SOURCE
 "Utility/PID.cpp"
 "Utility/Timer.cpp"
 "Utility/VideoRecorder.cpp"
+"Utility/MathTools.cpp"
 )
 
 find_package(CAF REQUIRED COMPONENTS core io)
