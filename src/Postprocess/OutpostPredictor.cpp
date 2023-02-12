@@ -21,16 +21,7 @@ static constexpr double standardDeviationThreshold = 0.025;
 static constexpr double maxJumpTheta = glm::radians<double>(10);
 static constexpr double deltaTheta = glm::radians<double>(120);
 
-struct ArmorPredictorSettings final {
-    bool enablePredictor;
-};
-
-template <class Inspector>
-bool inspect(Inspector& f, ArmorPredictorSettings& x) {
-    return f.object(x).fields(f.field("enablePredictor", x.enablePredictor));
-}
-
-class OutpostPredictor final : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, outpost_predict_success_atom> {
+class OutpostPredictor final : public HubHelper<caf::event_based_actor, void, outpost_predict_success_atom> {
     Identifier mKey;
 
     std::deque<std::pair<TimePoint, Vector<UnitType::Distance, FrameOfRef::Robot>>> mLastPosition;

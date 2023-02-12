@@ -24,10 +24,10 @@ bool inspect(Inspector& f, SimpleStrategySettings& x) {
 }
 
 class SimpleStrategy final : public HubHelper<caf::event_based_actor, SimpleStrategySettings, set_target_atom, set_outpost_atom,
-                                              set_period_target_atom> {
+                                              set_period_target_atom, set_period_outpost_atom> {
     Identifier mKey;
 
-    const enum PredictorType { Car, Outpost, Period } predictorType;
+    const enum PredictorType { Car, Outpost, Period, PeriodOutpost } predictorType;
 
 public:
     SimpleStrategy(caf::actor_config& base, const HubConfig& config)
@@ -58,9 +58,22 @@ public:
                         case PredictorType::Outpost:
                             sendAll(set_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                             break;
-                        case PredictorType::Period:
-                            sendAll(set_period_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                        case PredictorType::Period: {
+                            static bool init = true;
+                            sendAll(set_period_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
+                                    init);
+                            if(selected.selected.has_value() && selected.tfRobot2Gun.has_value() && init)
+                                init = false;
                             break;
+                        }
+                        case PredictorType::PeriodOutpost: {
+                            static bool init = true;
+                            sendAll(set_period_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
+                                    init);
+                            if(selected.selected.has_value() && selected.tfRobot2Gun.has_value() && init)
+                                init = false;
+                            break;
+                        }
                         default:
                             break;
                     }

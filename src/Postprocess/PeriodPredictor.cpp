@@ -17,7 +17,7 @@
 
 static constexpr double sameThetaThreshold = glm::radians<double>(0.5);
 static constexpr double samePitchThreshold = glm::radians<double>(0.5);
-static constexpr double minPeriodThreshold = 0.1;     // s
+static constexpr double minPeriodThreshold = 0.2;     // s
 static constexpr double maxPeriodThreshold = 3.5;     // s
 static constexpr double maxPeriodStdThreshold = 0.2;  // s
 
@@ -77,8 +77,8 @@ public:
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-            [this](set_period_target_atom, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(set_period_target_atom, TypedIdentifier<SelectedTarget>);
+            [this](set_period_target_atom, Identifier key, bool init) {
+                ACTOR_PROTOCOL_CHECK(set_period_target_atom, TypedIdentifier<SelectedTarget>, bool);
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
@@ -94,25 +94,29 @@ public:
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = tfGun2Robot(posOfRefGun);
                 res.position = posRefRobot;
 
+                // init
+                if(init) {
+                    clear();
+                    mTargetTheta = getTheta(posRefRobot.mVal);
+                    logInfo("PeriodPredictor: inited");
+                    return;
+                }
+
                 logInfo(fmt::format("PeriodPredictor: mState: {}", mState));
 
-                double timeGap =
-                    mState == firstAPeriod ? 0.f : durationCastDouble(data->lastUpdate - mLastTime[(mState - 1) & 0x3]);
-
-                // init
                 if(mState == firstAPeriod) {
-                    mTargetTheta = getTheta(posRefRobot.mVal);
                     mTargetPitch[0] = getPitch(posRefRobot.mVal);
                     mLastTime[0] = data->lastUpdate;
-                    sendAll(period_predict_success_atom_v,
-                            BlackBoard::instance().updateSync<PredictedPeriodTarget>(Identifier{ mKey.val }, res));
                     step(mState);
                     return;
                 }
+
+                double timeGap = durationCastDouble(data->lastUpdate - mLastTime[(mState - 1) & 0x3]);
                 if(timeGap > maxPeriodThreshold)
                     clear();
                 if(timeGap < minPeriodThreshold)
                     return;
+
                 // check
                 if(std::abs(getTheta(posRefRobot.mVal) - mTargetTheta) <= sameThetaThreshold) {
                     logInfo("PeriodPredictor: same theta");
@@ -124,8 +128,10 @@ public:
                         mTargetPitch[idx] = getPitch(posRefRobot.mVal);
                         mLastTime[idx] = data->lastUpdate;
                     } else {
-                        if(std::abs(getPitch(posRefRobot.mVal) - mTargetPitch[idx]) > samePitchThreshold)
+                        if(std::abs(getPitch(posRefRobot.mVal) - mTargetPitch[idx]) > samePitchThreshold) {
+                            clear();
                             return;
+                        }
                         logInfo("PeriodPredictor: same pitch");
                         logInfo(fmt::format("PeriodPredictor: pitch: {} degree", glm::degrees(getPitch(posRefRobot.mVal))));
                         mPeriodTimes[idx].push_back(durationCastDouble(data->lastUpdate - mLastTime[idx]));

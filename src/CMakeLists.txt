@@ -19,6 +19,7 @@ set(SOURCE
 "Postprocess/ArmorPredictor.cpp"
 "Postprocess/OutpostPredictor.cpp"
 "Postprocess/PeriodPredictor.cpp"
+"Postprocess/PeriodOutpostPredictor.cpp"
 "Preprocess/ColorCalibration.cpp"
 "Preprocess/IMUFilter.cpp"
 "Preprocess/Undistort.cpp"

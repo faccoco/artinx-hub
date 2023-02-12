@@ -62,6 +62,7 @@ CAF_ADD_ATOM(ArtinxHub, detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_atom);
 CAF_ADD_ATOM(ArtinxHub, set_outpost_atom);
 CAF_ADD_ATOM(ArtinxHub, set_period_target_atom);
+CAF_ADD_ATOM(ArtinxHub, set_period_outpost_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_info_atom);
 CAF_ADD_ATOM(ArtinxHub, update_posture_atom);
 CAF_ADD_ATOM(ArtinxHub, update_head_atom);

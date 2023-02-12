@@ -46,6 +46,8 @@ public:
                 ACTOR_PROTOCOL_CHECK(period_predict_success_atom, TypedIdentifier<PredictedPeriodTarget>);
                 ACTOR_EXCEPTION_PROBE();
 
+                logInfo("PeriodSolver: received");
+
                 auto data = BlackBoard::instance().get<PredictedPeriodTarget>(key);
                 if(!(data.has_value()))
                     return;
@@ -60,7 +62,7 @@ public:
                 double waitTime = data->period.value() - std::get<0>(res) - delayTime;
                 while(waitTime < 0)
                     waitTime += data->period.value();
-                std::thread([=]() {
+                std::thread([this, waitTime, data, res]() {
                     SynchronizedClock::instance().sleep_for(doubleCastDuration(waitTime) - mHeadDelay);
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
                                         std::get<1>(res), std::get<2>(res), false);
