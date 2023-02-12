@@ -17,8 +17,8 @@
 
 static constexpr double sameThetaThreshold = glm::radians<double>(0.5);
 static constexpr double samePitchThreshold = glm::radians<double>(0.5);
-static constexpr double minPeriodThreshold = 0.4;     // s
-static constexpr double maxPeriodThreshold = 0.85;     // s
+static constexpr double minPeriodThreshold = 0.8;     // s
+static constexpr double maxPeriodThreshold = 1.7;    // s
 static constexpr double maxPeriodStdThreshold = 0.2;  // s
 
 class PeriodOutpostPredictor final : public HubHelper<caf::event_based_actor, void, period_predict_success_atom> {
@@ -32,6 +32,7 @@ class PeriodOutpostPredictor final : public HubHelper<caf::event_based_actor, vo
     void clear() {
         logInfo("PeriodOutpostPredictor: clear");
         mPeriodTimes.clear();
+        mLastTime = std::nullopt;
     }
 
     double getTheta(const glm::dvec3& point) {
@@ -44,7 +45,8 @@ class PeriodOutpostPredictor final : public HubHelper<caf::event_based_actor, vo
     }
 
 public:
-    PeriodOutpostPredictor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    PeriodOutpostPredictor(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
@@ -88,8 +90,8 @@ public:
                 // check
                 if(std::abs(getTheta(posRefRobot.mVal) - mTargetTheta) <= sameThetaThreshold) {
                     logInfo("PeriodOutpostPredictor: same theta");
-                    logInfo(
-                        fmt::format("PeriodOutpostPredictor: pos:{} {} {}", posRefRobot.mVal.x, posRefRobot.mVal.y, posRefRobot.mVal.z));
+                    logInfo(fmt::format("PeriodOutpostPredictor: pos:{} {} {}", posRefRobot.mVal.x, posRefRobot.mVal.y,
+                                        posRefRobot.mVal.z));
                     logInfo(fmt::format("PeriodOutpostPredictor: theta: {} degree", glm::degrees(getTheta(posRefRobot.mVal))));
                     if(std::abs(getPitch(posRefRobot.mVal) - mTargetPitch) > samePitchThreshold) {
                         clear();
