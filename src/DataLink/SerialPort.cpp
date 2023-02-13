@@ -4,6 +4,7 @@
 #include "Hub.hpp"
 #include "Packet.hpp"
 #include "PostureData.hpp"
+#include "SelectedTarget.hpp"
 #include "Utility.hpp"
 
 #include "SuppressWarningBegin.hpp"
@@ -36,7 +37,7 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
 }
 
 class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom,
-                                          energy_detector_control_atom> {
+                                          energy_detector_control_atom, outpost_detector_control_atom> {
     constexpr static size_t bufferLen = 1024;
     constexpr static size_t headerLen = 5;
     constexpr static size_t sendBufferLen = 1024;
@@ -122,6 +123,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 HubLogger::watch("energy mode", static_cast<bool>(fdb.energyMode));
                 sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
             }
+
+            sendAll(outpost_detector_control_atom_v, fdb.outpostMode);
 
             HubLogger::watch("yaw1", fdb.yaw);
             HubLogger::watch("pitch1", fdb.pitch);

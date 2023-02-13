@@ -35,6 +35,7 @@ struct PredictedPeriodTarget final {
     std::optional<double> period;
 };
 
+ACTOR_PROTOCOL_DEFINE(outpost_detector_control_atom, bool);
 ACTOR_PROTOCOL_DEFINE(update_roi_atom, TypedIdentifier<TargetROI>);
 ACTOR_PROTOCOL_DEFINE(set_target_atom, TypedIdentifier<SelectedTarget>);
 ACTOR_PROTOCOL_DEFINE(set_outpost_atom, TypedIdentifier<SelectedTarget>);

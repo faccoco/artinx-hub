@@ -6,7 +6,7 @@
 struct FdbPacket {
     static constexpr uint16_t id = 0x0A;
     float yaw, pitch, downYaw, downPitch, bulletSpeed, speedX, speedY;
-    uint8_t color, shooterId, energyMode;
+    uint8_t color, shooterId, energyMode, outpostMode;
     explicit FdbPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
@@ -19,6 +19,7 @@ struct FdbPacket {
         color = mask & 1;
         shooterId = (mask >> 1) & 1;
         energyMode = (mask >> 2) & 1;
+        outpostMode = (mask >> 3) & 1;
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
     }
 };
@@ -35,11 +36,11 @@ struct GimbalSetPacket {
     PacketBuffer<9, id> buffer{};
 
     void setUpTarget(float yaw, float pitch, bool isFire) {
-        up = {yaw, pitch, isFire};
+        up = { yaw, pitch, isFire };
     }
 
     void setDownTarget(float yaw, float pitch, bool isFire) {
-        down = {yaw, pitch, isFire};
+        down = { yaw, pitch, isFire };
     }
 
     void setHasTargetBits(uint8_t targetBits) {
@@ -52,7 +53,8 @@ struct GimbalSetPacket {
         buffer.serialize(up.pitch, -4.0f, 0.0005f);
         buffer.serialize(down.yaw, -4.0f, 0.0005f);
         buffer.serialize(down.pitch, -4.0f, 0.0005f);
-        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(up.isFire) | (static_cast<uint8_t>(down.isFire) << 1) | (hasTargets << 2)));
+        buffer.serialize(
+            static_cast<uint8_t>(static_cast<uint8_t>(up.isFire) | (static_cast<uint8_t>(down.isFire) << 1) | (hasTargets << 2)));
         buffer.serializeCrc16();
     }
 };
