@@ -73,6 +73,8 @@ public:
 
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->position;
                 Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->velocity;
+                HubLogger::watch("x", posRefRobot.mVal.x);
+                HubLogger::watch("y", posRefRobot.mVal.y);
                 HubLogger::watch("z", posRefRobot.mVal.z);
 
                 //(forward:+y,right:+x)

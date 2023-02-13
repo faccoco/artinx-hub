@@ -391,7 +391,7 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      ACTOR_EXCEPTION_PROBE();
 
-                     const auto t0 = Clock::now();
+                    //  const auto t0 = Clock::now();
                      const auto frame = BlackBoard::instance().get<CameraFrame>(key).value();
 
                      DetectedArmorArray res;
@@ -402,9 +402,9 @@ public:
                      for(auto& pairedLight : pairedLightVec) {
                          res.armors.push_back({ 0, pairedLight });  // TODO id
                      }
-                     const auto t1 = Clock::now();
-                     logInfo(
-                         fmt::format("NNet armor detector:decode time {:.4f}s", static_cast<double>((t1 - t0).count()) / 1e9));
+                    //  const auto t1 = Clock::now();
+                    //  logInfo(
+                    //      fmt::format("NNet armor detector:decode time {:.4f}s", static_cast<double>((t1 - t0).count()) / 1e9));
 
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };

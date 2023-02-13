@@ -52,6 +52,10 @@ public:
                 if(!(data.has_value()))
                     return;
 
+                HubLogger::watch("x", data->position.mVal.x);
+                HubLogger::watch("y", data->position.mVal.y);
+                HubLogger::watch("z", data->position.mVal.z);
+
                 glm::dvec3 tfPos = tf(data->position.mVal);
                 auto res = solveWithoutAirDrag(tfPos, glm::dvec3{ 0, 0, 0 });
                 if(!data->period.has_value()) {

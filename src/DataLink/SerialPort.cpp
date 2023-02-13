@@ -117,6 +117,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             FdbPacket fdb(mPacketBuffer);
             if(fdb.bulletSpeed > 10.0f)
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
+            HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
             HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
 
             if(mConfig.enableEnergyControl) {
@@ -124,7 +125,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
             }
 
-            sendAll(outpost_detector_control_atom_v, fdb.outpostMode);
+            HubLogger::watch("outpost mode",static_cast<bool>(fdb.outpostMode));
+            sendAll(outpost_detector_control_atom_v, static_cast<bool>(fdb.outpostMode));
 
             HubLogger::watch("yaw1", fdb.yaw);
             HubLogger::watch("pitch1", fdb.pitch);
