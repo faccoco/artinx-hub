@@ -117,7 +117,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             reportFrameRate(Clock::now());
 
             FdbPacket fdb(mPacketBuffer);
-            if(fdb.bulletSpeed > 10.0f)
+            if(fdb.bulletSpeed > 5.0f)
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
             HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
             HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
@@ -128,11 +128,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             }
 
             if(!mOutpostMode && fdb.outpostMode) {
-                mOutpostMode = true;
-                gimbalSetPacket.setUpTarget(fdb.yaw, fdb.pitch, false);
-                lastUpTargetTime = Clock::now();
-                gimbalSetPacket.setDownTarget(fdb.downYaw, fdb.downPitch, false);
-                lastDownTargetTime = Clock::now();
+                lastUpTargetTime-=10s;
+                lastDownTargetTime-=10s;
             }
             mOutpostMode = fdb.outpostMode;
             sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
@@ -209,6 +206,8 @@ public:
             while(globalStatus == RunStatus::running) {
                 receive();
                 sendPacket();
+                if(gimbalSetPacket.up.isFire&&mOutpostMode)
+                    logInfo("up fire");
                 gimbalSetPacket.up.isFire = false;
                 gimbalSetPacket.down.isFire = false;
                 std::this_thread::sleep_for(0.75ms);

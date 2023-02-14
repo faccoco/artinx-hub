@@ -15,8 +15,8 @@
 
 #include "SuppressWarningEnd.hpp"
 
-static constexpr double sameThetaThreshold = glm::radians<double>(0.5);
-static constexpr double samePitchThreshold = glm::radians<double>(0.5);
+static constexpr double sameThetaThreshold = glm::radians<double>(0.2);
+static constexpr double samePitchThreshold = glm::radians<double>(1);
 static constexpr double minPeriodThreshold = 0.8;     // s
 static constexpr double maxPeriodThreshold = 10;    // s
 static constexpr double maxPeriodStdThreshold = 0.2;  // s

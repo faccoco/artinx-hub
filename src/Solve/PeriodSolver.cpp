@@ -36,6 +36,11 @@ class PeriodSolver final : public HubHelper<caf::event_based_actor, PeriodSolver
         return { ori.x, -ori.z, ori.y };
     }
 
+    double getTheta(const glm::dvec3& point) {
+        double theta = glm::acos(point.x / glm::sqrt(point.x * point.x + point.z * point.z));
+        return point.z < 0 ? glm::two_pi<double>() - theta : theta;
+    }
+
 public:
     PeriodSolver(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, delayTime(mConfig.delay), mHeadDelay(doubleCastDuration(mConfig.headDelay)) {}
@@ -75,6 +80,9 @@ public:
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
                                         std::get<1>(res), std::get<2>(res), true, solverType_period);
                     logInfo("send shoot");
+                    logInfo(fmt::format("solver: x: {} y: {} z: {}",data->position.mVal.x,data->position.mVal.y,data->position.mVal.z));
+                    logInfo(fmt::format("solver: yaw: {} pitch: {}",270-glm::degrees(std::get<1>(res)),glm::degrees(std::get<2>(res))));
+                    logInfo(fmt::format("solver: theta: {}", glm::degrees(getTheta(data->position.mVal))));
                 }).detach();
             },
         };
