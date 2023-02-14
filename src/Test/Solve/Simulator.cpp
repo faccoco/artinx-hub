@@ -2,6 +2,7 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
+#include "SelectedTarget.hpp"
 #include "SimulatorMotionType.hpp"
 #include "SimulatorWorldInfo.hpp"
 #include "Transform.hpp"
@@ -374,8 +375,8 @@ public:
 
             // update events
             receive(
-                [&](set_target_info_atom, GroupMask, Clock::rep, const double, const double, const bool isFire) {
-                    ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);
+                [&](set_target_info_atom, GroupMask, Clock::rep, const double, const double, const bool isFire, SolverType) {
+                    ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
                     shoot = isFire;
                 },
                 [&](update_head_atom, GroupMask, Identifier key) {

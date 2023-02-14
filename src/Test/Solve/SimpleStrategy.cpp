@@ -86,7 +86,7 @@ public:
                 }
             },
             [this](outpost_detector_control_atom, bool active) {
-                if(active&&!mOutpostActive)
+                if(active && !mOutpostActive)
                     mOutpostInited = false;
                 mOutpostActive = active;
             },

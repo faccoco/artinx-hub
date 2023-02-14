@@ -123,4 +123,3 @@ ACTOR_PROTOCOL_DEFINE(monitor_response_atom);
 ACTOR_PROTOCOL_DEFINE(payload_atom, int32_t, int32_t);
 ACTOR_PROTOCOL_DEFINE(ore_detect_available_atom, double);
 ACTOR_PROTOCOL_DEFINE(ore_instructions_atom, bool);
-ACTOR_PROTOCOL_DEFINE(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);

@@ -2,6 +2,7 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
+#include "SelectedTarget.hpp"
 #include "SimulatorWorldInfo.hpp"
 #include "Utility.hpp"
 #include <cstdint>
@@ -115,8 +116,8 @@ public:
                      sendMasked(update_head_atom_v, 2U, 2U,
                                 BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, info));
                  },
-                 [&](set_target_info_atom, GroupMask, Clock::rep, const double yaw, const double pitch, bool) {
-                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);
+                 [&](set_target_info_atom, GroupMask, Clock::rep, const double yaw, const double pitch, bool, SolverType) {
+                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
                      mTargetYaw = yaw;
                      mTargetPitch = pitch;
                  },

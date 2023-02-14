@@ -74,7 +74,7 @@ public:
 
                     if(fabs(predictTime - requiredTime) <= minDelta) {
                         sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
-                                pitchAngle, true);
+                                pitchAngle, true, SolverType::outpost);
                         break;
                     } else {
                         // logInfo(fmt::format("OutpostSolver delta : {}", predictTime - requiredTime));

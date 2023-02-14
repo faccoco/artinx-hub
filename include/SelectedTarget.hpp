@@ -3,6 +3,8 @@
 #include "Timer.hpp"
 #include <optional>
 
+enum class SolverType { normal, outpost, period };
+
 struct SelectedTarget final {
     TimePoint lastUpdate;
     std::optional<Transform<FrameOfRef::Robot, FrameOfRef::Gun, true>> tfRobot2Gun;
@@ -44,3 +46,4 @@ ACTOR_PROTOCOL_DEFINE(set_period_outpost_atom, TypedIdentifier<SelectedTarget>, 
 ACTOR_PROTOCOL_DEFINE(predict_success_atom, TypedIdentifier<PredictedTarget>);
 ACTOR_PROTOCOL_DEFINE(outpost_predict_success_atom, TypedIdentifier<PredictedOutpost>);
 ACTOR_PROTOCOL_DEFINE(period_predict_success_atom, TypedIdentifier<PredictedPeriodTarget>);
+ACTOR_PROTOCOL_DEFINE(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);

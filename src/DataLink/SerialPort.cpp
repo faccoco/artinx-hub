@@ -63,6 +63,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     float lastSpeedX = 0.0f, lastSpeedY = 0.0f;
     TimePoint lastReceivedTime, lastUpTargetTime, lastDownTargetTime;
 
+    bool mOutpostMode;
+
     void receive() {
         if(!started)
             return;
@@ -125,8 +127,16 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
             }
 
-            HubLogger::watch("outpost mode",static_cast<bool>(fdb.outpostMode));
-            sendAll(outpost_detector_control_atom_v, static_cast<bool>(fdb.outpostMode));
+            if(!mOutpostMode && fdb.outpostMode) {
+                mOutpostMode = true;
+                gimbalSetPacket.setUpTarget(fdb.yaw, fdb.pitch, false);
+                lastUpTargetTime = Clock::now();
+                gimbalSetPacket.setDownTarget(fdb.downYaw, fdb.downPitch, false);
+                lastDownTargetTime = Clock::now();
+            }
+            mOutpostMode = fdb.outpostMode;
+            sendAll(outpost_detector_control_atom_v, mOutpostMode);
+            HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
 
             HubLogger::watch("yaw1", fdb.yaw);
             HubLogger::watch("pitch1", fdb.pitch);
@@ -226,8 +236,12 @@ public:
                     ACTOR_PROTOCOL_CHECK(start_atom);
                     started = true;
                 },
-                 [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire) {
-                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);
+                 [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
+                        SolverType solverType) {
+                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
+
+                     if(mOutpostMode && solverType == SolverType::normal)
+                         return;
 
                      if(yawAngle < -glm::pi<double>())
                          yawAngle += glm::two_pi<double>();
