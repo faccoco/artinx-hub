@@ -135,7 +135,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 lastDownTargetTime = Clock::now();
             }
             mOutpostMode = fdb.outpostMode;
-            sendAll(outpost_detector_control_atom_v, mOutpostMode);
+            sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
             HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
 
             HubLogger::watch("yaw1", fdb.yaw);
@@ -209,6 +209,8 @@ public:
             while(globalStatus == RunStatus::running) {
                 receive();
                 sendPacket();
+                gimbalSetPacket.up.isFire = false;
+                gimbalSetPacket.down.isFire = false;
                 std::this_thread::sleep_for(0.75ms);
                 uint8_t targetBits = 0;
                 if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastUpTargetTime).count() < 500) {
@@ -240,7 +242,7 @@ public:
                         SolverType solverType) {
                      ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
 
-                     if(mOutpostMode && solverType == SolverType::normal)
+                     if(mOutpostMode && solverType == solverType_normal)
                          return;
 
                      if(yawAngle < -glm::pi<double>())

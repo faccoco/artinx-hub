@@ -60,7 +60,7 @@ public:
                 auto res = solveWithoutAirDrag(tfPos, glm::dvec3{ 0, 0, 0 });
                 if(!data->period.has_value()) {
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
-                                        std::get<1>(res), std::get<2>(res), false, SolverType::period);
+                                        std::get<1>(res), std::get<2>(res), false, solverType_period);
                     return;
                 }
                 double waitTime = data->period.value() - std::get<0>(res) - delayTime;
@@ -69,11 +69,11 @@ public:
                 std::thread([this, waitTime, data, res]() {
                     SynchronizedClock::instance().sleep_for(doubleCastDuration(waitTime) - mHeadDelay);
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
-                                        std::get<1>(res), std::get<2>(res), false, SolverType::period);
+                                        std::get<1>(res), std::get<2>(res), false, solverType_period);
                     logInfo("send not shoot");
                     SynchronizedClock::instance().sleep_for(mHeadDelay);
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
-                                        std::get<1>(res), std::get<2>(res), true, SolverType::period);
+                                        std::get<1>(res), std::get<2>(res), true, solverType_period);
                     logInfo("send shoot");
                 }).detach();
             },

@@ -46,6 +46,8 @@ struct SimulatorSettings final {
 
     bool printBulletPos;
     bool printBulletInfo;
+
+    std::string aimType;
 };
 
 struct BulletInfo {
@@ -99,10 +101,11 @@ bool inspect(Inspector& f, SimulatorSettings& x) {
         f.field("sourceHeight", x.sourceHeight), f.field("targetHeight", x.targetHeight), f.field("targetType", x.targetType),
         f.field("targetMotionType", x.targetMotionType), f.field("sourceMotionType", x.sourceMotionType),
         f.field("expectedCount", x.expectedCount), f.field("printBulletPos", x.printBulletPos).fallback(false),
-        f.field("printBulletInfo", x.printBulletInfo).fallback(false));
+        f.field("printBulletInfo", x.printBulletInfo).fallback(false), f.field("aimType", x.aimType).fallback("Car"));
 }
 
-class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
+class Simulator final
+    : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom, outpost_detector_control_atom> {
     Identifier mKey, mHeadKey{};
 
     std::vector<std::pair<Point<UnitType::Distance, FrameOfRef::Ground>, Vector<UnitType::LinearVelocity, FrameOfRef::Ground>>>
@@ -254,6 +257,10 @@ public:
         const Scalar<UnitType::LinearVelocity> maxVelocity{ mConfig.v0 + 3.0 * mConfig.v0Std };
         const Scalar<UnitType::LinearVelocity> minVelocity{ mConfig.v0 - 3.0 * mConfig.v0Std };
         const Scalar<UnitType::Distance> bulletRadius{ GlobalSettings::get().bulletRadius() };
+
+        if(PredictorType predictorType = magic_enum::enum_cast<PredictorType>(mConfig.aimType).value();
+           predictorType == PredictorType::Period || predictorType == PredictorType::PeriodOutpost)
+            sendAll(outpost_detector_control_atom_v, true);
 
         while(runFlag) {
             for(auto& [pos, v] : mBullets) {

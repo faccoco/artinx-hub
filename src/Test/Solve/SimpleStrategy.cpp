@@ -28,7 +28,7 @@ class SimpleStrategy final : public HubHelper<caf::event_based_actor, SimpleStra
     Identifier mKey;
     bool mOutpostActive = false, mOutpostInited = false;
 
-    const enum PredictorType { Car, Outpost, Period, PeriodOutpost } predictorType;
+    const PredictorType predictorType;
 
 public:
     SimpleStrategy(caf::actor_config& base, const HubConfig& config)

@@ -3,7 +3,10 @@
 #include "Timer.hpp"
 #include <optional>
 
-enum class SolverType { normal, outpost, period };
+enum class PredictorType { Car, Outpost, Period, PeriodOutpost };
+
+typedef uchar SolverType;
+static constexpr SolverType solverType_normal = 0, solverType_outpost = 1, solverType_period = 2;
 
 struct SelectedTarget final {
     TimePoint lastUpdate;
