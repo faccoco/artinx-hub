@@ -12,11 +12,14 @@ $(document).ready(function () {
 let filters = {};
 let images = {};
 let watches = {};
+let checkRadar = false;
+let calibrationTab;
 
 function updateAll() {
     //    updateLog();
     updateFilter();
     updateWatches();
+    updateRadar();
 }
 
 //function updateLog() {
@@ -80,50 +83,80 @@ function updateFilter() {
         method: "POST"
     }).then(res => res.json()).then(data => {
         //data: [[name|uint64_t, false], [name|uint64_t, true], ...]
-        for (let v of data) {
-            if (filters[v[0]] === undefined) {
-                let checkbox = $("<label class=\"mdui-list-item mdui-ripple\">" +
-                    "<div class=\"mdui-list-item-content mdui-text-truncate\">" + v[0].split(/(\d)/)[0] + "</div > " +
-                    "<div class=\"mdui-checkbox\">" +
-                    "<input type=\"checkbox\" id=\"filter_" + v[0] + "\"/>" +
-                    "<i class=\"mdui-checkbox-icon\"></i>" +
-                    "</div>" +
-                    "</label>");
-                $("#filter").append(checkbox);
-                let inner = $("#filter_" + v[0]);
-                inner.change(function () {
-                    filters[v[0]] = this.checked;
-                    if (this.checked)
-                        $(images[v[0]]).show();
-                    else
-                        $(images[v[0]]).hide();
-                    fetch("/filter", {
-                        method: "POST",
-                        body: JSON.stringify(filters)
-                    })
-                });
+        if (!(data && Object.keys(data).length === 0 && Object.getPrototypeOf(data) === Object.prototype))
+            for (let v of data) {
+                if (filters[v[0]] === undefined) {
+                    let checkbox = $("<label class=\"mdui-list-item mdui-ripple\">" +
+                        "<div class=\"mdui-list-item-content mdui-text-truncate\">" + v[0].split(/([-])/)[0] + "</div > " +
+                        "<div class=\"mdui-checkbox\">" +
+                        "<input type=\"checkbox\" id=\"filter_" + v[0] + "\"/>" +
+                        "<i class=\"mdui-checkbox-icon\"></i>" +
+                        "</div>" +
+                        "</label>");
+                    $("#filter").append(checkbox);
+                    let inner = $("#filter_" + v[0]);
+                    inner.change(function () {
+                        filters[v[0]] = this.checked;
+                        if (this.checked)
+                            $(images[v[0]]).show();
+                        else
+                            $(images[v[0]]).hide();
+                        fetch("/filter", {
+                            method: "POST",
+                            body: JSON.stringify(filters)
+                        })
+                    });
+                }
+                $("#filter_" + v[0])[0].checked = v[1];
+                if (!images.hasOwnProperty(v[0])) {
+                    let img = $("<img class=\"mdui-img-fluid image\" id=\"current_image\" src=\"\" alt=\"\"/>")
+                    img[0].src = "/img/" + v[0];
+                    img.on("click", function (e) {
+                        let x = e.pageX - this.offsetLeft;
+                        let y = e.pageY - this.offsetTop;
+                        fetch("/radar", {
+                            method: "POST",
+                            body: JSON.stringify([x, y])
+                        })
+                    });
+                    images[v[0]] = img[0];
+                    $("#images").append(img);
+                }
+                filters[v[0]] = v[1];
             }
-            $("#filter_" + v[0])[0].checked = v[1];
-            if (!images.hasOwnProperty(v[0])) {
-                let img = $("<img class=\"mdui-img-fluid image\" id=\"current_image\" src=\"\" alt=\"\"/>")
-                img[0].src = "/img/" + v[0];
-                //        img.on("click", function (e) {
-                //            let x = e.pageX - this.offsetLeft;
-                //            let y = e.pageY - this.offsetTop;
-                //            fetch("/radar", {
-                //                method: "POST",
-                //                body: JSON.stringify([x, y])
-                //            })
-                //        });
-                images[v[0]] = img[0];
-                $("#images").append(img);
-            }
-            filters[v[0]] = v[1];
-        }
     });
+}
+
+function updateRadar() {
+    if (!checkRadar) {
+        checkRadar = true;
+        setTimeout(() => {
+            fetch("/radar", {method: "GET"}).then(res => res.json()).then(data => {
+                if (data) {
+                    let checkbox = $("<label class=\"mdui-list-item mdui-ripple\">" +
+                        "<div class=\"mdui-list-item-content mdui-text-truncate\">Radar Loc-Cal</div > " +
+                        "<div class=\"mdui-checkbox\">" +
+                        "<input type=\"checkbox\" id=\"filter_radar_cal\"/>" +
+                        "<i class=\"mdui-checkbox-icon\"></i>" +
+                        "</div>" +
+                        "</label>");
+                    $("#filter").prepend(checkbox);
+                    let inner = $("#filter_radar_cal");
+                    inner.change(function () {
+                        if (this.checked)
+                            calibrationTab = window.open("radar_locate.html", "Radar Locate", "popup");
+                        else
+                            calibrationTab.close();
+                    });
+                }
+            })
+        }, 300);
+    }
 }
 
 function exitServer() {
     fetch("/exit");
-    setTimeout(function () {window.close();}, 1000);
+    setTimeout(function () {
+        window.close();
+    }, 500);
 }
