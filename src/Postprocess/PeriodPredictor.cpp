@@ -104,18 +104,18 @@ public:
 
                 // check
                 if(std::abs(getTheta(posRefRobot.mVal) - mTargetTheta) <= sameThetaThreshold) {
-                    logInfo("PeriodPredictor: same theta");
-                    logInfo(
-                        fmt::format("PeriodPredictor: pos:{} {} {}", posRefRobot.mVal.x, posRefRobot.mVal.y, posRefRobot.mVal.z));
-                    logInfo(fmt::format("PeriodPredictor: theta: {} degree", glm::degrees(getTheta(posRefRobot.mVal))));
+                    // logInfo("PeriodPredictor: same theta");
+                    // logInfo(
+                    //     fmt::format("PeriodPredictor: pos:{} {} {}", posRefRobot.mVal.x, posRefRobot.mVal.y, posRefRobot.mVal.z));
+                    // logInfo(fmt::format("PeriodPredictor: theta: {} degree", glm::degrees(getTheta(posRefRobot.mVal))));
 
-                    logInfo(fmt::format("PeriodPredictor: mState: {}", mState));
+                    // logInfo(fmt::format("PeriodPredictor: mState: {}", mState));
 
                     if(mState == firstAPeriod) {
                         mTargetPitch[0] = getPitch(posRefRobot.mVal);
                         mLastTime[0] = data->lastUpdate;
                         step(mState);
-                        logInfo("PeriodPredictor: find first");
+                        // logInfo("PeriodPredictor: find first");
                         return;
                     }
                     double timeGap = durationCastDouble(data->lastUpdate - mLastTime[(mState - 1) & 0x3]);
@@ -135,8 +135,8 @@ public:
                             clear();
                             return;
                         }
-                        logInfo("PeriodPredictor: same pitch");
-                        logInfo(fmt::format("PeriodPredictor: pitch: {} degree", glm::degrees(getPitch(posRefRobot.mVal))));
+                        // logInfo("PeriodPredictor: same pitch");
+                        // logInfo(fmt::format("PeriodPredictor: pitch: {} degree", glm::degrees(getPitch(posRefRobot.mVal))));
                         mPeriodTimes[idx].push_back(durationCastDouble(data->lastUpdate - mLastTime[idx]));
                         mLastTime[idx] = data->lastUpdate;
                         double periodAvg = avg(mPeriodTimes[idx]);

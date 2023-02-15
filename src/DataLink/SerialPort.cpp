@@ -128,8 +128,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             }
 
             if(!mOutpostMode && fdb.outpostMode) {
-                lastUpTargetTime-=10s;
-                lastDownTargetTime-=10s;
+                lastUpTargetTime -= 10s;
+                lastDownTargetTime -= 10s;
             }
             mOutpostMode = fdb.outpostMode;
             sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
@@ -206,12 +206,12 @@ public:
             while(globalStatus == RunStatus::running) {
                 receive();
                 sendPacket();
-                static int sendTimes=0;
-                if(gimbalSetPacket.up.isFire&&mOutpostMode&&sendTimes==0) {
-                    sendTimes=150;
+                static int sendTimes = 0;
+                if(gimbalSetPacket.up.isFire && mOutpostMode && sendTimes == 0) {
+                    sendTimes = 150;
                     logInfo("start send fire");
                 }
-                if(sendTimes&&!(--sendTimes)) {
+                if(sendTimes && !(--sendTimes)) {
                     gimbalSetPacket.up.isFire = false;
                     gimbalSetPacket.down.isFire = false;
                 }

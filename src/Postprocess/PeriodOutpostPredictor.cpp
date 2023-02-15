@@ -80,15 +80,15 @@ public:
                 HubLogger::watch("thetaDelta", thetaDelta);
                 // check
                 if(thetaDelta <= sameThetaThreshold) {
-                    logInfo("PeriodOutpostPredictor: same theta");
-                    logInfo(fmt::format("PeriodOutpostPredictor: pos:{} {} {}", posRefRobot.mVal.x, posRefRobot.mVal.y,
-                                        posRefRobot.mVal.z));
-                    logInfo(fmt::format("PeriodOutpostPredictor: theta: {} degree", glm::degrees(getTheta(posRefRobot.mVal))));
+                    // logInfo("PeriodOutpostPredictor: same theta");
+                    // logInfo(fmt::format("PeriodOutpostPredictor: pos:{} {} {}", posRefRobot.mVal.x, posRefRobot.mVal.y,
+                    //                     posRefRobot.mVal.z));
+                    // logInfo(fmt::format("PeriodOutpostPredictor: theta: {} degree", glm::degrees(getTheta(posRefRobot.mVal))));
 
                     if(!mLastTime.has_value()) {
                         mTargetPitch = getPitch(posRefRobot.mVal);
                         mLastTime = data->lastUpdate;
-                        logInfo("PeriodOutpostPredictor: find first");
+                        // logInfo("PeriodOutpostPredictor: find first");
                         return;
                     }
                     double timeGap = durationCastDouble(data->lastUpdate - mLastTime.value());
@@ -103,8 +103,8 @@ public:
                         logInfo(fmt::format("PeriodOutpostPredictor: pitchDelta: {} too large", pitchDelta));
                         return;
                     }
-                    logInfo("PeriodOutpostPredictor: same pitch");
-                    logInfo(fmt::format("PeriodOutpostPredictor: pitch: {} degree", glm::degrees(getPitch(posRefRobot.mVal))));
+                    // logInfo("PeriodOutpostPredictor: same pitch");
+                    // logInfo(fmt::format("PeriodOutpostPredictor: pitch: {} degree", glm::degrees(getPitch(posRefRobot.mVal))));
                     mPeriodTimes.push_back(timeGap);
                     mLastTime = data->lastUpdate;
                     double periodAvg = avg(mPeriodTimes);
