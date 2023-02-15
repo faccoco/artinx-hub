@@ -29,7 +29,7 @@ bool inspect(Inspector& f, ArmorLocatorSettings& x) {
 
 class ArmorLocator final
     : public HubHelper<caf::event_based_actor, ArmorLocatorSettings, detect_available_atom, image_frame_atom> {
-    Identifier mKey, mHeadKey{};
+    Identifier mKey/*, mHeadKey{}*/;
     const std::vector<cv::Point3d> mObjectPointsSmall = {
         { -widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
         { -widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
@@ -104,7 +104,7 @@ class ArmorLocator final
 public:
     ArmorLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](armor_detect_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
                      ACTOR_EXCEPTION_PROBE();

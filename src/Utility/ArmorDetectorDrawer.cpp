@@ -51,7 +51,8 @@ public:
                      frame.lastUpdate = data.frame.lastUpdate;
                      frame.info = data.frame.info;
 
-                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frame),"ArmorDetectorDrawer"));
+                     sendAll(image_frame_atom_v,
+                             BlackBoard::instance().updateSync(mKey, std::move(frame), std::string("ArmorDetectorDrawer")));
                  },
                  [&](armor_nnet_detect_available_atom, Identifier key) {
                      auto res = BlackBoard::instance().get<NNetDetectedArmorArray>(key).value();
@@ -96,7 +97,8 @@ public:
                      frame.lastUpdate = res.frame.lastUpdate;
                      frame.info = res.frame.info;
 
-                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frame),"ArmorDetectorDrawer"));
+                     sendAll(image_frame_atom_v,
+                             BlackBoard::instance().updateSync(mKey, std::move(frame), std::string("ArmorDetectorDrawer")));
                  } };
     }
 };

@@ -60,7 +60,7 @@ public:
 
     caf::behavior make_behavior() override {
         return {
-            [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](image_frame_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                 ACTOR_EXCEPTION_PROBE();

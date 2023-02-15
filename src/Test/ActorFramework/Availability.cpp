@@ -28,7 +28,7 @@ public:
         Timer::instance().addTimer(address(), 10ms);
     }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](timer_atom) {
                      ACTOR_PROTOCOL_CHECK(timer_atom);
                      if(++mSentCount <= mConfig.testCount) {
@@ -50,7 +50,7 @@ class MessageForwarder final : public HubHelper<caf::event_based_actor, void, pa
 public:
     MessageForwarder(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](payload_atom, int32_t, int32_t) { sendAll(payload_atom_v, 0, 0); } };
     }
 };

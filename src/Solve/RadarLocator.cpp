@@ -34,8 +34,7 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
          */
     };
 
-    std::optional<glm::dmat4> locatePosition(const cv::Mat& cameraMatrix, const std::vector<cv::Point2f>& imagePoints,
-                                             const Color selfColor) {
+    std::optional<glm::dmat4> locatePosition(const cv::Mat& cameraMatrix, const std::vector<cv::Point2i>& imagePoints) {
         const cv::Mat_<double> distCoeff;
         cv::Mat rvec, tvec;
         if(cv::solvePnP(mObjectPoints, imagePoints, cameraMatrix, distCoeff, rvec, tvec, false, cv::SOLVEPNP_ITERATIVE)) {
@@ -45,6 +44,7 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
             memcpy(glm::value_ptr(rotate), rotateMat.ptr(), sizeof(double) * 3 * 3);
             glm::dmat4 trans = { rotate };
 
+            auto&& selfColor = GlobalSettings::get().selfColor;
             if(selfColor == Color::Blue) {
                 trans[3][0] = tvec.at<double>(0, 0);
                 trans[3][1] = tvec.at<double>(1, 0);
@@ -61,15 +61,15 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
 
 public:
     RadarLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [&](radar_locate_request_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(radar_locate_request_atom, TypedIdentifier<RadarCameraPointsArray>);
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+                 [this](radar_locate_request_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(radar_locate_request_atom, TypedIdentifier<RadarCameraPoints>);
                      ACTOR_EXCEPTION_PROBE();
 
-                     const auto data = BlackBoard::instance().get<RadarCameraPointsArray>(key).value();
-                     const auto& info = data.cameraInfo;
-                     if(const auto radarTransform = locatePosition(info.cameraMatrix, data.imagePoints, data.selfColor)) {
+                     const auto data = BlackBoard::instance().get<RadarCameraPoints>(key).value();
+                     if(const auto radarTransform = locatePosition(data.info.cameraMatrix, data.points)) {
                          const Transform<FrameOfRef::Camera, FrameOfRef::Ground, true> transform{ glm::inverse(
                              radarTransform.value()) };
                          sendAll(radar_locate_succeed_atom_v, BlackBoard::instance().updateSync(mKey, transform));

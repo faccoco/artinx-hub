@@ -9,11 +9,13 @@
 #include <caf/event_based_actor.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/videoio.hpp>
+#include <string>
 
 #include "SuppressWarningEnd.hpp"
 
 struct VideoReplaySettings final {
     std::string path;
+    std::string cameraName;
     double fps;
     double fov;
     uint32_t width;
@@ -22,10 +24,10 @@ struct VideoReplaySettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, VideoReplaySettings& x) {
-    return f.object(x).fields(f.field("path", x.path), f.field("fps", x.fps).fallback(30.0).invariant([](const double v) {
-        return v >= 1.0 && v <= 120.0;
-    }),
-                              f.field("fov", x.fov), f.field("width", x.width), f.field("height", x.height));
+    return f.object(x).fields(
+        f.field("path", x.path), f.field("cameraName", x.cameraName),
+        f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 120.0; }),
+        f.field("fov", x.fov), f.field("width", x.width), f.field("height", x.height));
 }
 
 class VideoReplay final : public HubHelper<caf::event_based_actor, VideoReplaySettings, image_frame_atom> {
@@ -62,7 +64,11 @@ private:
         res.lastUpdate = SynchronizedClock::instance().now();
 
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, res));
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), "VideoReplay"));
+#ifdef ARTINX_RADAR
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), mConfig.cameraName));
+#else
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string("VideoReplay")));
+#endif
     }
 
 public:

@@ -41,6 +41,7 @@ static void loadCalibration(const bool disableUndistort, const std::string& iden
 struct DahengDriverSettings final {
     std::string openMode;
     std::string identifier;
+    std::string cameraName;
     double fps;
     double fov;
     double exposureTime;
@@ -57,7 +58,7 @@ template <class Inspector>
 bool inspect(Inspector& f, DahengDriverSettings& x) {
     return f.object(x).fields(
         f.field("openMode", x.openMode).invariant([](const std::string& v) { return v == "Index" || v == "SerialNumber"; }),
-        f.field("identifier", x.identifier),
+        f.field("identifier", x.identifier), f.field("cameraName", x.cameraName),
         f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 500.0; }),
         f.field("fov", x.fov), f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
         f.field("disableUndistort", x.disableUndistort).fallback(false),
@@ -149,7 +150,11 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
 
         frameData.frame = std::move(bgr);
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, frameData));
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData),"Origin"));
+#ifdef ARTINX_RADAR
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData), mConfig.cameraName));
+#else
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string("Origin")));
+#endif
     }
 
 #ifdef ARTINX_DAHENG_USB2
