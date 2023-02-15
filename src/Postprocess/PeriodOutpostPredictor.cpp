@@ -18,7 +18,7 @@
 static constexpr double sameThetaThreshold = glm::radians<double>(0.2);
 static constexpr double samePitchThreshold = glm::radians<double>(1);
 static constexpr double minPeriodThreshold = 0.8;     // s
-static constexpr double maxPeriodThreshold = 10;    // s
+static constexpr double maxPeriodThreshold = 10;      // s
 static constexpr double maxPeriodStdThreshold = 0.2;  // s
 
 class PeriodOutpostPredictor final : public HubHelper<caf::event_based_actor, void, period_predict_success_atom> {
@@ -70,40 +70,37 @@ public:
                 // init
                 if(init) {
                     clear();
-                    mTargetTheta = getTheta(posRefRobot.mVal);
-                    logInfo("PeriodOutpostPredictor: inited");
+                    mTargetTheta = getTheta(tfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(0, 0, -1)).mVal);
+                    logInfo(fmt::format("PeriodOutpostPredictor: inited theta {} degree", glm::degrees(mTargetTheta)));
                     return;
                 }
 
-                if(!mLastTime.has_value()) {
-                    mTargetPitch = getPitch(posRefRobot.mVal);
-                    mLastTime = data->lastUpdate;
-                    return;
-                }
+                double thetaDelta = std::abs(getTheta(posRefRobot.mVal) - mTargetTheta);
 
-                double timeGap = durationCastDouble(data->lastUpdate - mLastTime.value());
-
-                HubLogger::watch("timeGap",timeGap);
-
-                if(timeGap > maxPeriodThreshold) {
-                    clear();
-                    logInfo(fmt::format("PeriodOutpostPredictor: timeGap: {} too large",timeGap));
-                }
-                if(timeGap < minPeriodThreshold)
-                    return;
-
-                double thetaDelta=std::abs(getTheta(posRefRobot.mVal) - mTargetTheta);
-
-                HubLogger::watch("thetaDelta",thetaDelta);
+                HubLogger::watch("thetaDelta", thetaDelta);
                 // check
                 if(thetaDelta <= sameThetaThreshold) {
                     logInfo("PeriodOutpostPredictor: same theta");
                     logInfo(fmt::format("PeriodOutpostPredictor: pos:{} {} {}", posRefRobot.mVal.x, posRefRobot.mVal.y,
                                         posRefRobot.mVal.z));
                     logInfo(fmt::format("PeriodOutpostPredictor: theta: {} degree", glm::degrees(getTheta(posRefRobot.mVal))));
-                    if(double pitchDelta=std::abs(getPitch(posRefRobot.mVal) - mTargetPitch);pitchDelta > samePitchThreshold) {
+
+                    if(!mLastTime.has_value()) {
+                        mTargetPitch = getPitch(posRefRobot.mVal);
+                        mLastTime = data->lastUpdate;
+                        logInfo("PeriodOutpostPredictor: find first");
+                        return;
+                    }
+                    double timeGap = durationCastDouble(data->lastUpdate - mLastTime.value());
+                    if(timeGap > maxPeriodThreshold) {
                         clear();
-                        logInfo(fmt::format("PeriodOutpostPredictor: pitchDelta: {} too large",pitchDelta));
+                        logInfo(fmt::format("PeriodOutpostPredictor: timeGap: {} too large", timeGap));
+                    }
+                    if(timeGap < minPeriodThreshold)
+                        return;
+                    if(double pitchDelta = std::abs(getPitch(posRefRobot.mVal) - mTargetPitch); pitchDelta > samePitchThreshold) {
+                        clear();
+                        logInfo(fmt::format("PeriodOutpostPredictor: pitchDelta: {} too large", pitchDelta));
                         return;
                     }
                     logInfo("PeriodOutpostPredictor: same pitch");

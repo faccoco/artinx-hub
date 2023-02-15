@@ -97,25 +97,10 @@ public:
                 // init
                 if(init) {
                     clear();
-                    mTargetTheta = getTheta(posRefRobot.mVal);
+                    mTargetTheta = getTheta(tfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(0, 0, -1)).mVal);
                     logInfo("PeriodPredictor: inited");
                     return;
                 }
-
-                logInfo(fmt::format("PeriodPredictor: mState: {}", mState));
-
-                if(mState == firstAPeriod) {
-                    mTargetPitch[0] = getPitch(posRefRobot.mVal);
-                    mLastTime[0] = data->lastUpdate;
-                    step(mState);
-                    return;
-                }
-
-                double timeGap = durationCastDouble(data->lastUpdate - mLastTime[(mState - 1) & 0x3]);
-                if(timeGap > maxPeriodThreshold)
-                    clear();
-                if(timeGap < minPeriodThreshold)
-                    return;
 
                 // check
                 if(std::abs(getTheta(posRefRobot.mVal) - mTargetTheta) <= sameThetaThreshold) {
@@ -123,6 +108,24 @@ public:
                     logInfo(
                         fmt::format("PeriodPredictor: pos:{} {} {}", posRefRobot.mVal.x, posRefRobot.mVal.y, posRefRobot.mVal.z));
                     logInfo(fmt::format("PeriodPredictor: theta: {} degree", glm::degrees(getTheta(posRefRobot.mVal))));
+
+                    logInfo(fmt::format("PeriodPredictor: mState: {}", mState));
+
+                    if(mState == firstAPeriod) {
+                        mTargetPitch[0] = getPitch(posRefRobot.mVal);
+                        mLastTime[0] = data->lastUpdate;
+                        step(mState);
+                        logInfo("PeriodPredictor: find first");
+                        return;
+                    }
+                    double timeGap = durationCastDouble(data->lastUpdate - mLastTime[(mState - 1) & 0x3]);
+                    if(timeGap > maxPeriodThreshold) {
+                        clear();
+                        logInfo(fmt::format("PeriodPredictor: timeGap: {} too large", timeGap));
+                    }
+                    if(timeGap < minPeriodThreshold)
+                        return;
+
                     int idx = getIdx(mState);
                     if(isFirstPeriod(mState)) {
                         mTargetPitch[idx] = getPitch(posRefRobot.mVal);
