@@ -206,10 +206,15 @@ public:
             while(globalStatus == RunStatus::running) {
                 receive();
                 sendPacket();
-                if(gimbalSetPacket.up.isFire&&mOutpostMode)
-                    logInfo("up fire");
-                gimbalSetPacket.up.isFire = false;
-                gimbalSetPacket.down.isFire = false;
+                static int sendTimes=0;
+                if(gimbalSetPacket.up.isFire&&mOutpostMode&&sendTimes==0) {
+                    sendTimes=150;
+                    logInfo("start send fire");
+                }
+                if(sendTimes&&!(--sendTimes)) {
+                    gimbalSetPacket.up.isFire = false;
+                    gimbalSetPacket.down.isFire = false;
+                }
                 std::this_thread::sleep_for(0.75ms);
                 uint8_t targetBits = 0;
                 if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastUpTargetTime).count() < 500) {
