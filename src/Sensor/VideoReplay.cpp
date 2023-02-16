@@ -65,9 +65,10 @@ private:
 
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, res));
 #ifdef ARTINX_RADAR
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), mConfig.cameraName));
+        sendAll(image_frame_atom_v,
+                BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view(mConfig.cameraName)));
 #else
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string("VideoReplay")));
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("VideoReplay")));
 #endif
     }
 

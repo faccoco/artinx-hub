@@ -31,18 +31,20 @@
 #include "SuppressWarningEnd.hpp"
 
 struct ImageWithFilter {
-    std::string name;
+    std::string_view name;
     cv::Mat image;
     bool isEnable = true;
 };
 
 struct HttpServerSettings final {
     bool enableRadar;
+    uint32_t radarPointsNum;
 };
 
 template <typename Inspector>
 bool inspect(Inspector& f, HttpServerSettings& x) {
-    return f.object(x).fields(f.field("enableRadar", x.enableRadar).fallback(false));
+    return f.object(x).fields(f.field("enableRadar", x.enableRadar).fallback(false),
+                              f.field("radarPointsNum", x.radarPointsNum).fallback(6));
 }
 
 class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSettings, radar_locate_request_atom> {
@@ -107,7 +109,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
         nlohmann::json result = nlohmann::json::array();
         std::lock_guard<std::mutex> guard{ mMutex };
         for(const auto& v : mImage)
-            result.push_back({ v.second.name + std::string("-") + std::to_string(v.first), v.second.isEnable });
+            result.push_back({ v.second.name.data() + std::string("-") + std::to_string(v.first), v.second.isEnable });
         return result.dump();
     }
 
@@ -206,10 +208,8 @@ public:
                 auto allPoints = json::parse(req.body);
                 RadarCameraPoints data;
                 data.info = radarCameraInfo;
-                for(int i = 0; i < 8; ++i) {
+                for(uint32_t i = 0; i < mConfig.radarPointsNum; ++i)
                     data.points.emplace_back(static_cast<int>(allPoints[i]["x"]), static_cast<int>(allPoints[i]["y"]));
-                }
-                logInfo(std::to_string(data.points.size()));
                 sendAll(radar_locate_request_atom_v, BlackBoard::instance().updateSync(mKey, std::move(data)));
                 res.set_content(json(json("success")).dump(), "text/plain");
             });
@@ -242,7 +242,7 @@ public:
                  [this](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      std::lock_guard<std::mutex> guard{ mMutex };
-                     auto data = BlackBoard::instance().get<CameraFrame, std::string>(key);
+                     auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key);
                      auto [cameraFrame, name] = data.value();
 #ifdef ARTINX_RADAR
                      if(name == "RadarCenter")

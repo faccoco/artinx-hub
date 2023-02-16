@@ -151,7 +151,7 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         frameData.frame = std::move(bgr);
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, frameData));
 #ifdef ARTINX_RADAR
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData), mConfig.cameraName));
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
 #else
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string("Origin")));
 #endif
