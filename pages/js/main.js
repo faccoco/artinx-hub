@@ -2,52 +2,17 @@ $(document).ready(function () {
     setInterval("updateAll()", 100);
 });
 
-//function randomString(length) {
-//    const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-//    let result = '';
-//    for (let i = length; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];
-//    return result;
-//}
-
 let filters = {};
 let images = {};
 let watches = {};
 let checkRadar = false;
-let calibrationTab;
+let locateTab;
 
 function updateAll() {
-    //    updateLog();
     updateFilter();
     updateWatches();
     updateRadar();
 }
-
-//function updateLog() {
-//    let logDiv = $("#logs");
-//    let keepDown = false;
-//    if (logDiv[0].scrollTop + logDiv[0].clientHeight >= logDiv[0].scrollHeight - 200.0) {
-//        keepDown = true;
-//    }
-//    fetch("/log").then(res => {
-//        if (!res.ok) {
-//            throw new Error(res.status + "");
-//        }
-//        return res.text();
-//    }).then(data => {
-//        if (data === "") return;
-//        if (this.prev) {
-//            data = this.prev + data;
-//        }
-//        let logs = data.split('\n');
-//        for (let log of logs.slice(0, -1)) {
-//            $("#logs").append("<p>" + log + "</p>");
-//        }
-//        this.prev = logs[logs.length - 1];
-//    });
-//    if (keepDown) {
-//        logDiv[0].scrollTop = logDiv[0].scrollHeight - logDiv[0].clientHeight;
-//    }
-//}
 
 function updateWatches() {
     fetch("/watch").then(res => res.json()).then(data => {
@@ -144,9 +109,9 @@ function updateRadar() {
                     let inner = $("#filter_radar_cal");
                     inner.change(function () {
                         if (this.checked)
-                            calibrationTab = window.open("radar_locate.html", "Radar Locate", "popup");
+                            locateTab = window.open("radar_locate.html", "Radar Locate");
                         else
-                            calibrationTab.close();
+                            locateTab.close();
                     });
                 }
             })
@@ -156,7 +121,8 @@ function updateRadar() {
 
 function exitServer() {
     fetch("/exit");
+    locateTab.close();
     setTimeout(function () {
         window.close();
-    }, 500);
+    }, 514);
 }

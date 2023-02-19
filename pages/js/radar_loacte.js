@@ -2,7 +2,7 @@ var cvs, ctx;
 let img, currentRes;
 let allPoints = [];
 const ImageUrl = "http://127.0.0.1:5630/img/RadarCenter";
-const AllPosition = ["标志点1", "标志点2", "...3", "4", "5", "6", "7", "8"];
+const AllPosition = ["标志点1", "标志点2", "...3", "4", "5", "6"];
 const TotalPointCounts = AllPosition.length;
 
 $(document).ready(() => {
@@ -11,6 +11,7 @@ $(document).ready(() => {
     initButtons();
     initTable();
     initMouse();
+    setInterval(updateLog(), 100);
 });
 
 function initCanvas() {
@@ -50,6 +51,7 @@ function getPos(evt) {
         + porperty[2] + '</td></table>';
     return {x, y};
 }
+
 function popPoint() {
     if (allPoints.length > 0) {
         allPoints.pop();
@@ -70,7 +72,6 @@ const AllButtons = [["ReloadPage", function () {
     allPoints = [];
     updateTable();
 }], ["Send", function () {
-    console.log(allPoints);
     if (allPoints.length == TotalPointCounts)
         fetch("/radar_points", {
             method: "POST",
@@ -111,3 +112,29 @@ function updateTable() {
         watches[AllPosition[i]].html("not selected");
 }
 
+function updateLog() {
+    let logDiv = $("#logs");
+    let keepDown = false;
+    if (logDiv[0].scrollTop + logDiv[0].clientHeight >= logDiv[0].scrollHeight - 200.0) {
+        keepDown = true;
+    }
+    fetch("/log").then(res => {
+        if (!res.ok) {
+            throw new Error(res.status + "");
+        }
+        return res.text();
+    }).then(data => {
+        if (data === "") return;
+        if (this.prev) {
+            data = this.prev + data;
+        }
+        let logs = data.split('\n');
+        for (let log of logs.slice(0, -1)) {
+            $("#logs").append("<p>" + log + "</p>");
+        }
+        this.prev = logs[logs.length - 1];
+    });
+    if (keepDown) {
+        logDiv[0].scrollTop = logDiv[0].scrollHeight - logDiv[0].clientHeight;
+    }
+}

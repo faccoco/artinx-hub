@@ -9,6 +9,7 @@
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
+#include <fmt/core.h>
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
@@ -55,10 +56,10 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
 
     std::string mhostIpAddress;
     std::streambuf* mClogBuffer;
-    std::stringstream mLogStream;
 #ifdef ARTINX_RADAR
     uint64_t radarKey;
     CameraInfo radarCameraInfo;
+    RadarTransform radarSuccessTransform;
 #endif
 
     Identifier mKey;
@@ -155,11 +156,6 @@ public:
                 [](bool) {});
         });
 
-        //        mServer.Get("/log", [this](const httplib::Request&, httplib::Response& res) {
-        //            res.set_content(mLogStream.str(), "text/plain");
-        //            mLogStream.str("");
-        //        });
-
         mServer.Get("/watch", [](const httplib::Request&, httplib::Response& res) {
             res.set_content(nlohmann::json(HubLogger::watches).dump(), "application/json");
         });
@@ -184,6 +180,8 @@ public:
         });
 
 #ifdef ARTINX_RADAR
+        radarSuccessTransform.trans = glm::dmat4();
+        radarSuccessTransform.rotate = glm::dmat3();
         mServer.Get(R"(/img/RadarCenter)", [this](const httplib::Request& req, httplib::Response& res) {
             res.set_content_provider("multipart/x-mixed-replace;boundary=MJP",
                                      [this](size_t, httplib::DataSink& sink) {
@@ -202,8 +200,25 @@ public:
         });
         if(mConfig.enableRadar) {
             mServer.Get("/radar", [](const httplib::Request&, httplib::Response& res) {
-                res.set_content(json(json(true)).dump(), "application/json");
+                res.set_content(json("true").dump(), "application/json");
             });
+
+//            mServer.Get("/log", [this](const httplib::Request&, httplib::Response& res) {
+//                std::string send("trans mat:\n");
+//                for(int i = 0; i < 4; ++i) {
+//                    for(int j = 0; j < 4; ++j)
+//                        send += std::to_string(radarSuccessTransform.trans[i][j]) + " ";
+//                    send += "\n";
+//                }
+//                send += "rotate mat:\n";
+//                for(int i = 0; i < 3; ++i) {
+//                    for(int j = 0; j < 3; ++j)
+//                        send += std::to_string(radarSuccessTransform.rotate[i][j]) + " ";
+//                    send += "\n";
+//                }
+//                res.set_content(json(send).dump(), "text/plain");
+//            });
+
             mServer.Post("/radar_points", [this](const httplib::Request& req, httplib::Response& res) {
                 auto allPoints = json::parse(req.body);
                 RadarCameraPoints data;
@@ -250,7 +265,15 @@ public:
                      radarCameraInfo = cameraFrame.info;
 #endif
                      mImage[key.val] = { name, cameraFrame.frame, true };
-                 } };
+                 }
+#ifdef ARTINX_RADAR
+                 ,
+                 [this](radar_locate_succeed_atom, Identifier key) {
+                     radarSuccessTransform = BlackBoard::instance().get<RadarTransform>(key).value();
+//                     logInfo(fmt::format("trans"))
+                 }
+#endif
+        };
     }
 };
 

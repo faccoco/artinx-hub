@@ -6,14 +6,12 @@
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
-#include <cstdint>
 
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
 #include <opencv2/calib3d.hpp>
 
 #include "SuppressWarningEnd.hpp"
@@ -29,7 +27,7 @@ bool inspect(Inspector& f, ArmorLocatorSettings& x) {
 
 class ArmorLocator final
     : public HubHelper<caf::event_based_actor, ArmorLocatorSettings, detect_available_atom, image_frame_atom> {
-    Identifier mKey/*, mHeadKey{}*/;
+    Identifier mKey /*, mHeadKey{}*/;
     const std::vector<cv::Point3d> mObjectPointsSmall = {
         { -widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
         { -widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
@@ -133,7 +131,8 @@ public:
 
 #ifdef ARTINXHUB_DEBUG
                      std::swap(debugView, data.frame.frame);
-                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(data.frame)));
+                     sendAll(image_frame_atom_v,
+                             BlackBoard::instance().updateSync(mKey, std::move(data.frame), std::string_view("ArmorLoactor")));
 #endif
 
                      sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
