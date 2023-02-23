@@ -259,8 +259,10 @@ public:
         const Scalar<UnitType::Distance> bulletRadius{ GlobalSettings::get().bulletRadius() };
 
         if(PredictorType predictorType = magic_enum::enum_cast<PredictorType>(mConfig.aimType).value();
-           predictorType == PredictorType::Period || predictorType == PredictorType::PeriodOutpost)
+           predictorType == PredictorType::Period || predictorType == PredictorType::PeriodOutpost) {
+            std::this_thread::sleep_for(1ms);
             sendAll(outpost_detector_control_atom_v, true);
+        }
 
         while(runFlag) {
             for(auto& [pos, v] : mBullets) {

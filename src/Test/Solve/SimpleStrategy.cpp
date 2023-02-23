@@ -86,6 +86,7 @@ public:
                 }
             },
             [this](outpost_detector_control_atom, bool active) {
+                ACTOR_PROTOCOL_CHECK(outpost_detector_control_atom, bool);
                 if(active && !mOutpostActive)
                     mOutpostInited = false;
                 mOutpostActive = active;

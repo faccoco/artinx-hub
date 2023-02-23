@@ -20,11 +20,18 @@
 
 struct ArmorLocatorSettings final {
     float ratioThreshold;
+    double ky2kz2x, my2kz2x, ky2mz2x, my2mz2x;
+    double kz2y, mz2y;
+    double kz2z, mz2z;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorSettings& x) {
-    return f.object(x).fields(f.field("ratioThreshold", x.ratioThreshold));
+    return f.object(x).fields(f.field("ratioThreshold", x.ratioThreshold), f.field("ky2kz2x", x.ky2kz2x).fallback(0.f),
+                              f.field("my2kz2x", x.my2kz2x).fallback(0.f), f.field("ky2mz2x", x.ky2mz2x).fallback(0.f),
+                              f.field("my2mz2x", x.my2mz2x).fallback(0.f), f.field("kz2y", x.kz2y).fallback(0.f),
+                              f.field("mz2y", x.mz2y).fallback(0.f), f.field("kz2z", x.kz2z).fallback(0.f),
+                              f.field("mz2z", x.mz2z).fallback(0.f));
 }
 
 class ArmorLocator final
@@ -155,7 +162,12 @@ public:
                          mImagePoint = armor.light4Point;
 
                          bool isLargeArmor = armor.robotType >= 2 && armor.robotType <= 6 ? false : true;
-                         const auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
+                         auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
+
+                         point.mVal.z += (point.mVal.z - mConfig.mz2z) / (mConfig.kz2z + 1);
+                         point.mVal.y += mConfig.kz2y * point.mVal.z + mConfig.mz2y;
+                         point.mVal.x += (mConfig.ky2kz2x * point.mVal.y + mConfig.my2kz2x) * point.mVal.z +
+                             (mConfig.ky2mz2x * point.mVal.y + mConfig.my2mz2x);
 
                          res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, armor.robotType,
                                                  isLargeArmor ? ArmorType::Large : ArmorType::Small });
