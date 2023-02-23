@@ -159,8 +159,8 @@ public:
 
                          res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, armor.robotType,
                                                  isLargeArmor ? ArmorType::Large : ArmorType::Small });
-                         //  logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{}, y:{} z:{}", isLargeArmor, point.mVal.x,
-                         //                      point.mVal.y, point.mVal.z));
+                         logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}", isLargeArmor,
+                                             point.mVal.x, point.mVal.y, point.mVal.z));
                      }
 
                      sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));

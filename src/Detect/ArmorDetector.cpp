@@ -166,7 +166,7 @@ class ArmorDetector final
             if(lightRect.size.height < 6.0f || lightRect.size.height > 160.f)
                 continue;
             // 灯条矩形的短边太长了
-            if(lightRect.size.width > 20.0f)
+            if(lightRect.size.width > 30.0f)
                 continue;
             // 灯条矩形的比率不符合要求
             //             const auto ratio = lightRect.size.width / lightRect.size.height;
@@ -225,7 +225,7 @@ class ArmorDetector final
                     std::swap(rect.size.width, rect.size.height);
                 }
                 // 装甲板矩形长度太长了
-                if(rect.size.width > 300.f)
+                if(rect.size.width > 400.f)
                     continue;
 
                 // 装甲板矩形高度太小了
