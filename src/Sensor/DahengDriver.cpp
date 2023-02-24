@@ -58,7 +58,7 @@ template <class Inspector>
 bool inspect(Inspector& f, DahengDriverSettings& x) {
     return f.object(x).fields(
         f.field("openMode", x.openMode).invariant([](const std::string& v) { return v == "Index" || v == "SerialNumber"; }),
-        f.field("identifier", x.identifier), f.field("cameraName", x.cameraName),
+        f.field("identifier", x.identifier), f.field("cameraName", x.cameraName).fallback("origin"),
         f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 500.0; }),
         f.field("fov", x.fov), f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
         f.field("disableUndistort", x.disableUndistort).fallback(false),
