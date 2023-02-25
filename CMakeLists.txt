@@ -42,5 +42,6 @@ if (CMAKE_BUILD_TYPE MATCHES Debug)
 endif ()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include_directories(BEFORE include)
+
 add_subdirectory(src)
 add_subdirectory(tests)
