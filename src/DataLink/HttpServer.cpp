@@ -4,20 +4,21 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "RadarCameraPoints.hpp"
-#include "Utility.hpp"
-#include <cstdint>
-
 #include "SuppressWarningBegin.hpp"
-
+#include "Utility.hpp"
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
-#define CPPHTTPLIB_SEND_FLAGS 0x4000
+#include <cstdint>
+#include <fmt/core.h>
 #include <fmt/format.h>
-#include <httplib.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <string>
+
+// #define CPPHTTPLIB_SEND_FLAGS 0x4000
+#include <httplib.h>
+
 #ifdef ARTINXHUB_WINDOWS
 #define NOMINMAX
 #include <Windows.h>
@@ -31,11 +32,23 @@
 #include "SuppressWarningEnd.hpp"
 
 struct ImageWithFilter {
+    std::string_view name;
     cv::Mat image;
     bool isEnable = true;
 };
 
-class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_locate_request_atom> {
+struct HttpServerSettings final {
+    bool enableRadar;
+    uint32_t radarPointsNum;
+};
+
+template <typename Inspector>
+bool inspect(Inspector& f, HttpServerSettings& x) {
+    return f.object(x).fields(f.field("enableRadar", x.enableRadar).fallback(false),
+                              f.field("radarPointsNum", x.radarPointsNum).fallback(6));
+}
+
+class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSettings, radar_locate_request_atom> {
     httplib::Server mServer;
     std::unordered_map<uint64_t, ImageWithFilter> mImage;
     std::mutex mMutex;
@@ -43,7 +56,11 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_lo
 
     std::string mhostIpAddress;
     std::streambuf* mClogBuffer;
-    std::stringstream mLogStream;
+#ifdef ARTINX_RADAR
+    uint64_t radarKey;
+    CameraInfo radarCameraInfo;
+    RadarTransform radarSuccessTransform;
+#endif
 
     Identifier mKey;
 
@@ -88,18 +105,19 @@ class HttpServer final : public HubHelper<caf::event_based_actor, void, radar_lo
             return std::nullopt;
         return data;
     }
+
     std::string generateFilterJson() {
         nlohmann::json result = nlohmann::json::array();
         std::lock_guard<std::mutex> guard{ mMutex };
-        for(const auto& v : mImage) {
-            result.push_back({ std::to_string(v.first), v.second.isEnable });
-        }
+        for(const auto& v : mImage)
+            result.push_back({ v.second.name.data() + std::string("-") + std::to_string(v.first), v.second.isEnable });
         return result.dump();
     }
 
 public:
     HttpServer(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mClogBuffer{ std::clog.rdbuf() }, mKey{ generateKey(this) } {
+        using json = nlohmann::json;
 #if defined(ARTINXHUB_WINDOWS)
         mhostIpAddress = "127.0.0.1";
 #elif defined(ARTINXHUB_LINUX)
@@ -118,14 +136,15 @@ public:
         //        mServer.Get("/parameters", [this](const httplib::Request& req, httplib::Response& res) {
         //            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
         //        });
-        mServer.Get(R"(/img/(\d+).*)", [this](const httplib::Request& req, httplib::Response& res) {
-            auto path = req.matches[1];
-            std::string p = path;
+        mServer.Get(R"(/img/.*?(\d+).*)", [this](const httplib::Request& req, httplib::Response& res) {
+            if(req.matches.empty())
+                return;
+            const auto&& path = req.matches[1].str();
             res.set_content_provider(
                 "multipart/x-mixed-replace;boundary=MJP",
-                [this, p](size_t, httplib::DataSink& sink) {
-                    if(const auto img = generateImageData(p)) {
-                        auto vec = img.value();
+                [this, path](size_t, httplib::DataSink& sink) {
+                    if(const auto&& img = generateImageData(path)) {
+                        auto& vec = img.value();
                         sink.os << "--MJP\r\n"
                                    "Content-Type: image/jpeg\r\n"
                                    "Content-Length: "
@@ -136,37 +155,87 @@ public:
                 },
                 [](bool) {});
         });
-        mServer.Get("/log", [this](const httplib::Request&, httplib::Response& res) {
-            res.set_content(mLogStream.str(), "text/plain");
-            mLogStream.str("");
-        });
+
         mServer.Get("/watch", [](const httplib::Request&, httplib::Response& res) {
             res.set_content(nlohmann::json(HubLogger::watches).dump(), "application/json");
         });
+
+        static bool filterInit = false;
         mServer.Post("/filter", [this](const httplib::Request& req, httplib::Response& res) {
-            if(req.body.empty()) {
+            if(!filterInit && req.body.empty()) {
                 res.set_content(generateFilterJson(), "text/plain");
+                filterInit = true;
                 return;
+            } else if(req.body.empty()) {
+                res.set_content("{}", "text/plain");
+            } else {
+                auto reqJson = json::parse(req.body);
+                std::lock_guard guard{ mMutex };
+                for(const auto& [str, val] : reqJson.items()) {
+                    uint64_t key = std::stoull(str.substr(str.find('-') + 1));
+                    mImage[key].isEnable = val;
+                }
+                res.set_content("{}", "text/plain");
             }
-            auto j = nlohmann::json::parse(req.body);
-            std::lock_guard guard{ mMutex };
-            for(auto& [k, v] : j.items()) {
-                mImage[std::stoull(k)].isEnable = v;
-            }
-            res.set_content("", "text/plain");
         });
-        mServer.Post("/radar", [this](const httplib::Request& req, httplib::Response&) {
-            auto j = nlohmann::json::parse(req.body);
-            const float x = j[0], y = j[1];
-            RadarCameraPointsArray data;
-            // TODO
-            data.imagePoints.emplace_back(x, y);
-            sendAll(radar_locate_request_atom_v, BlackBoard::instance().updateSync(mKey, data));
+
+#ifdef ARTINX_RADAR
+        radarSuccessTransform.trans = glm::dmat4();
+        radarSuccessTransform.rotate = glm::dmat3();
+        mServer.Get(R"(/img/RadarCenter)", [this](const httplib::Request& req, httplib::Response& res) {
+            res.set_content_provider("multipart/x-mixed-replace;boundary=MJP",
+                                     [this](size_t, httplib::DataSink& sink) {
+                                         if(const auto&& img = generateImageData(std::to_string(radarKey))) {
+                                             auto& vec = img.value();
+                                             sink.os << "--MJP\r\n"
+                                                        "Content-Type: image/jpeg\r\n"
+                                                        "Content-Length: "
+                                                     << vec.size() << "\r\n\r\n";
+                                             sink.os.write(reinterpret_cast<const char*>(vec.data()),
+                                                           static_cast<long>(vec.size()));
+                                         }
+                                         return true;
+                                     },
+                                     [](bool){});
         });
+        if(mConfig.enableRadar) {
+            mServer.Get("/radar", [](const httplib::Request&, httplib::Response& res) {
+                res.set_content(json("true").dump(), "application/json");
+            });
+
+//            mServer.Get("/log", [this](const httplib::Request&, httplib::Response& res) {
+//                std::string send("trans mat:\n");
+//                for(int i = 0; i < 4; ++i) {
+//                    for(int j = 0; j < 4; ++j)
+//                        send += std::to_string(radarSuccessTransform.trans[i][j]) + " ";
+//                    send += "\n";
+//                }
+//                send += "rotate mat:\n";
+//                for(int i = 0; i < 3; ++i) {
+//                    for(int j = 0; j < 3; ++j)
+//                        send += std::to_string(radarSuccessTransform.rotate[i][j]) + " ";
+//                    send += "\n";
+//                }
+//                res.set_content(json(send).dump(), "text/plain");
+//            });
+
+            mServer.Post("/radar_points", [this](const httplib::Request& req, httplib::Response& res) {
+                auto allPoints = json::parse(req.body);
+                RadarCameraPoints data;
+                data.info = radarCameraInfo;
+                for(uint32_t i = 0; i < mConfig.radarPointsNum; ++i)
+                    data.points.emplace_back(static_cast<int>(allPoints[i]["x"]), static_cast<int>(allPoints[i]["y"]));
+                sendAll(radar_locate_request_atom_v, BlackBoard::instance().updateSync(mKey, std::move(data)));
+                res.set_content(json(json("success")).dump(), "text/plain");
+            });
+        }
+#endif
+
         mServer.Get("/exit", [this](const httplib::Request&, httplib::Response&) {
             mServer.stop();
             terminateSystem(*this, true);
         });
+
         mListener = std::thread{ [this] { mServer.listen(mhostIpAddress.c_str(), 5630); } };
     }
     ~HttpServer() override {
@@ -188,8 +257,23 @@ public:
                  [this](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      std::lock_guard<std::mutex> guard{ mMutex };
-                     mImage[key.val].image = BlackBoard::instance().get<CameraFrame>(key).value().frame;
-                 } };
+                     auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key);
+                     auto [cameraFrame, name] = data.value();
+#ifdef ARTINX_RADAR
+                     if(name == "RadarCenter")
+                         radarKey = key.val;
+                     radarCameraInfo = cameraFrame.info;
+#endif
+                     mImage[key.val] = { name, cameraFrame.frame, true };
+                 }
+#ifdef ARTINX_RADAR
+                 ,
+                 [this](radar_locate_succeed_atom, Identifier key) {
+                     radarSuccessTransform = BlackBoard::instance().get<RadarTransform>(key).value();
+//                     logInfo(fmt::format("trans"))
+                 }
+#endif
+        };
     }
 };
 

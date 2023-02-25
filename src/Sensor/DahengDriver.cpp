@@ -4,7 +4,6 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
-
 #include "SuppressWarningBegin.hpp"
 
 #include <GxIAPI.h>
@@ -14,6 +13,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <magic_enum.hpp>
 #include <opencv2/opencv.hpp>
+#include <tuple>
 
 #include "SuppressWarningEnd.hpp"
 
@@ -41,6 +41,7 @@ static void loadCalibration(const bool disableUndistort, const std::string& iden
 struct DahengDriverSettings final {
     std::string openMode;
     std::string identifier;
+    std::string cameraName;
     double fps;
     double fov;
     double exposureTime;
@@ -57,7 +58,7 @@ template <class Inspector>
 bool inspect(Inspector& f, DahengDriverSettings& x) {
     return f.object(x).fields(
         f.field("openMode", x.openMode).invariant([](const std::string& v) { return v == "Index" || v == "SerialNumber"; }),
-        f.field("identifier", x.identifier),
+        f.field("identifier", x.identifier), f.field("cameraName", x.cameraName).fallback("origin"),
         f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 500.0; }),
         f.field("fov", x.fov), f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
         f.field("disableUndistort", x.disableUndistort).fallback(false),
@@ -148,7 +149,12 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         // }
 
         frameData.frame = std::move(bgr);
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData)));
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, frameData));
+#ifdef ARTINX_RADAR
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
+#else
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view("Origin")));
+#endif
     }
 
 #ifdef ARTINX_DAHENG_USB2
@@ -164,9 +170,10 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
 
         const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer
 
-        // TODO: reduce reallocation
-        cv::Mat frame{ cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, pixelStorageFormat };
-        memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
+        // TODO: reduce reallocation(correctness need to be test)
+        cv::Mat frame(cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, pixelStorageFormat,
+                      const_cast<void*>(pFrameData->pImgBuf));
+        //        memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
         newFrameImpl(timeStamp, frame, pFrameData->nWidth, pFrameData->nHeight);
     }
 

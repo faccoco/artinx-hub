@@ -237,7 +237,7 @@ public:
         mGridWidth = mConfig.squareSize * static_cast<float>(mConfig.boardSize.width - 1);
     }
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      const auto res = BlackBoard::instance().get<CameraFrame>(key).value();
