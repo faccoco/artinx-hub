@@ -6,18 +6,18 @@
 #include "RadarCameraPoints.hpp"
 #include "SuppressWarningBegin.hpp"
 #include "Utility.hpp"
+
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
 #include <fmt/core.h>
-#include <fmt/format.h>
+#include <httplib.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <string>
 
 // #define CPPHTTPLIB_SEND_FLAGS 0x4000
-#include <httplib.h>
 
 #ifdef ARTINXHUB_WINDOWS
 #define NOMINMAX
@@ -203,21 +203,21 @@ public:
                 res.set_content(json("true").dump(), "application/json");
             });
 
-//            mServer.Get("/log", [this](const httplib::Request&, httplib::Response& res) {
-//                std::string send("trans mat:\n");
-//                for(int i = 0; i < 4; ++i) {
-//                    for(int j = 0; j < 4; ++j)
-//                        send += std::to_string(radarSuccessTransform.trans[i][j]) + " ";
-//                    send += "\n";
-//                }
-//                send += "rotate mat:\n";
-//                for(int i = 0; i < 3; ++i) {
-//                    for(int j = 0; j < 3; ++j)
-//                        send += std::to_string(radarSuccessTransform.rotate[i][j]) + " ";
-//                    send += "\n";
-//                }
-//                res.set_content(json(send).dump(), "text/plain");
-//            });
+            //            mServer.Get("/log", [this](const httplib::Request&, httplib::Response& res) {
+            //                std::string send("trans mat:\n");
+            //                for(int i = 0; i < 4; ++i) {
+            //                    for(int j = 0; j < 4; ++j)
+            //                        send += std::to_string(radarSuccessTransform.trans[i][j]) + " ";
+            //                    send += "\n";
+            //                }
+            //                send += "rotate mat:\n";
+            //                for(int i = 0; i < 3; ++i) {
+            //                    for(int j = 0; j < 3; ++j)
+            //                        send += std::to_string(radarSuccessTransform.rotate[i][j]) + " ";
+            //                    send += "\n";
+            //                }
+            //                res.set_content(json(send).dump(), "text/plain");
+            //            });
 
             mServer.Post("/radar_points", [this](const httplib::Request& req, httplib::Response& res) {
                 auto allPoints = json::parse(req.body);
@@ -270,7 +270,7 @@ public:
                  ,
                  [this](radar_locate_succeed_atom, Identifier key) {
                      radarSuccessTransform = BlackBoard::instance().get<RadarTransform>(key).value();
-//                     logInfo(fmt::format("trans"))
+                     //                     logInfo(fmt::format("trans"))
                  }
 #endif
         };
