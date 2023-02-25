@@ -35,7 +35,7 @@ public:
     SentryStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return {
-            [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](detect_available_atom, GroupMask mask, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
                 const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();

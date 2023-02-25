@@ -23,7 +23,7 @@ class IMUFilter final : public HubHelper<caf::event_based_actor, IMUFilterSettin
 public:
     IMUFilter(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](update_posture_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);
                      auto res = BlackBoard::instance().get<PostureData>(key).value();

@@ -143,7 +143,7 @@ git config username
 + 密钥配置
 
 ```shell
-ssh -keygen -t rsa -C "user_email"
+ssh-keygen -t rsa -C "user_email"
 ```
 
 + 仓库初始化

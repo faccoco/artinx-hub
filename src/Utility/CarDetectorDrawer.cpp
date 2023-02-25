@@ -18,7 +18,7 @@ private:
 public:
     CarDetectorDrawer(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](car_detect_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(car_detect_available_atom, TypedIdentifier<DetectedCarArray>);
                      auto res = BlackBoard::instance().get<DetectedCarArray>(key).value();

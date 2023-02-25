@@ -1,5 +1,5 @@
 #include "BlackBoard.hpp"
-#include "EnergyDetect.hpp"
+#include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "Packet.hpp"
@@ -15,7 +15,7 @@
 
 #include "SuppressWarningEnd.hpp"
 
-struct SerialPortSettings final {
+struct JudgeMapSettings final {
     std::string devPath;
     uint32_t baudRate;
     double headHeightOffset1;
@@ -26,7 +26,7 @@ struct SerialPortSettings final {
 };
 
 template <class Inspector>
-bool inspect(Inspector& f, SerialPortSettings& x) {
+bool inspect(Inspector& f, JudgeMapSettings& x) {
     return f.object(x).fields(f.field("devPath", x.devPath), f.field("baudRate", x.baudRate),
                               f.field("headHeightOffset1", x.headHeightOffset1).fallback(0.0),
                               f.field("headHeightOffset2", x.headHeightOffset2).fallback(0.0),
@@ -35,8 +35,7 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
                               f.field("enableEnergyControl", x.enableEnergyControl).fallback(false));
 }
 
-class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom,
-                                          energy_detector_control_atom> {
+class JudgeMap final : public HubHelper<caf::event_based_actor, JudgeMapSettings, update_map_atom> {
     constexpr static size_t bufferLen = 1024;
     constexpr static size_t headerLen = 5;
     constexpr static size_t sendBufferLen = 1024;
@@ -120,7 +119,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
             if(mConfig.enableEnergyControl) {
                 HubLogger::watch("energy mode", static_cast<bool>(fdb.energyMode));
-                sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
+//                sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
             }
 
             HubLogger::watch("yaw1", fdb.yaw);
@@ -166,10 +165,10 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             posture.linearVelocityOfRobot =
                 Vector<UnitType::LinearVelocity, FrameOfRef::Ground>{ { fdb.speedX, 0, -fdb.speedY } };
 
-            sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
-            sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoUp));
-            sendMasked(update_head_atom_v, 2U, 2U,
-                       BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, infoDown));
+//            sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
+//            sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoUp));
+//            sendMasked(update_head_atom_v, 2U, 2U,
+//                       BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, infoDown));
         }
     }
 
@@ -184,7 +183,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     }
 
 public:
-    SerialPort(caf::actor_config& base, const HubConfig& config)
+    JudgeMap(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ generateKey(this) },
           mCheckingHeader(false) {
         mSerialPort->open(mConfig.devPath, mConfig.baudRate);
@@ -211,7 +210,7 @@ public:
         } };
     }
 
-    ~SerialPort() override {
+    ~JudgeMap() override {
         mSerialPort.release()->close();
         mThread.detach();
     }
@@ -249,4 +248,4 @@ public:
     }
 };
 
-HUB_REGISTER_CLASS(SerialPort);
+HUB_REGISTER_CLASS(JudgeMap);

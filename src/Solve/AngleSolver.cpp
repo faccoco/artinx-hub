@@ -28,7 +28,7 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
 }
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
-    Identifier mKey, mIMUKey, mHeadKey;
+    Identifier mKey/*, mIMUKey, mHeadKey*/;
 
 public:
     AngleSolver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
@@ -109,7 +109,7 @@ public:
 
     caf::behavior make_behavior() override {
         return {
-            [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [this](predict_success_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(predict_success_atom, TypedIdentifier<PredictedTarget>);
                 ACTOR_EXCEPTION_PROBE();

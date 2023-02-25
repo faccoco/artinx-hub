@@ -26,3 +26,4 @@ struct CameraFrame final {
 };
 
 ACTOR_PROTOCOL_DEFINE(image_frame_atom, TypedIdentifier<CameraFrame>);
+ACTOR_PROTOCOL_DEFINE(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
