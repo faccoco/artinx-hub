@@ -6,18 +6,20 @@
 #include "RadarCameraPoints.hpp"
 #include "SuppressWarningBegin.hpp"
 #include "Utility.hpp"
+
+#include "SuppressWarningBegin.hpp"
+#include "Utility.hpp"
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
 #include <cstdint>
 #include <fmt/core.h>
-#include <fmt/format.h>
+#include <httplib.h>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <string>
 
 // #define CPPHTTPLIB_SEND_FLAGS 0x4000
-#include <httplib.h>
 
 #ifdef ARTINXHUB_WINDOWS
 #define NOMINMAX
@@ -270,7 +272,7 @@ public:
                  ,
                  [this](radar_locate_succeed_atom, Identifier key) {
                      radarSuccessTransform = BlackBoard::instance().get<RadarTransform>(key).value();
-//                     logInfo(fmt::format("trans"))
+                     //                     logInfo(fmt::format("trans"))
                  }
 #endif
         };

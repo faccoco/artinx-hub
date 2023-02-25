@@ -1,6 +1,7 @@
 # develop分支更新日志
 
 ## 2022
+
 ### 10.04更新
 
 - 重构了装甲板识别部分的代码，删除了没必要的判断
@@ -51,9 +52,12 @@
   - 自动白平衡
   - 全通道增益
 
-### 1.26更新
+### 2.24更新
 
 - BlackBoard现在可以发送多个数据(多于一个时打包为tuple):
-- HttpServer接受数据格式改为"CameraFrame,std::string_view",后者为在前端显示的标签名
-eg: `sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), "VideoReplay"));`
+- HttpServer接受数据格式改为"CameraFrame,std::string_view",后者为在前端显示的标签名 eg: `sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("VideoReplay")));`
+- 加入雷达前端
 
+### 2.25
+
+- 修复了重定义问题，现在可以使用clang进行编译(由于cmake支持问题暂时无法使用lld进行链接)
