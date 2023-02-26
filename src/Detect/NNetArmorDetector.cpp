@@ -104,7 +104,7 @@ class NNetArmorDetector final
 
         // get left top point Coordinate of the roi rect
         const auto getCroppedCoord = [](int center, int inputSize, int originSize) {
-            int res;
+            int res = 0;
             if(center - inputSize / 2 >= 0 && center + inputSize / 2 <= originSize) {
                 res = center - inputSize / 2;
             } else if(center - inputSize / 2 < 0) {
