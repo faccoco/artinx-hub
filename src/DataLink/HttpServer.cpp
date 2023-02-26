@@ -58,6 +58,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
 
     std::string mhostIpAddress;
     std::streambuf* mClogBuffer;
+
 #ifdef ARTINX_RADAR
     uint64_t radarKey;
     CameraInfo radarCameraInfo;

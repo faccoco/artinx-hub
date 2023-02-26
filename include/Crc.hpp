@@ -49,7 +49,7 @@ public:
         crc = CRC8_TAB[crc ^ 0];
         return crc;
     }
-
+    
     static uint8_t Get_CRC8_Check_Sum(uint8_t* pchMessage, uint32_t dwLength, uint8_t ucCRC8);
     static bool VerifyCrc8CheckSum(uint8_t* pchMessage, uint32_t dwLength);
 
