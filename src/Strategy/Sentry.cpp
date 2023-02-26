@@ -29,7 +29,7 @@ bool inspect(Inspector& f, SentryStrategySettings& x) {
 class SentryStrategy final : public HubHelper<caf::event_based_actor, SentryStrategySettings, set_target_atom> {
     Identifier mKey;
     SelectedTarget mLastSelected1, mLastSelected2;
-    Identifier mHead1, mHead2;
+//    Identifier mHead1, mHead2;
 
 public:
     SentryStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
