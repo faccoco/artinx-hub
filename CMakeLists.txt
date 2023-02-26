@@ -29,7 +29,7 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     endif ()
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_compile_options("-Wall" "-Werror")
-    add_link_options(-fuse-ld=lld)
+    set(CMAKE_EXE_LINKER_FLAGS -fuse-ld=lld)
 
     if (CMAKE_BUILD_TYPE MATCHES Debug)
         add_compile_options("-O0" "-fno-omit-frame-pointer")

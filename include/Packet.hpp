@@ -1,9 +1,14 @@
 #pragma once
 
+#include "AsyncSerial/BufferedAsyncSerial.h"
+#include "Crc.hpp"
 #include "PacketHelper.hpp"
-#include <cstdint>
 
-struct FdbPacket {
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+
+struct FdbPacket final {
     static constexpr uint16_t id = 0x0A;
     float yaw, pitch, downYaw, downPitch, bulletSpeed, speedX, speedY;
     uint8_t color, shooterId, energyMode;
@@ -23,7 +28,7 @@ struct FdbPacket {
     }
 };
 
-struct GimbalSetPacket {
+struct GimbalSetPacket final {
     static constexpr uint16_t id = 0x0F;
     struct Info {
         float yaw, pitch;
@@ -35,11 +40,11 @@ struct GimbalSetPacket {
     PacketBuffer<9, id> buffer{};
 
     void setUpTarget(float yaw, float pitch, bool isFire) {
-        up = {yaw, pitch, isFire};
+        up = { yaw, pitch, isFire };
     }
 
     void setDownTarget(float yaw, float pitch, bool isFire) {
-        down = {yaw, pitch, isFire};
+        down = { yaw, pitch, isFire };
     }
 
     void setHasTargetBits(uint8_t targetBits) {
@@ -52,7 +57,27 @@ struct GimbalSetPacket {
         buffer.serialize(up.pitch, -4.0f, 0.0005f);
         buffer.serialize(down.yaw, -4.0f, 0.0005f);
         buffer.serialize(down.pitch, -4.0f, 0.0005f);
-        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(up.isFire) | (static_cast<uint8_t>(down.isFire) << 1) | (hasTargets << 2)));
+        buffer.serialize(
+            static_cast<uint8_t>(static_cast<uint8_t>(up.isFire) | (static_cast<uint8_t>(down.isFire) << 1) | (hasTargets << 2)));
         buffer.serializeCrc16();
+    }
+};
+
+struct SingleBotPos final {
+    uint16_t botID;
+    float x;
+    float y;
+};
+
+struct RadarPositionPacket final {
+    constexpr static uint8_t headerSOF = 0xA5;
+    constexpr static uint8_t headerSeq = 10;
+    constexpr static uint8_t headerCRC8 = Crc::getHeaderCRC8(4);
+    constexpr static uint16_t cmdId = 0x0303;
+
+    BufferedAsyncSerial::Ptr& ptr;
+    RadarPositionPacket(BufferedAsyncSerial::Ptr& ptr) : ptr(ptr) {}
+    void sendPos(std::iterator_traits<std::vector<SingleBotPos>>& data, size_t num) {
+        //        ptr->write();
     }
 };
