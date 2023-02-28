@@ -63,7 +63,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     float lastSpeedX = 0.0f, lastSpeedY = 0.0f;
     TimePoint lastReceivedTime, lastUpTargetTime, lastDownTargetTime;
 
-    bool mOutpostMode;
+    std::atomic_bool mOutpostMode;
 
     void receive() {
         if(!started)
@@ -205,29 +205,31 @@ public:
         mThread = std::thread{ [this]() {
             while(globalStatus == RunStatus::running) {
                 receive();
-                sendPacket();
                 static int sendTimes = 0;
                 if(gimbalSetPacket.up.isFire && mOutpostMode && sendTimes == 0) {
                     sendTimes = 150;
                     logInfo("start send fire");
                 }
-                if(sendTimes && !(--sendTimes)) {
+                if(sendTimes && !(--sendTimes))
                     gimbalSetPacket.up.isFire = false;
-                    gimbalSetPacket.down.isFire = false;
-                }
                 std::this_thread::sleep_for(0.75ms);
                 uint8_t targetBits = 0;
-                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastUpTargetTime).count() < 500) {
+                if(mOutpostMode)
                     targetBits |= 1;
-                }
-                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastDownTargetTime).count() < 500) {
-                    targetBits |= 2;
+                else {
+                    if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastUpTargetTime).count() < 500) {
+                        targetBits |= 1;
+                    }
+                    if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastDownTargetTime).count() < 500) {
+                        targetBits |= 2;
+                    }
                 }
                 HubLogger::watch("hasTargets", targetBits);
                 gimbalSetPacket.setHasTargetBits(targetBits);
                 gimbalSetPacket.serialize();
                 gimbalSetPacket.buffer.copyToSendBuffer(mSendBuffer.data() + mSendBufferLen);
                 mSendBufferLen += gimbalSetPacket.buffer.size();
+                sendPacket();
             }
         } };
     }

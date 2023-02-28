@@ -31,6 +31,10 @@ bool inspect(Inspector& f, PeriodSolverSettings& x) {
 class PeriodSolver final : public HubHelper<caf::event_based_actor, PeriodSolverSettings, set_target_info_atom> {
     const double delayTime;
     const Duration mHeadDelay;
+    bool mOutpostActive;
+    enum class ScheduleState : uint8_t { empty, send, notSend };
+    std::vector<ScheduleState> mSendSchedule;
+    std::mutex mScheduleMutex;
 
     static constexpr glm::dvec3 tf(const glm::dvec3& ori) {
         return { ori.x, -ori.z, ori.y };
@@ -72,11 +76,46 @@ public:
                 while(waitTime < 0)
                     waitTime += data->period.value();
                 std::thread([this, waitTime, data, res]() {
+                    ScheduleState* sc = NULL;
+                    std::unique_lock lock(mScheduleMutex);
+                    for(auto schedule : mSendSchedule) {
+                        if(schedule == ScheduleState::empty) {
+                            sc = &schedule;
+                            schedule = ScheduleState::send;
+                            break;
+                        }
+                    }
+                    if(sc == NULL) {
+                        mSendSchedule.emplace_back(ScheduleState::send);
+                        sc = &mSendSchedule.back();
+                        logInfo(fmt::format("mSendSchedule emplaced. len = {}", mSendSchedule.size()));
+                    }
+                    lock.unlock();
+
                     SynchronizedClock::instance().sleep_for(doubleCastDuration(waitTime) - mHeadDelay);
+
+                    lock.lock();
+                    if(*sc == ScheduleState::notSend) {
+                        logInfo("schedule interrupt");
+                        *sc = ScheduleState::empty;
+                        return;
+                    }
+                    lock.unlock();
+
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
                                         std::get<1>(res), std::get<2>(res), false, solverType_period);
                     logInfo("send not shoot");
+
                     SynchronizedClock::instance().sleep_for(mHeadDelay);
+
+                    lock.lock();
+                    if(*sc == ScheduleState::notSend) {
+                        logInfo("schedule interrupt");
+                        *sc = ScheduleState::empty;
+                        return;
+                    }
+                    lock.unlock();
+
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
                                         std::get<1>(res), std::get<2>(res), true, solverType_period);
                     logInfo("send shoot");
@@ -86,6 +125,16 @@ public:
                     //                     glm::degrees(std::get<2>(res))));
                     // logInfo(fmt::format("solver: theta: {}", glm::degrees(getTheta(data->position.mVal))));
                 }).detach();
+            },
+            [this](outpost_detector_control_atom, bool active) {
+                ACTOR_PROTOCOL_CHECK(outpost_detector_control_atom, bool);
+                if(mOutpostActive && !active) {
+                    std::lock_guard lock(mScheduleMutex);
+                    for(auto schedule : mSendSchedule)
+                        if(schedule == ScheduleState::send)
+                            schedule = ScheduleState::notSend;
+                }
+                mOutpostActive = active;
             },
         };
     }
