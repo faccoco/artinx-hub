@@ -127,10 +127,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
             }
 
-            if(!mOutpostMode && fdb.outpostMode) {
-                lastUpTargetTime -= 10s;
-                lastDownTargetTime -= 10s;
-            }
+            if(!mOutpostMode && fdb.outpostMode)
+                gimbalSetPacket.setUpTarget(static_cast<float>(fdb.yaw), static_cast<float>(fdb.pitch), false);
             mOutpostMode = fdb.outpostMode;
             sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
             HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
