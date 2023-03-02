@@ -15,7 +15,7 @@ class BlockedActor final : public HubHelper<caf::event_based_actor, void, payloa
 public:
     BlockedActor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](payload_atom, int32_t, int32_t) {
                      ACTOR_PROTOCOL_CHECK(payload_atom, int32_t, int32_t);
                      if(mFailed)
@@ -37,7 +37,7 @@ class ExceptionKilled final : public HubHelper<caf::event_based_actor, void, pay
 public:
     ExceptionKilled(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](payload_atom, int32_t, int32_t) {
                      if(mFailed)
                          sendAll(payload_atom_v, 0, 0);
@@ -57,7 +57,7 @@ class SignalKilled final : public HubHelper<caf::event_based_actor, void, payloa
 public:
     SignalKilled(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](payload_atom, int32_t, int32_t) {
                      if(mFailed)
                          sendAll(payload_atom_v, 0, 0);

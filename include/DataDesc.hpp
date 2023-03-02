@@ -50,9 +50,27 @@ struct Identifier {
     uint64_t val;
 };
 
-template <typename T>
-struct TypedIdentifier final : Identifier {
+template <size_t lhs, size_t rhs>
+struct StaticCompare {
+    const static bool result = lhs == rhs;
+};
+
+template <bool B, typename T, typename... TL>
+struct StaticIdentify {};
+
+template <typename T, typename... TL>
+struct StaticIdentify<true, T, TL...> {
     using Payload = T;
+};
+
+template <typename T, typename... TL>
+struct StaticIdentify<false, T, TL...> {
+    using Payload = std::tuple<T, TL...>;
+};
+
+template <typename T, typename... TL>
+struct TypedIdentifier final : Identifier {
+    using Payload = typename StaticIdentify<StaticCompare<sizeof...(TL), 0>::result, T, TL...>::Payload;
 };
 
 CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id);
@@ -64,6 +82,7 @@ CAF_ADD_ATOM(ArtinxHub, set_outpost_atom);
 CAF_ADD_ATOM(ArtinxHub, set_period_target_atom);
 CAF_ADD_ATOM(ArtinxHub, set_period_outpost_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_info_atom);
+CAF_ADD_ATOM(ArtinxHub, sync_position_atom);
 CAF_ADD_ATOM(ArtinxHub, update_posture_atom);
 CAF_ADD_ATOM(ArtinxHub, update_head_atom);
 CAF_ADD_ATOM(ArtinxHub, update_roi_atom);
@@ -81,6 +100,8 @@ CAF_ADD_ATOM(ArtinxHub, ore_instructions_atom);
 CAF_ADD_ATOM(ArtinxHub, ore_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_succeed_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_request_atom);
+CAF_ADD_ATOM(ArtinxHub, all_bots_locate_request_atom);
+CAF_ADD_ATOM(ArtinxHub, all_bots_locate_succeed_atom);
 CAF_ADD_ATOM(ArtinxHub, num_classify_request_atom);
 CAF_ADD_ATOM(ArtinxHub, monitor_request_atom);
 CAF_ADD_ATOM(ArtinxHub, monitor_response_atom);

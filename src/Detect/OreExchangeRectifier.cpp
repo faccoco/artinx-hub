@@ -147,7 +147,7 @@ public:
         : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return {
-            [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](ore_instructions_atom, bool /*may be useful*/, Identifier) {
                 // ACTOR_PROTOCOL_CHECK(ore_instructions_atom, bool, TypedIdentifier<int>);  // TODO: value type of key
                 off();  // initialize the values for member variable.

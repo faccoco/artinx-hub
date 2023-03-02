@@ -9,9 +9,15 @@ void installFPEProbe();
 void uninstallFPEProbe();
 
 class ExceptionProbe final {
+#ifdef __clang__
+    [[maybe_unused]] const char* mFile;
+    [[maybe_unused]] const char* mFunction;
+    [[maybe_unused]] const uint32_t mLine;
+#else  // for GNU and MSVC
     const char* mFile;
     const char* mFunction;
     const uint32_t mLine;
+#endif
 
     static constexpr auto highLatency = 50ms;
     Clock::time_point mStart;

@@ -22,34 +22,34 @@ enum class UnitType : uint32_t {
 };
 
 template <UnitType Lhs, UnitType Rhs>
-constexpr UnitType multiply = UnitType::Undefined;
+inline constexpr UnitType multiply = UnitType::Undefined;
 
 template <>
-constexpr UnitType multiply<UnitType::LinearVelocity, UnitType::Time> = UnitType::Distance;
+inline constexpr UnitType multiply<UnitType::LinearVelocity, UnitType::Time> = UnitType::Distance;
 
 template <>
-constexpr UnitType multiply<UnitType::LinearAcceleration, UnitType::Time> = UnitType::LinearVelocity;
+inline constexpr UnitType multiply<UnitType::LinearAcceleration, UnitType::Time> = UnitType::LinearVelocity;
 
 template <>
-constexpr UnitType multiply<UnitType::AngularVelocity, UnitType::Time> = UnitType::Angle;
+inline constexpr UnitType multiply<UnitType::AngularVelocity, UnitType::Time> = UnitType::Angle;
 
 template <>
-constexpr UnitType multiply<UnitType::AngularAcceleration, UnitType::Time> = UnitType::AngularVelocity;
+inline constexpr UnitType multiply<UnitType::AngularAcceleration, UnitType::Time> = UnitType::AngularVelocity;
 
 template <UnitType Lhs, UnitType Rhs>
-constexpr UnitType division = UnitType::Undefined;
+inline constexpr UnitType division = UnitType::Undefined;
 
 template <>
-constexpr UnitType division<UnitType::Distance, UnitType::Time> = UnitType::LinearVelocity;
+inline constexpr UnitType division<UnitType::Distance, UnitType::Time> = UnitType::LinearVelocity;
 
 template <>
-constexpr UnitType division<UnitType::Angle, UnitType::Time> = UnitType::AngularVelocity;
+inline constexpr UnitType division<UnitType::Angle, UnitType::Time> = UnitType::AngularVelocity;
 
 template <>
-constexpr UnitType division<UnitType::LinearVelocity, UnitType::Time> = UnitType::LinearAcceleration;
+inline constexpr UnitType division<UnitType::LinearVelocity, UnitType::Time> = UnitType::LinearAcceleration;
 
 template <>
-constexpr UnitType division<UnitType::AngularVelocity, UnitType::Time> = UnitType::AngularAcceleration;
+inline constexpr UnitType division<UnitType::AngularVelocity, UnitType::Time> = UnitType::AngularAcceleration;
 
 template <UnitType Unit>
 struct Scalar final {

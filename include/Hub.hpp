@@ -51,8 +51,8 @@ class HubHelper : public T {
         return arg;
     }
 
-    template <typename Arg>
-    static const Identifier& wrap(const TypedIdentifier<Arg>& arg) noexcept {
+    template <typename... Arg>
+    static const Identifier& wrap(const TypedIdentifier<Arg...>& arg) noexcept {
         return static_cast<const Identifier&>(arg);
     }
 

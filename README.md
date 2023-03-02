@@ -18,6 +18,7 @@ Artinx视觉组 集成框架
     - [Windows](#windows)
     - [Linux](#linux)
     - [Genetic](#genetic)
+    - [LLVM-Clang](#llvm-clang)
 - [机器人部署指南](#机器人部署指南)
     - [本地环境配置](#本地环境配置)
     - [CI配置](#ci配置)
@@ -29,8 +30,7 @@ Artinx视觉组 集成框架
     - [程序工作流](#程序工作流)
     - [框架工具类使用指南](#框架工具类使用指南)
     - [Group Mask使用方法](#group-mask使用方法)
-    - [代码详解](#代码详解)
-- [踩过的坑](#踩过的坑)
+- [代码详解](#代码详解)
 
 <!-- vim-markdown-toc -->
 ## 入门
@@ -128,7 +128,7 @@ Artinx视觉组 集成框架
   git push -u origin <branch name>
   ```
 
-+ git命令总结可参见[tool_tutorials.md](docs/tool_tutorials.md)
+- git命令总结可参见[tool_tutorials.md](docs/tool_tutorials.md)
 
 ### GitLab工作流
 
@@ -182,9 +182,10 @@ Artinx视觉组 集成框架
 
 ### Linux
 
-+ 安装Clion
-+ 按照Genetic步骤安装依赖
-+ 添加环境变量
+- 安装Clion
+- 按照Genetic步骤安装依赖
+- 添加环境变量
+
 ```shell
 sudo vim /etc/profile                           #打开/etc/profile文件
 
@@ -193,13 +194,15 @@ export DAHENG_SDK=<PATH>/Galaxy_camera     #PATH为相机SDK所在目录
 export ONEAPI_ROOT=/opt/intel                  #/opt/intel 为ONEAPI默认安装目录，若不在,请修改
 source /opt/intel/openvino_2021/bin/setupvars.sh
 ```
-+ clone仓库
-+ 用clion打开文件夹
-+ 打开CMake设置，填入参数`-DARTINX_HUB_CAMERA=USB3 -DCMAKE_TOOLCHAIN_FILE=<path to vcpkg>/scripts/buildsystems/vcpkg.cmake` **2.0相机写`USB2`**
-+ 在CMake选项卡生成构建文件
-+ 在Build选项卡编译程序
-+ 添加运行配置，填入参数（config文件路径）
-+ 运行/调试
+
+- optional: 安装clang, 见LLVM-Clang
+- clone仓库
+- 用clion打开文件夹
+- 打开CMake设置，填入参数`-DARTINX_HUB_CAMERA=USB3 -DCMAKE_TOOLCHAIN_FILE=<path to vcpkg>/scripts/buildsystems/vcpkg.cmake` **2.0相机写`USB2`**
+- 在CMake选项卡生成构建文件
+- 在Build选项卡编译程序
+- 添加运行配置，填入参数（config文件路径）
+- 运行/调试
 
 ### Genetic
 
@@ -219,7 +222,7 @@ source /opt/intel/openvino_2021/bin/setupvars.sh
   - eigen3
   - boost
   如遇任何问题，请按照错误提示用apt补足缺少的软件包或更换网络重试一次
-+ 集成vcpkg安装包，运行
+- 集成vcpkg安装包，运行
 `./vcpkg integrate install`
 
 - 安装OneAPI [Download the Intel® oneAPI Base Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
@@ -228,6 +231,19 @@ source /opt/intel/openvino_2021/bin/setupvars.sh
   - 也要安装在OneAPI文件夹下
 
 - 根据需求(USB2/USB3)安装大恒相机驱动[Daheng Imaging](https://daheng-imaging.com/list-58-1.html), 对应CMake参数的ARTINX_HUB_CAMERA=USB2/USB3
+
+### LLVM-Clang
+>
+>在ubuntu上配置最新clang编译环境
+
+- 访问[官方源](https://apt.llvm.org/),根据你的发行版和要安装的clang版本选择apt源并在`/etc/apt/sources.list.d/`目录下新建一个LLVM文件写入
+- 执行`wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -`或`wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc`添加gpg key
+- 执行`apt update`
+- `apt intstall clang-x lld-x(x为你要安装的版本)`
+- 进入`/usr/bin`目录，执行`ln -s clang clang-v`，其中v是你安装的版本，然后依次对`clang++`,`ld.lld`执行上述操作
+- 配置Clion的clang编译环境:
+  - 进入设置，搜索`Toolchains`,点击加号，选择`system`,添加一个名为"LLVM"的环境，然后`C compiler`写clang，`C++ compiler`写clang++，`debuger`选lldb
+  - 在Cmake选项里面选择LLVM，如果嫌麻烦也可以在上一步中将LLVM设为默认环境
 
 ## 机器人部署指南
 
@@ -378,5 +394,5 @@ CAF框架参见[actor_system.md](docs/actor_system.md)
 
 ## 代码详解
 
-+ 参见[code_details.md](docs/code_details.md)
+- 参见[code_details.md](docs/code_details.md)
 

@@ -199,7 +199,7 @@ public:
     OreAlignment(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](ore_alignment_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(ore_alignment_available_atom, TypedIdentifier<OreAlignmentMessage>);
                      ACTOR_EXCEPTION_PROBE();

@@ -45,7 +45,7 @@ public:
                      if(!mStarted)
                          return;
                  },
-                 [this](monitor_response_atom) { ACTOR_PROTOCOL_CHECK(monitor_response_atom); } };
+                 [](monitor_response_atom) { ACTOR_PROTOCOL_CHECK(monitor_response_atom); } };
     }
 };
 
