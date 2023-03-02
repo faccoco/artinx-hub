@@ -63,7 +63,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     float lastSpeedX = 0.0f, lastSpeedY = 0.0f;
     TimePoint lastReceivedTime, lastUpTargetTime, lastDownTargetTime;
 
-    std::atomic_bool mOutpostMode;
+    std::atomic_bool mOutpostMode=0;
 
     void receive() {
         if(!started)
@@ -127,12 +127,6 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
             }
 
-            if(!mOutpostMode && fdb.outpostMode)
-                gimbalSetPacket.setUpTarget(static_cast<float>(fdb.yaw), static_cast<float>(fdb.pitch), false);
-            mOutpostMode = fdb.outpostMode;
-            sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
-            HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
-
             HubLogger::watch("yaw1", fdb.yaw);
             HubLogger::watch("pitch1", fdb.pitch);
             HubLogger::watch("yaw2", fdb.downYaw);
@@ -145,6 +139,12 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
             fdb.yaw = (fdb.yaw < 0.0f) ? fdb.yaw + glm::two_pi<float>() : fdb.yaw;
             fdb.downYaw = (fdb.downYaw < 0.0f) ? fdb.downYaw + glm::two_pi<float>() : fdb.downYaw;
+
+            //            if(!mOutpostMode && fdb.outpostMode)
+            //                gimbalSetPacket.setUpTarget(fdb.yaw, fdb.pitch, false);
+            //            mOutpostMode = fdb.outpostMode;
+            sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
+            HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
 
             const HeadInfo infoUp{ SynchronizedClock::instance().now(),
                                    decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
@@ -196,7 +196,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 public:
     SerialPort(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ generateKey(this) },
-          mCheckingHeader(false) {
+          mCheckingHeader(false), mSendBufferLen(0) {
         mSerialPort->open(mConfig.devPath, mConfig.baudRate);
         lastReceivedTime = SynchronizedClock::instance().now();
         gimbalSetPacket.serialize();
