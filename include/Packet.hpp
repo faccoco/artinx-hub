@@ -24,7 +24,7 @@ struct FdbPacket final {
         color = mask & 1;
         shooterId = (mask >> 1) & 1;
         energyMode = (mask >> 2) & 1;
-        outpostMode = (mask >> 3) & 1;
+        outpostMode = (mask >> 4) & 1;
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
     }
 };
