@@ -41,6 +41,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     constexpr static size_t bufferLen = 1024;
     constexpr static size_t headerLen = 5;
     constexpr static size_t sendBufferLen = 1024;
+    constexpr static size_t latencyLen = 100;
 
     GimbalSetPacket gimbalSetPacket{};
 
@@ -63,7 +64,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     float lastSpeedX = 0.0f, lastSpeedY = 0.0f;
     TimePoint lastReceivedTime, lastUpTargetTime, lastDownTargetTime;
 
-    std::atomic_bool mOutpostMode=0;
+    std::atomic_bool mOutpostMode = 0;
+
+    std::deque<double> mLatency;
 
     void receive() {
         if(!started)
@@ -256,8 +259,16 @@ public:
                          yawAngle -= glm::two_pi<double>();
 
                      const auto current = Clock::now();
+                     const auto latency =
+                         double(current.time_since_epoch().count() - begin) / Duration::period::den * Duration::period::num;
 
-                     HubLogger::watch("latency", (current.time_since_epoch().count() - begin) / 1'000'000);
+                     if(mLatency.size() >= latencyLen)
+                         mLatency.pop_front();
+                     mLatency.push_back(latency);
+
+                     GlobalSettings::get().latency = avg(mLatency);
+
+                     HubLogger::watch("latency", int(latency * 1000));
                      HubLogger::watch(
                          fmt::format("target yaw{}", mask),
                          fmt::format("{:.8f}", yawAngle > glm::pi<double>() ? (yawAngle - glm::two_pi<double>()) : yawAngle));

@@ -72,17 +72,17 @@ T square(const T& n) {
     return n * n;
 }
 
-template <typename T>
-T avg(const std::vector<T>& array) {
-    T res = 0;
+template <typename Seq>
+auto avg(const Seq& array) {
+    typename Seq::value_type res = 0;
     for(const auto& item : array)
         res += item;
     return res / array.size();
 }
 
-template <typename T>
-T Std(const std::vector<T>& array, T avg) {
-    T res = 0;
+template <typename Seq, typename T>
+auto Std(const Seq& array, T avg) {
+    typename Seq::value_type res = 0;
     for(const auto& item : array)
         res += square(item - avg);
     return std::sqrt(res / array.size());

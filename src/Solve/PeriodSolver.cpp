@@ -72,7 +72,7 @@ public:
                                         std::get<1>(res), std::get<2>(res), false, solverType_period);
                     return;
                 }
-                double waitTime = data->period.value() - std::get<0>(res) - delayTime;
+                double waitTime = data->period.value() - std::get<0>(res) - delayTime - GlobalSettings::get().latency;
                 while(waitTime < 0)
                     waitTime += data->period.value();
                 std::thread([this, waitTime, data, res]() {

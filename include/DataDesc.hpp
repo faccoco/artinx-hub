@@ -22,6 +22,8 @@ struct GlobalSettings final {
     double airDensity;
     bool bullet42mm;
 
+    double latency = 0.0;
+
     Color selfColor = Color::Red;
     double bulletSpeed = 15.00;
     bool started = false;
