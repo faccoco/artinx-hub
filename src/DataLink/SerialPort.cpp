@@ -122,8 +122,10 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             FdbPacket fdb(mPacketBuffer);
             if(fdb.bulletSpeed > 5.0f)
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
+            GlobalSettings::get().shootDelayTime = fdb.shootDelayTime;
             HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
             HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
+            HubLogger::watch("shoot delay time", GlobalSettings::get().shootDelayTime);
 
             if(mConfig.enableEnergyControl) {
                 HubLogger::watch("energy mode", static_cast<bool>(fdb.energyMode));

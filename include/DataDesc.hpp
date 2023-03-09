@@ -26,6 +26,7 @@ struct GlobalSettings final {
 
     Color selfColor = Color::Red;
     double bulletSpeed = 15.00;
+    double shootDelayTime = 0.f;
     bool started = false;
 
     [[nodiscard]] double bulletRadius() const noexcept {
