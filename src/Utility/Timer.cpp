@@ -62,18 +62,16 @@ TimePoint SynchronizedClock::now() const {
     return Clock::now();
 }
 
-void SynchronizedClock::sleep_for(const Duration& rawD) {
+void SynchronizedClock::sleep_for(const Duration& d) {
     std::unique_lock lock(mMutex);
     if(mSimulationTime.has_value() && mSimulationTimeStep.has_value()) {
-        lock.unlock();
-        Duration remainder = rawD % mSimulationTimeStep.value();
-        Duration d = (remainder >= mSimulationTimeHalfStep ? rawD - remainder + mSimulationTimeStep.value() : rawD - remainder);
         std::condition_variable cv;
-        lock.lock();
         mSleepForQueue.push(TimerInfo{ &cv, now() + d });
         cv.wait(lock);
-    } else
-        std::this_thread::sleep_for(rawD);
+    } else {
+        lock.unlock();
+        std::this_thread::sleep_for(d);
+    }
 }
 
 SynchronizedClock& SynchronizedClock::instance() {
