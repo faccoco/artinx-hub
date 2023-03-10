@@ -74,7 +74,7 @@ T square(const T& n) {
 
 template <typename Seq>
 auto avg(const Seq& array) {
-    typename Seq::value_type res = 0;
+    typename Seq::value_type res{};
     for(const auto& item : array)
         res += item;
     return res / array.size();

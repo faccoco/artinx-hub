@@ -129,8 +129,8 @@ public:
 
                          auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 
-                         logInfo(fmt::format("0 Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}",
-                                             point.mVal.x, point.mVal.y, point.mVal.z));
+//                         logInfo(fmt::format("0 Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}",
+//                                             point.mVal.x, point.mVal.y, point.mVal.z));
 
                         //  point.mVal.z = (point.mVal.z - mConfig.mz2z) / (mConfig.kz2z + 1);
                         //  point.mVal.y += mConfig.kz2y * point.mVal.z + mConfig.mz2y;

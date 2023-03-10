@@ -72,10 +72,12 @@ public:
                                         std::get<1>(res), std::get<2>(res), false, solverType_period);
                     return;
                 }
-                double waitTime = data->period.value() - std::get<0>(res) - delayTime - GlobalSettings::get().latency -
+                double waitTimeDouble = data->period.value() - std::get<0>(res) - delayTime - GlobalSettings::get().latency -
                     GlobalSettings::get().shootDelayTime;
-                while(waitTime < 0)
-                    waitTime += data->period.value();
+                while(waitTimeDouble < 0)
+                    waitTimeDouble += data->period.value();
+                auto waitTime = doubleCastDuration(waitTimeDouble);
+
                 std::thread([this, waitTime, data, res]() {
                     ScheduleState* sc = NULL;
                     std::unique_lock lock(mScheduleMutex);
@@ -93,7 +95,7 @@ public:
                     }
                     lock.unlock();
 
-                    SynchronizedClock::instance().sleep_for(doubleCastDuration(waitTime) - mHeadDelay);
+                    SynchronizedClock::instance().sleep_for(waitTime - mHeadDelay);
 
                     lock.lock();
                     if(*sc == ScheduleState::notSend) {
@@ -103,7 +105,7 @@ public:
                     }
                     lock.unlock();
 
-                    sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
+                    sendAllHighPriority(set_target_info_atom_v, mGroupMask, (data.value().lastUpdate + waitTime - mHeadDelay).time_since_epoch().count(),
                                         std::get<1>(res), std::get<2>(res), false, solverType_period);
                     logInfo("send not shoot");
 
@@ -117,7 +119,7 @@ public:
                     }
                     lock.unlock();
 
-                    sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
+                    sendAllHighPriority(set_target_info_atom_v, mGroupMask, (data.value().lastUpdate + waitTime).time_since_epoch().count(),
                                         std::get<1>(res), std::get<2>(res), true, solverType_period);
                     logInfo("send shoot");
                     // logInfo(fmt::format("solver: x: {} y: {} z: {}", data->position.mVal.x, data->position.mVal.y,
@@ -125,6 +127,7 @@ public:
                     // logInfo(fmt::format("solver: yaw: {} pitch: {}", 270 - glm::degrees(std::get<1>(res)),
                     //                     glm::degrees(std::get<2>(res))));
                     // logInfo(fmt::format("solver: theta: {}", glm::degrees(getTheta(data->position.mVal))));
+                    *sc = ScheduleState::empty;
                 }).detach();
             },
             [this](outpost_detector_control_atom, bool active) {

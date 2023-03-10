@@ -42,6 +42,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     constexpr static size_t headerLen = 5;
     constexpr static size_t sendBufferLen = 1024;
     constexpr static size_t latencyLen = 100;
+    constexpr static size_t mShootDelayLen = 5;
+    constexpr static std::uint16_t maxShootDelay = 500;
 
     GimbalSetPacket gimbalSetPacket{};
 
@@ -67,6 +69,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     std::atomic_bool mOutpostMode = 0;
 
     std::deque<double> mLatency;
+    std::deque<double> mShootDelay;
 
     void receive() {
         if(!started)
@@ -120,11 +123,17 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             reportFrameRate(Clock::now());
 
             FdbPacket fdb(mPacketBuffer);
-            if(fdb.bulletSpeed > 5.0f)
+            if(fdb.bulletSpeed > 8.0f)
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
-            GlobalSettings::get().shootDelayTime = fdb.shootDelayTime;
+            if(mShootDelay.empty() || (fdb.shootDelayTime != mShootDelay.back() && fdb.shootDelayTime < maxShootDelay)){
+                if(mShootDelay.size() >= mShootDelayLen)
+                    mShootDelay.pop_front();
+                mShootDelay.push_back(fdb.shootDelayTime);
+                GlobalSettings::get().shootDelayTime = avg(mShootDelay);
+            }
             HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
             HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
+            HubLogger::watch("fdb shoot delay time", fdb.shootDelayTime);
             HubLogger::watch("shoot delay time", GlobalSettings::get().shootDelayTime);
 
             if(mConfig.enableEnergyControl) {
@@ -145,9 +154,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             fdb.yaw = (fdb.yaw < 0.0f) ? fdb.yaw + glm::two_pi<float>() : fdb.yaw;
             fdb.downYaw = (fdb.downYaw < 0.0f) ? fdb.downYaw + glm::two_pi<float>() : fdb.downYaw;
 
-            //            if(!mOutpostMode && fdb.outpostMode)
-            //                gimbalSetPacket.setUpTarget(fdb.yaw, fdb.pitch, false);
-            //            mOutpostMode = fdb.outpostMode;
+            if(!mOutpostMode && fdb.outpostMode)
+                gimbalSetPacket.setUpTarget(fdb.yaw, fdb.pitch, false);
+            mOutpostMode = fdb.outpostMode;
             sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
             HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
 
@@ -270,7 +279,8 @@ public:
 
                      GlobalSettings::get().latency = avg(mLatency);
 
-                     HubLogger::watch("latency", int(latency * 1000));
+                     HubLogger::watch("avg latency", int(GlobalSettings::get().latency * 1000));
+                     HubLogger::watch("now latency", int(latency * 1000));
                      HubLogger::watch(
                          fmt::format("target yaw{}", mask),
                          fmt::format("{:.8f}", yawAngle > glm::pi<double>() ? (yawAngle - glm::two_pi<double>()) : yawAngle));
