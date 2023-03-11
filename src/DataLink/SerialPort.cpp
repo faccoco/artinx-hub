@@ -66,7 +66,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     float lastSpeedX = 0.0f, lastSpeedY = 0.0f;
     TimePoint lastReceivedTime, lastUpTargetTime, lastDownTargetTime;
 
-    std::atomic_bool mOutpostMode = 0;
+    bool mOutpostMode = false;
+    std::atomic_flag mOutpostModeChangeMutex = ATOMIC_FLAG_INIT;
 
     std::deque<double> mLatency;
     std::deque<uint16_t> mShootDelay;
@@ -126,8 +127,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             if(fdb.bulletSpeed > 8.0f)
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
             if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
-                logInfo(fmt::format("shoot delay {}",fdb.shootDelayTime));
-            if(mShootDelay.empty() || (fdb.shootDelayTime != mShootDelay.back() && fdb.shootDelayTime < maxShootDelay)){
+                logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));
+            if(mShootDelay.empty() || (fdb.shootDelayTime != mShootDelay.back() && fdb.shootDelayTime < maxShootDelay)) {
                 if(mShootDelay.size() >= mShootDelayLen)
                     mShootDelay.pop_front();
                 mShootDelay.push_back(fdb.shootDelayTime);
@@ -156,8 +157,13 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             fdb.yaw = (fdb.yaw < 0.0f) ? fdb.yaw + glm::two_pi<float>() : fdb.yaw;
             fdb.downYaw = (fdb.downYaw < 0.0f) ? fdb.downYaw + glm::two_pi<float>() : fdb.downYaw;
 
-            if(!mOutpostMode && fdb.outpostMode)
+            if(!mOutpostMode && fdb.outpostMode) {
+                while(mOutpostModeChangeMutex.test_and_set())
+                    std::this_thread::yield();
+                mOutpostMode = true;
+                mOutpostModeChangeMutex.clear();
                 gimbalSetPacket.setUpTarget(fdb.yaw, fdb.pitch, false);
+            }
             mOutpostMode = fdb.outpostMode;
             sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
             HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
@@ -222,7 +228,7 @@ public:
                 static int sendTimes = 0;
                 if(gimbalSetPacket.up.isFire && mOutpostMode && sendTimes == 0) {
                     sendTimes = 150;
-//                    logInfo("start send fire");
+                    //                    logInfo("start send fire");
                 }
                 if(sendTimes && !(--sendTimes))
                     gimbalSetPacket.up.isFire = false;
@@ -262,6 +268,9 @@ public:
                         SolverType solverType) {
                      ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
 
+                     while(mOutpostModeChangeMutex.test_and_set())
+                         std::this_thread::yield();
+
                      if(mOutpostMode && solverType == solverType_normal)
                          return;
 
@@ -270,6 +279,16 @@ public:
 
                      if(yawAngle > glm::pi<double>())
                          yawAngle -= glm::two_pi<double>();
+
+                     if(mask == 1U) {
+                         gimbalSetPacket.setUpTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
+                         lastUpTargetTime = Clock::now();
+                     } else {
+                         gimbalSetPacket.setDownTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
+                         lastDownTargetTime = Clock::now();
+                     }
+
+                     mOutpostModeChangeMutex.clear();
 
                      const auto current = Clock::now();
                      const auto latency =
@@ -281,20 +300,12 @@ public:
 
                      GlobalSettings::get().latency = avg(mLatency);
 
-                     HubLogger::watch("avg latency", int(GlobalSettings::get().latency * 1000));
-                     HubLogger::watch("now latency", int(latency * 1000));
+                     HubLogger::watch("avg latency", static_cast<int>(GlobalSettings::get().latency * 1000));
+                     HubLogger::watch("now latency", static_cast<int>(latency * 1000));
                      HubLogger::watch(
                          fmt::format("target yaw{}", mask),
                          fmt::format("{:.8f}", yawAngle > glm::pi<double>() ? (yawAngle - glm::two_pi<double>()) : yawAngle));
                      HubLogger::watch(fmt::format("target pitch{}", mask), fmt::format("{:.8f}", pitchAngle));
-
-                     if(mask == 1U) {
-                         gimbalSetPacket.setUpTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
-                         lastUpTargetTime = Clock::now();
-                     } else {
-                         gimbalSetPacket.setDownTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
-                         lastDownTargetTime = Clock::now();
-                     }
                  } };
     }
 };

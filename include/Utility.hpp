@@ -73,7 +73,7 @@ T square(const T& n) {
 }
 
 template <typename Seq>
-auto avg(const Seq& array) {
+typename Seq::value_type avg(const Seq& array) {
     typename Seq::value_type res{};
     for(const auto& item : array)
         res += item;
@@ -81,8 +81,8 @@ auto avg(const Seq& array) {
 }
 
 template <typename Seq, typename T>
-auto Std(const Seq& array, T avg) {
-    typename Seq::value_type res = 0;
+typename Seq::value_type Std(const Seq& array, T avg) {
+    typename Seq::value_type res{};
     for(const auto& item : array)
         res += square(item - avg);
     return std::sqrt(res / array.size());
