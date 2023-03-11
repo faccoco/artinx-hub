@@ -55,7 +55,7 @@ public:
                 ACTOR_PROTOCOL_CHECK(period_predict_success_atom, TypedIdentifier<PredictedPeriodTarget>);
                 ACTOR_EXCEPTION_PROBE();
 
-                logInfo("PeriodSolver: received");
+//                logInfo("PeriodSolver: received");
 
                 auto data = BlackBoard::instance().get<PredictedPeriodTarget>(key);
                 if(!(data.has_value()))
@@ -77,6 +77,7 @@ public:
                 while(waitTimeDouble < 0)
                     waitTimeDouble += data->period.value();
                 auto waitTime = doubleCastDuration(waitTimeDouble);
+                logInfo(fmt::format("waitTime {}ms  shootDelay {}ms",static_cast<int>(waitTimeDouble * 1000),static_cast<int>(GlobalSettings::get().shootDelayTime * 1000)));
 
                 std::thread([this, waitTime, data, res]() {
                     ScheduleState* sc = NULL;
@@ -107,7 +108,7 @@ public:
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, (data.value().lastUpdate + waitTime - mHeadDelay).time_since_epoch().count(),
                                         std::get<1>(res), std::get<2>(res), false, solverType_period);
-                    logInfo("send not shoot");
+//                    logInfo("send not shoot");
 
                     SynchronizedClock::instance().sleep_for(mHeadDelay);
 
@@ -121,7 +122,7 @@ public:
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, (data.value().lastUpdate + waitTime).time_since_epoch().count(),
                                         std::get<1>(res), std::get<2>(res), true, solverType_period);
-                    logInfo("send shoot");
+//                    logInfo("send shoot");
                     // logInfo(fmt::format("solver: x: {} y: {} z: {}", data->position.mVal.x, data->position.mVal.y,
                     //                     data->position.mVal.z));
                     // logInfo(fmt::format("solver: yaw: {} pitch: {}", 270 - glm::degrees(std::get<1>(res)),

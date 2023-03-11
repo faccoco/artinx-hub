@@ -69,7 +69,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     std::atomic_bool mOutpostMode = 0;
 
     std::deque<double> mLatency;
-    std::deque<double> mShootDelay;
+    std::deque<uint16_t> mShootDelay;
 
     void receive() {
         if(!started)
@@ -125,16 +125,18 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             FdbPacket fdb(mPacketBuffer);
             if(fdb.bulletSpeed > 8.0f)
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
+            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
+                logInfo(fmt::format("shoot delay {}",fdb.shootDelayTime));
             if(mShootDelay.empty() || (fdb.shootDelayTime != mShootDelay.back() && fdb.shootDelayTime < maxShootDelay)){
                 if(mShootDelay.size() >= mShootDelayLen)
                     mShootDelay.pop_front();
                 mShootDelay.push_back(fdb.shootDelayTime);
-                GlobalSettings::get().shootDelayTime = avg(mShootDelay);
+                GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;
             }
             HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
             HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
             HubLogger::watch("fdb shoot delay time", fdb.shootDelayTime);
-            HubLogger::watch("shoot delay time", GlobalSettings::get().shootDelayTime);
+            HubLogger::watch("shoot delay time", static_cast<int>(GlobalSettings::get().shootDelayTime * 1000));
 
             if(mConfig.enableEnergyControl) {
                 HubLogger::watch("energy mode", static_cast<bool>(fdb.energyMode));
@@ -220,7 +222,7 @@ public:
                 static int sendTimes = 0;
                 if(gimbalSetPacket.up.isFire && mOutpostMode && sendTimes == 0) {
                     sendTimes = 150;
-                    logInfo("start send fire");
+//                    logInfo("start send fire");
                 }
                 if(sendTimes && !(--sendTimes))
                     gimbalSetPacket.up.isFire = false;
