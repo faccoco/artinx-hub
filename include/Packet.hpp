@@ -26,7 +26,7 @@ struct FdbPacket final {
         shooterId = (mask >> 1) & 1;
         energyMode = (mask >> 2) & 1;
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
-        capEnergy = reader.readCompressedFloat(-1.0f, 0.01f);
+        capEnergy = reader.readCompressedFloat(-1.0f, 0.1f);
         chasisPower = reader.readCompressedFloat(-1.0f, 0.01f);
     }
 };

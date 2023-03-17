@@ -172,7 +172,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 mFirstReceivedTime = SynchronizedClock::instance().now();
                 std::thread([this]() {
                     while(globalStatus == RunStatus::running) {
-                        HubLogger::fileLog(fmt::format("time: {} capEnergy: {.2f} chasisPower: {.2f}",
+                        HubLogger::fileLog(fmt::format("time: {} capEnergy: {.1f} chasisPower: {.2f}",
                                                        (Clock::now() - mFirstReceivedTime.value()).count(), mCapEnergy,
                                                        mChasisPower));
                         std::this_thread::sleep_for(ChassisPowerRecordInterval);
