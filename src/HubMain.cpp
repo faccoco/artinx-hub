@@ -22,9 +22,9 @@
 #include <caf/actor_system_config.hpp>
 #include <caf/event_based_actor.hpp>
 #include <caf/exec_main.hpp>
-#include <caf/logger.hpp>
 #include <caf/scoped_actor.hpp>
 #include <fmt/format.h>
+#include <spdlog/spdlog.h>
 
 #include "SuppressWarningEnd.hpp"
 
@@ -211,6 +211,8 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         logError("No config file path argument or config file path do not exsits!");
         return 0;
     }
+    spdlog::set_pattern("[%l]:%v");                 //set spdlog fmt
+    spdlog::init_thread_pool(8192, 1);
 
     globalConfigName = fs::path{ argv[1] }.filename().string();
     if(const auto pos = globalConfigName.find('.'); pos != std::string::npos)
@@ -247,6 +249,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
     Timer::instance().stop();
     system.await_all_actors_done();
 
+    spdlog::shutdown();
     return globalStatus == RunStatus::normalExit ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 

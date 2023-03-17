@@ -4,6 +4,10 @@
 
 #include "SuppressWarningBegin.hpp"
 
+#include "spdlog/spdlog.h"
+#include "spdlog/async.h"
+#include "spdlog/sinks/rotating_file_sink.h"
+
 #include <caf/actor_system.hpp>
 #include <caf/config_value.hpp>
 
@@ -156,5 +160,10 @@ public:
         return;
 #endif
         print(log, name, interval);
+    }
+
+    static void fileLog(const std::string_view msg) {
+        static auto mFileLogger = spdlog::rotating_logger_mt<spdlog::async_factory>("fileLogger", "data/logs/log.txt", 1024 * 1024 * 5, 10);
+        mFileLogger->info(msg);
     }
 };
