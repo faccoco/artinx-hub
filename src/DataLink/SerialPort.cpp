@@ -232,6 +232,10 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         // std::cout << mSendBufferLen << std::endl;
         mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen = 0;
+        HubLogger::watch("target yaw1",gimbalSetPacket.up.yaw);
+        HubLogger::watch("target pitch1", gimbalSetPacket.up.pitch);
+        HubLogger::watch("target yaw2",gimbalSetPacket.down.yaw);
+        HubLogger::watch("target pitch2", gimbalSetPacket.down.pitch);
     }
 
 public:
@@ -319,10 +323,6 @@ public:
 
                      HubLogger::watch("avg latency", static_cast<int>(GlobalSettings::get().latency * 1000));
                      HubLogger::watch("now latency", static_cast<int>(latency * 1000));
-                     HubLogger::watch(
-                         fmt::format("target yaw{}", mask),
-                         fmt::format("{:.8f}", yawAngle > glm::pi<double>() ? (yawAngle - glm::two_pi<double>()) : yawAngle));
-                     HubLogger::watch(fmt::format("target pitch{}", mask), fmt::format("{:.8f}", pitchAngle));
                  } };
     }
 };

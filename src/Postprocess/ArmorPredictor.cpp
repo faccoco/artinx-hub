@@ -21,9 +21,9 @@
 constexpr double maxDeltaTime = 0.2;
 constexpr int32_t maxCntWrongData = 5;
 
-constexpr double maxJumpXDist = 0.5;
-constexpr double maxJumpYDist = 0.5;
-constexpr double maxJumpZDist = 0.5;
+[[maybe_unused]]constexpr double maxJumpXDist = 0.5;
+[[maybe_unused]]constexpr double maxJumpYDist = 0.5;
+[[maybe_unused]]constexpr double maxJumpZDist = 0.5;
 
 constexpr double maxXVel = 3.0;
 constexpr double maxYVel = 3.0;
