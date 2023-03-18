@@ -15,11 +15,11 @@
 
 #include "SuppressWarningEnd.hpp"
 
-static constexpr double sameThetaThreshold = glm::radians<double>(0.2);
+static constexpr double sameThetaThreshold = glm::radians<double>(0.1);
 static constexpr double samePitchThreshold = glm::radians<double>(1);
 static constexpr double minPeriodThreshold = 0.1;     // s
 static constexpr double maxPeriodThreshold = 5;      // s
-static constexpr double maxPeriodStdThreshold = 0.03;  // s
+static constexpr double maxPeriodStdThreshold = 0.015;  // s
 
 class PeriodOutpostPredictor final : public HubHelper<caf::event_based_actor, void, period_predict_success_atom> {
     Identifier mKey;
