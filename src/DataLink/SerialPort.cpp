@@ -45,6 +45,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     constexpr static size_t mShootDelayLen = 5;
     constexpr static std::uint16_t maxShootDelay = 500;
 
+    constexpr static Duration ChassisPowerRecordInterval = 100ms;
+
     GimbalSetPacket gimbalSetPacket{};
 
     BufferedAsyncSerial::Ptr mSerialPort;
@@ -63,8 +65,11 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     std::array<uint8_t, sendBufferLen> mSendBuffer;
     size_t mSendBufferLen;
 
-    float lastSpeedX = 0.0f, lastSpeedY = 0.0f;
-    TimePoint lastReceivedTime, lastUpTargetTime, lastDownTargetTime;
+    float mLastSpeedX = 0.0f, mLastSpeedY = 0.0f;
+    TimePoint mLastReceivedTime, mLastUpTargetTime, mLastDownTargetTime;
+    std::optional<TimePoint> mFirstReceivedTime;
+
+    std::atomic<float> mCapEnergy, mChasisPower;
 
     bool mOutpostMode = false;
     std::atomic_flag mOutpostModeChangeMutex = ATOMIC_FLAG_INIT;
@@ -168,6 +173,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
             HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
 
+            mCapEnergy = fdb.capEnergy;
+            mChasisPower = fdb.chasisPower;
+
             const HeadInfo infoUp{ SynchronizedClock::instance().now(),
                                    decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
                                        glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
@@ -192,9 +200,20 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             PostureData posture;
             posture.lastUpdate = SynchronizedClock::instance().now();
             posture.tfGround2Robot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
-            lastReceivedTime = SynchronizedClock::instance().now();
-            lastSpeedX = fdb.speedX;
-            lastSpeedY = fdb.speedY;
+            if(!mFirstReceivedTime.has_value()) {
+                mFirstReceivedTime = SynchronizedClock::instance().now();
+                std::thread([this]() {
+                    while(globalStatus == RunStatus::running) {
+                        HubLogger::fileLog(fmt::format("time: {} ms capEnergy: {.1f} chasisPower: {.2f}",
+                                                       (Clock::now() - mFirstReceivedTime.value()).count(), mCapEnergy,
+                                                       mChasisPower));
+                        std::this_thread::sleep_for(ChassisPowerRecordInterval);
+                    }
+                }).detach();
+            }
+            mLastReceivedTime = SynchronizedClock::instance().now();
+            mLastSpeedX = fdb.speedX;
+            mLastSpeedY = fdb.speedY;
             posture.linearVelocityOfRobot =
                 Vector<UnitType::LinearVelocity, FrameOfRef::Ground>{ { fdb.speedX, 0, -fdb.speedY } };
 
@@ -220,7 +239,7 @@ public:
         : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ generateKey(this) },
           mCheckingHeader(false), mSendBufferLen(0) {
         mSerialPort->open(mConfig.devPath, mConfig.baudRate);
-        lastReceivedTime = SynchronizedClock::instance().now();
+        mLastReceivedTime = SynchronizedClock::instance().now();
         gimbalSetPacket.serialize();
         mThread = std::thread{ [this]() {
             while(globalStatus == RunStatus::running) {
@@ -237,12 +256,10 @@ public:
                 if(mOutpostMode)
                     targetBits |= 1;
                 else {
-                    if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastUpTargetTime).count() < 500) {
+                    if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - mLastUpTargetTime).count() < 500)
                         targetBits |= 1;
-                    }
-                    if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - lastDownTargetTime).count() < 500) {
+                    if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - mLastDownTargetTime).count() < 500)
                         targetBits |= 2;
-                    }
                 }
                 HubLogger::watch("hasTargets", targetBits);
                 gimbalSetPacket.setHasTargetBits(targetBits);
@@ -282,10 +299,10 @@ public:
 
                      if(mask == 1U) {
                          gimbalSetPacket.setUpTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
-                         lastUpTargetTime = Clock::now();
+                         mLastUpTargetTime = Clock::now();
                      } else {
                          gimbalSetPacket.setDownTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
-                         lastDownTargetTime = Clock::now();
+                         mLastDownTargetTime = Clock::now();
                      }
 
                      mOutpostModeChangeMutex.clear();

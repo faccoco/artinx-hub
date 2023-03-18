@@ -86,6 +86,7 @@ find_package(fmt CONFIG REQUIRED)
 #set(InferenceEngine_DIR $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine/share/)
 find_package(InferenceEngine CONFIG REQUIRED)
 find_package(Eigen3 CONFIG REQUIRED)
+find_package(spdlog CONFIG REQUIRED)
 
 add_executable(ArtinxHub ${SOURCE})
 target_include_directories(ArtinxHub PRIVATE ${CAF_INCLUDE_DIRS})
@@ -113,6 +114,7 @@ target_link_libraries(ArtinxHub PRIVATE fmt::fmt)
 target_link_libraries(ArtinxHub PRIVATE ${InferenceEngine_LIBRARIES})
 target_link_libraries(ArtinxHub PRIVATE nlohmann_json nlohmann_json::nlohmann_json)
 target_link_libraries(ArtinxHub PRIVATE Eigen3::Eigen)
+target_link_libraries(ArtinxHub PRIVATE spdlog::spdlog spdlog::spdlog_header_only)
 
 add_custom_command(TARGET ArtinxHub PRE_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory

@@ -11,6 +11,7 @@
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
 #include <opencv2/videoio.hpp>
+#include <fmt/format.h>
 
 #include "SuppressWarningEnd.hpp"
 
@@ -38,7 +39,7 @@ class VideoRecorder final : public HubHelper<caf::event_based_actor, VideoRecord
     std::unique_ptr<cv::VideoWriter> mWriter;
     Clock::time_point mStart = Clock::now();
 
-    const int mFourCc = cv::VideoWriter::fourcc('M', 'J', 'P', 'G');
+    const int mFourCc = cv::VideoWriter::fourcc('m', 'p', '4', 'v');
 
 public:
     VideoRecorder(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
@@ -77,8 +78,7 @@ public:
                              logError(error.c_str());
                          }
                          mWriter = std::make_unique<cv::VideoWriter>(
-                             mConfig.base + "/" + std::to_string(Clock::now().time_since_epoch().count()%1000000000) + ".mp4", mFourCc,
-                             mConfig.fps, frameData.frame.size());
+                             fmt::format("{}/{}.mp4",mConfig.base,std::time(0)), mFourCc,mConfig.fps, frameData.frame.size());
                          mFormat = frameData.frame.type();
                          mSize = frameData.frame.size();
                          mFrameCount = 0;
