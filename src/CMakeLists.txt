@@ -43,8 +43,6 @@ set(SOURCE
 "Test/Sensor/FixedIMU.cpp"
 "Test/Solve/ArmorLocatorTester.cpp"
 "Test/Solve/FakeDetector.cpp"
-"Test/Solve/FakeHead.cpp"
-"Test/Solve/FakeIMU.cpp"
 "Test/Solve/SimpleStrategy.cpp"
 "Test/Solve/Simulator.cpp"
 "Test/TestHelper.cpp"

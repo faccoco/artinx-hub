@@ -2,6 +2,7 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
+#include "PostureData.hpp"
 #include "SelectedTarget.hpp"
 #include "SimulatorMotionType.hpp"
 #include "SimulatorWorldInfo.hpp"
@@ -34,7 +35,7 @@ struct SimulatorSettings final {
     double spinningSpeed;        // in circles/s
 
     double standardDistance;
-    double targetAngle;
+    double targetAngle;  // in degrees
     double sourceHeight;
     double targetHeight;
 
@@ -48,6 +49,8 @@ struct SimulatorSettings final {
     bool printBulletInfo;
 
     std::string aimType;
+
+    double headHeightOffset;
 };
 
 struct BulletInfo {
@@ -101,12 +104,13 @@ bool inspect(Inspector& f, SimulatorSettings& x) {
         f.field("sourceHeight", x.sourceHeight), f.field("targetHeight", x.targetHeight), f.field("targetType", x.targetType),
         f.field("targetMotionType", x.targetMotionType), f.field("sourceMotionType", x.sourceMotionType),
         f.field("expectedCount", x.expectedCount), f.field("printBulletPos", x.printBulletPos).fallback(false),
-        f.field("printBulletInfo", x.printBulletInfo).fallback(false), f.field("aimType", x.aimType).fallback("Car"));
+        f.field("printBulletInfo", x.printBulletInfo).fallback(false), f.field("aimType", x.aimType).fallback("Car"),
+        f.field("headHeightOffset", x.headHeightOffset));
 }
 
-class Simulator final
-    : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom, outpost_detector_control_atom> {
-    Identifier mKey, mHeadKey{};
+class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom,
+                                         outpost_detector_control_atom, update_head_atom, update_posture_atom> {
+    Identifier mKey;
 
     std::vector<std::pair<Point<UnitType::Distance, FrameOfRef::Ground>, Vector<UnitType::LinearVelocity, FrameOfRef::Ground>>>
         mBullets;  // pair : [pose velocity]
@@ -258,9 +262,12 @@ public:
         const Scalar<UnitType::LinearVelocity> minVelocity{ mConfig.v0 - 3.0 * mConfig.v0Std };
         const Scalar<UnitType::Distance> bulletRadius{ GlobalSettings::get().bulletRadius() };
 
+        double mHeadYaw = 0, mHeadPitch = 0;
+
         if(PredictorType predictorType = magic_enum::enum_cast<PredictorType>(mConfig.aimType).value();
            predictorType == PredictorType::Period || predictorType == PredictorType::PeriodOutpost) {
             std::this_thread::sleep_for(1ms);
+            mHeadYaw = glm::radians(270 - mConfig.targetAngle);
             sendAll(outpost_detector_control_atom_v, true);
         }
 
@@ -275,18 +282,40 @@ public:
                 }
             }
 
-            // update drag forces
+            time += dt;
+            TimePoint nowTimePoint = TimePoint{ doubleCastDuration(time.mVal) };
+
+            // update head info
+            Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
+            {
+                const HeadInfo info{ nowTimePoint,
+                                     decltype(HeadInfo::tfRobot2Gun){
+                                         glm::lookAtRH(glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
+                                                       glm::dvec3{ -std::sin(mHeadYaw) * std::cos(mHeadPitch),
+                                                                   mConfig.headHeightOffset + std::sin(mHeadPitch),
+                                                                   -std::cos(mHeadYaw) * std::cos(mHeadPitch) },
+                                                       glm::dvec3{ 0.0, 1.0, 0.0 }) } };
+                tfRobot2Gun = info.tfRobot2Gun;
+                sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, info));
+                sendMasked(update_head_atom_v, 2U, 2U,
+                           BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, info));
+            }
 
             // step:update source pose and velocity
             Vector<UnitType::LinearVelocity, FrameOfRef::Ground> vSrc;
+            Transform<FrameOfRef::Ground, FrameOfRef::Robot, true> tfGround2Robot;
             {
                 const auto p1 = mSource.first.translatePoint();
                 mSource.second->step(mSource.first, dt.mVal);
                 const auto p2 = mSource.first.translatePoint();
                 vSrc = (p2 - p1) / dt;
+                tfGround2Robot = mSource.first.invTransformObj();
+                PostureData posture{ nowTimePoint, tfGround2Robot, vSrc };
+                sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
             }
             mTarget.second->step(mTarget.first, dt.mVal);
 
+            // update drag forces
             for(size_t i = 0; i < mBullets.size(); i++) {
                 auto& [pos, v] = mBullets[i];
                 if(pos.mVal.y < 0.0) {
@@ -308,17 +337,14 @@ public:
                 mBulletsInfo[i].time += dt;
             }
 
-            time += dt;
-
             // update world info
             {
                 SimulatorWorldInfo info;
 
-                info.lastUpdate = TimePoint{ static_cast<Duration>(
-                    static_cast<Clock::rep>(time.mVal * Clock::period::den / Clock::period::num)) };
+                info.lastUpdate = nowTimePoint;
                 SynchronizedClock::instance().setSimulationTime(info.lastUpdate);
 
-                info.tfGround2Robot = mSource.first.invTransformObj();
+                info.tfGround2Robot = tfGround2Robot;
 
                 {
                     const auto& targetMotion = mTarget.first;
@@ -384,22 +410,14 @@ public:
 
             // update events
             receive(
-                [&](set_target_info_atom, GroupMask, Clock::rep, const double, const double, const bool isFire, SolverType) {
+                [&](set_target_info_atom, GroupMask, Clock::rep, const double yaw, const double pitch, const bool isFire,
+                    SolverType) {
                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
                     shoot = isFire;
-                },
-                [&](update_head_atom, GroupMask, Identifier key) {
-                    ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
-                    mHeadKey = key;
+                    mHeadPitch = pitch;
                 },
                 [&](const caf::down_msg&) { runFlag = false; }, [&](const caf::exit_msg&) { runFlag = false; },
                 [&](timer_atom) { ACTOR_PROTOCOL_CHECK(timer_atom); });
-
-            const auto headData = BlackBoard::instance().get<HeadInfo>(mHeadKey);
-            Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun{ glm::identity<glm::dmat4>() };
-            if(headData.has_value()) {
-                tfRobot2Gun = headData.value().tfRobot2Gun;
-            }
 
             const auto tfGun2Ground = combine(tfRobot2Gun.invTransformObj(), mSource.first);
 

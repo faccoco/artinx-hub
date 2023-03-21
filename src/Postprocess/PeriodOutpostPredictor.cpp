@@ -17,8 +17,8 @@
 
 static constexpr double sameThetaThreshold = glm::radians<double>(0.1);
 static constexpr double samePitchThreshold = glm::radians<double>(1);
-static constexpr double minPeriodThreshold = 0.1;     // s
-static constexpr double maxPeriodThreshold = 5;      // s
+static constexpr double minPeriodThreshold = 0.1;       // s
+static constexpr double maxPeriodThreshold = 5;         // s
 static constexpr double maxPeriodStdThreshold = 0.015;  // s
 
 class PeriodOutpostPredictor final : public HubHelper<caf::event_based_actor, void, period_predict_success_atom> {
@@ -76,6 +76,8 @@ public:
                 }
 
                 double thetaDelta = std::abs(getTheta(posRefRobot.mVal) - mTargetTheta);
+                if(thetaDelta > glm::pi<double>())
+                    thetaDelta = glm::two_pi<double>() - thetaDelta;
 
                 HubLogger::watch("thetaDelta", thetaDelta);
                 // check
