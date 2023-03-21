@@ -289,12 +289,12 @@ public:
             Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
             {
                 const HeadInfo info{ nowTimePoint,
-                                     decltype(HeadInfo::tfRobot2Gun){
-                                         glm::lookAtRH(glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
-                                                       glm::dvec3{ -std::sin(mHeadYaw) * std::cos(mHeadPitch),
-                                                                   mConfig.headHeightOffset + std::sin(mHeadPitch),
-                                                                   -std::cos(mHeadYaw) * std::cos(mHeadPitch) },
-                                                       glm::dvec3{ 0.0, 1.0, 0.0 }) } };
+                                      decltype(HeadInfo::tfRobot2Gun){
+                                          glm::lookAtRH(glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
+                                                        glm::dvec3{ -std::sin(mHeadYaw) * std::cos(mHeadPitch),
+                                                                    mConfig.headHeightOffset + std::sin(mHeadPitch),
+                                                                    -std::cos(mHeadYaw) * std::cos(mHeadPitch) },
+                                                        glm::dvec3{ 0.0, 1.0, 0.0 }) } };
                 tfRobot2Gun = info.tfRobot2Gun;
                 sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, info));
                 sendMasked(update_head_atom_v, 2U, 2U,
@@ -414,6 +414,7 @@ public:
                     SolverType) {
                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
                     shoot = isFire;
+                    mHeadYaw = yaw;
                     mHeadPitch = pitch;
                 },
                 [&](const caf::down_msg&) { runFlag = false; }, [&](const caf::exit_msg&) { runFlag = false; },

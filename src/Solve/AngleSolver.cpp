@@ -89,8 +89,8 @@ public:
                 auto [time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
 
                 // logInfo(fmt::format("x:{}, y:{}, z:{}", tfPos.x, tfPos.y, tfPos.z));
-                sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle,
-                        pitchAngle, true, solverType_normal);
+                sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
+                                    yawAngle, pitchAngle, true, solverType_normal);
             },
         };
     }
