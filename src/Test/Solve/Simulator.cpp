@@ -265,7 +265,7 @@ public:
         double mHeadYaw = 0, mHeadPitch = 0;
 
         if(PredictorType predictorType = magic_enum::enum_cast<PredictorType>(mConfig.aimType).value();
-           predictorType == PredictorType::Period || predictorType == PredictorType::PeriodOutpost) {
+           predictorType == PredictorType::PeriodOutpost) {
             std::this_thread::sleep_for(1ms);
             mHeadYaw = glm::radians(270 - mConfig.targetAngle);
             sendAll(outpost_detector_control_atom_v, true);
