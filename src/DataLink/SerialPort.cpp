@@ -4,6 +4,7 @@
 #include "Hub.hpp"
 #include "Packet.hpp"
 #include "PostureData.hpp"
+#include "SelectedTarget.hpp"
 #include "Utility.hpp"
 
 #include "SuppressWarningBegin.hpp"
@@ -36,10 +37,13 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
 }
 
 class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom,
-                                          energy_detector_control_atom> {
+                                          energy_detector_control_atom, outpost_detector_control_atom> {
     constexpr static size_t bufferLen = 1024;
     constexpr static size_t headerLen = 5;
     constexpr static size_t sendBufferLen = 1024;
+    constexpr static size_t latencyLen = 100;
+    constexpr static size_t mShootDelayLen = 5;
+    constexpr static std::uint16_t maxShootDelay = 500;
 
     constexpr static Duration ChassisPowerRecordInterval = 100ms;
 
@@ -66,6 +70,12 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     std::optional<TimePoint> mFirstReceivedTime;
 
     std::atomic<float> mCapEnergy, mChasisPower;
+
+    bool mOutpostMode = false;
+    std::atomic_flag mOutpostModeChangeMutex = ATOMIC_FLAG_INIT;
+
+    std::deque<double> mLatency;
+    std::deque<uint16_t> mShootDelay;
 
     void receive() {
         if(!started)
@@ -119,9 +129,20 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             reportFrameRate(Clock::now());
 
             FdbPacket fdb(mPacketBuffer);
-            if(fdb.bulletSpeed > 10.0f)
+            if(fdb.bulletSpeed > 8.0f)
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
+            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
+                logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));
+            if(mShootDelay.empty() || (fdb.shootDelayTime != mShootDelay.back() && fdb.shootDelayTime < maxShootDelay)) {
+                if(mShootDelay.size() >= mShootDelayLen)
+                    mShootDelay.pop_front();
+                mShootDelay.push_back(fdb.shootDelayTime);
+                GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;
+            }
+            HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
             HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
+            HubLogger::watch("fdb shoot delay time", fdb.shootDelayTime);
+            HubLogger::watch("shoot delay time", static_cast<int>(GlobalSettings::get().shootDelayTime * 1000));
 
             if(mConfig.enableEnergyControl) {
                 HubLogger::watch("energy mode", static_cast<bool>(fdb.energyMode));
@@ -141,26 +162,37 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             fdb.yaw = (fdb.yaw < 0.0f) ? fdb.yaw + glm::two_pi<float>() : fdb.yaw;
             fdb.downYaw = (fdb.downYaw < 0.0f) ? fdb.downYaw + glm::two_pi<float>() : fdb.downYaw;
 
+            if(!mOutpostMode && fdb.outpostMode) {
+                while(mOutpostModeChangeMutex.test_and_set())
+                    std::this_thread::yield();
+                mOutpostMode = true;
+                mOutpostModeChangeMutex.clear();
+                gimbalSetPacket.setUpTarget(fdb.yaw, fdb.pitch, false);
+            }
+            mOutpostMode = fdb.outpostMode;
+            sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
+            HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
+
             mCapEnergy = fdb.capEnergy;
             mChasisPower = fdb.chasisPower;
 
             const HeadInfo infoUp{ SynchronizedClock::instance().now(),
-                                   decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                                       glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
+                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                    glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
                                        glm::dvec3{ std::cos(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
                                                        std::cos(static_cast<double>(fdb.pitch)),
-                                                   mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
-                                                   mConfig.headForwardOffset1 -
+                                mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
+                                mConfig.headForwardOffset1 -
                                                        std::sin(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
                                                            std::cos(static_cast<double>(fdb.pitch)) },
                                        glm::dvec3{ 0.0, 1.0, 0.0 }) } };
             const HeadInfo infoDown{ SynchronizedClock::instance().now(),
-                                     decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                                         glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
+                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                    glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
                                          glm::dvec3{ std::cos(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
                                                          std::cos(static_cast<double>(fdb.downPitch)),
-                                                     mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
-                                                     mConfig.headForwardOffset2 -
+                                mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
+                                mConfig.headForwardOffset2 -
                                                          std::sin(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
                                                              std::cos(static_cast<double>(fdb.downPitch)) },
                                          glm::dvec3{ 0.0, 1.0, 0.0 }) } };
@@ -172,7 +204,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 mFirstReceivedTime = SynchronizedClock::instance().now();
                 std::thread([this]() {
                     while(globalStatus == RunStatus::running) {
-                        HubLogger::fileLog(fmt::format("time: {} ms capEnergy: {.1f} chasisPower: {.2f}",
+                        HubLogger::fileLog(fmt::format("time: {} ms capEnergy: {:.1f} chasisPower: {:.2f}",
                                                        (Clock::now() - mFirstReceivedTime.value()).count(), mCapEnergy,
                                                        mChasisPower));
                         std::this_thread::sleep_for(ChassisPowerRecordInterval);
@@ -200,32 +232,45 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         // std::cout << mSendBufferLen << std::endl;
         mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen = 0;
+        HubLogger::watch("target yaw1", gimbalSetPacket.up.yaw);
+        HubLogger::watch("target pitch1", gimbalSetPacket.up.pitch);
+        HubLogger::watch("target yaw2", gimbalSetPacket.down.yaw);
+        HubLogger::watch("target pitch2", gimbalSetPacket.down.pitch);
     }
 
 public:
     SerialPort(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ generateKey(this) },
-          mCheckingHeader(false) {
+          mCheckingHeader(false), mSendBufferLen(0) {
         mSerialPort->open(mConfig.devPath, mConfig.baudRate);
         mLastReceivedTime = SynchronizedClock::instance().now();
         gimbalSetPacket.serialize();
         mThread = std::thread{ [this]() {
             while(globalStatus == RunStatus::running) {
                 receive();
-                sendPacket();
+                static int sendTimes = 0;
+                if(gimbalSetPacket.up.isFire && mOutpostMode && sendTimes == 0) {
+                    sendTimes = 150;
+                    //                    logInfo("start send fire");
+                }
+                if(sendTimes && !(--sendTimes))
+                    gimbalSetPacket.up.isFire = false;
                 std::this_thread::sleep_for(0.75ms);
                 uint8_t targetBits = 0;
-                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - mLastUpTargetTime).count() < 500) {
+                if(mOutpostMode)
                     targetBits |= 1;
-                }
-                if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - mLastDownTargetTime).count() < 500) {
-                    targetBits |= 2;
+                else {
+                    if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - mLastUpTargetTime).count() < 500)
+                        targetBits |= 1;
+                    if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - mLastDownTargetTime).count() < 500)
+                        targetBits |= 2;
                 }
                 HubLogger::watch("hasTargets", targetBits);
                 gimbalSetPacket.setHasTargetBits(targetBits);
                 gimbalSetPacket.serialize();
                 gimbalSetPacket.buffer.copyToSendBuffer(mSendBuffer.data() + mSendBufferLen);
                 mSendBufferLen += gimbalSetPacket.buffer.size();
+                sendPacket();
             }
         } };
     }
@@ -240,22 +285,21 @@ public:
                     ACTOR_PROTOCOL_CHECK(start_atom);
                     started = true;
                 },
-                 [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire) {
-                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);
+                 [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
+                        SolverType solverType) {
+                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
 
-                     if(yawAngle < -glm::pi<double>())
+                     while(mOutpostModeChangeMutex.test_and_set())
+                         std::this_thread::yield();
+
+                     if(mOutpostMode && solverType == solverType_normal)
+                         return;
+
+                     if(yawAngle <= -glm::pi<double>())
                          yawAngle += glm::two_pi<double>();
 
                      if(yawAngle > glm::pi<double>())
                          yawAngle -= glm::two_pi<double>();
-
-                     const auto current = Clock::now();
-
-                     HubLogger::watch("latency", (current.time_since_epoch().count() - begin) / 1'000'000);
-                     HubLogger::watch(
-                         fmt::format("target yaw{}", mask),
-                         fmt::format("{:.8f}", yawAngle > glm::pi<double>() ? (yawAngle - glm::two_pi<double>()) : yawAngle));
-                     HubLogger::watch(fmt::format("target pitch{}", mask), fmt::format("{:.8f}", pitchAngle));
 
                      if(mask == 1U) {
                          gimbalSetPacket.setUpTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
@@ -264,6 +308,21 @@ public:
                          gimbalSetPacket.setDownTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
                          mLastDownTargetTime = Clock::now();
                      }
+
+                     mOutpostModeChangeMutex.clear();
+
+                     const auto current = Clock::now();
+                     const auto latency =
+                         double(current.time_since_epoch().count() - begin) / Duration::period::den * Duration::period::num;
+
+                     if(mLatency.size() >= latencyLen)
+                         mLatency.pop_front();
+                     mLatency.push_back(latency);
+
+                     GlobalSettings::get().latency = avg(mLatency);
+
+                     HubLogger::watch("avg latency", static_cast<int>(GlobalSettings::get().latency * 1000));
+                     HubLogger::watch("now latency", static_cast<int>(latency * 1000));
                  } };
     }
 };

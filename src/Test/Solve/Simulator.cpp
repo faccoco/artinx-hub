@@ -2,6 +2,8 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
+#include "PostureData.hpp"
+#include "SelectedTarget.hpp"
 #include "SimulatorMotionType.hpp"
 #include "SimulatorWorldInfo.hpp"
 #include "Transform.hpp"
@@ -33,6 +35,7 @@ struct SimulatorSettings final {
     double spinningSpeed;        // in circles/s
 
     double standardDistance;
+    double targetAngle;  // in degrees
     double sourceHeight;
     double targetHeight;
 
@@ -43,6 +46,51 @@ struct SimulatorSettings final {
     uint32_t expectedCount;
 
     bool printBulletPos;
+    bool printBulletInfo;
+
+    std::string aimType;
+
+    double headHeightOffset;
+};
+
+struct BulletInfo {
+    Scalar<UnitType::Time> time;
+    Scalar<UnitType::Time> shootTime;
+    Point<UnitType::Distance, FrameOfRef::Ground> shootPos;
+    Vector<UnitType::LinearVelocity, FrameOfRef::Ground> shootVel;
+    struct {
+        Point<UnitType::Distance, FrameOfRef::Ground> mPos;
+        Vector<UnitType::LinearVelocity, FrameOfRef::Ground> mVel;
+        Point<UnitType::Distance, FrameOfRef::Ground> armorPos;
+        Scalar<UnitType::Angle> theta;
+        Point<UnitType::Distance, FrameOfRef::Armor> mPosRefAromor;
+        Vector<UnitType::LinearVelocity, FrameOfRef::Armor> mVelRefAromor;
+        Scalar<UnitType::Distance> distance;
+        Scalar<UnitType::Time> time;
+    } closest;
+    bool printed;
+    std::string to_string() {
+        printed = true;
+        return fmt::format("flying "
+                           "time:{}\nshootTime:{}\nshootPos:{}\nshootVel:{}\ncloest:\n\tmPos:{}\n\trelatedPos:{}\n\tmVel:{}"
+                           "\n\tmPosRefArmor:{}\n\tmVelRefArmor:{}"
+                           "\n\tarmorPos:{}\n\ttheta:{}\n\tdistance:{}"
+                           "\n\ttime:{}\nstate:{}",
+                           time.mVal, shootTime.mVal, glm::to_string(shootPos.mVal), glm::to_string(shootVel.mVal),
+                           glm::to_string(closest.mPos.mVal), glm::to_string((closest.mPos - shootPos).mVal),
+                           glm::to_string(closest.mVel.mVal), glm::to_string(closest.mPosRefAromor.mVal),
+                           glm::to_string(closest.mVelRefAromor.mVal), glm::to_string(closest.armorPos.mVal),
+                           glm::degrees(closest.theta.mVal), closest.distance.mVal, closest.time.mVal,
+                           (state == flying  ? "flying" :
+                                state == hit ? "hit" :
+                                               "notHit"));
+    }
+    enum State { flying, hit, notHit } state;
+    BulletInfo(Scalar<UnitType::Time> shootTime, Point<UnitType::Distance, FrameOfRef::Ground> shootPos,
+               Vector<UnitType::LinearVelocity, FrameOfRef::Ground> shootVel)
+        : time(0), shootTime(shootTime), shootPos(shootPos),
+          shootVel(shootVel), closest{ glm::dvec3(), glm::dvec3(), glm::dvec3(), 0, glm::dvec3(), glm::dvec3(), 9999, 0 },
+          printed(false), state(flying) {}
 };
 
 template <class Inspector>
@@ -52,24 +100,29 @@ bool inspect(Inspector& f, SimulatorSettings& x) {
         f.field("v0Std", x.v0Std), f.field("shootInterval", x.shootInterval), f.field("maxTime", x.maxTime),
         f.field("bulletCount", x.bulletCount), f.field("vibrationLinearRange", x.vibrationLinearRange),
         f.field("vibrationAngleRange", x.vibrationAngleRange), f.field("spinningSpeed", x.spinningSpeed),
-        f.field("standardDistance", x.standardDistance), f.field("sourceHeight", x.sourceHeight),
-        f.field("targetHeight", x.targetHeight), f.field("targetType", x.targetType),
+        f.field("standardDistance", x.standardDistance), f.field("targetAngle", x.targetAngle).fallback(-90),
+        f.field("sourceHeight", x.sourceHeight), f.field("targetHeight", x.targetHeight), f.field("targetType", x.targetType),
         f.field("targetMotionType", x.targetMotionType), f.field("sourceMotionType", x.sourceMotionType),
-        f.field("expectedCount", x.expectedCount), f.field("printBulletPos", x.printBulletPos).fallback(false));
+        f.field("expectedCount", x.expectedCount), f.field("printBulletPos", x.printBulletPos).fallback(false),
+        f.field("printBulletInfo", x.printBulletInfo).fallback(false), f.field("aimType", x.aimType).fallback("Car"),
+        f.field("headHeightOffset", x.headHeightOffset));
 }
 
-class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom> {
-    Identifier mKey, mHeadKey{};
+class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom,
+                                         outpost_detector_control_atom, update_head_atom, update_posture_atom> {
+    Identifier mKey;
 
     std::vector<std::pair<Point<UnitType::Distance, FrameOfRef::Ground>, Vector<UnitType::LinearVelocity, FrameOfRef::Ground>>>
         mBullets;  // pair : [pose velocity]
+    std::vector<BulletInfo> mBulletsInfo;
     std::pair<MotionState, std::unique_ptr<MotionController>> mTarget;
     std::vector<std::pair<Transform<FrameOfRef::Armor, FrameOfRef::Robot, true>, std::pair<double, double>>>
         mTargetArmors;  // pair : (relatedPosition [width height])
     std::pair<MotionState, std::unique_ptr<MotionController>> mSource;
     std::mt19937_64 mEngine{ static_cast<uint64_t>(Clock::now().time_since_epoch().count()) };
 
-    const double mNorThresholdVel = 6.0;
+    static constexpr double mNorThresholdVel = 6.0;
+    static constexpr double mMinVisiblePitch = glm::radians<double>(30);
 
     void initializeTestCase() {
         {
@@ -102,48 +155,42 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
                 case TargetType::Infantry: {
                     const glm::dmat4 baseTransform =
                         glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, -radiusOfInfantry }),
-                                    15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 });
+                                    angleOfArmorForInfantry, { 1.0, 0.0, 0.0 });
                     mTargetArmors.clear();
                     mTargetArmors.reserve(4);
-                    mTargetArmors.emplace_back(baseTransform, std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
-                    mTargetArmors.emplace_back(
-                        glm::rotate(glm::identity<glm::dmat4>(), glm::half_pi<double>(), { 0.0, 1.0, 0.0 }) * baseTransform,
-                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
-                    mTargetArmors.emplace_back(glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>(), { 0.0, 1.0, 0.0 }) *
-                                                   baseTransform,
-                                               std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
-                    mTargetArmors.emplace_back(
-                        glm::rotate(glm::identity<glm::dmat4>(), glm::three_over_two_pi<double>(), { 0.0, 1.0, 0.0 }) *
-                            baseTransform,
-                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
+                    for(size_t i = 0; i < 4; i++) {
+                        mTargetArmors.emplace_back(
+                            glm::rotate(glm::identity<glm::dmat4>(), i * glm::half_pi<double>(), { 0.0, 1.0, 0.0 }) *
+                                baseTransform,
+                            std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
+                    }
                     break;
                 }
                 case TargetType::Sentry: {
                     const glm::dmat4 baseTransform =
                         glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, -radiusOfInfantry * 0.5 }),
-                                    -15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 });
+                                    angleOfArmorForSentry, { 1.0, 0.0, 0.0 });
                     mTargetArmors.clear();
                     mTargetArmors.reserve(2);
-                    mTargetArmors.emplace_back(baseTransform, std::make_pair(widthOfLargeArmor, heightOfLargeArmor));
-                    mTargetArmors.emplace_back(glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>(), { 0.0, 1.0, 0.0 }) *
-                                                   baseTransform,
-                                               std::make_pair(widthOfLargeArmor, heightOfLargeArmor));
+                    for(size_t i = 0; i < 2; i++) {
+                        mTargetArmors.emplace_back(
+                            glm::rotate(glm::identity<glm::dmat4>(), i * glm::pi<double>(), { 0.0, 1.0, 0.0 }) * baseTransform,
+                            std::make_pair(widthOfLargeArmor, heightOfLargeArmor));
+                    }
                     break;
                 }
                 case TargetType::Outpost: {
                     const glm::dmat4 baseTransform =
-                        glm::translate((glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, -radiusOfOutpost }),
-                                                    -15.0 / 180.0 * glm::pi<double>(), { 1.0, 0.0, 0.0 })),
-                                       { 0.0, -heightOfSmallArmor / 2, 0.0 });
+                        glm::rotate(glm::translate(glm::identity<glm::dmat4>(), { 0.0, 0.0, -radiusOfOutpost }),
+                                    angleOfArmorForSentry, { 1.0, 0.0, 0.0 });
                     mTargetArmors.clear();
                     mTargetArmors.reserve(3);
-                    mTargetArmors.emplace_back(baseTransform, std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
-                    mTargetArmors.emplace_back(
-                        glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>() * 2 / 3, { 0.0, 1.0, 0.0 }) * baseTransform,
-                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
-                    mTargetArmors.emplace_back(
-                        glm::rotate(glm::identity<glm::dmat4>(), glm::pi<double>() * 4 / 3, { 0.0, 1.0, 0.0 }) * baseTransform,
-                        std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
+                    for(size_t i = 0; i < 3; i++) {
+                        mTargetArmors.emplace_back(
+                            glm::rotate(glm::identity<glm::dmat4>(), i * glm::pi<double>() * 2 / 3, { 0.0, 1.0, 0.0 }) *
+                                baseTransform,
+                            std::make_pair(widthOfSmallArmor, heightOfSmallArmor));
+                    }
                     break;
                 }
 
@@ -163,7 +210,10 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
         // TargetMotion
         {
             auto& [motion, controller] = mTarget;
-            motion = glm::translate(glm::identity<glm::dmat4>(), { 0.0, mConfig.targetHeight, -mConfig.standardDistance });
+            motion =
+                glm::translate(glm::identity<glm::dmat4>(),
+                               { mConfig.standardDistance * std::cos(glm::radians(mConfig.targetAngle)), mConfig.targetHeight,
+                                 mConfig.standardDistance * std::sin(glm::radians(mConfig.targetAngle)) });
 
             switch(magic_enum::enum_cast<TargetMotionType>(mConfig.targetMotionType).value()) {
                 case TargetMotionType::Static: {
@@ -193,6 +243,7 @@ public:
         initializeTestCase();
 
         Timer::instance().addTimer(this->address(), 10ms);
+        SynchronizedClock::instance().setSimulationTimeStep(doubleCastDuration(mConfig.step));
     }
 
     void act() override {
@@ -211,6 +262,15 @@ public:
         const Scalar<UnitType::LinearVelocity> minVelocity{ mConfig.v0 - 3.0 * mConfig.v0Std };
         const Scalar<UnitType::Distance> bulletRadius{ GlobalSettings::get().bulletRadius() };
 
+        double mHeadYaw = 0, mHeadPitch = 0;
+
+        if(PredictorType predictorType = magic_enum::enum_cast<PredictorType>(mConfig.aimType).value();
+           predictorType == PredictorType::PeriodOutpost) {
+            std::this_thread::sleep_for(1ms);
+            mHeadYaw = glm::radians(270 - mConfig.targetAngle);
+            sendAll(outpost_detector_control_atom_v, true);
+        }
+
         while(runFlag) {
             for(auto& [pos, v] : mBullets) {
                 if(pos.mVal.y < 0.0)
@@ -222,42 +282,80 @@ public:
                 }
             }
 
-            // update drag forces
+            time += dt;
+            TimePoint nowTimePoint = TimePoint{ doubleCastDuration(time.mVal) };
+
+            // update head info
+            Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
+            {
+                const HeadInfo info{ nowTimePoint,
+                                      decltype(HeadInfo::tfRobot2Gun){
+                                          glm::lookAtRH(glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
+                                                        glm::dvec3{ -std::sin(mHeadYaw) * std::cos(mHeadPitch),
+                                                                    mConfig.headHeightOffset + std::sin(mHeadPitch),
+                                                                    -std::cos(mHeadYaw) * std::cos(mHeadPitch) },
+                                                        glm::dvec3{ 0.0, 1.0, 0.0 }) } };
+                tfRobot2Gun = info.tfRobot2Gun;
+                sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, info));
+                sendMasked(update_head_atom_v, 2U, 2U,
+                           BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, info));
+            }
 
             // step:update source pose and velocity
             Vector<UnitType::LinearVelocity, FrameOfRef::Ground> vSrc;
+            Transform<FrameOfRef::Ground, FrameOfRef::Robot, true> tfGround2Robot;
             {
                 const auto p1 = mSource.first.translatePoint();
                 mSource.second->step(mSource.first, dt.mVal);
                 const auto p2 = mSource.first.translatePoint();
                 vSrc = (p2 - p1) / dt;
+                tfGround2Robot = mSource.first.invTransformObj();
+                PostureData posture{ nowTimePoint, tfGround2Robot, vSrc };
+                sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
             }
             mTarget.second->step(mTarget.first, dt.mVal);
 
-            for(auto& [pos, v] : mBullets) {
-                if(pos.mVal.y < 0.0)
+            // update drag forces
+            for(size_t i = 0; i < mBullets.size(); i++) {
+                auto& [pos, v] = mBullets[i];
+                if(pos.mVal.y < 0.0) {
+                    if(mBulletsInfo[i].state == BulletInfo::flying)
+                        mBulletsInfo[i].state = BulletInfo::notHit;
                     continue;
+                }
                 pos += v * dt;
-                v += glm::dvec3{ 0.0, GlobalSettings::get().gForce * dt.mVal, 0.0 };
+                static const double tmpDragCoefficient = GlobalSettings::get().dragCoefficient *
+                    GlobalSettings::get().airDensity *
+                    (GlobalSettings::get().bulletRadius() * GlobalSettings::get().bulletRadius() * glm::pi<double>()) / 2 /
+                    GlobalSettings::get().bulletMass();
+                const Vector<UnitType::LinearAcceleration, FrameOfRef::Ground> a = {
+                    (v.mVal.x > 0 ? -1 : 1) * tmpDragCoefficient * v.mVal.x * v.mVal.x,
+                    (v.mVal.y > 0 ? -1 : 1) * tmpDragCoefficient * v.mVal.y * v.mVal.y + GlobalSettings::get().gForce,
+                    (v.mVal.z > 0 ? -1 : 1) * tmpDragCoefficient * v.mVal.z * v.mVal.z
+                };
+                v += a * dt;
+                mBulletsInfo[i].time += dt;
             }
-
-            time += dt;
 
             // update world info
             {
                 SimulatorWorldInfo info;
 
-                info.lastUpdate = TimePoint{ static_cast<Duration>(
-                    static_cast<Clock::rep>(time.mVal * Clock::period::den / Clock::period::num)) };
+                info.lastUpdate = nowTimePoint;
                 SynchronizedClock::instance().setSimulationTime(info.lastUpdate);
 
-                info.tfGround2Robot = mSource.first.invTransformObj();
+                info.tfGround2Robot = tfGround2Robot;
 
                 {
                     const auto& targetMotion = mTarget.first;
 
                     for(auto& [armorRelatedMotion, threshold] : mTargetArmors) {
-                        info.targets.emplace_back(combine(targetMotion, armorRelatedMotion).translatePoint());
+                        auto tfArmor2Ground = combine(targetMotion, armorRelatedMotion);
+                        auto vecRefArmor =
+                            tfArmor2Ground.invTransform(mSource.first.translatePoint() - tfArmor2Ground.translatePoint());
+                        double pitch = glm::asin(-vecRefArmor.mVal.z / glm::length(vecRefArmor.mVal));
+                        if(pitch > mMinVisiblePitch)
+                            info.targets.emplace_back(tfArmor2Ground.translatePoint());
                     }
                 }
 
@@ -273,7 +371,8 @@ public:
                     const auto tfArmor2Ground = combine(tfRobot2Ground, tfArmor2Robot);
                     const auto tfGround2Armor = tfArmor2Ground.invTransformObj();
 
-                    for(auto& bullet : mBullets) {
+                    for(size_t j = 0; j < mBullets.size(); j++) {
+                        auto& bullet = mBullets[j];
                         if(bullet.first.mVal.y < 0.0)
                             continue;
                         const auto posRefArmor = tfGround2Armor(bullet.first);
@@ -283,6 +382,22 @@ public:
                         than a certain threshold and it's projection is within armor, the bullet can hit */
                         if(posRefArmor.mVal.z > -bulletRadius.mVal && std::fabs(posRefArmor.mVal.x) <= area.first / 2 &&
                            std::fabs(posRefArmor.mVal.y) <= area.second / 2 && velRefArmor.mVal.z >= mNorThresholdVel) {
+                            mBulletsInfo[j].closest.distance = distance(posRefArmor, { 0, 0, 0 });
+                            mBulletsInfo[j].closest.mPos = bullet.first;
+                            mBulletsInfo[j].closest.mVel = bullet.second;
+                            mBulletsInfo[j].closest.armorPos = tfArmor2Ground.translatePoint();
+                            double x = bullet.first.mVal.x - mTarget.first.translatePoint().mVal.x;
+                            double z = bullet.first.mVal.z - mTarget.first.translatePoint().mVal.z;
+                            double l = glm::sqrt(x * x + z * z);
+                            if(l == 0)
+                                mBulletsInfo[j].closest.theta = 0;
+                            else
+                                mBulletsInfo[j].closest.theta = (z >= 0 ? 1 : -1) * glm::acos(x / l);
+                            mBulletsInfo[j].closest.mPosRefAromor = posRefArmor;
+                            mBulletsInfo[j].closest.mVelRefAromor = velRefArmor;
+                            mBulletsInfo[j].closest.time = time;
+                            mBulletsInfo[j].state = BulletInfo::hit;
+
                             bullet.first.mVal.y = -1.0;
                             logInfo(fmt::format("Hit at armor[{}] ({:.2f},{:.2f},{:.2f})", i,
                                                 tfArmor2Ground.translatePoint().mVal.x, tfArmor2Ground.translatePoint().mVal.y,
@@ -295,22 +410,15 @@ public:
 
             // update events
             receive(
-                [&](set_target_info_atom, GroupMask, Clock::rep, const double, const double, const bool isFire) {
-                    ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);
+                [&](set_target_info_atom, GroupMask, Clock::rep, const double yaw, const double pitch, const bool isFire,
+                    SolverType) {
+                    ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
                     shoot = isFire;
-                },
-                [&](update_head_atom, GroupMask, Identifier key) {
-                    ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
-                    mHeadKey = key;
+                    mHeadYaw = yaw;
+                    mHeadPitch = pitch;
                 },
                 [&](const caf::down_msg&) { runFlag = false; }, [&](const caf::exit_msg&) { runFlag = false; },
                 [&](timer_atom) { ACTOR_PROTOCOL_CHECK(timer_atom); });
-
-            const auto headData = BlackBoard::instance().get<HeadInfo>(mHeadKey);
-            Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun{ glm::identity<glm::dmat4>() };
-            if(headData.has_value()) {
-                tfRobot2Gun = headData.value().tfRobot2Gun;
-            }
 
             const auto tfGun2Ground = combine(tfRobot2Gun.invTransformObj(), mSource.first);
 
@@ -325,6 +433,10 @@ public:
 
                 lastShoot = time;
                 ++bulletCount;
+
+                mBulletsInfo.emplace_back(time, tfGun2Ground.translatePoint(), vSrc + velocity);
+
+                shoot = false;
             }
 
             logInfo(
@@ -350,15 +462,34 @@ public:
                     std::pair<Point<UnitType::Distance, FrameOfRef::Ground>, Point<UnitType::Distance, FrameOfRef::Ground>>>
                     closest = std::nullopt;
 
-                for(auto& trans : mTargetArmors) {
-                    const auto pos = combine(mTarget.first, std::get<0>(trans)).translatePoint();
+                for(auto& armor : mTargetArmors) {
+                    const auto tfArmor2Ground = combine(mTarget.first, armor.first);
+                    const auto tfGround2Armor = tfArmor2Ground.invTransformObj();
+                    const auto pos = tfArmor2Ground.translatePoint();
 
-                    for(const auto& [p, v] : mBullets) {
+                    for(size_t i = 0; i < mBullets.size(); i++) {
+                        const auto& [p, v] = mBullets[i];
                         if(p.mVal.y < 0.0)
                             continue;
                         if(const auto dist = distance(p, pos); dist < minDist) {
                             minDist = dist;
                             closest = { pos, p };
+                        }
+                        if(auto d = distance(p, pos); d < mBulletsInfo[i].closest.distance) {
+                            mBulletsInfo[i].closest.distance = d;
+                            mBulletsInfo[i].closest.mPos = p;
+                            mBulletsInfo[i].closest.mVel = v;
+                            mBulletsInfo[i].closest.mPosRefAromor = tfGround2Armor(p);
+                            mBulletsInfo[i].closest.mVelRefAromor = tfGround2Armor(v);
+                            mBulletsInfo[i].closest.armorPos = pos;
+                            double x = p.mVal.x - mTarget.first.translatePoint().mVal.x;
+                            double z = p.mVal.z - mTarget.first.translatePoint().mVal.z;
+                            double l = glm::sqrt(x * x + z * z);
+                            if(l == 0)
+                                mBulletsInfo[i].closest.theta = 0;
+                            else
+                                mBulletsInfo[i].closest.theta = (z >= 0 ? 1 : -1) * glm::acos(x / l);
+                            mBulletsInfo[i].closest.time = time;
                         }
                     }
                 }
@@ -367,6 +498,12 @@ public:
                     const auto [p1, p2] = closest.value();
                     logInfo(fmt::format("Closest pair armor {:.3f} {:.3f} {:.3f} <-> bullet {:.3f} {:.3f} {:.3f} : {:.3f} m",
                                         p1.mVal.x, p1.mVal.y, p1.mVal.z, p2.mVal.x, p2.mVal.y, p2.mVal.z, minDist.mVal));
+                }
+
+                if(mConfig.printBulletInfo) {
+                    for(size_t i = 0; i < mBulletsInfo.size(); i++)
+                        if(!mBulletsInfo[i].printed && mBulletsInfo[i].state != BulletInfo::flying)
+                            logInfo(fmt::format("bullet[{}]:\n{}", i, mBulletsInfo[i].to_string()));
                 }
             }
 

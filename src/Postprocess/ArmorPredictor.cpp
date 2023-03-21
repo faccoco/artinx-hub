@@ -16,12 +16,14 @@
 #include <fmt/format.h>
 #include <magic_enum.hpp>
 
+#include "SuppressWarningEnd.hpp"
+
 constexpr double maxDeltaTime = 0.2;
 constexpr int32_t maxCntWrongData = 5;
 
-constexpr double maxJumpXDist = 0.5;
-constexpr double maxJumpYDist = 0.5;
-constexpr double maxJumpZDist = 0.5;
+[[maybe_unused]]constexpr double maxJumpXDist = 0.5;
+[[maybe_unused]]constexpr double maxJumpYDist = 0.5;
+[[maybe_unused]]constexpr double maxJumpZDist = 0.5;
 
 constexpr double maxXVel = 3.0;
 constexpr double maxYVel = 3.0;
@@ -38,7 +40,6 @@ bool inspect(Inspector& f, ArmorPredictorSettings& x) {
 
 class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, predict_success_atom> {
     Identifier mKey, mIMUKey;
-    GroupMask mGroupMask;
 
     bool mInitFlag = false;
     int32_t mCntWrongData = 0;
@@ -207,7 +208,6 @@ public:
                 ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);
                 mIMUKey = key;
             }
-
         };
     }
 };

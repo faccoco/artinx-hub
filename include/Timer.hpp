@@ -6,6 +6,7 @@
 
 #include "SuppressWarningEnd.hpp"
 #include <chrono>
+#include <condition_variable>
 #include <mutex>
 #include <optional>
 #include <queue>
@@ -14,12 +15,33 @@
 using TimePoint = Clock::time_point;
 using Duration = Clock::duration;
 
+constexpr double durationCastDouble(const Duration& d) {
+    return double(d.count()) / Duration::period::den * Duration::period::num;
+}
+
+constexpr Duration doubleCastDuration(const double d) {
+    return Duration(Duration::rep(d * Duration::period::den / Duration::period::num));
+}
+
 class SynchronizedClock final {
+    std::mutex mMutex;
     std::optional<TimePoint> mSimulationTime;
+    std::optional<Duration> mSimulationTimeStep;
+    std::optional<Duration> mSimulationTimeHalfStep;
+    struct TimerInfo {
+        std::condition_variable* cv;
+        TimePoint ddl;
+        bool operator<(const TimerInfo& rhs) const {
+            return ddl > rhs.ddl;
+        }
+    };
+    static std::priority_queue<TimerInfo> mSleepForQueue;
 
 public:
     void setSimulationTime(TimePoint tp);
+    void setSimulationTimeStep(Duration dt);
     [[nodiscard]] TimePoint now() const;
+    void sleep_for(const Duration& d);
     static SynchronizedClock& instance();
 };
 

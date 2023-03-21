@@ -45,3 +45,5 @@ constexpr double radiusOfOutpost = 0.2765;
 constexpr double speedThresholdFor17mm = 12.0;
 constexpr double speedThresholdFor42mmA = 8.0;
 constexpr double speedThresholdFor42mmB = 6.0;
+
+constexpr double angularVelocityOfOutpost = 0.4;  //(r/s)

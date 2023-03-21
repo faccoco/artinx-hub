@@ -28,11 +28,9 @@ class SpinMotionController final : public MotionController {
     double mSpinningSpeed;
 
 public:
-    explicit SpinMotionController(const double spinningSpeed) : mSpinningSpeed(spinningSpeed){};
+    explicit SpinMotionController(const double spinningSpeed) : mSpinningSpeed(spinningSpeed) {}
     void step(MotionState& motionState, double dt) override {
-        motionState =
-            glm::rotate(glm::identity<glm::dmat4>(), glm::two_pi<double>() * mSpinningSpeed * dt, glm::dvec3{ 0.0, 1.0, 0.0 }) *
-            motionState.raw();
+        motionState = glm::rotate(motionState.raw(), glm::two_pi<double>() * mSpinningSpeed * dt, glm::dvec3{ 0.0, 1.0, 0.0 });
     };
 };
 

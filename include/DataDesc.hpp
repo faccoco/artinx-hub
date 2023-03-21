@@ -19,10 +19,14 @@ enum class Color { Red, Blue };
 struct GlobalSettings final {
     double gForce;
     double dragCoefficient;
+    double airDensity;
     bool bullet42mm;
+
+    double latency = 0.0;
 
     Color selfColor = Color::Red;
     double bulletSpeed = 15.00;
+    double shootDelayTime = 0.f;
     bool started = false;
 
     [[nodiscard]] double bulletRadius() const noexcept {
@@ -41,8 +45,8 @@ struct GlobalSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, GlobalSettings& x) {
-    return f.object(x).fields(f.field("gForce", x.gForce), f.field("dragCoefficient", x.dragCoefficient),
-                              f.field("bullet42mm", x.bullet42mm));
+    return f.object(x).fields(f.field("gForce", x.gForce), f.field("dragCoefficient", x.dragCoefficient).fallback(0),
+                              f.field("airDensity", x.airDensity).fallback(0), f.field("bullet42mm", x.bullet42mm));
 }
 
 struct Identifier {
@@ -77,6 +81,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id);
 CAF_ADD_ATOM(ArtinxHub, start_atom);
 CAF_ADD_ATOM(ArtinxHub, detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_atom);
+CAF_ADD_ATOM(ArtinxHub, set_period_outpost_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_info_atom);
 CAF_ADD_ATOM(ArtinxHub, sync_position_atom);
 CAF_ADD_ATOM(ArtinxHub, update_posture_atom);
@@ -90,6 +95,7 @@ CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, armor_nnet_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, energy_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, predict_success_atom);
+CAF_ADD_ATOM(ArtinxHub, period_predict_success_atom);
 CAF_ADD_ATOM(ArtinxHub, ore_instructions_atom);
 CAF_ADD_ATOM(ArtinxHub, ore_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_succeed_atom);
@@ -102,6 +108,7 @@ CAF_ADD_ATOM(ArtinxHub, monitor_response_atom);
 CAF_ADD_ATOM(ArtinxHub, payload_atom);
 CAF_ADD_ATOM(ArtinxHub, ore_alignment_available_atom);
 CAF_ADD_ATOM(ArtinxHub, energy_detector_control_atom);
+CAF_ADD_ATOM(ArtinxHub, outpost_detector_control_atom);
 
 CAF_ADD_TYPE_ID(ArtinxHub, (Identifier));
 
@@ -118,12 +125,10 @@ struct __ImplActorProtocol final {
     }
 };
 
-#define ACTOR_PROTOCOL_DEFINE(...)                  \
-    template <>                                     \
-    struct __ImplActorProtocol<__VA_ARGS__> final { \
-        static constexpr bool check() noexcept {    \
-            return true;                            \
-        }                                           \
+#define ACTOR_PROTOCOL_DEFINE(...)                              \
+    template <>                                                 \
+    struct __ImplActorProtocol<__VA_ARGS__> final {             \
+        static constexpr bool check() noexcept { return true; } \
     }
 
 template <typename... Args>
@@ -139,4 +144,3 @@ ACTOR_PROTOCOL_DEFINE(monitor_response_atom);
 ACTOR_PROTOCOL_DEFINE(payload_atom, int32_t, int32_t);
 ACTOR_PROTOCOL_DEFINE(ore_detect_available_atom, double);
 ACTOR_PROTOCOL_DEFINE(ore_instructions_atom, bool);
-ACTOR_PROTOCOL_DEFINE(set_target_info_atom, GroupMask, Clock::rep, double, double, bool);

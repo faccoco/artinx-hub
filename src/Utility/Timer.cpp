@@ -53,11 +53,25 @@ void Timer::addTimer(caf::actor_addr actor, Duration period) {
     mTimers.push({ std::move(actor), Clock::now() + period, period });
 }
 
+std::priority_queue<SynchronizedClock::TimerInfo> SynchronizedClock::mSleepForQueue;
+
 TimePoint SynchronizedClock::now() const {
     if(mSimulationTime)
         return mSimulationTime.value();
 
     return Clock::now();
+}
+
+void SynchronizedClock::sleep_for(const Duration& d) {
+    std::unique_lock lock(mMutex);
+    if(mSimulationTime.has_value() && mSimulationTimeStep.has_value()) {
+        std::condition_variable cv;
+        mSleepForQueue.push(TimerInfo{ &cv, now() + d });
+        cv.wait(lock);
+    } else {
+        lock.unlock();
+        std::this_thread::sleep_for(d);
+    }
 }
 
 SynchronizedClock& SynchronizedClock::instance() {
@@ -66,5 +80,16 @@ SynchronizedClock& SynchronizedClock::instance() {
 }
 
 void SynchronizedClock::setSimulationTime(TimePoint tp) {
+    std::lock_guard lock(mMutex);
     mSimulationTime = tp;
+    while(!mSleepForQueue.empty() && (mSleepForQueue.top().ddl - mSimulationTime.value()) < mSimulationTimeHalfStep) {
+        mSleepForQueue.top().cv->notify_one();
+        mSleepForQueue.pop();
+    }
+}
+
+void SynchronizedClock::setSimulationTimeStep(Duration dt) {
+    std::lock_guard lock(mMutex);
+    mSimulationTimeStep = dt;
+    mSimulationTimeHalfStep = dt / 2;
 }

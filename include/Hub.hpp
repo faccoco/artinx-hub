@@ -108,6 +108,14 @@ public:
     }
 
     template <typename Atom, typename... Args>
+    void sendAllHighPriority(Atom atom, Args&&... args) {
+        ACTOR_PROTOCOL_CHECK(Atom, std::decay_t<Args>...);
+        for(auto&& [address, mask] : getDest<Atom>())
+            this->template send<caf::message_priority::high>(caf::actor_cast<caf::actor>(address), atom,
+                                                             wrap(std::forward<Args>(args))...);
+    }
+
+    template <typename Atom, typename... Args>
     void sendMasked(Atom atom, GroupMask mask, Args&&... args) {
         ACTOR_PROTOCOL_CHECK(Atom, std::decay_t<Args>...);
         for(auto&& [address, maskRhs] : getDest<Atom>())

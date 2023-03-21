@@ -284,7 +284,22 @@ public:
 
 template <FrameOfRef FoR>
 auto cross(const Normal<FoR>& a, const Normal<FoR>& b) noexcept {
-    return Normal<FoR>{ glm::cross(a, b), Normalized{} };
+    return Normal<FoR>{ glm::cross(a, b) };
+}
+
+template <UnitType Unit, FrameOfRef FoR>
+auto cross(const Vector<Unit, FoR>& a, const Normal<FoR>& b) noexcept {
+    return Normal<FoR>{ glm::cross(a, b) };
+}
+
+template <UnitType Unit, FrameOfRef FoR>
+auto cross(const Normal<FoR>& a, const Vector<Unit, FoR>& b) noexcept {
+    return Normal<FoR>{ glm::cross(a, b) };
+}
+
+template <UnitType Unit, FrameOfRef FoR>
+auto cross(const Vector<Unit, FoR>& a, const Vector<Unit, FoR>& b) noexcept {
+    return Normal<FoR>{ glm::cross(a, b) };
 }
 
 template <FrameOfRef FoR>
