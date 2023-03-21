@@ -8,45 +8,94 @@
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
-#include <glm/glm.hpp>
+#include <magic_enum.hpp>
 
 #include "SuppressWarningEnd.hpp"
 
-struct HeroStrategySettings final {};
+struct HeroStrategySettings final {
+    std::string aimType;
+};
 
 template <class Inspector>
 bool inspect(Inspector& f, HeroStrategySettings& x) {
-    return f.object(x).fields();
+    return f.object(x).fields(f.field("aimType", x.aimType).fallback("Car"));
 }
 
-class HeroStrategy final : public HubHelper<caf::event_based_actor, HeroStrategySettings, set_target_atom> {
+class HeroStrategy final : public HubHelper<caf::event_based_actor, HeroStrategySettings, set_target_atom, set_outpost_atom,
+                                            set_period_target_atom, set_period_outpost_atom> {
     Identifier mKey;
+    bool mOutpostActive = false, mOutpostInited = false;
+
+    std::function<void(SelectedTarget)> mSendFunc;
 
 public:
-    HeroStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    HeroStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
+        switch(magic_enum::enum_cast<PredictorType>(mConfig.aimType).value()) {
+            case PredictorType::Car:
+                mSendFunc = [this](SelectedTarget selected) {
+                    sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                };
+                break;
+            case PredictorType::Outpost:
+                mSendFunc = [this](SelectedTarget selected) {
+                    sendAll(set_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                };
+                break;
+            case PredictorType::Period:
+                mSendFunc = [this](SelectedTarget selected) {
+                    if(mOutpostActive) {
+                        sendAll(set_period_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
+                                !mOutpostInited);
+                        if(selected.selected.has_value() && selected.tfRobot2Gun.has_value() && !mOutpostInited)
+                            mOutpostInited = true;
+                    } else {
+                        sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                    }
+                };
+                break;
+            case PredictorType::PeriodOutpost:
+                mSendFunc = [this](SelectedTarget selected) {
+                    if(mOutpostActive) {
+                        sendAll(set_period_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
+                                !mOutpostInited);
+                        if(selected.selected.has_value() && selected.tfRobot2Gun.has_value() && !mOutpostInited)
+                            mOutpostInited = true;
+                    } else {
+                        sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                    }
+                };
+                break;
+            default:
+                break;
+        }
+    }
     caf::behavior make_behavior() override {
-        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [&](detect_available_atom, GroupMask, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
-                     const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
+        return {
+            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [this](detect_available_atom, GroupMask, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
+                const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
 
-                     SelectedTarget selected;
-                     selected.lastUpdate = data.lastUpdate;
-                     selected.tfRobot2Gun = data.tfRobot2Gun;
+                SelectedTarget selected;
+                selected.lastUpdate = data.lastUpdate;
+                selected.tfRobot2Gun = data.tfRobot2Gun;
 
-                     auto minDistance = std::numeric_limits<double>::max();
-                     for(auto& target : data.targets) {
-                         const auto vec = target.center.mVal;
-                         const auto distance = vec.x * vec.x + vec.y * vec.y;
-                         if(distance < minDistance) {
-                             selected.selected = target;
-                             minDistance = distance;
-                         }
-                     }
-                     if(!selected.selected.has_value())
-                         return;
-                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
-                 } };
+                auto minDistance = std::numeric_limits<double>::max();
+                for(auto& target : data.targets) {
+                    if(const auto distance = glm::length(target.center.mVal); minDistance > distance) {
+                        selected.selected = target;
+                        minDistance = distance;
+                    }
+                }
+                mSendFunc(selected);
+            },
+            [this](outpost_detector_control_atom, bool active) {
+                ACTOR_PROTOCOL_CHECK(outpost_detector_control_atom, bool);
+                if(active && !mOutpostActive)
+                    mOutpostInited = false;
+                mOutpostActive = active;
+            },
+        };
     }
 };
 

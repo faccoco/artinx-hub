@@ -176,26 +176,26 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             mCapEnergy = fdb.capEnergy;
             mChasisPower = fdb.chasisPower;
 
-            const HeadInfo infoUp{ SynchronizedClock::instance().now(),
-                                   decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                                       glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
-                                       glm::dvec3{ std::cos(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
-                                                       std::cos(static_cast<double>(fdb.pitch)),
-                                                   mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
-                                                   mConfig.headForwardOffset1 -
-                                                       std::sin(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
-                                                           std::cos(static_cast<double>(fdb.pitch)) },
-                                       glm::dvec3{ 0.0, 1.0, 0.0 }) } };
-            const HeadInfo infoDown{ SynchronizedClock::instance().now(),
-                                     decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                                         glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
-                                         glm::dvec3{ std::cos(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
-                                                         std::cos(static_cast<double>(fdb.downPitch)),
-                                                     mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
-                                                     mConfig.headForwardOffset2 -
-                                                         std::sin(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
-                                                             std::cos(static_cast<double>(fdb.downPitch)) },
-                                         glm::dvec3{ 0.0, 1.0, 0.0 }) } };
+            const HeadInfo infoUp{
+                SynchronizedClock::instance().now(),
+                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                    glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
+                    glm::dvec3{ -std::sin(static_cast<double>(fdb.yaw)) * std::cos(static_cast<double>(fdb.pitch)),
+                                mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
+                                mConfig.headForwardOffset1 -
+                                    std::cos(static_cast<double>(fdb.yaw)) * std::cos(static_cast<double>(fdb.pitch)) },
+                    glm::dvec3{ 0.0, 1.0, 0.0 }) }
+            };
+            const HeadInfo infoDown{
+                SynchronizedClock::instance().now(),
+                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                    glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
+                    glm::dvec3{ -std::sin(static_cast<double>(fdb.downYaw)) * std::cos(static_cast<double>(fdb.downPitch)),
+                                mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
+                                mConfig.headForwardOffset2 -
+                                    std::cos(static_cast<double>(fdb.downYaw)) * std::cos(static_cast<double>(fdb.downPitch)) },
+                    glm::dvec3{ 0.0, 1.0, 0.0 }) }
+            };
 
             PostureData posture;
             posture.lastUpdate = SynchronizedClock::instance().now();
@@ -232,9 +232,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         // std::cout << mSendBufferLen << std::endl;
         mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen = 0;
-        HubLogger::watch("target yaw1",gimbalSetPacket.up.yaw);
+        HubLogger::watch("target yaw1", gimbalSetPacket.up.yaw);
         HubLogger::watch("target pitch1", gimbalSetPacket.up.pitch);
-        HubLogger::watch("target yaw2",gimbalSetPacket.down.yaw);
+        HubLogger::watch("target yaw2", gimbalSetPacket.down.yaw);
         HubLogger::watch("target pitch2", gimbalSetPacket.down.pitch);
     }
 
@@ -295,7 +295,7 @@ public:
                      if(mOutpostMode && solverType == solverType_normal)
                          return;
 
-                     if(yawAngle < -glm::pi<double>())
+                     if(yawAngle <= -glm::pi<double>())
                          yawAngle += glm::two_pi<double>();
 
                      if(yawAngle > glm::pi<double>())

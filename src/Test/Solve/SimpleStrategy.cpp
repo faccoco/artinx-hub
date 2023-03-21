@@ -7,9 +7,7 @@
 
 #include "SuppressWarningBegin.hpp"
 
-#include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
-#include <glm/gtc/random.hpp>
 #include <magic_enum.hpp>
 
 #include "SuppressWarningEnd.hpp"
@@ -28,17 +26,53 @@ class SimpleStrategy final : public HubHelper<caf::event_based_actor, SimpleStra
     Identifier mKey;
     bool mOutpostActive = false, mOutpostInited = false;
 
-    const PredictorType predictorType;
+    std::function<void(SelectedTarget)> mSendFunc;
 
 public:
-    SimpleStrategy(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ generateKey(this) }, predictorType{
-              magic_enum::enum_cast<PredictorType>(mConfig.aimType).value()
-          } {}
+    SimpleStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
+        switch(magic_enum::enum_cast<PredictorType>(mConfig.aimType).value()) {
+            case PredictorType::Car:
+                mSendFunc = [this](SelectedTarget selected) {
+                    sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                };
+                break;
+            case PredictorType::Outpost:
+                mSendFunc = [this](SelectedTarget selected) {
+                    sendAll(set_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                };
+                break;
+            case PredictorType::Period:
+                mSendFunc = [this](SelectedTarget selected) {
+                    if(mOutpostActive) {
+                        sendAll(set_period_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
+                                !mOutpostInited);
+                        if(selected.selected.has_value() && selected.tfRobot2Gun.has_value() && !mOutpostInited)
+                            mOutpostInited = true;
+                    } else {
+                        sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                    }
+                };
+                break;
+            case PredictorType::PeriodOutpost:
+                mSendFunc = [this](SelectedTarget selected) {
+                    if(mOutpostActive) {
+                        sendAll(set_period_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
+                                !mOutpostInited);
+                        if(selected.selected.has_value() && selected.tfRobot2Gun.has_value() && !mOutpostInited)
+                            mOutpostInited = true;
+                    } else {
+                        sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                    }
+                };
+                break;
+            default:
+                break;
+        }
+    }
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-            [&](detect_available_atom, GroupMask, Identifier key) {
+            [this](detect_available_atom, GroupMask, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
                 const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
 
@@ -53,37 +87,7 @@ public:
                         minDistance = distance;
                     }
                 }
-
-                switch(predictorType) {
-                    case PredictorType::Car:
-                        sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
-                        break;
-                    case PredictorType::Outpost:
-                        sendAll(set_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
-                        break;
-                    case PredictorType::Period:
-                        if(mOutpostActive) {
-                            sendAll(set_period_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
-                                    !mOutpostInited);
-                            if(selected.selected.has_value() && selected.tfRobot2Gun.has_value() && !mOutpostInited)
-                                mOutpostInited = true;
-                        } else {
-                            sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
-                        }
-                        break;
-                    case PredictorType::PeriodOutpost:
-                        if(mOutpostActive) {
-                            sendAll(set_period_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
-                                    !mOutpostInited);
-                            if(selected.selected.has_value() && selected.tfRobot2Gun.has_value() && !mOutpostInited)
-                                mOutpostInited = true;
-                        } else {
-                            sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
-                        }
-                        break;
-                    default:
-                        break;
-                }
+                mSendFunc(selected);
             },
             [this](outpost_detector_control_atom, bool active) {
                 ACTOR_PROTOCOL_CHECK(outpost_detector_control_atom, bool);

@@ -102,11 +102,19 @@ public:
                     return;
                 }
 
+                double thetaDelta = std::abs(getTheta(posRefRobot.mVal) - mTargetTheta);
+                if(thetaDelta > glm::pi<double>())
+                    thetaDelta = glm::two_pi<double>() - thetaDelta;
+
+                HubLogger::watch("thetaDelta", thetaDelta);
+                logInfo(fmt::format("targetTheta:{} headTheta:{} thetaDelta:{}", getTheta(posRefRobot.mVal), mTargetTheta,
+                                    thetaDelta));
                 // check
-                if(std::abs(getTheta(posRefRobot.mVal) - mTargetTheta) <= sameThetaThreshold) {
+                if(thetaDelta <= sameThetaThreshold) {
                     // logInfo("PeriodPredictor: same theta");
                     // logInfo(
-                    //     fmt::format("PeriodPredictor: pos:{} {} {}", posRefRobot.mVal.x, posRefRobot.mVal.y, posRefRobot.mVal.z));
+                    //     fmt::format("PeriodPredictor: pos:{} {} {}", posRefRobot.mVal.x, posRefRobot.mVal.y,
+                    //     posRefRobot.mVal.z));
                     // logInfo(fmt::format("PeriodPredictor: theta: {} degree", glm::degrees(getTheta(posRefRobot.mVal))));
 
                     // logInfo(fmt::format("PeriodPredictor: mState: {}", mState));
