@@ -12,22 +12,12 @@
 
 #include "SuppressWarningEnd.hpp"
 
-struct HeroStrategySettings final {};
-
-template <class Inspector>
-bool inspect(Inspector& f, HeroStrategySettings& x) {
-    return f.object(x).fields();
-}
-
-class HeroStrategy final
-    : public HubHelper<caf::event_based_actor, HeroStrategySettings, set_target_atom, set_period_outpost_atom> {
+class HeroStrategy final : public HubHelper<caf::event_based_actor, void, set_target_atom, set_period_outpost_atom> {
     Identifier mKey;
-    bool mOutpostActive = false, mIsInitedOutpost = false;
-
+    bool mOutpostActive = false, mOutpostInited = false;
 
 public:
-    HeroStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-    }
+    HeroStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
@@ -48,9 +38,9 @@ public:
                 }
                 if(mOutpostActive) {
                     sendAll(set_period_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
-                            !mIsInitedOutpost);
-                    if(selected.selected.has_value() && selected.tfRobot2Gun.has_value() && !mIsInitedOutpost)
-                        mIsInitedOutpost = true;
+                            !mOutpostInited);
+                    if(selected.selected.has_value() && selected.tfRobot2Gun.has_value() && !mOutpostInited)
+                        mOutpostInited = true;
                 } else {
                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                 }
@@ -58,7 +48,7 @@ public:
             [this](outpost_detector_control_atom, bool active) {
                 ACTOR_PROTOCOL_CHECK(outpost_detector_control_atom, bool);
                 if(active && !mOutpostActive)
-                    mIsInitedOutpost = false;
+                    mOutpostInited = false;
                 mOutpostActive = active;
             },
         };

@@ -131,8 +131,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             FdbPacket fdb(mPacketBuffer);
             if(fdb.bulletSpeed > 8.0f)
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
-/*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
-                logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
+            /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
+                            logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
             if(mShootDelay.empty() || (fdb.shootDelayTime != mShootDelay.back() && fdb.shootDelayTime < maxShootDelay)) {
                 if(mShootDelay.size() >= mShootDelayLen)
                     mShootDelay.pop_front();
@@ -163,7 +163,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             fdb.downYaw = (fdb.downYaw < 0.0f) ? fdb.downYaw + glm::two_pi<float>() : fdb.downYaw;
 
             if(!mOutpostMode && fdb.outpostMode) {
-                std::lock_guard lock{mOutpostModeChangeMutex};
+                std::lock_guard lock{ mOutpostModeChangeMutex };
                 mOutpostMode = true;
                 gimbalSetPacket.setUpTarget(fdb.yaw, fdb.pitch, false);
             }
@@ -175,22 +175,22 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             mChasisPower = fdb.chasisPower;
 
             const HeadInfo infoUp{ SynchronizedClock::instance().now(),
-                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                    glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
+                                   decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                                       glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
                                        glm::dvec3{ std::cos(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
                                                        std::cos(static_cast<double>(fdb.pitch)),
-                                mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
-                                mConfig.headForwardOffset1 -
+                                                   mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
+                                                   mConfig.headForwardOffset1 -
                                                        std::sin(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
                                                            std::cos(static_cast<double>(fdb.pitch)) },
                                        glm::dvec3{ 0.0, 1.0, 0.0 }) } };
             const HeadInfo infoDown{ SynchronizedClock::instance().now(),
-                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                    glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
+                                     decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                                         glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
                                          glm::dvec3{ std::cos(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
                                                          std::cos(static_cast<double>(fdb.downPitch)),
-                                mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
-                                mConfig.headForwardOffset2 -
+                                                     mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
+                                                     mConfig.headForwardOffset2 -
                                                          std::sin(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
                                                              std::cos(static_cast<double>(fdb.downPitch)) },
                                          glm::dvec3{ 0.0, 1.0, 0.0 }) } };
@@ -202,8 +202,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 mFirstReceivedTime = SynchronizedClock::instance().now();
                 std::thread([this]() {
                     while(globalStatus == RunStatus::running) {
-                        HubLogger::fileLog(fmt::format("time: {} ms capEnergy: {:.1f} chasisPower: {:.2f}",
-                                                       (Clock::now() - mFirstReceivedTime.value()).count(), mCapEnergy,
+                        HubLogger::fileLog(fmt::format("time: {} s capEnergy: {:.1f} chasisPower: {:.2f}",
+                                                       durationCastDouble(Clock::now() - mFirstReceivedTime.value()), mCapEnergy,
                                                        mChasisPower));
                         std::this_thread::sleep_for(ChassisPowerRecordInterval);
                     }
