@@ -72,7 +72,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     std::atomic<float> mCapEnergy, mChasisPower;
 
     bool mOutpostMode = false;
-    std::atomic_flag mOutpostModeChangeMutex = ATOMIC_FLAG_INIT;
+    std::mutex mOutpostModeChangeMutex;
 
     std::deque<double> mLatency;
     std::deque<uint16_t> mShootDelay;
@@ -131,8 +131,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             FdbPacket fdb(mPacketBuffer);
             if(fdb.bulletSpeed > 8.0f)
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
-            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
-                logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));
+/*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
+                logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
             if(mShootDelay.empty() || (fdb.shootDelayTime != mShootDelay.back() && fdb.shootDelayTime < maxShootDelay)) {
                 if(mShootDelay.size() >= mShootDelayLen)
                     mShootDelay.pop_front();
@@ -163,10 +163,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             fdb.downYaw = (fdb.downYaw < 0.0f) ? fdb.downYaw + glm::two_pi<float>() : fdb.downYaw;
 
             if(!mOutpostMode && fdb.outpostMode) {
-                while(mOutpostModeChangeMutex.test_and_set())
-                    std::this_thread::yield();
+                std::lock_guard lock{mOutpostModeChangeMutex};
                 mOutpostMode = true;
-                mOutpostModeChangeMutex.clear();
                 gimbalSetPacket.setUpTarget(fdb.yaw, fdb.pitch, false);
             }
             mOutpostMode = fdb.outpostMode;
@@ -289,27 +287,27 @@ public:
                         SolverType solverType) {
                      ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
 
-                     while(mOutpostModeChangeMutex.test_and_set())
-                         std::this_thread::yield();
+                     isFire = solverType && isFire;
+                     {
+                         std::lock_guard lock{ mOutpostModeChangeMutex };
+                         if(mOutpostMode && solverType == normalSolver) {
+                             return;
+                         }
 
-                     if(mOutpostMode && solverType == solverType_normal)
-                         return;
+                         if(yawAngle <= -glm::pi<double>())
+                             yawAngle += glm::two_pi<double>();
 
-                     if(yawAngle <= -glm::pi<double>())
-                         yawAngle += glm::two_pi<double>();
+                         if(yawAngle > glm::pi<double>())
+                             yawAngle -= glm::two_pi<double>();
 
-                     if(yawAngle > glm::pi<double>())
-                         yawAngle -= glm::two_pi<double>();
-
-                     if(mask == 1U) {
-                         gimbalSetPacket.setUpTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
-                         mLastUpTargetTime = Clock::now();
-                     } else {
-                         gimbalSetPacket.setDownTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
-                         mLastDownTargetTime = Clock::now();
+                         if(mask == 1U) {
+                             gimbalSetPacket.setUpTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
+                             mLastUpTargetTime = Clock::now();
+                         } else {
+                             gimbalSetPacket.setDownTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
+                             mLastDownTargetTime = Clock::now();
+                         }
                      }
-
-                     mOutpostModeChangeMutex.clear();
 
                      const auto current = Clock::now();
                      const auto latency =
