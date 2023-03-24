@@ -69,7 +69,7 @@ public:
                 auto res = solveWithoutAirDrag(tfPos, glm::dvec3{ 0, 0, 0 });
                 if(!data->period.has_value()) {
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
-                                        std::get<1>(res), std::get<2>(res), false, solverType_period);
+                                        std::get<1>(res), std::get<2>(res), false, waitSolver);
                     return;
                 }
                 double waitTimeDouble = data->period.value() - std::get<0>(res) - delayTime - GlobalSettings::get().latency -
@@ -96,7 +96,7 @@ public:
                     }
                     lock.unlock();
 
-                    SynchronizedClock::instance().sleep_for(waitTime - mHeadDelay);
+                    SynchronizedClock::instance().sleep_for(waitTime - mHeadDelay); //eserve time for turning head
 
                     lock.lock();
                     if(*sc == ScheduleState::notSend) {
@@ -107,10 +107,10 @@ public:
                     lock.unlock();
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, (data.value().lastUpdate + waitTime - mHeadDelay).time_since_epoch().count(),
-                                        std::get<1>(res), std::get<2>(res), false, solverType_period);
+                                        std::get<1>(res), std::get<2>(res), false, waitSolver);
 //                    logInfo("send not shoot");
 
-                    SynchronizedClock::instance().sleep_for(mHeadDelay);
+                    SynchronizedClock::instance().sleep_for(mHeadDelay); //ready for shoot
 
                     lock.lock();
                     if(*sc == ScheduleState::notSend) {
@@ -121,7 +121,7 @@ public:
                     lock.unlock();
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, (data.value().lastUpdate + waitTime).time_since_epoch().count(),
-                                        std::get<1>(res), std::get<2>(res), true, solverType_period);
+                                        std::get<1>(res), std::get<2>(res), true, waitSolver);  //shoot
 //                    logInfo("send shoot");
                     // logInfo(fmt::format("solver: x: {} y: {} z: {}", data->position.mVal.x, data->position.mVal.y,
                     //                     data->position.mVal.z));

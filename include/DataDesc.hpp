@@ -117,6 +117,8 @@ CAF_END_TYPE_ID_BLOCK(ArtinxHub);
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(Identifier);
 
 using GroupMask = uint32_t;
+using SolverType = uint8_t;         //0 normal track; 1: wait for target
+static constexpr SolverType normalSolver = 0, waitSolver = 1;
 
 template <typename... T>
 struct __ImplActorProtocol final {
