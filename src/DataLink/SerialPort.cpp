@@ -133,7 +133,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
             if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                 logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));
-            if(mShootDelay.empty() || (fdb.shootDelayTime != mShootDelay.back() && fdb.shootDelayTime < maxShootDelay)) {
+            if(fdb.shootDelayTime < maxShootDelay && (mShootDelay.empty() || fdb.shootDelayTime != mShootDelay.back())) {
                 if(mShootDelay.size() >= mShootDelayLen)
                     mShootDelay.pop_front();
                 mShootDelay.push_back(fdb.shootDelayTime);
@@ -204,7 +204,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 mFirstReceivedTime = SynchronizedClock::instance().now();
                 std::thread([this]() {
                     while(globalStatus == RunStatus::running) {
-                        HubLogger::fileLog(fmt::format("time: {} ms capEnergy: {.1f} chasisPower: {.2f}",
+                        HubLogger::fileLog(fmt::format("time: {} ns capEnergy: {:.1f} chasisPower: {:.2f}",
                                                        (Clock::now() - mFirstReceivedTime.value()).count(), mCapEnergy,
                                                        mChasisPower));
                         std::this_thread::sleep_for(ChassisPowerRecordInterval);

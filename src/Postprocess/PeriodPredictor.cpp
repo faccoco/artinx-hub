@@ -15,19 +15,21 @@
 
 #include "SuppressWarningEnd.hpp"
 
-static constexpr double sameThetaThreshold = glm::radians<double>(0.5);
-static constexpr double samePitchThreshold = glm::radians<double>(0.5);
-static constexpr double minPeriodThreshold = 0.2;     // s
-static constexpr double maxPeriodThreshold = 3.5;     // s
-static constexpr double maxPeriodStdThreshold = 0.2;  // s
+static constexpr double sameThetaThreshold = glm::radians<double>(0.1);
+static constexpr double samePitchThreshold = glm::radians<double>(1);
+static constexpr double minIntervalThreshold = 0.5;       // s
+static constexpr double maxPeriodThreshold = 5;         // s
+static constexpr double maxPeriodStdThreshold = 0.05;  // s
+static constexpr int maxErrorTimes = 2;
 
 class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, period_predict_success_atom> {
     Identifier mKey;
 
     double mTargetTheta;
-    double mTargetPitch[4];
     std::vector<double> mPeriodTimes[4];
+    TimePoint mLastSameYawTime;
     TimePoint mLastTime[4];
+    int mErrorTimes[4];
     enum State : unsigned char {
         firstAPeriod = 0,
         firstBPeriod,
@@ -60,6 +62,8 @@ class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, per
         mState = firstAPeriod;
         for(auto& times : mPeriodTimes)
             times.clear();
+        for(auto& times : mErrorTimes)
+            times = 0;
     }
 
     double getTheta(const glm::dvec3& point) {
@@ -98,7 +102,7 @@ public:
                 if(init) {
                     clear();
                     mTargetTheta = getTheta(tfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(0, 0, -1)).mVal);
-                    logInfo("PeriodPredictor: inited");
+                    logInfo(fmt::format("PeriodPredictor: inited theta {} degree", glm::degrees(mTargetTheta)));
                     return;
                 }
 
@@ -106,9 +110,6 @@ public:
                 if(thetaDelta > glm::pi<double>())
                     thetaDelta = glm::two_pi<double>() - thetaDelta;
 
-                HubLogger::watch("thetaDelta", thetaDelta);
-                logInfo(fmt::format("targetTheta:{} headTheta:{} thetaDelta:{}", getTheta(posRefRobot.mVal), mTargetTheta,
-                                    thetaDelta));
                 // check
                 if(thetaDelta <= sameThetaThreshold) {
                     // logInfo("PeriodPredictor: same theta");
@@ -120,41 +121,47 @@ public:
                     // logInfo(fmt::format("PeriodPredictor: mState: {}", mState));
 
                     if(mState == firstAPeriod) {
-                        mTargetPitch[0] = getPitch(posRefRobot.mVal);
                         mLastTime[0] = data->lastUpdate;
+                        mLastSameYawTime = data->lastUpdate;
                         step(mState);
                         // logInfo("PeriodPredictor: find first");
+                        sendAll(period_predict_success_atom_v,
+                                BlackBoard::instance().updateSync<PredictedPeriodTarget>(Identifier{ mKey.val }, res));
                         return;
                     }
-                    double timeGap = durationCastDouble(data->lastUpdate - mLastTime[(mState - 1) & 0x3]);
-                    if(timeGap > maxPeriodThreshold) {
+                    double interval = durationCastDouble(data->lastUpdate - mLastSameYawTime);
+                    if(interval > maxPeriodThreshold) {
                         clear();
-                        logInfo(fmt::format("PeriodPredictor: timeGap: {} too large", timeGap));
+                        logInfo(fmt::format("PeriodPredictor: interval: {} too large", interval));
                     }
-                    if(timeGap < minPeriodThreshold)
+                    if(interval < minIntervalThreshold)
                         return;
 
+                    mLastSameYawTime = data->lastUpdate;
                     int idx = getIdx(mState);
                     if(isFirstPeriod(mState)) {
-                        mTargetPitch[idx] = getPitch(posRefRobot.mVal);
                         mLastTime[idx] = data->lastUpdate;
                     } else {
-                        if(std::abs(getPitch(posRefRobot.mVal) - mTargetPitch[idx]) > samePitchThreshold) {
-                            clear();
-                            return;
-                        }
                         // logInfo("PeriodPredictor: same pitch");
                         // logInfo(fmt::format("PeriodPredictor: pitch: {} degree", glm::degrees(getPitch(posRefRobot.mVal))));
                         mPeriodTimes[idx].push_back(durationCastDouble(data->lastUpdate - mLastTime[idx]));
-                        mLastTime[idx] = data->lastUpdate;
                         double periodAvg = avg(mPeriodTimes[idx]);
                         double periodStd = Std(mPeriodTimes[idx], periodAvg);
                         logInfo(
                             fmt::format("PeriodPredictor: {} period avg = {} | Std = {}", char('A' + idx), periodAvg, periodStd));
                         if(periodStd > maxPeriodStdThreshold) {
-                            clear();
+                            if(mErrorTimes[idx] >= maxErrorTimes) {
+                                clear();
+                                logInfo(fmt::format("PeriodPredictor: {} period std too large and clear", char('A' + idx)));
+                            } else {
+                                mPeriodTimes[idx].pop_back();
+                                mErrorTimes[idx]+=1;
+                                logInfo(fmt::format("PeriodPredictor: {} period std too large and passed", char('A' + idx)));
+                                step(mState);
+                            }
                             return;
                         }
+                        mLastTime[idx] = data->lastUpdate;
                         res.period = periodAvg;
                         sendAll(period_predict_success_atom_v,
                                 BlackBoard::instance().updateSync<PredictedPeriodTarget>(Identifier{ mKey.val }, res));
