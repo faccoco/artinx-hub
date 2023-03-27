@@ -375,7 +375,7 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      ACTOR_EXCEPTION_PROBE();
 
-                     const auto t0 = Clock::now();
+//                     const auto t0 = Clock::now();
                      const auto frame = BlackBoard::instance().get<CameraFrame>(key).value();
                      NNetDetectedArmorArray res;
                      res.frame = frame;
@@ -424,9 +424,9 @@ public:
                          useROI = true;
                      }
 
-                     const auto t1 = Clock::now();
-                     logInfo(
-                         fmt::format("NNet armor detector:decode time {:.4f}ms", static_cast<double>((t1 - t0).count()) / 1e6));
+//                     const auto t1 = Clock::now();
+//                     logInfo(
+//                         fmt::format("NNet armor detector:decode time {:.4f}ms", static_cast<double>((t1 - t0).count()) / 1e6));
 
                      sendAll(armor_nnet_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  },

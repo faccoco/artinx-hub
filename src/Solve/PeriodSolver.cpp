@@ -77,7 +77,7 @@ public:
                 while(waitTimeDouble < 0)
                     waitTimeDouble += data->period.value();
                 auto waitTime = doubleCastDuration(waitTimeDouble);
-                logInfo(fmt::format("waitTime {}ms  shootDelay {}ms",static_cast<int>(waitTimeDouble * 1000),static_cast<int>(GlobalSettings::get().shootDelayTime * 1000)));
+//                logInfo(fmt::format("waitTime {}ms  shootDelay {}ms",static_cast<int>(waitTimeDouble * 1000),static_cast<int>(GlobalSettings::get().shootDelayTime * 1000)));
 
                 std::thread([this, waitTime, data, res]() {
                     ScheduleState* sc = NULL;

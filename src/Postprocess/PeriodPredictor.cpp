@@ -15,12 +15,12 @@
 
 #include "SuppressWarningEnd.hpp"
 
-static constexpr double sameThetaThreshold = glm::radians<double>(0.1);
-static constexpr double samePitchThreshold = glm::radians<double>(1);
-static constexpr double minIntervalThreshold = 0.5;       // s
-static constexpr double maxPeriodThreshold = 5;         // s
+static constexpr double sameThetaThreshold = glm::radians<double>(0.3);
+static constexpr double minIntervalThreshold = 0.1;    // s
+static constexpr double maxPeriodThreshold = 5;        // s
 static constexpr double maxPeriodStdThreshold = 0.05;  // s
-static constexpr int maxErrorTimes = 2;
+static constexpr int maxErrorTimes = 1;
+static constexpr Duration minSendInterval = 1s;
 
 class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, period_predict_success_atom> {
     Identifier mKey;
@@ -30,6 +30,7 @@ class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, per
     TimePoint mLastSameYawTime;
     TimePoint mLastTime[4];
     int mErrorTimes[4];
+    TimePoint mLastSend;
     enum State : unsigned char {
         firstAPeriod = 0,
         firstBPeriod,
@@ -148,14 +149,14 @@ public:
                         double periodAvg = avg(mPeriodTimes[idx]);
                         double periodStd = Std(mPeriodTimes[idx], periodAvg);
                         logInfo(
-                            fmt::format("PeriodPredictor: {} period avg = {} | Std = {}", char('A' + idx), periodAvg, periodStd));
+                            fmt::format("PeriodPredictor: {} this period = {:.3f} period avg = {} | Std = {}", char('A' + idx), mPeriodTimes[idx].back(), periodAvg, periodStd));
                         if(periodStd > maxPeriodStdThreshold) {
                             if(mErrorTimes[idx] >= maxErrorTimes) {
                                 clear();
                                 logInfo(fmt::format("PeriodPredictor: {} period std too large and clear", char('A' + idx)));
                             } else {
                                 mPeriodTimes[idx].pop_back();
-                                mErrorTimes[idx]+=1;
+                                mErrorTimes[idx] += 1;
                                 logInfo(fmt::format("PeriodPredictor: {} period std too large and passed", char('A' + idx)));
                                 step(mState);
                             }
@@ -163,8 +164,12 @@ public:
                         }
                         mLastTime[idx] = data->lastUpdate;
                         res.period = periodAvg;
-                        sendAll(period_predict_success_atom_v,
-                                BlackBoard::instance().updateSync<PredictedPeriodTarget>(Identifier{ mKey.val }, res));
+                        if(SynchronizedClock::instance().now() - mLastSend > minSendInterval) {
+                            mLastSend = SynchronizedClock::instance().now();
+                            sendAll(period_predict_success_atom_v,
+                                    BlackBoard::instance().updateSync<PredictedPeriodTarget>(Identifier{ mKey.val }, res));
+                            logInfo("PeriodPredictor: send");
+                        }
                     }
                     step(mState);
                 }
