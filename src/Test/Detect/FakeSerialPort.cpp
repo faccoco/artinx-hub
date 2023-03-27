@@ -16,7 +16,7 @@ class FakeSerialPort final : public HubHelper<caf::event_based_actor, void> {
 public:
     FakeSerialPort(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
-        return { [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); } };
+        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); } };
     }
 };
 HUB_REGISTER_CLASS(FakeSerialPort);
