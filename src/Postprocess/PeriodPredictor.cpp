@@ -15,11 +15,12 @@
 
 #include "SuppressWarningEnd.hpp"
 
-static constexpr double sameThetaThreshold = glm::radians<double>(0.3);
+static constexpr double sameThetaThreshold = glm::radians<double>(0.5);
 static constexpr double minIntervalThreshold = 0.1;    // s
 static constexpr double maxPeriodThreshold = 5;        // s
 static constexpr double maxPeriodStdThreshold = 0.05;  // s
-static constexpr int maxErrorTimes = 1;
+static constexpr int maxErrorTimes = 3;
+static constexpr int maxEachErrorTimes = 2;
 static constexpr Duration minSendInterval = 1s;
 
 class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, period_predict_success_atom> {
@@ -29,7 +30,7 @@ class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, per
     std::vector<double> mPeriodTimes[4];
     std::optional<TimePoint> mLastSameYawTime;
     std::optional<TimePoint> mLastTime[4];
-    int mErrorTimes;
+    int mErrorTimes, mEachErrorTimes[4];
     TimePoint mLastSend;
     enum State : unsigned char {
         APeriod = 0,
@@ -51,17 +52,19 @@ class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, per
         for(auto& times : mLastTime)
             times = std::nullopt;
         mErrorTimes = 0;
+        std::memset(mEachErrorTimes, 0, sizeof(mEachErrorTimes));
     }
 
     void clear(int idx) {
-        logInfo(fmt::format("PeriodPredictor: clear {}", 'A' + idx));
+        logInfo(fmt::format("PeriodPredictor: clear {}", char('A' + idx)));
         mPeriodTimes[idx].clear();
         mLastTime[idx] = std::nullopt;
         mErrorTimes = 0;
+        mEachErrorTimes[idx] = 0;
     }
 
     bool correct(int idx) {
-        static constexpr double sameIntervalThreshold = 0.01;  // s
+        static constexpr double sameIntervalThreshold = 0.1;  // s
         static double lastDelta;
         double nowDelta;
         bool success = true;
@@ -70,6 +73,7 @@ class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, per
             mPeriodTimes[idx].pop_back();
             nowDelta = tmp - mPeriodTimes[idx].back();
         }
+        logInfo(fmt::format("PeriodPredictor: nowDelta {}", nowDelta));
         if(mErrorTimes != 0) {
             if(lastDelta != 0 && std::abs(lastDelta - nowDelta) <= sameIntervalThreshold) {
                 auto avgDelta = doubleCastDuration((lastDelta + nowDelta) / 2);
@@ -84,6 +88,7 @@ class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, per
             }
         }
         mErrorTimes += 1;
+        mEachErrorTimes[idx] += 1;
         lastDelta = nowDelta;
         return success;
     }
@@ -170,16 +175,22 @@ public:
                         logInfo(fmt::format("PeriodPredictor: {} this period = {:.3f} period avg = {} | Std = {}",
                                             char('A' + mState), mPeriodTimes[mState].back(), periodAvg, periodStd));
                         if(periodStd > maxPeriodStdThreshold) {
-                            if(mErrorTimes >= maxErrorTimes) {
-                                logInfo(fmt::format("PeriodPredictor: {} period std too large and clear", char('A' + mState)));
+                            if(mEachErrorTimes[mState] >= maxEachErrorTimes) {
+                                logInfo(
+                                    fmt::format("PeriodPredictor: {} period std too large and one clear", char('A' + mState)));
                                 clear(mState);
-                                mLastTime[mState] = data->lastUpdate;
+                            } else if(mErrorTimes >= maxErrorTimes) {
+                                logInfo(
+                                    fmt::format("PeriodPredictor: {} period std too large and all clear", char('A' + mState)));
+                                clear();
+                                //                                mLastTime[mState] = data->lastUpdate;
                             } else {
                                 logInfo(fmt::format("PeriodPredictor: {} period std too large and correct", char('A' + mState)));
                                 if(!correct(mState)) {
-                                    clear(mState);
-                                    mLastTime[mState] = data->lastUpdate;
+                                    clear();
+                                    //                                    mLastTime[mState] = data->lastUpdate;
                                 }
+                                mLastTime[mState] = data->lastUpdate;
                             }
                         } else {
                             mErrorTimes = 0;
