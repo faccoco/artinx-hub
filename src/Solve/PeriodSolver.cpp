@@ -32,7 +32,7 @@ class PeriodSolver final : public HubHelper<caf::event_based_actor, PeriodSolver
     const double delayTime;
     const Duration mHeadDelay;
     bool mOutpostActive;
-    volatile std::atomic<uint64_t> mUpdateCnt = 0;
+    std::atomic_uint mUpdateCnt = 0;
 
     static constexpr glm::dvec3 tf(const glm::dvec3& ori) {
         return { ori.x, -ori.z, ori.y };
@@ -79,10 +79,10 @@ public:
                                     static_cast<int>(GlobalSettings::get().shootDelayTime * 1000)));
 
                 std::thread([this, waitTime, data, res]() {
-                    auto t1 = mUpdateCnt;
+                    auto t1 = mUpdateCnt.load();
 
                     SynchronizedClock::instance().sleep_for(waitTime - mHeadDelay);  // eserve time for turning head
-                    if(t1 != mUpdateCnt)
+                    if(!mUpdateCnt.compare_exchange_strong(t1, t1))
                         return;
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask,
@@ -91,7 +91,7 @@ public:
                     //                    logInfo("send not shoot");
 
                     SynchronizedClock::instance().sleep_for(mHeadDelay);  // ready for shoot
-                    if(t1 != mUpdateCnt)
+                    if(!mUpdateCnt.compare_exchange_strong(t1, t1))
                         return;
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask,
