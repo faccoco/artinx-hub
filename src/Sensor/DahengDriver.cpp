@@ -11,6 +11,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/string_cast.hpp>
 #include <magic_enum.hpp>
 #include <opencv2/opencv.hpp>
 #include <tuple>
@@ -108,7 +109,7 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
     bool mDoUndistort;
 
     const Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> mTfGun2Camera =
-        glm::translate(glm::rotate(glm::identity<glm::dmat4>(), -mConfig.pitch, glm::dvec3{ 1, 0, 0 }), -mConfig.offset);
+        glm::translate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 }), -mConfig.offset);
 
     void reportFrameRate(const Clock::time_point timeStamp) {
         const auto current = timeStamp.time_since_epoch().count();

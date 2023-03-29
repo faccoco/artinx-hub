@@ -176,10 +176,13 @@ public:
                         //  point.mVal.x += (mConfig.ky2kz2x * point.mVal.y + mConfig.my2kz2x) * point.mVal.z +
                         //      (mConfig.ky2mz2x * point.mVal.y + mConfig.my2mz2x);
 
-                         res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, armor.robotType,
+                         auto pointRefGun=tfCamera2Gun(point);
+                         res.targets.push_back({ clcArmorImgCenter(), pointRefGun, 0.0, armor.robotType,
                                                  isLargeArmor ? ArmorType::Large : ArmorType::Small });
-//                         logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}", isLargeArmor,
+//                         logInfo(fmt::format("Armor Type:{}, Position ref Camera: x:{:.3}, y:{:.3} z:{:.3}", isLargeArmor,
 //                                             point.mVal.x, point.mVal.y, point.mVal.z));
+//                         logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}", isLargeArmor,
+//                                             pointRefGun.mVal.x, pointRefGun.mVal.y, pointRefGun.mVal.z));
                      }
 
                      sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
