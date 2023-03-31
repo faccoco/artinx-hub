@@ -44,6 +44,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     constexpr static size_t latencyLen = 100;
     constexpr static size_t mShootDelayLen = 5;
     constexpr static std::uint16_t maxShootDelay = 500;
+    constexpr static size_t mBulletSpeedLen = 10;
 
     constexpr static Duration ChassisPowerRecordInterval = 100ms;
 
@@ -76,6 +77,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
     std::deque<double> mLatency;
     std::deque<uint16_t> mShootDelay;
+    std::deque<double> mBulletSpeed;
 
     void receive() {
         if(!started)
@@ -129,10 +131,16 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             reportFrameRate(Clock::now());
 
             FdbPacket fdb(mPacketBuffer);
-            if(fdb.bulletSpeed > 8.0f)
-                GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
             /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
+            if(fdb.bulletSpeed > 8.0f && (mBulletSpeed.empty() || mBulletSpeed.back() != fdb.bulletSpeed)) {
+                if(mBulletSpeed.size() >= mBulletSpeedLen)
+                    mBulletSpeed.pop_front();
+                mBulletSpeed.push_back(fdb.bulletSpeed);
+                auto tmp = mBulletSpeed;
+                std::sort(tmp.begin(), tmp.end());
+                GlobalSettings::get().bulletSpeed = tmp[tmp.size()/2];
+            }
             if(fdb.shootDelayTime < maxShootDelay && (mShootDelay.empty() || fdb.shootDelayTime != mShootDelay.back())) {
                 if(mShootDelay.size() >= mShootDelayLen)
                     mShootDelay.pop_front();
@@ -140,7 +148,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;
             }
             HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
-            HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
+            HubLogger::watch("bullet speed", mBulletSpeed.back());
+            HubLogger::watch("avg bullet speed", GlobalSettings::get().bulletSpeed);
             HubLogger::watch("fdb shoot delay time", fdb.shootDelayTime);
             HubLogger::watch("shoot delay time", static_cast<int>(GlobalSettings::get().shootDelayTime * 1000));
 
@@ -176,21 +185,21 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
             const HeadInfo infoUp{
                 SynchronizedClock::instance().now(),
-                                   decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                                       glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
+                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                    glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
                     glm::dvec3{ -std::sin(static_cast<double>(fdb.yaw)) * std::cos(static_cast<double>(fdb.pitch)),
-                                                   mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
-                                                   mConfig.headForwardOffset1 -
+                                mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
+                                mConfig.headForwardOffset1 -
                                     std::cos(static_cast<double>(fdb.yaw)) * std::cos(static_cast<double>(fdb.pitch)) },
                     glm::dvec3{ 0.0, 1.0, 0.0 }) }
             };
             const HeadInfo infoDown{
                 SynchronizedClock::instance().now(),
-                                     decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                                         glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
+                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                    glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
                     glm::dvec3{ -std::sin(static_cast<double>(fdb.downYaw)) * std::cos(static_cast<double>(fdb.downPitch)),
-                                                     mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
-                                                     mConfig.headForwardOffset2 -
+                                mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
+                                mConfig.headForwardOffset2 -
                                     std::cos(static_cast<double>(fdb.downYaw)) * std::cos(static_cast<double>(fdb.downPitch)) },
                     glm::dvec3{ 0.0, 1.0, 0.0 }) }
             };
