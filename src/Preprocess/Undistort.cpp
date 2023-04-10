@@ -297,7 +297,7 @@ public:
                          cv::undistort(temp, res.frame, mCameraMatrix, mDistCoeffs);
                      }
                      // For debugging
-                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
+                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("calibration")));
                  } };
     }
 };
