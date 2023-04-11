@@ -350,6 +350,7 @@ class NNetArmorDetector final
                 continue;
             }
 
+            // 两灯条比例不可相差过大
             const auto angle1 = std::atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x);
             const auto angle2 = std::atan2(pts[2].y - pts[3].y, pts[2].x - pts[3].x);
             const auto angleDiff = std::abs(angle1 - angle2);
