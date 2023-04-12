@@ -133,7 +133,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             FdbPacket fdb(mPacketBuffer);
             /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
-            if(fdb.bulletSpeed > 8.0f && (mBulletSpeed.empty() || mBulletSpeed.back() != fdb.bulletSpeed)) {
+            if(fdb.bulletSpeed > 7.0f && (mBulletSpeed.empty() || mBulletSpeed.back() != fdb.bulletSpeed)) {
                 if(mBulletSpeed.size() >= mBulletSpeedLen)
                     mBulletSpeed.pop_front();
                 mBulletSpeed.push_back(fdb.bulletSpeed);
@@ -148,8 +148,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;
             }
             HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
-            HubLogger::watch("bullet speed", mBulletSpeed.back());
-            HubLogger::watch("avg bullet speed", GlobalSettings::get().bulletSpeed);
+            HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
             HubLogger::watch("fdb shoot delay time", fdb.shootDelayTime);
             HubLogger::watch("shoot delay time", static_cast<int>(GlobalSettings::get().shootDelayTime * 1000));
 

@@ -25,7 +25,7 @@ struct GlobalSettings final {
     double latency = 0.0;
 
     Color selfColor = Color::Red;
-    double bulletSpeed = 15.00;
+    double bulletSpeed = 9.00;
     double shootDelayTime = 0.f;
     bool started = false;
 
