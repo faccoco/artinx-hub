@@ -53,7 +53,7 @@ deploy-job:
         DEPLOY_ID: ["infantry1", "infantry2"]
         CAMERA_TYPE: "USB3"
       - DEPLOY_TARGET: "hero"
-        DEPLOY_ID: "hero"
+        DEPLOY_ID: ["hero", hero2]
         CAMERA_TYPE: "USB3"
       - DEPLOY_TARGET: "sentry"
         DEPLOY_ID: "sentry"
