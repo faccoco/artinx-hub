@@ -37,6 +37,8 @@ struct NNetArmorDetectorSettings final {
     float nmsThresh;       // 0.3
     float fftConfError;    // 0.15
     float fftMinIou;       // 0.9
+    float maxArmorRatio;
+    float maxBarAngleDiff;
 };
 
 template <class Inspector>
@@ -45,7 +47,8 @@ bool inspect(Inspector& f, NNetArmorDetectorSettings& x) {
                               f.field("inputHeight", x.inputHeight), f.field("numClasses", x.numClasses),
                               f.field("numColors", x.numColors), f.field("bboxConfThresh", x.bboxConfThresh),
                               f.field("topK", x.topK), f.field("nmsThresh", x.nmsThresh), f.field("fftConfError", x.fftConfError),
-                              f.field("fftMinIou", x.fftMinIou));
+                              f.field("fftMinIou", x.fftMinIou),f.field("maxArmorRatio", x.maxArmorRatio),
+                               f.field("maxBarAngleDiff", x.maxBarAngleDiff));
 }
 
 struct GridAndStride final {
@@ -314,8 +317,8 @@ class NNetArmorDetector final
         std::vector<NNetDetectedArmor> enemyArmors;
 
         for(const auto& armor : armors) {
-            //            if(armor.robotColor != enemyColor)
-            //                continue;
+           if(armor.robotColor != enemyColor)
+               continue;
 
             // 对候选框预测角点进行平均,降低误差
             NNetDetectedArmor enemyArmor = armor;
@@ -337,6 +340,24 @@ class NNetArmorDetector final
                 enemyArmor.light4Point[2] = detectedArmorsFinal[2];
                 enemyArmor.light4Point[3] = detectedArmorsFinal[3];
             }
+
+            const auto& pts = enemyArmor.light4Point;
+            
+            // 装甲板比例不可过大
+            const auto width = cv::norm(pts[0] - pts[1]);
+            const auto height = cv::norm(pts[0] - pts[3]);
+            if(width / height > mConfig.maxArmorRatio || height / width > mConfig.maxArmorRatio) {
+                continue;
+            }
+
+            // 两灯条比例不可相差过大
+            const auto angle1 = std::atan2(pts[1].y - pts[0].y, pts[1].x - pts[0].x);
+            const auto angle2 = std::atan2(pts[2].y - pts[3].y, pts[2].x - pts[3].x);
+            const auto angleDiff = std::abs(angle1 - angle2);
+            if(angleDiff > mConfig.maxBarAngleDiff * CV_PI / 180) {
+                continue;
+            }
+
             enemyArmors.push_back(enemyArmor);
         }
         return enemyArmors;
@@ -375,7 +396,7 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      ACTOR_EXCEPTION_PROBE();
 
-                     const auto t0 = Clock::now();
+                 /*    const auto t0 = Clock::now();*/
                      const auto frame = BlackBoard::instance().get<CameraFrame>(key).value();
                      NNetDetectedArmorArray res;
                      res.frame = frame;
@@ -424,9 +445,11 @@ public:
                          useROI = true;
                      }
 
+/*
                      const auto t1 = Clock::now();
                      logInfo(
                          fmt::format("NNet armor detector:decode time {:.4f}ms", static_cast<double>((t1 - t0).count()) / 1e6));
+*/
 
                      sendAll(armor_nnet_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  },
