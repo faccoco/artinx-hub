@@ -11,6 +11,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/string_cast.hpp>
 #include <magic_enum.hpp>
 #include <opencv2/opencv.hpp>
 #include <tuple>
@@ -50,6 +51,7 @@ struct DahengDriverSettings final {
     bool enableAutoWhiteBalance;
     double gain;
     glm::dvec3 offset;  // based on gun
+    double pitch;       // in degree
 };
 
 enum class OpenMode { Index, SerialNumber };
@@ -63,8 +65,8 @@ bool inspect(Inspector& f, DahengDriverSettings& x) {
         f.field("fov", x.fov), f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
         f.field("disableUndistort", x.disableUndistort).fallback(false),
         f.field("enableAutoWhiteBalance", x.enableAutoWhiteBalance).fallback(false), f.field("gain", x.gain).fallback(0.0),
-        f.field("dx", x.offset.x).fallback(0.0), f.field("dy", x.offset.y).fallback(0.0),
-        f.field("dz", x.offset.z).fallback(0.0));
+        f.field("dx", x.offset.x).fallback(0.0), f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0),
+        f.field("pitch", x.pitch).fallback(0.0));
 }
 
 static void checkGXStatus(const GX_STATUS status) {
@@ -106,6 +108,9 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
     std::string mCameraSerialNumber;
     bool mDoUndistort;
 
+    const Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> mTfGun2Camera =
+        glm::translate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 }), -mConfig.offset);
+
     void reportFrameRate(const Clock::time_point timeStamp) {
         const auto current = timeStamp.time_since_epoch().count();
         mLastFrames.push_back(current);
@@ -137,8 +142,7 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         frameData.info.identifier = mCameraSerialNumber;
         frameData.info.width = width;
         frameData.info.height = height;
-        frameData.info.tfGun2Camera =
-            Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>(glm::translate(glm::identity<glm::dmat4>(), -mConfig.offset));
+        frameData.info.tfGun2Camera = mTfGun2Camera;
         if(mHeadKey.has_value()) {
             frameData.info.tfRobot2Gun = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->tfRobot2Gun;
         }
@@ -151,7 +155,8 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         frameData.frame = std::move(bgr);
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, frameData));
 #ifdef ARTINX_RADAR
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
+        sendAll(image_frame_atom_v,
+                BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
 #else
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view("Origin")));
 #endif
