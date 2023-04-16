@@ -1,22 +1,26 @@
 #pragma once
-#include "SuppressWarningBegin.hpp"
 
-#include <caf/allowed_unsafe_message_type.hpp>
-#include <caf/type_id.hpp>
+#include <cstddef>
+#include <iostream>
+#include <map>
+#include <string>
+#include <vector>
 
-#include "SuppressWarningEnd.hpp"
+#include <opencv2/opencv.hpp>
 
-struct ClassifiedNum final {
-    int32_t num;
-    double confidence;
+#include "DetectedArmor.hpp"
+
+class NumberClassifier {
+public:
+    NumberClassifier(const std::string& modelPath, const std::string& labelPath, double threshold);
+
+    void extractNumbers(const cv::Mat& src, std::vector<Armor>& armors);
+
+    void classify(std::vector<Armor>& armors);
+
+    double threshold;
+
+private:
+    cv::dnn::Net net;
+    std::vector<std::string> className;
 };
-
-CAF_BEGIN_TYPE_ID_BLOCK(ClassifiedNum, 300);
-
-CAF_ADD_TYPE_ID(ClassifiedNum, (ClassifiedNum));
-
-CAF_END_TYPE_ID_BLOCK(ClassifiedNum);
-
-CAF_ALLOW_UNSAFE_MESSAGE_TYPE(ClassifiedNum);
-
-ACTOR_PROTOCOL_DEFINE(num_classify_request_atom, TypedIdentifier<CameraFrame>);
