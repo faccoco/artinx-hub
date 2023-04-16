@@ -273,7 +273,7 @@ class ArmorDetector final
         std::vector<Armor> armors;
         for(auto light1 = lights.begin(); light1 != lights.end(); light1++) {
             for(auto light2 = light1 + 1; light2 != lights.end(); light2++) {
-                if(light1->color != selfColor || light2->color != selfColor)
+                if(light1->color == selfColor || light2->color == selfColor)
                     continue;
 
                 if(containLight(*light1, *light2, lights)) {
@@ -327,7 +327,7 @@ public:
                      res.frame = frame;
                      res.armors = solve(frame.frame);
                      const auto t2 = Clock::now();
-                     logInfo(fmt::format("Armor Detector Cost time: {:.3f}", ))
+                     logInfo(fmt::format("Armor Detector Cost time: {:.3f}s", durationCastDouble(t2 - t1)));
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }

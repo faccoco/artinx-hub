@@ -94,6 +94,7 @@ void NumberClassifier::classify(std::vector<Armor>& armors, const std::vector<cv
         minMaxLoc(softmaxProb.reshape(1, 1), nullptr, &confidence, nullptr, &classIdPoint);
         int labelId = classIdPoint.x;
 
+        armors[i].id = labelId;
         armors[i].confidence = confidence;
         armors[i].armorName = className[labelId];
     }
