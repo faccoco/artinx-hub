@@ -1,6 +1,7 @@
 #pragma once
 #include "CameraFrame.hpp"
 #include "DetectedTarget.hpp"
+#include "DataDesc.hpp"
 
 #include "SuppressWarningBegin.hpp"
 
@@ -8,20 +9,27 @@
 
 #include "SuppressWarningEnd.hpp"
 
+struct PairedLight final {
+    cv::RotatedRect r1;
+    cv::RotatedRect r2;
+};
+
 struct Light final {
-    COLOR color;
-    cv::Point2f top, bottom;
+    Color color;
+    cv::Point2f top, bottom, center;
     double length;
     double width;
+    float ratio;
     float tiltAngle;
-}
+};
 
 struct Armor final {
-    std::string id;
+    int32_t id;
     Light leftLight, rightLight;
     cv::Point2f center;
     float confidence;
     ArmorType armorType;
+    std::string armorName;
 };
 
 struct DetectedArmorArray final {

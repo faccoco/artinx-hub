@@ -43,7 +43,7 @@ std::vector<cv::Mat> NumberClassifier::extractNumbers(const cv::Mat& src, const 
                                           armor.rightLight.bottom };
         const int topLightY = (warpHeight - lightLen) / 2 - 1;
         const int bottomLightY = topLightY + lightLen;
-        const int warpWidth = armor.armorType == ArmorType::SMALL ? smallArmorWidth : largeArmorWidth;
+        const int warpWidth = armor.armorType == ArmorType::Small ? smallArmorWidth : largeArmorWidth;
         cv::Point2f target_vertices[4] = {
             cv::Point(0, bottomLightY),
             cv::Point(0, topLightY),
@@ -67,7 +67,7 @@ std::vector<cv::Mat> NumberClassifier::extractNumbers(const cv::Mat& src, const 
 }
 
 void NumberClassifier::classify(std::vector<Armor>& armors, const std::vector<cv::Mat>& imgs) {
-    for(int i = 0; i < armors.size(); ++i) {
+    for(u_int32_t i = 0; i < armors.size(); ++i) {
         cv::Mat image = imgs[i].clone();
 
         // Normalize
@@ -95,20 +95,21 @@ void NumberClassifier::classify(std::vector<Armor>& armors, const std::vector<cv
         int labelId = classIdPoint.x;
 
         armors[i].confidence = confidence;
-        armors[i].id = className[labelId];
+        armors[i].armorName = className[labelId];
     }
 
     armors.erase(std::remove_if(armors.begin(), armors.end(),
                                 [this](const Armor& armor) {
-                                    if(armor.confidence < threshold || armor.id == "Negative") {
+                                    if(armor.confidence < threshold || armor.armorName == "N") {
                                         return true;
                                     }
 
                                     bool mismatchArmorType = false;
                                     if(armor.armorType == ArmorType::Large) {
-                                        mismatchArmorType = armor.id == "Outpost" || armor.id == "2" || armor.id == "Guard";
+                                        mismatchArmorType =
+                                            armor.armorName == "Outpost" || armor.armorName == "2" || armor.armorName == "Guard";
                                     } else if(armor.armorType == ArmorType::Large) {
-                                        mismatchArmorType = armor.id == "1" || armor.id == "Base";
+                                        mismatchArmorType = armor.armorName == "1" || armor.armorName == "Base";
                                     }
                                     return mismatchArmorType;
                                 }),
