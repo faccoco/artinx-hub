@@ -56,6 +56,8 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
         f.field("numConfThresh", x.numConfThresh).fallback(0.7));
 }
 
+
+// reference: https://github.com/chenjunnn/rm_auto_aim
 class ArmorDetector final
     : public HubHelper<caf::event_based_actor, ArmorDetectorSettings, armor_detect_available_atom, image_frame_atom> {
     Identifier mKey;
