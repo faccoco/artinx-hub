@@ -1,5 +1,6 @@
 #pragma once
 #include "CameraFrame.hpp"
+#include "DetectedTarget.hpp"
 
 #include "SuppressWarningBegin.hpp"
 
@@ -7,15 +8,20 @@
 
 #include "SuppressWarningEnd.hpp"
 
-// Origin: left-top corner of the car's ROI
-struct PairedLight final {
-    cv::RotatedRect r1;
-    cv::RotatedRect r2;
-};
+struct Light final {
+    COLOR color;
+    cv::Point2f top, bottom;
+    double length;
+    double width;
+    float tiltAngle;
+}
 
 struct Armor final {
-    int id;
-    PairedLight pairedLight;
+    std::string id;
+    Light leftLight, rightLight;
+    cv::Point2f center;
+    float confidence;
+    ArmorType armorType;
 };
 
 struct DetectedArmorArray final {
