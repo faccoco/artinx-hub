@@ -20,7 +20,6 @@ static constexpr double minIntervalThreshold = 0.1;    // s
 static constexpr double maxPeriodThreshold = 5;        // s
 static constexpr double maxPeriodStdThreshold = 0.05;  // s
 static constexpr int maxErrorTimes = 3;
-static constexpr int maxEachErrorTimes = 2;
 static constexpr Duration minSendInterval = 1s;
 
 class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, period_predict_success_atom> {
