@@ -163,6 +163,10 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             HubLogger::watch("pitch2", fdb.downPitch);
             HubLogger::watch("speed x", fdb.speedX);
             HubLogger::watch("speed y", fdb.speedY);
+            HubLogger::watch("delta yaw1", gimbalSetPacket.up.yaw-fdb.yaw);
+            HubLogger::watch("delta pitch1", gimbalSetPacket.up.pitch-fdb.pitch);
+            HubLogger::watch("delta yaw2", gimbalSetPacket.down.yaw-fdb.downYaw);
+            HubLogger::watch("delta pitch2", gimbalSetPacket.down.pitch-fdb.downPitch);
 
             GlobalSettings::get().selfColor = (fdb.color == 0 ? Color::Red : Color::Blue);
             HubLogger::watch("self color", GlobalSettings::get().selfColor == Color::Red ? "Red" : "Blue");
