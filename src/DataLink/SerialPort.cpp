@@ -133,13 +133,24 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             FdbPacket fdb(mPacketBuffer);
             /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
-            if(fdb.bulletSpeed > 7.0f && (mBulletSpeed.empty() || mBulletSpeed.back() != fdb.bulletSpeed)) {
+            if(fdb.bulletSpeed > 7.0f && fdb.bulletSpeed < 10.0f &&
+               (mBulletSpeed.empty() || mBulletSpeed.back() != fdb.bulletSpeed)) {
                 if(mBulletSpeed.size() >= mBulletSpeedLen)
                     mBulletSpeed.pop_front();
                 mBulletSpeed.push_back(fdb.bulletSpeed);
-                auto tmp = mBulletSpeed;
-                std::sort(tmp.begin(), tmp.end());
-                GlobalSettings::get().bulletSpeed = tmp[tmp.size()/2];
+                if(mBulletSpeed.size() < 3) {
+                    GlobalSettings::get().bulletSpeed = avg(mBulletSpeed);
+                } else {
+                    double maxSpeed = mBulletSpeed[0], minSpeed = mBulletSpeed[0], sumSpeed = 0;
+                    for(auto speed : mBulletSpeed) {
+                        if(speed > maxSpeed)
+                            maxSpeed = speed;
+                        if(speed < minSpeed)
+                            minSpeed = speed;
+                        sumSpeed += speed;
+                    }
+                    GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
+                }
             }
             if(fdb.shootDelayTime < maxShootDelay && (mShootDelay.empty() || fdb.shootDelayTime != mShootDelay.back())) {
                 if(mShootDelay.size() >= mShootDelayLen)
@@ -163,10 +174,10 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             HubLogger::watch("pitch2", fdb.downPitch);
             HubLogger::watch("speed x", fdb.speedX);
             HubLogger::watch("speed y", fdb.speedY);
-            HubLogger::watch("delta yaw1", gimbalSetPacket.up.yaw-fdb.yaw);
-            HubLogger::watch("delta pitch1", gimbalSetPacket.up.pitch-fdb.pitch);
-            HubLogger::watch("delta yaw2", gimbalSetPacket.down.yaw-fdb.downYaw);
-            HubLogger::watch("delta pitch2", gimbalSetPacket.down.pitch-fdb.downPitch);
+            HubLogger::watch("delta yaw1", gimbalSetPacket.up.yaw - fdb.yaw);
+            HubLogger::watch("delta pitch1", gimbalSetPacket.up.pitch - fdb.pitch);
+            HubLogger::watch("delta yaw2", gimbalSetPacket.down.yaw - fdb.downYaw);
+            HubLogger::watch("delta pitch2", gimbalSetPacket.down.pitch - fdb.downPitch);
 
             GlobalSettings::get().selfColor = (fdb.color == 0 ? Color::Red : Color::Blue);
             HubLogger::watch("self color", GlobalSettings::get().selfColor == Color::Red ? "Red" : "Blue");
@@ -312,6 +323,7 @@ public:
                          if(yawAngle > glm::pi<double>())
                              yawAngle -= glm::two_pi<double>();
 
+                         //                         yawAngle = -yawAngle;
                          if(mask == 1U) {
                              gimbalSetPacket.setUpTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
                              mLastUpTargetTime = Clock::now();
