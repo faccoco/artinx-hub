@@ -27,7 +27,8 @@ struct VideoReplaySettings final {
 template <class Inspector>
 bool inspect(Inspector& f, VideoReplaySettings& x) {
     return f.object(x).fields(
-        f.field("path", x.path), f.field("identifier", x.identifier).fallback(""), f.field("cameraName", x.cameraName),
+        f.field("path", x.path), f.field("identifier", x.identifier).fallback(""),
+        f.field("cameraName", x.cameraName).fallback("Video"),
         f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 120.0; }),
         f.field("fov", x.fov), f.field("width", x.width), f.field("height", x.height));
 }

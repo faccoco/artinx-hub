@@ -221,6 +221,7 @@ source /opt/intel/openvino_2021/bin/setupvars.sh
   - opengl
   - eigen3
   - boost
+  - spdlog
   如遇任何问题，请按照错误提示用apt补足缺少的软件包或更换网络重试一次
 - 集成vcpkg安装包，运行
 `./vcpkg integrate install`

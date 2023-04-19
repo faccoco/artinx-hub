@@ -20,6 +20,8 @@
 
 #include "SuppressWarningEnd.hpp"
 
+enum class PredictorType { Car, Period, PeriodOutpost };  // aimType
+
 struct SimulatorSettings final {
     double step;
 
@@ -265,7 +267,7 @@ public:
         double mHeadYaw = 0, mHeadPitch = 0;
 
         if(PredictorType predictorType = magic_enum::enum_cast<PredictorType>(mConfig.aimType).value();
-           predictorType == PredictorType::Period || predictorType == PredictorType::PeriodOutpost) {
+           predictorType == PredictorType::PeriodOutpost || predictorType == PredictorType::Period) {
             std::this_thread::sleep_for(1ms);
             mHeadYaw = glm::radians(270 - mConfig.targetAngle);
             sendAll(outpost_detector_control_atom_v, true);
@@ -414,6 +416,7 @@ public:
                     SolverType) {
                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
                     shoot = isFire;
+                    mHeadYaw = yaw;
                     mHeadPitch = pitch;
                 },
                 [&](const caf::down_msg&) { runFlag = false; }, [&](const caf::exit_msg&) { runFlag = false; },
