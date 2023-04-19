@@ -101,7 +101,7 @@ class ArmorDetector final
 
     cv::Mat binary(const cv::Mat& src) {
         cv::Mat result(src.size(), CV_8U);
-        if(GlobalSettings::get().selfColor == Color::Red) {
+        if(GlobalSettings::get().selfColor == Red) {
             const auto minB = mConfig.thresholdForBlue[0];
             const auto maxG = mConfig.thresholdForBlue[1];
             const auto maxR = mConfig.thresholdForBlue[2];
@@ -159,14 +159,13 @@ class ArmorDetector final
                     std::swap(lightRect.size.width, lightRect.size.height);
                     lightRect.angle += 90;
                 }
-                continue;
             }
 
             // 灯条矩形的长边不符合要求
             if(lightRect.size.height < 6.0f || lightRect.size.height > 160.f)
                 continue;
             // 灯条矩形的短边太长了
-            if(lightRect.size.width > 23.0f)
+            if(lightRect.size.width > 30.0f)
                 continue;
             // 灯条矩形的比率不符合要求
             //             const auto ratio = lightRect.size.width / lightRect.size.height;
@@ -225,7 +224,7 @@ class ArmorDetector final
                     std::swap(rect.size.width, rect.size.height);
                 }
                 // 装甲板矩形长度太长了
-                if(rect.size.width > 300.f)
+                if(rect.size.width > 700.f)
                     continue;
 
                 // 装甲板矩形高度太小了

@@ -313,7 +313,7 @@ class NNetArmorDetector final
     }
 
     std::vector<NNetDetectedArmor> postProcess(const std::vector<NNetDetectedArmor>& armors) {
-        [[maybe_unused]] const int enemyColor = GlobalSettings::get().selfColor == Color::Red ? 0 : 1;
+        [[maybe_unused]] const int enemyColor = GlobalSettings::get().selfColor == Red ? 0 : 1;
         std::vector<NNetDetectedArmor> enemyArmors;
 
         for(const auto& armor : armors) {

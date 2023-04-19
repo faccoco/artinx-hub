@@ -6,6 +6,7 @@
 #include <caf/allowed_unsafe_message_type.hpp>
 #include <caf/is_error_code_enum.hpp>
 #include <caf/type_id.hpp>
+#include <magic_enum.hpp>
 
 #include "SuppressWarningEnd.hpp"
 
@@ -14,7 +15,9 @@
 using Clock = std::chrono::steady_clock;
 static_assert(std::is_same_v<Clock::period, std::nano>);
 
-enum class Color { Red, Blue };
+using Color = bool;
+static constexpr Color Blue = false;
+static constexpr Color Red = true;
 
 struct GlobalSettings final {
     double gForce;
@@ -24,8 +27,8 @@ struct GlobalSettings final {
 
     double latency = 0.0;
 
-    Color selfColor = Color::Red;
-    double bulletSpeed = 9.00;
+    Color selfColor;
+    double bulletSpeed;
     double shootDelayTime = 0.f;
     bool started = false;
 
@@ -46,7 +49,9 @@ struct GlobalSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, GlobalSettings& x) {
     return f.object(x).fields(f.field("gForce", x.gForce), f.field("dragCoefficient", x.dragCoefficient).fallback(0),
-                              f.field("airDensity", x.airDensity).fallback(0), f.field("bullet42mm", x.bullet42mm));
+                              f.field("airDensity", x.airDensity).fallback(0), f.field("bullet42mm", x.bullet42mm),
+                              f.field("defaultBulletSpeed", x.bulletSpeed).fallback(9.00),
+                              f.field("defaultSelfColor", x.selfColor).fallback(true));
 }
 
 struct Identifier {
@@ -118,7 +123,7 @@ CAF_END_TYPE_ID_BLOCK(ArtinxHub);
 CAF_ALLOW_UNSAFE_MESSAGE_TYPE(Identifier);
 
 using GroupMask = uint32_t;
-using SolverType = uint8_t;         //0 normal track; 1: wait for target
+using SolverType = uint8_t;  // 0 normal track; 1: wait for target
 static constexpr SolverType normalSolver = 0, waitSolver = 1;
 
 template <typename... T>
@@ -128,10 +133,12 @@ struct __ImplActorProtocol final {
     }
 };
 
-#define ACTOR_PROTOCOL_DEFINE(...)                              \
-    template <>                                                 \
-    struct __ImplActorProtocol<__VA_ARGS__> final {             \
-        static constexpr bool check() noexcept { return true; } \
+#define ACTOR_PROTOCOL_DEFINE(...)                  \
+    template <>                                     \
+    struct __ImplActorProtocol<__VA_ARGS__> final { \
+        static constexpr bool check() noexcept {    \
+            return true;                            \
+        }                                           \
     }
 
 template <typename... Args>

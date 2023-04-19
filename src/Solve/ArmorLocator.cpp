@@ -62,21 +62,18 @@ class ArmorLocator final
 
     bool initImgPointAndArmorType(const PairedLight& armor) {
         boxRect(mImagePoint, armor.r1);
-        const auto area1 = armor.r1.size.area();
+//        const auto area1 = armor.r1.size.area();
 
         const cv::Point2d lt = 0.5 * (mImagePoint[1] + mImagePoint[2]);
         const cv::Point2d lb = 0.5 * (mImagePoint[0] + mImagePoint[3]);
 
         boxRect(mImagePoint, armor.r2);
-        const auto area2 = armor.r2.size.area();
+//        const auto area2 = armor.r2.size.area();
 
         const cv::Point2d rt = 0.5 * (mImagePoint[1] + mImagePoint[2]);
         const cv::Point2d rb = 0.5 * (mImagePoint[0] + mImagePoint[3]);
 
-        mImagePoint = { lt, lb, rb, rt };
-        const auto area = evalArea(lt, lb, rb, rt);
-
-        const auto ratio = area / std::fmax(0.001, area1 + area2);
+        const auto ratio = (distance2D(lt, rt) + distance2D(lb, rb)) / (distance2D(lt, lb) + distance2D(rt, rb));
         HubLogger::watch("armor ratio", ratio);
         {
             static double maxRatio = 0, minRatio = 100;
@@ -84,9 +81,21 @@ class ArmorLocator final
                 maxRatio = ratio;
             if(ratio < minRatio)
                 minRatio = ratio;
-            HubLogger::watch("max armor ratio", maxRatio);
-            HubLogger::watch("min armor ratio", minRatio);
+            HubLogger::watch("max armor ratio2", maxRatio);
+            HubLogger::watch("min armor ratio2", minRatio);
         }
+//        const auto ratio3 = area1 > area2 ? area1 / area2 : area2 / area1;
+//        HubLogger::watch("armor ratio3", ratio3);
+//        {
+//            static double maxRatio3 = 0, minRatio3 = 100;
+//            if(ratio3 > maxRatio3)
+//                maxRatio3 = ratio3;
+//            if(ratio3 < minRatio3)
+//                minRatio3 = ratio3;
+//            HubLogger::watch("max armor ratio3", maxRatio3);
+//            HubLogger::watch("min armor ratio3", minRatio3);
+//        }
+//        HubLogger::watch("armor ratio2*3", ratio2*ratio3);
         return ratio > mConfig.ratioThreshold;
     }
 

@@ -72,6 +72,16 @@ T square(const T& n) {
     return n * n;
 }
 
+template <typename T>
+auto distance2D(T a, T b) {
+    return std::sqrt(square(a.x - b.x) + square(a.y - b.y));
+}
+
+template <typename T>
+auto distance3D(T a, T b) {
+    return std::sqrt(square(a.x - b.x) + square(a.y - b.y) + square(a.z - b.z));
+}
+
 template <typename Seq>
 typename Seq::value_type avg(const Seq& array) {
     typename Seq::value_type res{};

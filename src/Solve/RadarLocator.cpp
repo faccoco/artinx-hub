@@ -43,7 +43,7 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
             memcpy(glm::value_ptr(rotate), rotateMat.ptr(), sizeof(double) * 3 * 3);
             glm::dmat4 trans = { rotate };
             auto&& selfColor = GlobalSettings::get().selfColor;
-            if(selfColor == Color::Blue) {
+            if(selfColor == Blue) {
                 trans[3][0] = tvec[0];
                 trans[3][1] = tvec[1];
             } else {
@@ -51,7 +51,7 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
                 trans[3][1] = 15 - tvec[1];
             }
             trans[3][2] = tvec[2];
-            logInfo(fmt::format("current color {}", selfColor == Color::Blue ? "Blue" : "Red"));
+            logInfo(fmt::format("current color {}", selfColor == Blue ? "Blue" : "Red"));
             logInfo(fmt::format("trans: {} {} {}", trans[3][0], trans[3][1], trans[3][2]));
             return { { glm::inverse(trans), rotate } };
         }

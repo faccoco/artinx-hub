@@ -88,7 +88,7 @@ class EnergyDetector final
         cv::split(src, imgChannels);
 
         constexpr auto threshold = 50;
-        if(GlobalSettings::get().selfColor == Color::Red) {
+        if(GlobalSettings::get().selfColor == Red) {
             const auto energyRed = imgChannels[2] - imgChannels[0];
             cv::threshold(energyRed, binary, threshold, 255, cv::THRESH_BINARY);
         } else {

@@ -39,8 +39,13 @@ public:
                 sendAll(set_period_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
                         !mPeriodInited);
             };
-        else
-            ;
+        else {
+            logInfo("HeroStrategy wrong periodPredictType using fallback \"outpost\"");
+            mSendPeriodFunc = [this](SelectedTarget selected) {
+                sendAll(set_period_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
+                        !mPeriodInited);
+            };
+        }
     }
     caf::behavior make_behavior() override {
         return {
