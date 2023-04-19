@@ -3,8 +3,6 @@
 #include "Timer.hpp"
 #include <optional>
 
-enum class PredictorType { Car, Outpost, Period, PeriodOutpost };
-
 struct SelectedTarget final {
     TimePoint lastUpdate;
     std::optional<Transform<FrameOfRef::Robot, FrameOfRef::Gun, true>> tfRobot2Gun;
@@ -23,14 +21,6 @@ struct PredictedTarget final {
     Vector<UnitType::LinearVelocity, FrameOfRef::Robot> velocity;
 };
 
-struct PredictedOutpost final {
-    TimePoint lastUpdate;
-    Vector<UnitType::Distance, FrameOfRef::Robot> centerOfOutpost;
-    Scalar<UnitType::Distance> radius;
-    Scalar<UnitType::Angle> theta;
-    Scalar<UnitType::AngularVelocity> angularVelocity;
-};
-
 struct PredictedPeriodTarget final {
     TimePoint lastUpdate;
     Vector<UnitType::Distance, FrameOfRef::Robot> position;
@@ -40,10 +30,8 @@ struct PredictedPeriodTarget final {
 ACTOR_PROTOCOL_DEFINE(outpost_detector_control_atom, bool);
 ACTOR_PROTOCOL_DEFINE(update_roi_atom, TypedIdentifier<TargetROI>);
 ACTOR_PROTOCOL_DEFINE(set_target_atom, TypedIdentifier<SelectedTarget>);
-ACTOR_PROTOCOL_DEFINE(set_outpost_atom, TypedIdentifier<SelectedTarget>);
 ACTOR_PROTOCOL_DEFINE(set_period_target_atom, TypedIdentifier<SelectedTarget>, bool);
 ACTOR_PROTOCOL_DEFINE(set_period_outpost_atom, TypedIdentifier<SelectedTarget>, bool);
 ACTOR_PROTOCOL_DEFINE(predict_success_atom, TypedIdentifier<PredictedTarget>);
-ACTOR_PROTOCOL_DEFINE(outpost_predict_success_atom, TypedIdentifier<PredictedOutpost>);
 ACTOR_PROTOCOL_DEFINE(period_predict_success_atom, TypedIdentifier<PredictedPeriodTarget>);
 ACTOR_PROTOCOL_DEFINE(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);

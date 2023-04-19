@@ -77,7 +77,7 @@ class ArmorDetector final
         CameraFrame frame;
         frame.frame = std::move(res);
 
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame)));
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame), name));
     }
 
     cv::Rect2f boundingRect(const PairedLight& armor) {
@@ -166,7 +166,7 @@ class ArmorDetector final
             if(lightRect.size.height < 6.0f || lightRect.size.height > 160.f)
                 continue;
             // 灯条矩形的短边太长了
-            if(lightRect.size.width > 30.0f)
+            if(lightRect.size.width > 23.0f)
                 continue;
             // 灯条矩形的比率不符合要求
             //             const auto ratio = lightRect.size.width / lightRect.size.height;
@@ -225,7 +225,7 @@ class ArmorDetector final
                     std::swap(rect.size.width, rect.size.height);
                 }
                 // 装甲板矩形长度太长了
-                if(rect.size.width > 400.f)
+                if(rect.size.width > 300.f)
                     continue;
 
                 // 装甲板矩形高度太小了
@@ -237,8 +237,8 @@ class ArmorDetector final
                 if(ratio > mConfig.maxArmorRectRatio || ratio < mConfig.minArmorRectRatio)
                     continue;
 
-                constexpr auto largeRatio = widthOfLargeArmor / heightOfLargeArmor;
-                constexpr auto smallRatio = widthOfSmallArmor / heightOfSmallArmor;
+                constexpr auto largeRatio = widthOfLargeArmor / heightOfArmorLightBar;
+                constexpr auto smallRatio = widthOfSmallArmor / heightOfArmorLightBar;
 
                 auto diff = static_cast<float>(std::fabs((ratio - smallRatio) / smallRatio));
                 const auto diffLarge = static_cast<float>(std ::fabs(ratio - largeRatio) / largeRatio);
@@ -247,12 +247,13 @@ class ArmorDetector final
                     diff = diffLarge;
                     largeArmor = true;
                 }
+                //                logInfo(fmt::format("ArmorRatio: {}, largeArmor: {}", ratio, largeArmor));
 
                 const auto area1 = lhs.size.area();
                 const auto area2 = rhs.size.area();
                 auto par = std::fmin(area1, area2) / std::fmax(area1, area2);
                 // 两边灯条的面积差太大了
-                if(par < 0.2f)
+                if(par < 0.15f)
                     continue;
 
                 // 两边灯条的面积占比矩形面积太大了
@@ -278,8 +279,8 @@ class ArmorDetector final
                     continue;
 
                 // 两个灯条的角度差太大了
-                par = std::fabs(sinDegree(lhs.angle - rhs.angle));
-                if(par > sinDegree(mConfig.maxParallelAngle))
+                auto anglePar = std::fabs(sinDegree(lhs.angle - rhs.angle));
+                if(anglePar > sinDegree(mConfig.maxParallelAngle))
                     continue;
 
                 // 两根灯条拼成的矩形中不会出现其他灯条
@@ -294,7 +295,7 @@ class ArmorDetector final
                 if(isInteraction)
                     continue;
                 // logInfo(fmt::format("diff:{}, large_diff:{}", smalldiff, diffLarge));
-                pairs.emplace_back(i, j, diff + par + (largeArmor ? 1e3f : 0.0f));
+                pairs.emplace_back(i, j, diff - par + anglePar + (largeArmor ? 1e3f : 0.0f));
             }
         }
 
@@ -329,7 +330,7 @@ class ArmorDetector final
         //                cv::putText(frame, fmt::format("{:.3f}", s),
         //                            { static_cast<int32_t>(rect.center.x), static_cast<int32_t>(rect.center.y) },
         //                            cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 255, 255, 0 });
-        //                logInfo(fmt::format("{:.3f}", s));
+        ////                logInfo(fmt::format("{:.3f}", s));
         //            }
         //        });
 
@@ -391,7 +392,6 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
                      ACTOR_EXCEPTION_PROBE();
 
-                    //  const auto t0 = Clock::now();
                      const auto frame = BlackBoard::instance().get<CameraFrame>(key).value();
 
                      DetectedArmorArray res;
@@ -402,10 +402,7 @@ public:
                      for(auto& pairedLight : pairedLightVec) {
                          res.armors.push_back({ 0, pairedLight });  // TODO id
                      }
-                    //  const auto t1 = Clock::now();
-                    //  logInfo(
-                    //      fmt::format("NNet armor detector:decode time {:.4f}s", static_cast<double>((t1 - t0).count()) / 1e9));
-
+                     //                     logInfo("Detector works well");
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }

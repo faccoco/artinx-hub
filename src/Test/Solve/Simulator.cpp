@@ -20,6 +20,8 @@
 
 #include "SuppressWarningEnd.hpp"
 
+enum class PredictorType { Car, Period, PeriodOutpost };  // aimType
+
 struct SimulatorSettings final {
     double step;
 
@@ -414,6 +416,7 @@ public:
                     SolverType) {
                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
                     shoot = isFire;
+                    mHeadYaw = yaw;
                     mHeadPitch = pitch;
                 },
                 [&](const caf::down_msg&) { runFlag = false; }, [&](const caf::exit_msg&) { runFlag = false; },
