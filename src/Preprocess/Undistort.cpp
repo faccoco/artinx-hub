@@ -239,8 +239,8 @@ public:
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
-                     const auto res = BlackBoard::instance().get<CameraFrame>(key).value();
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
+                     auto res = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
 
                      //-----  If no more image, or got enough, then stop calibration and show result -------------
                      if(mMode == Status::CAPTURING && mImagePoints.size() >= static_cast<size_t>(mConfig.nrFrames)) {
@@ -250,6 +250,7 @@ public:
                              mMode = Status::DETECTION;
                      }
 
+                     cv::Mat plotImg = res.frame.clone();
                      mImageSize = res.frame.size();
                      if(mConfig.flipVertical)
                          cv::flip(res.frame, res.frame, 0);
@@ -269,7 +270,7 @@ public:
                                       cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.0001));
                          mImagePoints.push_back(pointBuf);
                          // Draw the corners
-                         cv::drawChessboardCorners(res.frame, mConfig.boardSize, cv::Mat(pointBuf), found);
+                         cv::drawChessboardCorners(plotImg, mConfig.boardSize, cv::Mat(pointBuf), found);
                      }
 
                      //----------------------------- Output Text ------------------------------------------------
@@ -278,7 +279,7 @@ public:
                          (mMode == Status::CALIBRATED)              ? "Calibrated" :
                                                                       "Detected";
                      int baseLine = 0;
-                     cv::Size textSize = cv::getTextSize(msg, 1, 1, 1, &baseLine);
+                     cv::Size textSize = cv::getTextSize(msg, 1, 2, 1, &baseLine);
                      cv::Point textOrigin(res.frame.cols - 2 * textSize.width - 10, res.frame.rows - 2 * baseLine - 10);
 
                      if(mMode == Status::CAPTURING) {
@@ -288,7 +289,7 @@ public:
                              msg = cv::format("%d/%d", static_cast<int>(mImagePoints.size()), mConfig.nrFrames);
                      }
 
-                     cv::putText(res.frame, msg, textOrigin, 1, 1, cv::Scalar(0, 255, 0));
+                     cv::putText(plotImg, msg, textOrigin, 1, 1, cv::Scalar(0, 255, 0));
 
                      //-------------------------output  undistorted ------------------------------
                      //! [output_undistorted]
@@ -297,7 +298,8 @@ public:
                          cv::undistort(temp, res.frame, mCameraMatrix, mDistCoeffs);
                      }
                      // For debugging
-                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("calibration")));
+                     res.frame = plotImg;
+                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("Calibration")));
                  } };
     }
 };

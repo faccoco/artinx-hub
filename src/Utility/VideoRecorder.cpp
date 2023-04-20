@@ -52,7 +52,7 @@ public:
                     mStartFlag = true;
                 },
                  [this](image_frame_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
 
                      if(!mStartFlag)
                          return;
@@ -64,7 +64,7 @@ public:
                          return;
                      ++mTotal;
 
-                     const auto frameData = BlackBoard::instance().get<CameraFrame>(key).value();
+                     const auto frameData = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
                      // TODO: record camera info
 
                      if(mWriter &&

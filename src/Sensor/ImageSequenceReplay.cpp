@@ -67,7 +67,7 @@ class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, Image
             res.info.tfRobot2Gun = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->tfRobot2Gun;
         }
 
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("ImageSequenceReply")));
 
         ++mCount;
     }

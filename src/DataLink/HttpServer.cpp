@@ -258,7 +258,7 @@ public:
 #endif
                 },
                  [this](image_frame_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      std::lock_guard<std::mutex> guard{ mMutex };
                      auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key);
                      auto [cameraFrame, name] = data.value();
