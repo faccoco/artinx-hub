@@ -74,7 +74,6 @@ private:
         res.info.tfGun2Camera = Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>(glm::identity<glm::dmat4>());
         res.lastUpdate = SynchronizedClock::instance().now();
 
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, res));
 #ifdef ARTINX_RADAR
         sendAll(image_frame_atom_v,
                 BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view(mConfig.cameraName)));

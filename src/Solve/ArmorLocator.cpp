@@ -18,18 +18,14 @@
 
 struct ArmorLocatorSettings final {
     float ratioThreshold;
-    double ky2kz2x, my2kz2x, ky2mz2x, my2mz2x;
-    double kz2y, mz2y;
-    double kz2z, mz2z;
+    std::vector<int> largeArmor, smallArmor;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorSettings& x) {
-    return f.object(x).fields(f.field("ratioThreshold", x.ratioThreshold), f.field("ky2kz2x", x.ky2kz2x).fallback(0.f),
-                              f.field("my2kz2x", x.my2kz2x).fallback(0.f), f.field("ky2mz2x", x.ky2mz2x).fallback(0.f),
-                              f.field("my2mz2x", x.my2mz2x).fallback(0.f), f.field("kz2y", x.kz2y).fallback(0.f),
-                              f.field("mz2y", x.mz2y).fallback(0.f), f.field("kz2z", x.kz2z).fallback(0.f),
-                              f.field("mz2z", x.mz2z).fallback(0.f));
+    return f.object(x).fields(f.field("ratioThreshold", x.ratioThreshold),
+                              f.field("largeArmor", x.largeArmor).fallback(std::vector<int>()),
+                              f.field("smallArmor", x.smallArmor).fallback(std::vector<int>()));
 }
 
 class ArmorLocator final
@@ -82,7 +78,15 @@ class ArmorLocator final
 
         const auto ratio = area / std::fmax(0.001, area1 + area2);
         HubLogger::watch("armor ratio", ratio);
-
+        {
+            static double maxRatio = 0, minRatio = 100;
+            if(ratio > maxRatio)
+                maxRatio = ratio;
+            if(ratio < minRatio)
+                minRatio = ratio;
+            HubLogger::watch("max armor ratio", maxRatio);
+            HubLogger::watch("min armor ratio", minRatio);
+        }
         return ratio > mConfig.ratioThreshold;
     }
 
@@ -123,20 +127,19 @@ public:
 
                      auto tfCamera2Gun = cameraInfo.tfGun2Camera.invTransformObj();
 
-                     for(const auto& [id, armor] : data.armors) {
-
-                         bool isLargeArmor = initImgPointAndArmorType(armor);
-
+                     for(auto&& armor : data.armors) {
+                         mImagePoint = {armor.leftLight.top, armor.leftLight.bottom, armor.rightLight.bottom, armor.rightLight.top};
+                         bool isLargeArmor = (armor.armorType == ArmorType::Large);
                          auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
-/*
-                        logInfo(fmt::format("0 Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}",
-                                           point.mVal.x, point.mVal.y, point.mVal.z));*/
+                         /*
+                                                 logInfo(fmt::format("0 Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}",
+                                                                    point.mVal.x, point.mVal.y, point.mVal.z));*/
 
 
-                         res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, id,
+                         res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, armor.id,
                                                  isLargeArmor ? ArmorType::Large : ArmorType::Small });
-                         logInfo(fmt::format("1 Armor Type:{}, Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}", isLargeArmor,
-                                            point.mVal.x, point.mVal.y, point.mVal.z));
+                         //  logInfo(fmt::format("1 Armor Type:{}, Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}", isLargeArmor,
+                         //                     point.mVal.x, point.mVal.y, point.mVal.z));
                      }
 
 #ifdef ARTINXHUB_DEBUG
@@ -164,18 +167,21 @@ public:
                      for(const auto& armor : data.armors) {
                          mImagePoint = armor.light4Point;
 
-                         bool isLargeArmor = !((armor.robotType >= 2 && armor.robotType <= 6) || armor.robotType == 0);
+                         bool isLargeArmor = false;
+                         for(auto num : mConfig.largeArmor)
+                             if(num == armor.robotType)
+                                 isLargeArmor = true;
                          auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 
-                        //  point.mVal.z = (point.mVal.z - mConfig.mz2z) / (mConfig.kz2z + 1);
-                        //  point.mVal.y += mConfig.kz2y * point.mVal.z + mConfig.mz2y;
-                        //  point.mVal.x += (mConfig.ky2kz2x * point.mVal.y + mConfig.my2kz2x) * point.mVal.z +
-                        //      (mConfig.ky2mz2x * point.mVal.y + mConfig.my2mz2x);
-
-                         res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, armor.robotType,
+                         auto pointRefGun = tfCamera2Gun(point);
+                         res.targets.push_back({ clcArmorImgCenter(), pointRefGun, 0.0, armor.robotType,
                                                  isLargeArmor ? ArmorType::Large : ArmorType::Small });
-                       logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}", isLargeArmor,
-                                             point.mVal.x, point.mVal.y, point.mVal.z));
+                         logInfo(fmt::format("Position ref Camera: x:{:.3}, y:{:.3}, z:{:.3} Armor Type:{}", point.mVal.x,
+                                             point.mVal.y, point.mVal.z, isLargeArmor));
+                         //                         logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{:.3}, y:{:.3}
+                         //                         z:{:.3}", isLargeArmor,
+                         //                                             pointRefGun.mVal.x, pointRefGun.mVal.y,
+                         //                                             pointRefGun.mVal.z));
                      }
 
                      sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));

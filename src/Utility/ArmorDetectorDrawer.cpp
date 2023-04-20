@@ -27,23 +27,18 @@ public:
                      data.frame.frame.copyTo(labeled);
 
                      const cv::Scalar red{ 0, 0, 255 };
-                     const cv::Scalar green{ 255, 0, 0 };
+                     const cv::Scalar green{ 0, 255, 0 };
 
-                     for(auto& armor : data.armors) {
-                         auto r1 = armor.pairedLight.r1, r2 = armor.pairedLight.r2;
+                     for (auto&& armor : data.armors){
+                         std::vector<cv::Point2f> imgPoints{ armor.leftLight.top, armor.leftLight.bottom, armor.rightLight.bottom,
+                                                             armor.rightLight.top };
+                         for (int i = 0; i < 4; ++i){
+                            cv::circle(labeled, imgPoints[i], 2, green);
+                            cv::line(labeled, imgPoints[i], imgPoints[(i + 1) % 4], red);
+                         }
 
-                         drawRotatedRect(labeled, r1, green);
-                         drawRotatedRect(labeled, r2, green);
-
-                         cv::Point2f pts[4];
-                         std::vector<cv::Point2f> pts8;
-                         pts8.reserve(8);
-                         r1.points(pts);
-                         pts8.insert(pts8.cend(), pts, pts + 4);
-                         r2.points(pts);
-                         pts8.insert(pts8.cend(), pts, pts + 4);
-
-                         drawRotatedRect(labeled, cv::minAreaRect(pts8), red);
+                         cv::putText(labeled, fmt::format("{} : {:.2f}", armor.armorName.c_str(), armor.confidence), { static_cast<int>(armor.center.x), static_cast<int>(armor.leftLight.top.y) }, cv::FONT_HERSHEY_SIMPLEX,
+                                     0.5, green);
                      }
 
                      CameraFrame frame;
