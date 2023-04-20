@@ -239,8 +239,12 @@ public:
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
-                     const auto res = BlackBoard::instance().get<CameraFrame>(key).value();
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
+                     const auto data = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
+                     CameraFrame res;
+                     res.info = data.info;
+                     res.lastUpdate = data.lastUpdate;
+                     res.frame = data.frame.clone();
 
                      //-----  If no more image, or got enough, then stop calibration and show result -------------
                      if(mMode == Status::CAPTURING && mImagePoints.size() >= static_cast<size_t>(mConfig.nrFrames)) {

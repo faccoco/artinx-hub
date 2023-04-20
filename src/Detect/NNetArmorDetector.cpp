@@ -95,7 +95,7 @@ class NNetArmorDetector final
         CameraFrame frame;
         frame.frame = std::move(res);
 
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame)));
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame), std::string_view("NNetArmorDetector")));
     }
 
     cv::Mat getROIRegion(const cv::Mat& img, const cv::Point2f& centerROI) {
@@ -393,11 +393,11 @@ public:
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
                  /*    const auto t0 = Clock::now();*/
-                     const auto frame = BlackBoard::instance().get<CameraFrame>(key).value();
+                     const auto frame = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
                      NNetDetectedArmorArray res;
                      res.frame = frame;
 
