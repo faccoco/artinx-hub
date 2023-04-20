@@ -80,7 +80,7 @@ class EnergyDetector final
         CameraFrame frame;
         frame.frame = std::move(res);
 
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame)));
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame), std::string_view("EnergyDetector")));
     }
 
     static void setBinary(const cv::Mat& src, cv::Mat& binary) {
@@ -454,12 +454,12 @@ public:
                      mEnabled = enable;
                  },
                  [&](image_frame_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
                      if(!mEnabled)
                          return;
-                     auto [lastUpdate, info, frame] = BlackBoard::instance().get<CameraFrame>(key).value();
+                     auto [lastUpdate, info, frame] = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
 
                      cv::RotatedRect armor;
                      double angle;

@@ -83,9 +83,9 @@ public:
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
 
-                     auto res = BlackBoard::instance().get<CameraFrame>(key).value();
+                     auto res = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
 
                      if(mCalibratedData.has_value()) {
                          res.frame = applyCalibration(res.frame);
@@ -93,7 +93,7 @@ public:
                          detectColorCheckerAndCalibrate(res.frame);
                      }
 
-                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
+                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("ColorCalibration")));
                  } };
     }
 };

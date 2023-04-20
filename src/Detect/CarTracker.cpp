@@ -62,13 +62,13 @@ public:
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](image_frame_atom, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+                ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                 ACTOR_EXCEPTION_PROBE();
 
                 if(!mInitialFlag) {
                     return;
                 }
-                const auto data = BlackBoard::instance().get<CameraFrame>(key).value();
+                const auto data = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
 
                 const auto t1 = Clock::now();
                 DetectedCarArray carTrackedRes;
