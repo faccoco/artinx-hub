@@ -127,17 +127,19 @@ public:
 
                      auto tfCamera2Gun = cameraInfo.tfGun2Camera.invTransformObj();
 
-                     for(const auto& [id, armor] : data.armors) {
-
-                         bool isLargeArmor = initImgPointAndArmorType(armor);
-
+                     for(auto&& armor : data.armors) {
+                         mImagePoint = {armor.leftLight.top, armor.leftLight.bottom, armor.rightLight.bottom, armor.rightLight.top};
+                         bool isLargeArmor = (armor.armorType == ArmorType::Large);
                          auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
+                         /*
+                                                 logInfo(fmt::format("0 Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}",
+                                                                    point.mVal.x, point.mVal.y, point.mVal.z));*/
 
-                         logInfo(fmt::format("Position ref Gun: x:{:.3}, y:{:.3} z:{:.3} Armor Type:{}", point.mVal.x,
-                                             point.mVal.y, point.mVal.z, isLargeArmor));
 
-                         res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, id,
+                         res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, armor.id,
                                                  isLargeArmor ? ArmorType::Large : ArmorType::Small });
+                         //  logInfo(fmt::format("1 Armor Type:{}, Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}", isLargeArmor,
+                         //                     point.mVal.x, point.mVal.y, point.mVal.z));
                      }
 
 #ifdef ARTINXHUB_DEBUG

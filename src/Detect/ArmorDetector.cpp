@@ -23,6 +23,7 @@ struct ArmorDetectorSettings final {
     bool debugView;
     int32_t binaryThresh;
     float maxLightLen;
+    float maxLightWidth;
     float minLightRectRatio;   // width/height
     float maxLightRectRatio;   // width/height
     float maxLightAngle;       // angle(degree)
@@ -32,7 +33,6 @@ struct ArmorDetectorSettings final {
     float maxArmorAngle;       // angle(degree)
     float minLargeArmorRatio;  // width / height
     std::string numClassifyModelPath;
-    std::string numClassifyLabelPath;
     float numConfThresh;
 };
 
@@ -46,16 +46,15 @@ template <class Inspector>
 bool inspect(Inspector& f, ArmorDetectorSettings& x) {
     return f.object(x).fields(
         f.field("debugView", x.debugView).fallback(false), f.field("binaryThresh", x.binaryThresh).fallback(100),
-        f.field("maxLightLen", x.maxLightLen).fallback(50.0), f.field("minLightRectRatio", x.minLightRectRatio).fallback(0.15),
+        f.field("maxLightLen", x.maxLightLen).fallback(50.0), f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
+        f.field("minLightRectRatio", x.minLightRectRatio).fallback(0.15),
         f.field("maxLightRectRatio", x.maxLightRectRatio).fallback(0.6), f.field("maxLightAngle", x.maxLightAngle).fallback(40),
         f.field("min2lightLenRatio", x.min2lightLenRatio).fallback(0.6),
         f.field("minArmorRectRatio", x.minArmorRectRatio).fallback(0.8),
         f.field("maxArmorRectRatio", x.maxArmorRectRatio).fallback(5.0), f.field("maxArmorAngle", x.maxArmorAngle).fallback(15.0),
         f.field("minLargeArmorRatio", x.minLargeArmorRatio).fallback(3.2),
-        f.field("numClassifyModelPath", x.numClassifyModelPath), f.field("numClassifyLabelPath", x.numClassifyLabelPath),
-        f.field("numConfThresh", x.numConfThresh).fallback(0.7));
+        f.field("numClassifyModelPath", x.numClassifyModelPath), f.field("numConfThresh", x.numConfThresh).fallback(0.7));
 }
-
 
 // reference: https://github.com/chenjunnn/rm_auto_aim
 class ArmorDetector final
@@ -102,7 +101,8 @@ class ArmorDetector final
 
         light.length = cv::norm(light.top - light.bottom);
         light.width = cv::norm(p[0] - p[1]);
-        bool lenOK = std::max(light.length, light.width) < mConfig.maxLightLen;
+        bool lenOK = std::max(light.length, light.width) < mConfig.maxLightLen &&
+            std::min(light.length, light.width) < mConfig.maxLightWidth;
 
         light.tiltAngle = std::atan2(std::fabs(light.top.x - light.bottom.x), std::fabs(light.top.y - light.bottom.y));
         light.tiltAngle /= (CV_PI * 180);
@@ -152,11 +152,11 @@ class ArmorDetector final
             std::swap(armor.leftLight, armor.rightLight);
         }
         if(mConfig.debugView) {
-            DebugArmor darmor;
-            darmor.points = { armor.leftLight.top, armor.leftLight.bottom, armor.rightLight.bottom, armor.rightLight.top };
-            darmor.ratio = armorRatio;
-            darmor.angle = angle;
-            mDebugArmors.emplace_back(std::move(darmor));
+            DebugArmor debugArmor;
+            debugArmor.points = { armor.leftLight.top, armor.leftLight.bottom, armor.rightLight.bottom, armor.rightLight.top };
+            debugArmor.ratio = armorRatio;
+            debugArmor.angle = angle;
+            mDebugArmors.emplace_back(std::move(debugArmor));
         }
         armor.armorType = armorRatio > mConfig.minLargeArmorRatio ? ArmorType::Large : ArmorType::Small;
 
@@ -189,11 +189,6 @@ class ArmorDetector final
 
         const auto lights = findLights(image, binaryImg);
         auto armors = matchLights(image, lights);
-
-        if(!armors.empty()) {
-            const auto imgs = mNumClassifierPtr->extractNumbers(image, armors);
-            mNumClassifierPtr->classify(armors, imgs);
-        }
 
         return armors;
     }
@@ -311,14 +306,13 @@ class ArmorDetector final
 
 public:
     ArmorDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-        mNumClassifierPtr =
-            std::make_unique<NumberClassifier>(mConfig.numClassifyModelPath, mConfig.numClassifyLabelPath, mConfig.numConfThresh);
+        mNumClassifierPtr = std::make_unique<NumberClassifier>(mConfig.numClassifyModelPath);
     }
 
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame>);
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
                      const auto t1 = Clock::now();

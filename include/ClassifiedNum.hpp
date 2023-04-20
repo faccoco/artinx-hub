@@ -12,15 +12,12 @@
 
 class NumberClassifier {
 public:
-    NumberClassifier(const std::string& modelPath, const std::string& labelPath, double threshold);
+    NumberClassifier(const std::string& modelPath);
 
-    std::vector<cv::Mat> extractNumbers(const cv::Mat& src, const std::vector<Armor>& armors);
+    cv::Mat extractNumbers(const cv::Mat& src, const Armor& armor);
 
-    void classify(std::vector<Armor>& armors, const std::vector<cv::Mat>& imgs);
-
-    double threshold;
+    std::pair<int, float> classify(const Armor& armors, const cv::Mat& img);
 
 private:
     cv::dnn::Net net;
-    std::vector<std::string> className;
 };
