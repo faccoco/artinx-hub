@@ -73,6 +73,8 @@ class ArmorLocator final
         const cv::Point2d rt = 0.5 * (mImagePoint[1] + mImagePoint[2]);
         const cv::Point2d rb = 0.5 * (mImagePoint[0] + mImagePoint[3]);
 
+        mImagePoint = { lt, lb, rb, rt };
+
         const auto ratio = (distance2D(lt, rt) + distance2D(lb, rb)) / (distance2D(lt, lb) + distance2D(rt, rb));
         HubLogger::watch("armor ratio", ratio);
         {
