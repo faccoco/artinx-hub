@@ -26,7 +26,7 @@ struct ReadableTimePoint {
     uint16_t ns;
     ReadableTimePoint(const ReadableTimePoint&) = default;
     template <typename Clock, typename Duration>
-    ReadableTimePoint(std::chrono::time_point<Clock, Duration> T) : ori(T) {
+    ReadableTimePoint(std::chrono::time_point<Clock, Duration> T){
         auto t = std::chrono::duration_cast<std::chrono::nanoseconds>(T.time_since_epoch()).count();
         ns = t % 1000;
         t /= 1000;
@@ -41,6 +41,7 @@ struct ReadableTimePoint {
         h = t % 24;
         t /= 24;
         d = t;
+        ori = TimePoint(T.time_since_epoch());
     }
     operator TimePoint() {
         return ori;
