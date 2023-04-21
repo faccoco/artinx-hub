@@ -15,6 +15,38 @@
 using TimePoint = Clock::time_point;
 using Duration = Clock::duration;
 
+struct ReadableTimePoint {
+    TimePoint ori;
+    uint32_t d;
+    uint8_t h;
+    uint8_t m;
+    uint8_t s;
+    uint16_t ms;
+    uint16_t us;
+    uint16_t ns;
+    ReadableTimePoint(const ReadableTimePoint&) = default;
+    template <typename Clock, typename Duration>
+    ReadableTimePoint(std::chrono::time_point<Clock, Duration> T) : ori(T) {
+        auto t = std::chrono::duration_cast<std::chrono::nanoseconds>(T.time_since_epoch()).count();
+        ns = t % 1000;
+        t /= 1000;
+        us = t % 1000;
+        t /= 1000;
+        ms = t % 1000;
+        t /= 1000;
+        s = t % 60;
+        t /= 60;
+        m = t % 60;
+        t /= 60;
+        h = t % 24;
+        t /= 24;
+        d = t;
+    }
+    operator TimePoint() {
+        return ori;
+    }
+};
+
 constexpr double durationCastDouble(const Duration& d) {
     return double(d.count()) / Duration::period::den * Duration::period::num;
 }

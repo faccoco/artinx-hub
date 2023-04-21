@@ -68,7 +68,6 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
     float mLastSpeedX = 0.0f, mLastSpeedY = 0.0f;
     TimePoint mLastReceivedTime, mLastUpTargetTime, mLastDownTargetTime;
-    std::optional<TimePoint> mFirstReceivedTime;
 
     std::atomic<float> mCapEnergy, mChasisPower;
 
@@ -78,6 +77,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     std::deque<double> mLatency;
     std::deque<uint16_t> mShootDelay;
     std::deque<double> mBulletSpeed;
+    std::optional<double> mLastBulletSpeed;
+
+    bool mHaveReceivedFdbPacket = false;
 
     void receive() {
         if(!started)
@@ -131,26 +133,32 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             reportFrameRate(Clock::now());
 
             FdbPacket fdb(mPacketBuffer);
+            mHaveReceivedFdbPacket = true;
             /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
-            if(fdb.bulletSpeed > 7.0f && fdb.bulletSpeed < 10.0f &&
-               (mBulletSpeed.empty() || mBulletSpeed.back() != fdb.bulletSpeed)) {
-                if(mBulletSpeed.size() >= mBulletSpeedLen)
-                    mBulletSpeed.pop_front();
-                mBulletSpeed.push_back(fdb.bulletSpeed);
-                if(mBulletSpeed.size() < 3) {
-                    GlobalSettings::get().bulletSpeed = avg(mBulletSpeed);
-                } else {
-                    double maxSpeed = mBulletSpeed[0], minSpeed = mBulletSpeed[0], sumSpeed = 0;
-                    for(auto speed : mBulletSpeed) {
-                        if(speed > maxSpeed)
-                            maxSpeed = speed;
-                        if(speed < minSpeed)
-                            minSpeed = speed;
-                        sumSpeed += speed;
+            if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
+                ReadableTimePoint tmp = std::chrono::system_clock::now();
+                HubLogger::fileLog(
+                    fmt::format("time: {}:{}:{:.1f} bulletSpeed: {}", tmp.h, tmp.m, tmp.s + tmp.ms / 1000.0, fdb.bulletSpeed));
+                if(fdb.bulletSpeed > 7.0f && fdb.bulletSpeed < 10.0f) {
+                    if(mBulletSpeed.size() >= mBulletSpeedLen)
+                        mBulletSpeed.pop_front();
+                    mBulletSpeed.push_back(fdb.bulletSpeed);
+                    if(mBulletSpeed.size() < 3) {
+                        GlobalSettings::get().bulletSpeed = avg(mBulletSpeed);
+                    } else {
+                        double maxSpeed = mBulletSpeed[0], minSpeed = mBulletSpeed[0], sumSpeed = 0;
+                        for(auto speed : mBulletSpeed) {
+                            if(speed > maxSpeed)
+                                maxSpeed = speed;
+                            if(speed < minSpeed)
+                                minSpeed = speed;
+                            sumSpeed += speed;
+                        }
+                        GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
                     }
-                    GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
                 }
+                mLastBulletSpeed = fdb.bulletSpeed;
             }
             if(fdb.shootDelayTime < maxShootDelay && (mShootDelay.empty() || fdb.shootDelayTime != mShootDelay.back())) {
                 if(mShootDelay.size() >= mShootDelayLen)
@@ -221,17 +229,6 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             PostureData posture;
             posture.lastUpdate = SynchronizedClock::instance().now();
             posture.tfGround2Robot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
-            if(!mFirstReceivedTime.has_value()) {
-                mFirstReceivedTime = SynchronizedClock::instance().now();
-                std::thread([this]() {
-                    while(globalStatus == RunStatus::running) {
-                        HubLogger::fileLog(fmt::format("time: {:.1f} s capEnergy: {:.1f} chasisPower: {:.2f}",
-                                                       durationCastDouble(Clock::now() - mFirstReceivedTime.value()), mCapEnergy,
-                                                       mChasisPower));
-                        std::this_thread::sleep_for(ChassisPowerRecordInterval);
-                    }
-                }).detach();
-            }
             mLastReceivedTime = SynchronizedClock::instance().now();
             mLastSpeedX = fdb.speedX;
             mLastSpeedY = fdb.speedY;
@@ -294,6 +291,16 @@ public:
                 sendPacket();
             }
         } };
+        std::thread([this]() {
+            while(globalStatus == RunStatus::running) {
+                if(mHaveReceivedFdbPacket) {
+                    ReadableTimePoint tmp = std::chrono::system_clock::now();
+                    HubLogger::fileLog(fmt::format("time: {}:{}:{:.1f} capEnergy: {:.1f} chasisPower: {:.2f}", tmp.h, tmp.m,
+                                                   tmp.s + tmp.ms / 1000.0, mCapEnergy, mChasisPower));
+                }
+                std::this_thread::sleep_for(ChassisPowerRecordInterval);
+            }
+        }).detach();
     }
 
     ~SerialPort() override {
