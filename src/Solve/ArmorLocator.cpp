@@ -114,47 +114,10 @@ public:
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](armor_detect_available_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
-                     ACTOR_EXCEPTION_PROBE();
-
-                     auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
-                     DetectedTargetArray res;
-                     res.lastUpdate = data.frame.lastUpdate;
-                     res.tfRobot2Gun = data.frame.info.tfRobot2Gun;
-                     const auto& cameraInfo = data.frame.info;
-
-                     auto debugView = data.frame.frame.clone();
-
-                     auto tfCamera2Gun = cameraInfo.tfGun2Camera.invTransformObj();
-
-                     for(auto&& armor : data.armors) {
-                         mImagePoint = {armor.leftLight.top, armor.leftLight.bottom, armor.rightLight.bottom, armor.rightLight.top};
-                         bool isLargeArmor = (armor.armorType == ArmorType::Large);
-                         auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
-                         /*
-                                                 logInfo(fmt::format("0 Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}",
-                                                                    point.mVal.x, point.mVal.y, point.mVal.z));*/
-
-
-                         res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, armor.id,
-                                                 isLargeArmor ? ArmorType::Large : ArmorType::Small });
-                         //  logInfo(fmt::format("1 Armor Type:{}, Position ref Gun: x:{:.3}, y:{:.3} z:{:.3}", isLargeArmor,
-                         //                     point.mVal.x, point.mVal.y, point.mVal.z));
-                     }
-
-#ifdef ARTINXHUB_DEBUG
-                     std::swap(debugView, data.frame.frame);
-                     sendAll(image_frame_atom_v,
-                             BlackBoard::instance().updateSync(mKey, std::move(data.frame), std::string_view("ArmorLoactor")));
-#endif
-
-                     sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
-                 },
-                 [&](armor_nnet_detect_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(armor_nnet_detect_available_atom, TypedIdentifier<NNetDetectedArmorArray>);
                      ACTOR_EXCEPTION_PROBE();
 
-                     auto data = BlackBoard::instance().get<NNetDetectedArmorArray>(key).value();
+                     auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
                      DetectedTargetArray res;
                      res.lastUpdate = data.frame.lastUpdate;
                      const auto& cameraInfo = data.frame.info;
@@ -169,7 +132,7 @@ public:
 
                          bool isLargeArmor = false;
                          for(auto num : mConfig.largeArmor)
-                             if(num == armor.robotType)
+                             if(static_cast<RobotType>(num) == armor.robotType)
                                  isLargeArmor = true;
                          auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 

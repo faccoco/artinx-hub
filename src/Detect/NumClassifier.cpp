@@ -2,15 +2,9 @@
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
 #include <opencv2/dnn.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/opencv.hpp>
 
 #include <algorithm>
-#include <cstddef>
-#include <fstream>
-#include <map>
 #include <string>
 #include <vector>
 
@@ -20,7 +14,7 @@ NumberClassifier::NumberClassifier(const std::string& modelPath) {
     net = cv::dnn::readNetFromONNX(modelPath);
 }
 
-cv::Mat NumberClassifier::extractNumbers(const cv::Mat& src, const Armor& armor) {
+cv::Mat NumberClassifier::extractNumbers(const cv::Mat& src, const cv::Point2f points[], bool isLargeArmor) {
     // Light length in image
     constexpr int lightLen = 12;
     // Image size after warp
@@ -31,19 +25,17 @@ cv::Mat NumberClassifier::extractNumbers(const cv::Mat& src, const Armor& armor)
     const cv::Size roiSize(20, 28);
 
     // Warp perspective transform
-    cv::Point2f lightsVertices[4] = { armor.leftLight.bottom, armor.leftLight.top, armor.rightLight.top,
-                                      armor.rightLight.bottom };
     const int topLightY = (warpHeight - lightLen) / 2 - 1;
     const int bottomLightY = topLightY + lightLen;
-    const int warpWidth = armor.armorType == ArmorType::Small ? smallArmorWidth : largeArmorWidth;
-    cv::Point2f target_vertices[4] = {
-        cv::Point(0, bottomLightY),
+    const int warpWidth = isLargeArmor ? largeArmorWidth : smallArmorWidth;
+    cv::Point2f targetVertices[4] = {
         cv::Point(0, topLightY),
-        cv::Point(warpWidth - 1, topLightY),
+        cv::Point(0, bottomLightY),
         cv::Point(warpWidth - 1, bottomLightY),
+        cv::Point(warpWidth - 1, topLightY),
     };
     cv::Mat numberImg;
-    auto rotation_matrix = cv::getPerspectiveTransform(lightsVertices, target_vertices);
+    auto rotation_matrix = cv::getPerspectiveTransform(points, targetVertices);
     cv::warpPerspective(src, numberImg, rotation_matrix, cv::Size(warpWidth, warpHeight));
     // Get ROI
     numberImg = numberImg(cv::Rect(cv::Point((warpWidth - roiSize.width) / 2, 0), roiSize));
@@ -55,7 +47,8 @@ cv::Mat NumberClassifier::extractNumbers(const cv::Mat& src, const Armor& armor)
     return numberImg;
 }
 
-std::pair<int, float> NumberClassifier::classify(const Armor& armors, const cv::Mat& img) {
+// 0 - 8 (Base 1 2 3 4 5 Sentry Outpos Negative
+std::pair<int, float> NumberClassifier::classify(const cv::Mat& img) {
 
     // Normalize
     cv::Mat image = img.clone();

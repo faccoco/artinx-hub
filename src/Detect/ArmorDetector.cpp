@@ -33,15 +33,17 @@ struct ArmorDetectorSettings final {
     float maxArmorAngle;       // angle(degree)
     float minLargeArmorRatio;  // width / height
     std::string numClassifyModelPath;
-    float numConfThresh;
+    float numProbThresh;  // number classify probability threshold
 };
 
-struct condidateArmor final {
-    int leftLightIdx;
-    int rightLightIdx;
+struct CondidateArmor final {
+    bool isLargeArmor;
+    uint32_t leftLightIdx;
+    uint32_t rightLightIdx;
     int id;
     float ratio;
     float angle;
+    float prob;
     std::vector<cv::Point2f> points;
 };
 
@@ -56,7 +58,7 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
         f.field("minArmorRectRatio", x.minArmorRectRatio).fallback(0.8),
         f.field("maxArmorRectRatio", x.maxArmorRectRatio).fallback(5.0), f.field("maxArmorAngle", x.maxArmorAngle).fallback(15.0),
         f.field("minLargeArmorRatio", x.minLargeArmorRatio).fallback(3.2),
-        f.field("numClassifyModelPath", x.numClassifyModelPath), f.field("numConfThresh", x.numConfThresh).fallback(0.7));
+        f.field("numClassifyModelPath", x.numClassifyModelPath), f.field("numProbThresh", x.numProbThresh).fallback(0.7));
 }
 
 // reference: https://github.com/chenjunnn/rm_auto_aim
@@ -87,6 +89,33 @@ class ArmorDetector final
         frame.frame = std::move(res);
 
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame), name));
+    }
+
+    static RobotType tfId2RobotType(int id) {
+        RobotType robotType;
+        switch(id) {  // number define is different from NNetArmorDetector
+            case 0:
+                robotType = RobotType::Base;
+                break;
+            case 1:
+            case 2:
+            case 3:
+                robotType = static_cast<RobotType>(id);
+                break;
+            case 4:
+            case 5:
+                robotType = RobotType::Infantry;
+            case 6:
+                robotType = RobotType::Sentry;
+                break;
+            case 7:
+                robotType = RobotType::Outpost;
+                break;
+            default:
+                robotType = RobotType::Negative;
+                break;
+        }
+        return robotType;
     }
 
     std::optional<Light> isLight(const cv::RotatedRect& lightRect) {
@@ -125,54 +154,23 @@ class ArmorDetector final
         }
     }
 
-    std::optional<Armor> judgeArmor(const Light& light1, const Light& light2) {
-
-        // Ratio of the length of 2 lights (short side / long side)
-        float lightLenRation = light1.length < light2.length ? light1.length / light2.length : light2.length / light1.length;
-        bool lightRatioOK = lightLenRation > mConfig.min2lightLenRatio;
-
-        // Distance between the center of 2 lights (unit : light length)
-        cv::Point2f diff = light1.center - light2.center;
-        float avgLightLen = (light1.length + light2.length) / 2;
-        float armorWidth = cv::norm(diff);
-        float armorRatio = armorWidth / avgLightLen;
-        bool armorRatioOK = (mConfig.minArmorRectRatio < armorRatio && armorRatio < mConfig.maxArmorRectRatio);
-
-        // Angle of light center connection
-        float angle = std::abs(std::atan(diff.y / diff.x)) / CV_PI * 180;
-        bool angleOK = angle < mConfig.maxArmorAngle;
-
-        bool isArmor = lightRatioOK && armorRatioOK && angleOK;
-        if(!isArmor)
-            return {};
-
-        armor.center = (light1.center + light2.center) / 2;
-        if(light1.center.x > light2.center.x) {
-            std::swap(armor.leftLight, armor.rightLight);
-        }
-
-        armor.armorType = armorRatio > mConfig.minLargeArmorRatio ? ArmorType::Large : ArmorType::Small;
-
-        return armor;
-    }
-
     // Check if there is another light in the boundingRect formed by the 2 lights
-    bool containLight(const Light& light1, const Light& light2, const std::vector<Light>& lights) {
-        auto points = std::vector<cv::Point2f>{ light1.top, light1.bottom, light2.top, light2.bottom };
-        auto boundingRect = cv::boundingRect(points);
-
-        for(const auto& testLight : lights) {
-            if(testLight.center == light1.center || testLight.center == light2.center)
-                continue;
-
-            if(boundingRect.contains(testLight.top) || boundingRect.contains(testLight.bottom) ||
-               boundingRect.contains(testLight.center)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    //    bool containLight(const Light& light1, const Light& light2, const std::vector<Light>& lights) {
+    //        auto points = std::vector<cv::Point2f>{ light1.top, light1.bottom, light2.top, light2.bottom };
+    //        auto boundingRect = cv::boundingRect(points);
+    //
+    //        for(const auto& testLight : lights) {
+    //            if(testLight.center == light1.center || testLight.center == light2.center)
+    //                continue;
+    //
+    //            if(boundingRect.contains(testLight.top) || boundingRect.contains(testLight.bottom) ||
+    //               boundingRect.contains(testLight.center)) {
+    //                return true;
+    //            }
+    //        }
+    //
+    //        return false;
+    //    }
 
     std::vector<Armor> solve(const cv::Mat& image) {
         const auto binaryImg = binary(image);
@@ -181,7 +179,7 @@ class ArmorDetector final
         }
 
         auto lights = findLights(image, binaryImg);
-        std::sort(lights.begin(), lights.end(), [](const auto&& l1, const auto&& l2) { return l1.center.x < l2.center.x });
+        std::sort(lights.begin(), lights.end(), [](const auto& l1, const auto& l2) { return l1.center.x < l2.center.x; });
 
         auto armors = matchLights(image, lights);
 
@@ -195,7 +193,6 @@ class ArmorDetector final
         cv::Mat binaryImg;
         cv::threshold(grayImg, binaryImg, mConfig.binaryThresh, 255, cv::THRESH_BINARY);
 
-        // cv::medianBlur(result, result, 3);
         //        debugView("binary", result, [](auto) {});
         return binaryImg;
     }
@@ -203,6 +200,7 @@ class ArmorDetector final
     std::vector<Light> findLights(const cv::Mat& bgrImg, const cv::Mat& binary) {
         mDebugLights.clear();
 
+        auto selfColor = GlobalSettings::get().selfColor;
         std::vector<std::vector<cv::Point2i>> contours;
         cv::findContours(binary, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
         std::vector<Light> lights;
@@ -230,13 +228,15 @@ class ArmorDetector final
                     }
                     // Sum of red pixels > sum of blue pixels ?
                     light->color = sumR > sumB ? Color::Red : Color::Blue;
-                    lights.emplace_back(std::move(light.value()));
+                    if(light->color == selfColor)
+                        continue;
+                    lights.emplace_back(light.value());
                 }
             }
         }
 
         if(mConfig.debugView) {
-            if(mDebugLights.size() > 0) {
+            if(!mDebugLights.empty()) {
                 debugView("lights", bgrImg, [&](cv::Mat& src) {
                     for(auto& light : mDebugLights) {
                         cv::line(src, light.top, light.bottom, cv::Scalar(0, 0, 255), 1);
@@ -260,26 +260,78 @@ class ArmorDetector final
 
     std::vector<Armor> matchLights([[maybe_unused]] const cv::Mat& bgrImg, const std::vector<Light>& lights) {
 
-        auto selfColor = GlobalSettings::get().selfColor;
-        std::vector<Armor> armors;
-        for(int i = 0; i < lights.size(); ++i) {
-            for (int j = 0; j < lights.size(); ++j){
-                if ()
+        std::vector<CondidateArmor> condArmors;
+        condArmors.reserve(5);
+        for(uint32_t i = 0; i < lights.size(); ++i) {
+            for(uint32_t j = i + 1; j < lights.size(); ++j) {
+                // Ratio of the length of 2 lights (short side / long side)
+                auto light1 = lights[i], light2 = lights[j];
+                float lightLenRation =
+                    light1.length < light2.length ? light1.length / light2.length : light2.length / light1.length;
+                if(lightLenRation > mConfig.min2lightLenRatio)
+                    continue;
+
+                // Distance between the center of 2 lights (unit : light length)
+                cv::Point2f diff = light1.center - light2.center;
+                float avgLightLen = (light1.length + light2.length) / 2;
+                float armorWidth = cv::norm(diff);
+                float armorRatio = armorWidth / avgLightLen;
+                if(mConfig.minArmorRectRatio < armorRatio && armorRatio < mConfig.maxArmorRectRatio)
+                    continue;
+
+                // Angle of light center connection
+                float angle = std::fabs(std::atan(diff.y / diff.x)) / CV_PI * 180;
+                if(angle < mConfig.maxArmorAngle)
+                    continue;
+
+                CondidateArmor condArmor;
+                condArmor.isLargeArmor = armorRatio > mConfig.minLargeArmorRatio;
+                condArmor.leftLightIdx = i;
+                condArmor.rightLightIdx = j;
+                condArmor.id = -1;      //Not Initialise
+                condArmor.prob = -1.0; //Not Initialise
+                condArmor.angle = angle;
+                condArmor.ratio = armorRatio;
+                condArmor.points = { light1.top, light1.bottom, light2.bottom, light2.top };
+
+                condArmors.push_back(std::move(condArmor));
             }
         }
-        
+
+        std::vector<Armor> armors;
+        std::sort(condArmors.begin(), condArmors.end(),
+                  [](const auto& armor1, const auto& armor2) { return armor1.angle < armor2.angle; });
+        std::vector<bool> used(condArmors.size());
+        for(auto& condArmor : condArmors) {
+            if(used[condArmor.rightLightIdx] || used[condArmor.leftLightIdx]) {
+                continue;
+            }
+            const auto img = NumberClassifier::extractNumbers(bgrImg, condArmor.points.data(), condArmor.isLargeArmor);
+            const auto [id, prob] = mNumClassifierPtr->classify(img);
+            condArmor.id = id;
+            condArmor.prob = prob;
+            if(id == 8 || prob < mConfig.numProbThresh)  // id 8 -> negative
+                continue;
+            Armor armor = {};
+            armor.light4Point = condArmor.points;
+            armor.robotType = tfId2RobotType(id);
+            armor.prob = prob;
+            used[condArmor.leftLightIdx] = true;
+            used[condArmor.rightLightIdx] = true;
+            armors.push_back(armor);
+        }
 
         if(mConfig.debugView) {
-            if(mDebugArmors.size() > 0) {
+            if(!condArmors.empty()) {
                 debugView("Armors", bgrImg, [&](cv::Mat& src) {
-                    for(auto& armor : mDebugArmors) {
+                    for(auto& armor : condArmors) {
                         for(int i = 0; i < 4; ++i) {
                             cv::line(src, armor.points[i], armor.points[(i + 1) % 4], cv::Scalar(0, 255, 255));
                         }
-                        cv::putText(src, fmt::format("{:.2f}", armor.ratio),
+                        cv::putText(src, fmt::format("ratio:{:.2f}, angle:{:.2f}", armor.ratio, armor.angle),
                                     { static_cast<int32_t>(armor.points[0].x), static_cast<int32_t>(armor.points[0].y) },
                                     cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 0, 0, 255 });
-                        cv::putText(src, fmt::format("{:.2f}", armor.angle),
+                        cv::putText(src, fmt::format("id:{}, prob:{:.2f}", armor.id, armor.prob),
                                     { static_cast<int32_t>(armor.points[1].x), static_cast<int32_t>(armor.points[1].y) },
                                     cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 0, 0, 255 });
                     }

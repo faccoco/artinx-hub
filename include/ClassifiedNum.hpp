@@ -9,32 +9,17 @@
 #include <opencv2/opencv.hpp>
 
 #include "DetectedArmor.hpp"
-<<<<<<< HEAD
 
+// 0-8 : Base 1 2 3 4 5 sentry Outpost  Negative
 class NumberClassifier {
 public:
-    NumberClassifier(const std::string& modelPath, const std::string& labelPath, double threshold);
+    explicit NumberClassifier(const std::string& modelPath) ;
 
-    void extractNumbers(const cv::Mat& src, std::vector<Armor>& armors);
+    static cv::Mat extractNumbers(const cv::Mat& src, const cv::Point2f points[], bool isLargeArmor);
 
-    void classify(std::vector<Armor>& armors);
-
-    double threshold;
+    std::pair<int, float> classify(const cv::Mat& img);
 
 private:
     cv::dnn::Net net;
-    std::vector<std::string> className;
-=======
 
-class NumberClassifier {
-public:
-    NumberClassifier(const std::string& modelPath);
-
-    cv::Mat extractNumbers(const cv::Mat& src, const Armor& armor);
-
-    std::pair<int, float> classify(const Armor& armors, const cv::Mat& img);
-
-private:
-    cv::dnn::Net net;
->>>>>>> fbe86789e359ff24bb2d5e59f67dab68ceb4611b
 };

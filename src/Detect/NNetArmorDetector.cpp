@@ -57,6 +57,7 @@ struct GridAndStride final {
     int stride;
 };
 
+// 机器人类别（0：哨兵，1：英雄，2：工程，3、4、5：步兵，6：前哨站，7：基地）
 class NNetArmorDetector final
     : public HubHelper<caf::event_based_actor, NNetArmorDetectorSettings, armor_nnet_detect_available_atom, image_frame_atom> {
     Identifier mKey;
