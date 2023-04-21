@@ -59,7 +59,7 @@ struct GridAndStride final {
 
 // 机器人类别（0：哨兵，1：英雄，2：工程，3、4、5：步兵，6：前哨站，7：基地）
 class NNetArmorDetector final
-    : public HubHelper<caf::event_based_actor, NNetArmorDetectorSettings, armor_nnet_detect_available_atom, image_frame_atom> {
+    : public HubHelper<caf::event_based_actor, NNetArmorDetectorSettings, armor_detect_available_atom, image_frame_atom> {
     Identifier mKey;
     std::optional<Identifier> mROIKey;
 
@@ -190,7 +190,7 @@ class NNetArmorDetector final
     }
 
     void generateYoloxProposals(const std::vector<GridAndStride>& gridStrides, const float* featPtr, float probThreshold,
-                                std::vector<NNetDetectedArmor>& armors) {
+                                std::vector<Armor>& armors) {
 
         const int numAnchors = gridStrides.size();
         // Travel all the anchors
@@ -220,7 +220,7 @@ class NNetArmorDetector final
             float boxProb = (featPtr[basicPos + 8]);
 
             if(boxProb >= probThreshold) {
-                NNetDetectedArmor armor;
+                Armor armor;
 
                 Eigen::Matrix<float, 3, 4> light4PointNorm;
                 Eigen::Matrix<float, 3, 4> light4PointDst;
@@ -238,8 +238,8 @@ class NNetArmorDetector final
                 std::vector<cv::Point2f> tmp(armor.light4Point.data(), armor.light4Point.data() + 4);
                 armor.lightRect = cv::boundingRect(tmp);
 
-                armor.robotType = boxClass;
-                armor.robotColor = boxColor;
+                armor.robotType = static_cast<RobotType>(boxClass);
+                armor.robotColor = static_cast<Color>(boxColor);
                 armor.prob = boxProb;
 
                 armors.push_back(armor);
@@ -248,12 +248,12 @@ class NNetArmorDetector final
         }  // point anchor loop
     }
 
-    float intersectionArea(const NNetDetectedArmor& a, const NNetDetectedArmor& b) {
+    float intersectionArea(const Armor& a, const Armor& b) {
         cv::Rect2f inter = a.lightRect & b.lightRect;
         return inter.area();
     }
 
-    void nmsSortedBboxes(std::vector<NNetDetectedArmor>& faceObjects, std::vector<int>& picked, float nmsThreshold) {
+    void nmsSortedBboxes(std::vector<Armor>& faceObjects, std::vector<int>& picked, float nmsThreshold) {
         picked.clear();
 
         const int n = faceObjects.size();
@@ -264,11 +264,11 @@ class NNetArmorDetector final
         }
 
         for(int i = 0; i < n; i++) {
-            NNetDetectedArmor& a = faceObjects[i];
+            Armor& a = faceObjects[i];
 
             bool keep = true;
             for(uint32_t j = 0; j < picked.size(); j++) {
-                NNetDetectedArmor& b = faceObjects[picked[j]];
+                Armor& b = faceObjects[picked[j]];
 
                 // intersection over union
                 float interArea = intersectionArea(a, b);
@@ -291,8 +291,8 @@ class NNetArmorDetector final
         }
     }
 
-    void decodeOutputs(const float* prob, std::vector<NNetDetectedArmor>& armors) {
-        std::vector<NNetDetectedArmor> proposals;
+    void decodeOutputs(const float* prob, std::vector<Armor>& armors) {
+        std::vector<Armor> proposals;
         std::vector<int> strides = { 8, 16, 32 };
         std::vector<GridAndStride> gridStrides;
 
@@ -313,16 +313,15 @@ class NNetArmorDetector final
         }
     }
 
-    std::vector<NNetDetectedArmor> postProcess(const std::vector<NNetDetectedArmor>& armors) {
-        [[maybe_unused]] const int enemyColor = GlobalSettings::get().selfColor == Color::Red ? 0 : 1;
-        std::vector<NNetDetectedArmor> enemyArmors;
+    std::vector<Armor> postProcess(const std::vector<Armor>& armors) {
+        std::vector<Armor> enemyArmors;
 
         for(const auto& armor : armors) {
-           if(armor.robotColor != enemyColor)
+           if(armor.robotColor == GlobalSettings::get().selfColor || armor.robotColor == Color::Negative)
                continue;
 
             // 对候选框预测角点进行平均,降低误差
-            NNetDetectedArmor enemyArmor = armor;
+            Armor enemyArmor = armor;
             if(armor.armorPts.size() >= 8) {
                 auto N = armor.armorPts.size();
                 cv::Point2f detectedArmorsFinal[4];
@@ -399,7 +398,7 @@ public:
 
                  /*    const auto t0 = Clock::now();*/
                      const auto frame = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
-                     NNetDetectedArmorArray res;
+                     DetectedArmorArray res;
                      res.frame = frame;
 
                      if(res.frame.frame.empty()) {
@@ -428,7 +427,7 @@ public:
 
                      mInferRequest.Infer();
 
-                     std::vector<NNetDetectedArmor> allArmors;
+                     std::vector<Armor> allArmors;
                      auto outputHolder = mOutputMemBlobPtr->rmap();
                      const float* netPredict = outputHolder.as<const IE::PrecisionTrait<IE::Precision::FP32>::value_type*>();
                      decodeOutputs(netPredict, allArmors);
@@ -452,7 +451,7 @@ public:
                          fmt::format("NNet armor detector:decode time {:.4f}ms", static_cast<double>((t1 - t0).count()) / 1e6));
 */
 
-                     sendAll(armor_nnet_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
+                     sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  },
                  [&](update_roi_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(update_roi_atom, TypedIdentifier<TargetROI>);

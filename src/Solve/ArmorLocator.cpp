@@ -114,7 +114,7 @@ public:
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](armor_detect_available_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(armor_nnet_detect_available_atom, TypedIdentifier<NNetDetectedArmorArray>);
+                     ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
                      ACTOR_EXCEPTION_PROBE();
 
                      auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();

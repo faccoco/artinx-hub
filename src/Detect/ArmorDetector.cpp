@@ -22,6 +22,8 @@
 struct ArmorDetectorSettings final {
     bool debugView;
     int32_t binaryThresh;
+    int32_t bSubtractR;
+    int32_t rSubtractR;
     float maxLightLen;
     float maxLightWidth;
     float minLightRectRatio;   // width/height
@@ -51,6 +53,7 @@ template <class Inspector>
 bool inspect(Inspector& f, ArmorDetectorSettings& x) {
     return f.object(x).fields(
         f.field("debugView", x.debugView).fallback(false), f.field("binaryThresh", x.binaryThresh).fallback(100),
+        f.field("bSubtractR", x.bSubtractR).fallback(60), f.field("rSubtractB", x.rSubtractR).fallback(60),
         f.field("maxLightLen", x.maxLightLen).fallback(50.0), f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
         f.field("minLightRectRatio", x.minLightRectRatio).fallback(0.15),
         f.field("maxLightRectRatio", x.maxLightRectRatio).fallback(0.6), f.field("maxLightAngle", x.maxLightAngle).fallback(40),
@@ -154,24 +157,6 @@ class ArmorDetector final
         }
     }
 
-    // Check if there is another light in the boundingRect formed by the 2 lights
-    //    bool containLight(const Light& light1, const Light& light2, const std::vector<Light>& lights) {
-    //        auto points = std::vector<cv::Point2f>{ light1.top, light1.bottom, light2.top, light2.bottom };
-    //        auto boundingRect = cv::boundingRect(points);
-    //
-    //        for(const auto& testLight : lights) {
-    //            if(testLight.center == light1.center || testLight.center == light2.center)
-    //                continue;
-    //
-    //            if(boundingRect.contains(testLight.top) || boundingRect.contains(testLight.bottom) ||
-    //               boundingRect.contains(testLight.center)) {
-    //                return true;
-    //            }
-    //        }
-    //
-    //        return false;
-    //    }
-
     std::vector<Armor> solve(const cv::Mat& image) {
         const auto binaryImg = binary(image);
         if(mConfig.debugView) {
@@ -221,14 +206,21 @@ class ArmorDetector final
                         for(int j = 0; j < roi.cols; j++) {
                             if(cv::pointPolygonTest(lightContour, cv::Point2f(j + rect.x, i + rect.y), false) >= 0) {
                                 // if point is inside contour
-                                sumB += roi.at<cv::Vec3b>(i, j)[0];
-                                sumR += roi.at<cv::Vec3b>(i, j)[2];
+                                auto b = static_cast<int>(roi.at<cv::Vec3b>(i, j)[0]), r = static_cast<int>(roi.at<cv::Vec3b>(i, j)[2]);
+                                if (b - r > mConfig.bSubtractR) ++sumB;
+                                if (r - b > mConfig.rSubtractR) ++sumR;
                             }
                         }
                     }
-                    // Sum of red pixels > sum of blue pixels ?
-                    light->color = sumR > sumB ? Color::Red : Color::Blue;
-                    if(light->color == selfColor)
+                    int sumPixelThresh = static_cast<int>(light->length * light->width) / 2;
+                    if (sumR > sumPixelThresh){
+                        light->color = Color::Red;
+                    }else if (sumB > sumPixelThresh){
+                        light->color = Color::Blue;
+                    }else{
+                        light->color = Color::Negative;
+                    }
+                    if(light->color == selfColor || light->color == Color::Negative)
                         continue;
                     lights.emplace_back(light.value());
                 }
@@ -240,16 +232,9 @@ class ArmorDetector final
                 debugView("lights", bgrImg, [&](cv::Mat& src) {
                     for(auto& light : mDebugLights) {
                         cv::line(src, light.top, light.bottom, cv::Scalar(0, 0, 255), 1);
-                        cv::putText(src, fmt::format("{:.2f}", light.ratio),
+                        cv::putText(src, fmt::format("ratio : {:.2f}, tiltAngle : {:.2f}", light.ratio, light.tiltAngle),
                                     { static_cast<int32_t>(light.top.x), static_cast<int32_t>(light.top.y) },
                                     cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 0, 0, 255 });
-                        cv::putText(src, fmt::format("{:.2f}", light.tiltAngle),
-                                    { static_cast<int32_t>(light.bottom.x), static_cast<int32_t>(light.bottom.y) },
-                                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 0, 0, 255 });
-                        //                        cv::putText(src, fmt::format("{:.2f}", light.length),
-                        //                                    { static_cast<int32_t>(light.center.x),
-                        //                                    static_cast<int32_t>(light.center.y) }, cv::FONT_HERSHEY_SIMPLEX,
-                        //                                    0.3, cv::Scalar{ 0, 0, 255 });
                     }
                 });
             }
@@ -284,15 +269,26 @@ class ArmorDetector final
                 if(angle < mConfig.maxArmorAngle)
                     continue;
 
+                bool isContainLights = false;
+                std::vector<cv::Point2f> points = { light1.top, light1.bottom, light2.bottom, light2.top };
+                for (uint32_t k = i + 1; k < j; ++k){
+                    const auto boundRect = cv::boundingRect(points);
+                    if (boundRect.contains(lights[k].top) || boundRect.contains(lights[k].bottom)){
+                        isContainLights = true;
+                        break;
+                    }
+                }
+                if (isContainLights) continue;
+
                 CondidateArmor condArmor;
                 condArmor.isLargeArmor = armorRatio > mConfig.minLargeArmorRatio;
                 condArmor.leftLightIdx = i;
                 condArmor.rightLightIdx = j;
-                condArmor.id = -1;      //Not Initialise
-                condArmor.prob = -1.0; //Not Initialise
+                condArmor.id = -1;      // Not Initialise
+                condArmor.prob = -1.0;  // Not Initialise
                 condArmor.angle = angle;
                 condArmor.ratio = armorRatio;
-                condArmor.points = { light1.top, light1.bottom, light2.bottom, light2.top };
+                condArmor.points = points;
 
                 condArmors.push_back(std::move(condArmor));
             }
