@@ -25,3 +25,15 @@ body {
 .image {
     max-height: 50vh;
 }
+
+.chart {
+    width: 100%;
+    height: 30vh;
+}
+
+#settings .mdui-row{
+    display: flex;
+    align-items: center;
+    min-height: 7vh;
+    font-size: small;
+}
