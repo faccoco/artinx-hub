@@ -1,12 +1,42 @@
-$(document).ready(function () {
-    setInterval("updateAll()", 100);
-});
+import * as echarts from "./echarts/echarts.esm.js"
 
 let filters = {};
 let images = {};
-let watches = {};
+let $watchVals = {};
 let checkRadar = false;
 let locateTab;
+
+let watchCharts = {};
+let watchChartOptions = {};
+let startTimePoint = new Date() - 0;
+
+let updateInterval = setInterval(() => { }, 100000);
+window.settings = new Proxy(
+    {
+        updateFreq,
+        logLength,
+    },
+    {
+        get: (target, p, receiver) => $('#' + p).val(),
+        set: function (target, p, value, receiver) {
+            $('#' + p).val(value);
+            $('#' + p).parents('.mdui-row').children('.settingsDisplay').text(value);
+            switch (p) {
+                case 'updateFreq':
+                    clearInterval(updateInterval);
+                    updateInterval = value > 0 ?
+                        setInterval(updateAll, 1000. / value) :
+                        setInterval(() => { }, 100000);
+                    break;
+            }
+            return true;
+        }
+    }
+);
+settings.logLength = 100;
+$(document).ready(function () {
+    settings.updateFreq = 20.;   //start updating
+});
 
 function updateAll() {
     updateFilter();
@@ -17,17 +47,75 @@ function updateAll() {
 function updateWatches() {
     fetch("/watch").then(res => res.json()).then(data => {
         for (let k in data) {
-            if (watches.hasOwnProperty(k)) {
-                watches[k].html(data[k]);
-            } else {
-                let line = $("<tr><td>" + k + "</td></tr>");
-                let val = $("<td>" + data[k] + "</td>");
-                watches[k] = val;
-                line.append(val);
-                $("#watches").append(line);
+            if (!$watchVals.hasOwnProperty(k)) {
+                newTableRow(k);
+                $('#tr-' + k + ' input:checkbox').attr('checked', false);
+                if (!isNaN(+data[k])) {
+                    newChart(k);
+                    $('#chart-' + k).hide();
+                } else {
+                    $('#tr-' + k + ' .mdui-checkbox').hide();
+                }
+            }
+            $watchVals[k].html(data[k]);
+            if (watchChartOptions.hasOwnProperty(k) && !isNaN(+data[k])) {
+                let chartData = watchChartOptions[k].series[0].data;
+                if (chartData.length >= settings.logLength) {
+                    chartData.splice(0, chartData.length - settings.logLength + 1);
+                }
+                chartData.push(
+                    [(new Date() - startTimePoint) / 1000., +data[k]]
+                );
+                watchCharts[k].setOption(watchChartOptions[k]);
             }
         }
     })
+}
+
+function newTableRow(k) {
+    let $tr = $($('#trTemp')[0].content.firstElementChild)
+        .clone(true)
+        .attr('id', 'tr-' + k);
+    $tr.children('td').eq(1).text(k);
+    let $val = $tr.children('td').eq(2);
+    $watchVals[k] = $val;
+    $("#watchesTable").append($tr);
+}
+
+function newChart(key) {
+    $('#watches').append(
+        $($('#chartTemp')[0].content.firstElementChild)
+            .clone(true)
+            .attr('id', 'chart-' + key)
+    );
+    let chart = echarts.init($('#chart-' + key)[0]);
+    let chartOption = {
+        title: {
+            text: key
+        },
+        tooltip: {},
+        xAxis: {
+            type: 'value',
+            min: 'dataMin',
+            max: 'dataMax',
+        },
+        yAxis: {
+            type: 'value'
+        },
+        series: [
+            {
+                name: key,
+                type: 'line',
+                //large: true,
+                symbol: 'none',
+                data: []
+            }
+        ],
+        animation: false    //如果为真，坐标网格会显示混乱（实质上是这些线移动过渡动画过慢）
+    };
+    chart.setOption(chartOption);
+    watchCharts[key] = chart;
+    watchChartOptions[key] = chartOption;
 }
 
 function updateStatus() {
@@ -96,7 +184,7 @@ function updateRadar() {
     if (!checkRadar) {
         checkRadar = true;
         setTimeout(() => {
-            fetch("/radar", {method: "GET"}).then(res => res.json()).then(data => {
+            fetch("/radar", { method: "GET" }).then(res => res.json()).then(data => {
                 if (data) {
                     let checkbox = $("<label class=\"mdui-list-item mdui-ripple\">" +
                         "<div class=\"mdui-list-item-content mdui-text-truncate\">Radar Loc-Cal</div > " +
