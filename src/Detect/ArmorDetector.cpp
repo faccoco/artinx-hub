@@ -26,6 +26,7 @@ struct ArmorDetectorSettings final {
     int32_t rSubtractR;
     float maxLightLen;
     float maxLightWidth;
+    float sumPixelRatio;       // the proportion of the total number of eligible pixel points to the total area of the light strip
     float minLightRectRatio;   // width/height
     float maxLightRectRatio;   // width/height
     float maxLightAngle;       // angle(degree)
@@ -37,6 +38,8 @@ struct ArmorDetectorSettings final {
     std::string numClassifyModelPath;
     float numProbThresh;  // number classify probability threshold
 };
+
+constexpr float fontScale = 0.5;
 
 struct CondidateArmor final {
     bool isLargeArmor;
@@ -54,7 +57,8 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
     return f.object(x).fields(
         f.field("debugView", x.debugView).fallback(false), f.field("binaryThresh", x.binaryThresh).fallback(100),
         f.field("bSubtractR", x.bSubtractR).fallback(60), f.field("rSubtractB", x.rSubtractR).fallback(60),
-        f.field("maxLightLen", x.maxLightLen).fallback(50.0), f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
+        f.field("maxLightLen", x.maxLightLen).fallback(50.0), f.field("sumPixelRatio", x.sumPixelRatio).fallback(4.0),
+        f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
         f.field("minLightRectRatio", x.minLightRectRatio).fallback(0.15),
         f.field("maxLightRectRatio", x.maxLightRectRatio).fallback(0.6), f.field("maxLightAngle", x.maxLightAngle).fallback(40),
         f.field("min2lightLenRatio", x.min2lightLenRatio).fallback(0.6),
@@ -108,6 +112,7 @@ class ArmorDetector final
             case 4:
             case 5:
                 robotType = RobotType::Infantry;
+                break;
             case 6:
                 robotType = RobotType::Sentry;
                 break;
@@ -206,21 +211,21 @@ class ArmorDetector final
                         for(int j = 0; j < roi.cols; j++) {
                             if(cv::pointPolygonTest(lightContour, cv::Point2f(j + rect.x, i + rect.y), false) >= 0) {
                                 // if point is inside contour
-                                auto b = static_cast<int>(roi.at<cv::Vec3b>(i, j)[0]), r = static_cast<int>(roi.at<cv::Vec3b>(i, j)[2]);
-                                if (b - r > mConfig.bSubtractR) ++sumB;
-                                if (r - b > mConfig.rSubtractR) ++sumR;
+                                auto b = static_cast<int>(roi.at<cv::Vec3b>(i, j)[0]),
+                                     r = static_cast<int>(roi.at<cv::Vec3b>(i, j)[2]);
+                                if(b - r > mConfig.bSubtractR)
+                                    ++sumB;
+                                if(r - b > mConfig.rSubtractR)
+                                    ++sumR;
                             }
                         }
                     }
-                    int sumPixelThresh = static_cast<int>(light->length * light->width) / 2;
-                    if (sumR > sumPixelThresh){
-                        light->color = Color::Red;
-                    }else if (sumB > sumPixelThresh){
-                        light->color = Color::Blue;
-                    }else{
+                    int sumPixelThresh = static_cast<int>(light->length * light->width / mConfig.sumPixelRatio);
+                    light->color = sumR > sumB ? Color::Red : Color::Blue;
+                    if(std::max(sumB, sumR) <= sumPixelThresh) {
                         light->color = Color::Negative;
                     }
-                    if(light->color == selfColor || light->color == Color::Negative)
+                    if(light->color != selfColor || light->color == Color::Negative)
                         continue;
                     lights.emplace_back(light.value());
                 }
@@ -231,10 +236,10 @@ class ArmorDetector final
             if(!mDebugLights.empty()) {
                 debugView("lights", bgrImg, [&](cv::Mat& src) {
                     for(auto& light : mDebugLights) {
-                        cv::line(src, light.top, light.bottom, cv::Scalar(0, 0, 255), 1);
-                        cv::putText(src, fmt::format("ratio : {:.2f}, tiltAngle : {:.2f}", light.ratio, light.tiltAngle),
+                        cv::line(src, light.top, light.bottom, cv::Scalar(0, 255, 255), 1);
+                        cv::putText(src, fmt::format("{:.2f}, {:.2f}", light.ratio, light.tiltAngle),
                                     { static_cast<int32_t>(light.top.x), static_cast<int32_t>(light.top.y) },
-                                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 0, 0, 255 });
+                                    cv::FONT_HERSHEY_SIMPLEX, fontScale, cv::Scalar{ 0, 255, 255 });
                     }
                 });
             }
@@ -253,7 +258,7 @@ class ArmorDetector final
                 auto light1 = lights[i], light2 = lights[j];
                 float lightLenRation =
                     light1.length < light2.length ? light1.length / light2.length : light2.length / light1.length;
-                if(lightLenRation > mConfig.min2lightLenRatio)
+                if(lightLenRation < mConfig.min2lightLenRatio)
                     continue;
 
                 // Distance between the center of 2 lights (unit : light length)
@@ -261,24 +266,25 @@ class ArmorDetector final
                 float avgLightLen = (light1.length + light2.length) / 2;
                 float armorWidth = cv::norm(diff);
                 float armorRatio = armorWidth / avgLightLen;
-                if(mConfig.minArmorRectRatio < armorRatio && armorRatio < mConfig.maxArmorRectRatio)
+                if(armorRatio < mConfig.minArmorRectRatio || armorRatio > mConfig.maxArmorRectRatio)
                     continue;
 
                 // Angle of light center connection
                 float angle = std::fabs(std::atan(diff.y / diff.x)) / CV_PI * 180;
-                if(angle < mConfig.maxArmorAngle)
+                if(angle > mConfig.maxArmorAngle)
                     continue;
 
                 bool isContainLights = false;
                 std::vector<cv::Point2f> points = { light1.top, light1.bottom, light2.bottom, light2.top };
-                for (uint32_t k = i + 1; k < j; ++k){
+                for(uint32_t k = i + 1; k < j; ++k) {
                     const auto boundRect = cv::boundingRect(points);
-                    if (boundRect.contains(lights[k].top) || boundRect.contains(lights[k].bottom)){
+                    if(boundRect.contains(lights[k].top) || boundRect.contains(lights[k].bottom)) {
                         isContainLights = true;
                         break;
                     }
                 }
-                if (isContainLights) continue;
+                if(isContainLights)
+                    continue;
 
                 CondidateArmor condArmor;
                 condArmor.isLargeArmor = armorRatio > mConfig.minLargeArmorRatio;
@@ -322,14 +328,14 @@ class ArmorDetector final
                 debugView("Armors", bgrImg, [&](cv::Mat& src) {
                     for(auto& armor : condArmors) {
                         for(int i = 0; i < 4; ++i) {
-                            cv::line(src, armor.points[i], armor.points[(i + 1) % 4], cv::Scalar(0, 255, 255));
+                            cv::line(src, armor.points[i], armor.points[(i + 1) % 4], cv::Scalar(0, 0, 255));
                         }
                         cv::putText(src, fmt::format("ratio:{:.2f}, angle:{:.2f}", armor.ratio, armor.angle),
                                     { static_cast<int32_t>(armor.points[0].x), static_cast<int32_t>(armor.points[0].y) },
-                                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 0, 0, 255 });
+                                    cv::FONT_HERSHEY_SIMPLEX, fontScale, cv::Scalar{ 0, 255, 255 });
                         cv::putText(src, fmt::format("id:{}, prob:{:.2f}", armor.id, armor.prob),
                                     { static_cast<int32_t>(armor.points[1].x), static_cast<int32_t>(armor.points[1].y) },
-                                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar{ 0, 0, 255 });
+                                    cv::FONT_HERSHEY_SIMPLEX, fontScale, cv::Scalar{ 0, 255, 255 });
                     }
                 });
             }

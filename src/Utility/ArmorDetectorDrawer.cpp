@@ -1,5 +1,4 @@
 #include "BlackBoard.hpp"
-#include "Common.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
 #include "Hub.hpp"
@@ -11,7 +10,6 @@
 #include <caf/event_based_actor.hpp>
 
 #include "SuppressWarningEnd.hpp"
-
 
 class ArmorDetectorDrawer final : public HubHelper<caf::event_based_actor, void, image_frame_atom> {
     Identifier mKey;
@@ -42,7 +40,7 @@ public:
 
                          // 绘制装甲板四点矩形
                          for(int i = 0; i < 4; i++) {
-                             cv::line(showImg, armor.light4Point[i], armor.light4Point[(i + 1) % 4], cv::Scalar(100, 200, 0), 1);
+                             cv::line(showImg, armor.light4Point[i], armor.light4Point[(i + 1) % 4], cv::Scalar(0, 255, 255), 1);
                          }
 
                          // 绘制目标颜色与类别
@@ -50,8 +48,8 @@ public:
                          int box_top_x = static_cast<int>(armor.light4Point[0].x);
                          int box_top_y = static_cast<int>(armor.light4Point[0].y);
 
-                         cv::putText(showImg, id, cv::Point(box_top_x + 2, box_top_y), cv::FONT_HERSHEY_TRIPLEX,
-                                     1, cv::Scalar(255, 0, 0));
+                         cv::putText(showImg, id, cv::Point(box_top_x + 2, box_top_y), cv::FONT_HERSHEY_TRIPLEX, 0.5,
+                                     cv::Scalar(0, 255, 255));
                      }
 
                      CameraFrame frame;
