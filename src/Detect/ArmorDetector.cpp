@@ -23,7 +23,7 @@ struct ArmorDetectorSettings final {
     bool debugView;
     int32_t binaryThresh;
     int32_t bSubtractR;
-    int32_t rSubtractR;
+    int32_t rSubtractB;
     float maxLightLen;
     float maxLightWidth;
     float sumPixelRatio;       // the proportion of the total number of eligible pixel points to the total area of the light strip
@@ -39,7 +39,7 @@ struct ArmorDetectorSettings final {
     float numProbThresh;  // number classify probability threshold
 };
 
-constexpr float fontScale = 0.5;
+constexpr float fontScale = 1.5;
 
 struct CondidateArmor final {
     bool isLargeArmor;
@@ -56,7 +56,7 @@ template <class Inspector>
 bool inspect(Inspector& f, ArmorDetectorSettings& x) {
     return f.object(x).fields(
         f.field("debugView", x.debugView).fallback(false), f.field("binaryThresh", x.binaryThresh).fallback(100),
-        f.field("bSubtractR", x.bSubtractR).fallback(60), f.field("rSubtractB", x.rSubtractR).fallback(60),
+        f.field("bSubtractR", x.bSubtractR).fallback(60), f.field("rSubtractB", x.rSubtractB).fallback(60),
         f.field("maxLightLen", x.maxLightLen).fallback(50.0), f.field("sumPixelRatio", x.sumPixelRatio).fallback(4.0),
         f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
         f.field("minLightRectRatio", x.minLightRectRatio).fallback(0.15),
@@ -140,8 +140,7 @@ class ArmorDetector final
 
         light.length = cv::norm(light.top - light.bottom);
         light.width = cv::norm(p[0] - p[1]);
-        bool lenOK = std::max(light.length, light.width) < mConfig.maxLightLen &&
-            std::min(light.length, light.width) < mConfig.maxLightWidth;
+        bool lenOK = std::max(light.length, light.width) < mConfig.maxLightLen;
 
         light.tiltAngle = std::atan2(std::fabs(light.top.x - light.bottom.x), std::fabs(light.top.y - light.bottom.y));
         light.tiltAngle /= (CV_PI * 180);
@@ -154,7 +153,6 @@ class ArmorDetector final
         if(mConfig.debugView) {
             mDebugLights.push_back(light);
         }
-
         if(ratioOK && angleOK && lenOK) {
             return light;
         } else {
@@ -215,7 +213,7 @@ class ArmorDetector final
                                      r = static_cast<int>(roi.at<cv::Vec3b>(i, j)[2]);
                                 if(b - r > mConfig.bSubtractR)
                                     ++sumB;
-                                if(r - b > mConfig.rSubtractR)
+                                if(r - b > mConfig.rSubtractB)
                                     ++sumR;
                             }
                         }
@@ -225,7 +223,7 @@ class ArmorDetector final
                     if(std::max(sumB, sumR) <= sumPixelThresh) {
                         light->color = Color::Negative;
                     }
-                    if(light->color != selfColor || light->color == Color::Negative)
+                    if(light->color == selfColor || light->color == Color::Negative)
                         continue;
                     lights.emplace_back(light.value());
                 }
@@ -233,8 +231,21 @@ class ArmorDetector final
         }
 
         if(mConfig.debugView) {
+            if(!lights.empty()) {
+                debugView("Lights", bgrImg, [&](cv::Mat& src) {
+                    for(auto& light : lights) {
+                        cv::line(src, light.top, light.bottom, cv::Scalar(0, 255, 255), 1);
+                        cv::putText(src, fmt::format("{:.2f}, {:.2f}", light.ratio, light.tiltAngle),
+                                    { static_cast<int32_t>(light.top.x), static_cast<int32_t>(light.top.y) },
+                                    cv::FONT_HERSHEY_SIMPLEX, fontScale, cv::Scalar{ 0, 255, 255 });
+                    }
+                });
+            }
+        }
+
+        if(mConfig.debugView) {
             if(!mDebugLights.empty()) {
-                debugView("lights", bgrImg, [&](cv::Mat& src) {
+                debugView("DebugLights", bgrImg, [&](cv::Mat& src) {
                     for(auto& light : mDebugLights) {
                         cv::line(src, light.top, light.bottom, cv::Scalar(0, 255, 255), 1);
                         cv::putText(src, fmt::format("{:.2f}, {:.2f}", light.ratio, light.tiltAngle),
@@ -258,6 +269,7 @@ class ArmorDetector final
                 auto light1 = lights[i], light2 = lights[j];
                 float lightLenRation =
                     light1.length < light2.length ? light1.length / light2.length : light2.length / light1.length;
+
                 if(lightLenRation < mConfig.min2lightLenRatio)
                     continue;
 
@@ -273,6 +285,7 @@ class ArmorDetector final
                 float angle = std::fabs(std::atan(diff.y / diff.x)) / CV_PI * 180;
                 if(angle > mConfig.maxArmorAngle)
                     continue;
+
 
                 bool isContainLights = false;
                 std::vector<cv::Point2f> points = { light1.top, light1.bottom, light2.bottom, light2.top };
