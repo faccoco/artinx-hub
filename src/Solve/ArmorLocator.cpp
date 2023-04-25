@@ -5,7 +5,6 @@
 #include "ExceptionProbe.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
-#include "Utility.hpp"
 
 #include "SuppressWarningBegin.hpp"
 
@@ -45,49 +44,9 @@ class ArmorLocator final
     };
     std::vector<cv::Point2f> mImagePoint{ 4 };
 
-    static double evalArea(cv::Point2d p1, cv::Point2d p2, cv::Point2d p3) {
-        const auto v1 = p2 - p1;
-        const auto v2 = p3 - p1;
-        return v1.x * v2.y - v1.y * v2.x;
-    }
-
-    static double evalArea(cv::Point2d p1, cv::Point2d p2, cv::Point2d p3, cv::Point2d p4) {
-        return -evalArea(p1, p2, p3) - evalArea(p1, p3, p4);
-    }
-
     cv::Point2f clcArmorImgCenter() {
         return { (mImagePoint[0].x + mImagePoint[1].x + mImagePoint[2].x + mImagePoint[3].x) / 4,
                  (mImagePoint[0].y + mImagePoint[1].y + mImagePoint[2].y + mImagePoint[3].y) / 4 };
-    }
-
-    bool initImgPointAndArmorType(const PairedLight& armor) {
-        boxRect(mImagePoint, armor.r1);
-        const auto area1 = armor.r1.size.area();
-
-        const cv::Point2d lt = 0.5 * (mImagePoint[1] + mImagePoint[2]);
-        const cv::Point2d lb = 0.5 * (mImagePoint[0] + mImagePoint[3]);
-
-        boxRect(mImagePoint, armor.r2);
-        const auto area2 = armor.r2.size.area();
-
-        const cv::Point2d rt = 0.5 * (mImagePoint[1] + mImagePoint[2]);
-        const cv::Point2d rb = 0.5 * (mImagePoint[0] + mImagePoint[3]);
-
-        mImagePoint = { lt, lb, rb, rt };
-        const auto area = evalArea(lt, lb, rb, rt);
-
-        const auto ratio = area / std::fmax(0.001, area1 + area2);
-        HubLogger::watch("armor ratio", ratio);
-        {
-            static double maxRatio = 0, minRatio = 100;
-            if(ratio > maxRatio)
-                maxRatio = ratio;
-            if(ratio < minRatio)
-                minRatio = ratio;
-            HubLogger::watch("max armor ratio", maxRatio);
-            HubLogger::watch("min armor ratio", minRatio);
-        }
-        return ratio > mConfig.ratioThreshold;
     }
 
     Point<UnitType::Distance, FrameOfRef::Camera> solve([[maybe_unused]] cv::Mat& debugView, const cv::Mat& cameraMatrix,
@@ -120,41 +79,6 @@ public:
                      auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
                      DetectedTargetArray res;
                      res.lastUpdate = data.frame.lastUpdate;
-                     res.tfRobot2Gun = data.frame.info.tfRobot2Gun;
-                     const auto& cameraInfo = data.frame.info;
-
-                     auto debugView = data.frame.frame.clone();
-
-                     auto tfCamera2Gun = cameraInfo.tfGun2Camera.invTransformObj();
-
-                     for(const auto& [id, armor] : data.armors) {
-
-                         bool isLargeArmor = initImgPointAndArmorType(armor);
-
-                         auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
-
-                         logInfo(fmt::format("Position ref Gun: x:{:.3}, y:{:.3} z:{:.3} Armor Type:{}", point.mVal.x,
-                                             point.mVal.y, point.mVal.z, isLargeArmor));
-
-                         res.targets.push_back({ clcArmorImgCenter(), tfCamera2Gun(point), 0.0, id,
-                                                 isLargeArmor ? ArmorType::Large : ArmorType::Small });
-                     }
-
-#ifdef ARTINXHUB_DEBUG
-                     std::swap(debugView, data.frame.frame);
-                     sendAll(image_frame_atom_v,
-                             BlackBoard::instance().updateSync(mKey, std::move(data.frame), std::string_view("ArmorLoactor")));
-#endif
-
-                     sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
-                 },
-                 [&](armor_nnet_detect_available_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(armor_nnet_detect_available_atom, TypedIdentifier<NNetDetectedArmorArray>);
-                     ACTOR_EXCEPTION_PROBE();
-
-                     auto data = BlackBoard::instance().get<NNetDetectedArmorArray>(key).value();
-                     DetectedTargetArray res;
-                     res.lastUpdate = data.frame.lastUpdate;
                      const auto& cameraInfo = data.frame.info;
                      res.tfRobot2Gun = cameraInfo.tfRobot2Gun;
 
@@ -167,7 +91,7 @@ public:
 
                          bool isLargeArmor = false;
                          for(auto num : mConfig.largeArmor)
-                             if(num == armor.robotType)
+                             if(static_cast<RobotType>(num) == armor.robotType)
                                  isLargeArmor = true;
                          auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 
