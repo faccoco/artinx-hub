@@ -1,18 +1,21 @@
 #include "BlackBoard.hpp"
+#include "Common.hpp"
 #include "DataDesc.hpp"
-#include "DetectedBots.hpp"
 #include "Hub.hpp"
 #include "Packet.hpp"
-#include "PostureData.hpp"
+#include "RadarInfo.hpp"
 #include "Utility.hpp"
 
 #include "SuppressWarningBegin.hpp"
 
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include <caf/event_based_actor.hpp>
-#include <deque>
 
 #include "SuppressWarningEnd.hpp"
+
+#include <deque>
+#include <mutex>
+#include <string>
 
 struct PosSynchronizationSettings final {
     std::string devPath;
@@ -24,52 +27,34 @@ bool inspect(Inspector& f, PosSynchronizationSettings& x) {
     return f.object(x).fields(f.field("devPath", x.devPath), f.field("baudRate", x.baudRate));
 }
 
-class PosSynchronization final : public HubHelper<caf::event_based_actor, PosSynchronizationSettings, sync_position_atom> {
-    constexpr static size_t bufferLen = 1024;
-    constexpr static size_t headerLen = 5;
-    constexpr static size_t sendBufferLen = 1024;
-
-    bool started = false;
-
+class PosSynchronization final : public HubHelper<caf::event_based_actor, PosSynchronizationSettings> {
     BufferedAsyncSerial::Ptr mSerialPort;
-    Identifier mKey;
-    RadarPositionPacket mPosPacket;
+    std::mutex mMutex;
+    std::condition_variable busy;
 
+    MapMessage mMapMessage;
+    std::deque<MapData> mSendQueue;
     std::thread mThread;
-    std::deque<SingleBotPos> mSendDeque;
 
-    //    uint16_t mExpectedLen;
-    //    std::array<uint8_t, bufferLen> mPacketBuffer;
-    //    uint32_t mPacketLen;
-    //    std::array<uint8_t, headerLen> mHeaderBuffer;
-    //    uint32_t mHeaderLen;
-    //    std::array<uint8_t, sendBufferLen> mSendBuffer;
-    //    size_t mSendBufferLen;
-
-    TimePoint lastReceivedTime, lastUpTargetTime, lastDownTargetTime;
-
-    void receive() {}
-
-    std::deque<Clock::rep> mLastFrames;
-
-    void handlePacket(uint16_t id) {}
-
-    void sendPacket() {}
+    void sendPacket() {
+        std::lock_guard<std::mutex> guard(mMutex);
+        if(mSendQueue.empty())
+            return;
+        mMapMessage.clear();
+        mMapMessage.enBuffer(mSendQueue.front());
+        mSerialPort->write(mMapMessage.data(), mMapMessage.size());
+        mSendQueue.pop_front();
+    }
 
 public:
     PosSynchronization(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ generateKey(this) },
-          mPosPacket(mSerialPort), mSendDeque(0) {
-        mSerialPort->open(mConfig.devPath, mConfig.baudRate);
-        lastReceivedTime = SynchronizedClock::instance().now();
-        mThread = std::thread{ [this]() {
-            while(globalStatus == RunStatus::running) {
-                sendPacket();
-                std::this_thread::sleep_for(0.75ms);
-                //                mSendBufferLen += gimbalSetPacket.buffer.size();
-            }
-        } };
-    }
+        : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mMutex(), busy(), mThread([this]() {
+              mSerialPort->open(mConfig.devPath, mConfig.baudRate);
+              while(globalStatus == RunStatus::running) {
+                  sendPacket();
+                  std::this_thread::sleep_for(25ms);
+              }
+          }) {}
 
     ~PosSynchronization() override {
         mSerialPort.release()->close();
@@ -79,13 +64,14 @@ public:
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
                     ACTOR_PROTOCOL_CHECK(start_atom);
-                    started = true;
+                    busy.notify_one();
                 },
                  [this](sync_position_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(sync_position_atom, BotsLocation);
-                     auto data = BlackBoard::instance().get<BotsLocation>(key).value();
-                     for(auto& bot : data.data)
-                         mSendDeque.push_back({ bot.id, static_cast<float>(bot.x), static_cast<float>(bot.y) });
+                     ACTOR_PROTOCOL_CHECK(sync_position_atom, TypedIdentifier<BotsPosition>);
+                     if(const auto data = BlackBoard::instance().get<BotsPosition>(key)) {
+                         for(auto& bot : data.value().data)
+                             mSendQueue.push_back({ bot.id, static_cast<float>(bot.x), static_cast<float>(bot.y) });
+                     }
                  } };
     }
 };

@@ -331,14 +331,14 @@ gitlab-runner ALL=(ALL) NOPASSWD: ALL
 - 程序卡死
   - 某个Actor挂了（使用Probe/std::cout定位bug）
   - 某个Actor死循环（监视系统未完成，谁来干一下）
+- 串口无法打开(permission denied): 执行 `sudo gpasswd --add ${USER} dialout`
 - 串口无法收发数据
   - 重新插拔usb2ttl
   - 下位机/上位机包格式不一致（都是电控的锅）
   - buffer炸了（调整发包周期）
   - usb2ttl松了/坏了
   - 线扯断了
-  - 用```ls /dev | grep ttyUSB`
-  - ``来查看是否识别串口
+  - 用 `ls /dev | grep ttyUSB` 来查看是否识别串口(不同设备和不同usb2ttl串口在/dev里面显示的名字可能不一样，但都以tty开头)
 - 相机无法启动
   - 查看错误码查文档
   - 打开Galaxy看看能不能检测到(仅限3.0相机）

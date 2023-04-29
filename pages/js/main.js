@@ -209,7 +209,10 @@ function updateRadar() {
 
 function exitServer() {
     fetch("/exit");
-    locateTab.close();
+    try {
+        locateTab.close();
+    } catch (e) {
+    }
     setTimeout(function () {
         window.close();
     }, 514);

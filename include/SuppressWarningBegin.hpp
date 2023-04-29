@@ -6,7 +6,14 @@
 
 #ifdef _MSC_VER
 #pragma warning(push, 0)
-#else
+#endif
+
+#ifdef __gcc__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wall"
+#endif
+
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wall"
 #endif
