@@ -6,16 +6,17 @@ set(SOURCE
         "Core/Daemon.cpp"
         "Core/Logger.cpp"
         "Core/PerformanceMonitor.cpp"
-        "DataLink/HttpServer.cpp"
-        "DataLink/PosSynchronization.cpp"
         "DataLink/AsyncSerial/AsyncSerial.cpp"
         "DataLink/AsyncSerial/BufferedAsyncSerial.cpp"
+        "DataLink/HttpServer.cpp"
         "DataLink/SerialPort.cpp"
+        "DataLink/PosSynchronization.cpp"
         "Detect/CarDetector.cpp"
         "Detect/NumClassifier.cpp"
         "Detect/ArmorDetector.cpp"
         "Detect/NNetArmorDetector.cpp"
         "Detect/EnergyDetector.cpp"
+        "Detect/RadarNNetDetector.cpp"
         "HubMain.cpp"
         "Postprocess/ArmorPredictor.cpp"
         "Postprocess/PeriodOutpostPredictor.cpp"
@@ -24,6 +25,7 @@ set(SOURCE
         "Preprocess/Undistort.cpp"
         "Sensor/DahengDriver.cpp"
         "Sensor/ImageSequenceReplay.cpp"
+        "Sensor/LivoxDriver.cpp"
         "Sensor/VideoReplay.cpp"
         "Solve/AllBotsLocator.cpp"
         "Solve/AngleSolver.cpp"
@@ -36,6 +38,7 @@ set(SOURCE
         "Test/ActorFramework/Availability.cpp"
         "Test/ActorFramework/DaemonTester.cpp"
         "Test/ActorFramework/FrameRateKeeperTester.cpp"
+        "Test/DataLink/SerialPortTester.cpp"
         "Test/Detect/FakeSerialPort.cpp"
         "Test/Sensor/FixedIMU.cpp"
         "Test/Solve/FakeDetector.cpp"
@@ -50,8 +53,7 @@ set(SOURCE
         "Utility/PID.cpp"
         "Utility/Timer.cpp"
         "Utility/VideoRecorder.cpp"
-        "Utility/MathTools.cpp"
-        )
+        "Utility/MathTools.cpp")
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
@@ -73,9 +75,8 @@ message(${ARTINX_HUB_CAMERA} ":" ${DAHENG_SDK_PATH})
 #find_package(Bullet CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
-#find_package(Boost REQUIRED system)
-#set(InferenceEngine_DIR $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine/share/)
-find_package(InferenceEngine CONFIG REQUIRED)
+find_package(Boost REQUIRED system)
+set(InferenceEngine_DIR $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine/share/)
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
 
@@ -102,6 +103,15 @@ target_link_libraries(ArtinxHub PRIVATE gxiapi)
 #target_link_libraries(ArtinxHub PRIVATE LinearMath Bullet3Common BulletDynamics BulletCollision)
 target_link_libraries(ArtinxHub PRIVATE magic_enum::magic_enum)
 target_link_libraries(ArtinxHub PRIVATE fmt::fmt)
+if (DEFINED ENV{ARTINX_RADAR})
+    set(InferenceEngine_DIR /opt/intel/openvino/runtime/cmake)
+    set(Thrust_DIR /opt/cuda/lib64/cmake/thrust)
+    find_package(Thrust CONFIG REQUIRED)
+    thrust_create_target(Thrust)
+    target_link_libraries(ArtinxHub PRIVATE Thrust)
+    target_link_libraries(ArtinxHub PRIVATE Thrust)
+endif ()
+find_package(InferenceEngine CONFIG REQUIRED)
 target_link_libraries(ArtinxHub PRIVATE ${InferenceEngine_LIBRARIES})
 target_link_libraries(ArtinxHub PRIVATE nlohmann_json nlohmann_json::nlohmann_json)
 target_link_libraries(ArtinxHub PRIVATE Eigen3::Eigen)

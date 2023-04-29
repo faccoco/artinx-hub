@@ -1,10 +1,9 @@
 #include "Crc.hpp"
 
 uint8_t Crc::Get_CRC8_Check_Sum(uint8_t* pchMessage, uint32_t dwLength, uint8_t ucCRC8) {
-    unsigned char ucIndex;
+//    unsigned char ucIndex;
     while(dwLength--) {
-        ucIndex = ucCRC8 ^ (*pchMessage++);
-        ucCRC8 = CRC8_TAB[ucIndex];
+        ucCRC8 = CRC8_TAB[ucCRC8 ^ (*pchMessage++)];
     }
     return (ucCRC8);
 }
@@ -24,7 +23,7 @@ uint16_t Crc::Get_CRC16_Check_Sum(uint8_t* pchMessage, uint32_t dwLength, uint16
     }
     while(dwLength--) {
         chData = *pchMessage++;
-        (wCRC) = ((uint16_t)(wCRC) >> 8) ^ CRC16_TAB[((uint16_t)(wCRC) ^ (uint16_t)(chData)) & 0x00ff];
+        (wCRC) = ((uint16_t)(wCRC) >> 8) ^ CRC16_TAB[((uint16_t)(wCRC) ^ (uint16_t)(chData)) & 0x00FF];
     }
     return wCRC;
 }

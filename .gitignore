@@ -11,3 +11,4 @@ bringup
 CMakeSettings.json
 .cache/
 compile_commands.json
+cmake-*.sh

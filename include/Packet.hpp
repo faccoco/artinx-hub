@@ -4,8 +4,10 @@
 #include "Crc.hpp"
 #include "PacketHelper.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <iterator>
 
 struct FdbPacket final {
@@ -69,21 +71,36 @@ struct GimbalSetPacket final {
     }
 };
 
-struct SingleBotPos final {
+struct MapData final {
     uint16_t botID;
     float x;
     float y;
 };
 
-struct RadarPositionPacket final {
-    constexpr static uint8_t headerSOF = 0xA5;
-    constexpr static uint8_t headerSeq = 10;
-    constexpr static uint8_t headerCRC8 = Crc::getHeaderCRC8(4);
-    constexpr static uint16_t cmdId = 0x0303;
+struct MapMessage final {
+    JudgeSystemPacketBuffer<14, 0x0305> buffer;
+    char* data() {
+        return reinterpret_cast<char*>(buffer.buffer.data());
+    }
 
-    BufferedAsyncSerial::Ptr& ptr;
-    RadarPositionPacket(BufferedAsyncSerial::Ptr& ptr) : ptr(ptr) {}
-    void sendPos(std::iterator_traits<std::vector<SingleBotPos>>& data, size_t num) {
-        //        ptr->write();
+    [[nodiscard]] constexpr size_t size() const {
+        return buffer.buffer.size();
+    }
+
+    void enBuffer(const MapData& src) {
+        buffer.serialize(src.botID);
+        buffer.serialize(src.x);
+        buffer.serialize(src.y);
+        buffer.index += 4;
+        buffer.serializeCrc16();
+    }
+
+    void copyToBuffer(uint8_t* dest) {
+        std::memcpy(dest, data(), size());
+        clear();
+    }
+
+    void clear() {
+        buffer.clear();
     }
 };

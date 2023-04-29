@@ -43,13 +43,13 @@ public:
     constexpr static uint16_t CRC16_INIT = 0xFFFF;
 
     constexpr static uint8_t getHeaderCRC8(uint8_t size) {
-        uint8_t crc = 0xa5;
+        uint8_t crc = 0xA5;
         crc = CRC8_TAB[crc ^ size];
         crc = CRC8_TAB[crc ^ 0];
         crc = CRC8_TAB[crc ^ 0];
         return crc;
     }
-    
+
     static uint8_t Get_CRC8_Check_Sum(uint8_t* pchMessage, uint32_t dwLength, uint8_t ucCRC8);
     static bool VerifyCrc8CheckSum(uint8_t* pchMessage, uint32_t dwLength);
 
