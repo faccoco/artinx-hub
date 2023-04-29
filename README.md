@@ -234,17 +234,18 @@ source /opt/intel/openvino_2021/bin/setupvars.sh
 - 根据需求(USB2/USB3)安装大恒相机驱动[Daheng Imaging](https://daheng-imaging.com/list-58-1.html), 对应CMake参数的ARTINX_HUB_CAMERA=USB2/USB3
 
 ### LLVM-Clang
->
->在ubuntu上配置最新clang编译环境
 
-- 访问[官方源](https://apt.llvm.org/),根据你的发行版和要安装的clang版本选择apt源并在`/etc/apt/sources.list.d/`目录下新建一个LLVM文件写入
-- 执行`wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -`或`wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc`添加gpg key
-- 执行`apt update`
+>在ubuntu上配置最新 clang(stable) 编译环境
+
+- 访问[官方源](https://apt.llvm.org/),根据你的发行版和要安装的clang版本选择apt源并在 `/etc/apt/sources.list.d/ `目录下新建一个LLVM文件写入
+- 执行 `wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -`或`wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc` 添加gpg key
+- 执行 `apt update`
 - `apt intstall clang-x lld-x(x为你要安装的版本)`
-- 进入`/usr/bin`目录，执行`ln -s clang clang-v`，其中v是你安装的版本，然后依次对`clang++`,`ld.lld`执行上述操作
+- 进入`/usr/bin`目录，执行`ln -s clang clang-v`，其中v是你安装的版本，然后依次对`clang++`,`lld`执行上述操作
 - 配置Clion的clang编译环境:
   - 进入设置，搜索`Toolchains`,点击加号，选择`system`,添加一个名为"LLVM"的环境，然后`C compiler`写clang，`C++ compiler`写clang++，`debuger`选lldb
   - 在Cmake选项里面选择LLVM，如果嫌麻烦也可以在上一步中将LLVM设为默认环境
+- 如果你使用命令行运行cmake,使用 `-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++` 来指定clang为编译器，若不指定，则默认使用 `cc` 和 `c++` （一般是 gcc 和 g++ 的软链接）
 
 ## 机器人部署指南
 
@@ -256,8 +257,8 @@ source /opt/intel/openvino_2021/bin/setupvars.sh
 - 配置串口通讯免Root
 
 ```shell
-- ~~use `groups ${USER}` to check groups~~
-- sudo gpasswd --add ${USER} dialout
+groups ${USER}# check whether current user are in the dialout group
+sudo gpasswd --add ${USER} dialout
 ```
 
 在机器人上用clion调试前记得临时关闭service：
