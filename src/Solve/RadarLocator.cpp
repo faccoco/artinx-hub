@@ -2,7 +2,7 @@
 #include "DataDesc.hpp"
 #include "ExceptionProbe.hpp"
 #include "Hub.hpp"
-#include "RadarCameraPoints.hpp"
+#include "RadarInfo.hpp"
 
 #include "SuppressWarningBegin.hpp"
 
@@ -23,7 +23,7 @@ bool inspect(Inspector& f, RadarLocatorSetting& x) {
 class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocatorSetting, radar_locate_succeed_atom> {
     Identifier mKey;
     const std::vector<cv::Point3f> mObjectPoints = {
-        cv::Point3f(1.51f, 7.5f, 1.12f),  // from rival's base,clockwise
+        cv::Point3f(1.51f, 7.5f, 1.12f),                                            // from rival's base,clockwise
         cv::Point3f(12.897f, 1.867f, 0.6f), cv::Point3f(19.195f, 8.612f, 0.615f),  cv::Point3f(19.195f, 9.272f, 0.615f),
         cv::Point3f(12.03f, 10.500f, 0.6f), cv::Point3f(10.931f, 12.546f, 1.228f),  // guardStation's height unknown, can't find
                                                                                     // in manual
@@ -51,9 +51,8 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
                 trans[3][1] = 15 - tvec[1];
             }
             trans[3][2] = tvec[2];
-            logInfo(fmt::format("current color {}", selfColor == Color::Blue ? "Blue" : "Red"));
-            logInfo(fmt::format("trans: {} {} {}", trans[3][0], trans[3][1], trans[3][2]));
-            return { { glm::inverse(trans), rotate } };
+            trans[3][3] = 1;
+            return { { glm::inverse(trans) } };
         }
         return std::nullopt;
     }
@@ -69,8 +68,7 @@ public:
 
                      const auto data = BlackBoard::instance().get<RadarCameraPoints>(key).value();
                      if(const auto radarTransform = locatePosition(data.info.cameraMatrix, data.points)) {
-                         sendAll(radar_locate_succeed_atom_v,
-                                 BlackBoard::instance().updateSync(mKey, std::move(radarTransform.value())));
+                         sendAll(radar_locate_succeed_atom_v);
                      }
                  } };
     }

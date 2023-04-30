@@ -99,9 +99,11 @@ CAF_ADD_ATOM(ArtinxHub, sync_position_atom);
 CAF_ADD_ATOM(ArtinxHub, update_posture_atom);
 CAF_ADD_ATOM(ArtinxHub, update_head_atom);
 CAF_ADD_ATOM(ArtinxHub, update_roi_atom);
+CAF_ADD_ATOM(ArtinxHub, update_radar_atom);
 CAF_ADD_ATOM(ArtinxHub, simulator_step_atom);
 CAF_ADD_ATOM(ArtinxHub, timer_atom);
 CAF_ADD_ATOM(ArtinxHub, image_frame_atom);
+CAF_ADD_ATOM(ArtinxHub, radar_points_atom);
 CAF_ADD_ATOM(ArtinxHub, car_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, armor_nnet_detect_available_atom);
@@ -112,8 +114,8 @@ CAF_ADD_ATOM(ArtinxHub, ore_instructions_atom);
 CAF_ADD_ATOM(ArtinxHub, ore_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_succeed_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_request_atom);
-CAF_ADD_ATOM(ArtinxHub, all_bots_locate_request_atom);
-CAF_ADD_ATOM(ArtinxHub, all_bots_locate_succeed_atom);
+CAF_ADD_ATOM(ArtinxHub, bots_locate_request_atom);
+CAF_ADD_ATOM(ArtinxHub, bots_locate_succeed_atom);
 CAF_ADD_ATOM(ArtinxHub, num_classify_request_atom);
 CAF_ADD_ATOM(ArtinxHub, monitor_request_atom);
 CAF_ADD_ATOM(ArtinxHub, monitor_response_atom);
@@ -139,10 +141,12 @@ struct __ImplActorProtocol final {
     }
 };
 
-#define ACTOR_PROTOCOL_DEFINE(...)                              \
-    template <>                                                 \
-    struct __ImplActorProtocol<__VA_ARGS__> final {             \
-        static constexpr bool check() noexcept { return true; } \
+#define ACTOR_PROTOCOL_DEFINE(...)                  \
+    template <>                                     \
+    struct __ImplActorProtocol<__VA_ARGS__> final { \
+        static constexpr bool check() noexcept {    \
+            return true;                            \
+        }                                           \
     }
 
 template <typename... Args>

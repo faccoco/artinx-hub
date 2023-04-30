@@ -1,10 +1,9 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
-#include "ExceptionProbe.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
-#include "RadarCameraPoints.hpp"
+#include "RadarInfo.hpp"
 #include "Utility.hpp"
 
 #include "SuppressWarningBegin.hpp"
@@ -27,11 +26,10 @@ bool inspect(Inspector& f, AllBotsLocatorSettings& x) {
 }
 
 class AllBotsLocator final
-    : public HubHelper<caf::event_based_actor, AllBotsLocatorSettings, all_bots_locate_request_atom, image_frame_atom> {
+    : public HubHelper<caf::event_based_actor, AllBotsLocatorSettings, bots_locate_request_atom, image_frame_atom> {
 private:
     Identifier mKey /*, mHeadKey{}*/;
-    glm::dmat4 trans;
-    glm::dmat3 rotate;
+    Transform<FrameOfRef::Camera, FrameOfRef::Ground> mTrans;
 
     const std::vector<cv::Point3d> mObjectPointsSmall = {
         { -widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
@@ -110,9 +108,7 @@ public:
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](radar_locate_succeed_atom, Identifier key) {
-                     const auto data = BlackBoard::instance().get<RadarTransform>(key).value();
-                     trans = data.trans;
-                     rotate = data.rotate;
+                     mTrans = BlackBoard::instance().get<RadarTransform>(key).value().trans;
                  } };
     }
 };

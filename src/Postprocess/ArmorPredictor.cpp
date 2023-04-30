@@ -4,13 +4,11 @@
 #include "Hub.hpp"
 #include "PostureData.hpp"
 #include "SelectedTarget.hpp"
-#include <cstdint>
 
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
 #include <eigen3/Eigen/Dense>
-#include <fmt/format.h>
 #include <magic_enum.hpp>
 
 constexpr double maxDeltaTime = 0.2;

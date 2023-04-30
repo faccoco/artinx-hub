@@ -15,7 +15,8 @@
     <script src="js/excanvas.js"></script><![endif]-->
 
   <script src="js/jquery-3.6.0.min.js"></script>
-  <script src="js/main.js"></script>
+  <!-- <script src="js/echarts/echarts.js"></script> -->
+  <script src="js/mdui.min.js"></script>
 
 </head>
 
@@ -50,9 +51,63 @@
     <!-- img start -->
     <div class="mdui-row">
       <div class="mdui-col-xs-8" id="images"></div>
-      <div class="mdui-col-xs-4">
-        <table class="mdui-table" id="watches" style="box-shadow: none!important;-webkit-box-shadow:none!important;">
+      <div class="mdui-col-xs-4" id="watches">
+
+        <table class="mdui-table" id="watchesTable"
+          style="box-shadow: none!important; -webkit-box-shadow:none!important;">
+          <tr>
+            <th>数据曲线图</th>
+            <th>名称</th>
+            <th>值</th>
+          </tr>
         </table>
+
+        <div id="settings" class="mdui-panel" mdui-panel>
+          <div class="mdui-panel-item">
+            <div class="mdui-panel-item-header">
+              <div class="mdui-panel-item-title">监视设置</div>
+              <i class="mdui-panel-item-arrow mdui-icon material-icons">keyboard_arrow_down</i>
+            </div>
+            <div class="mdui-panel-item-body">
+              <div class="mdui-row">
+                <div class="mdui-col-xs-3">刷新频率</div>
+                <div class="mdui-col-xs-9">
+                  <label class="mdui-slider mdui-slider-discrete">
+                    <input id="updateFreq" type="range" step="1" min="0" max="50" oninput="settings[this.id] = this.value"/>
+                  </label>
+                </div>
+                <div class="mdui-col-xs-2 settingsDisplay"></div>
+              </div>
+              <div class="mdui-row">
+                <div class="mdui-col-xs-3">记录长度</div>
+                <div class="mdui-col-xs-9">
+                  <label class="mdui-slider mdui-slider-discrete">
+                    <input id="logLength" type="range" step="1" min="0" max="200" oninput="settings[this.id] = this.value"/>
+                  </label>
+                </div>
+                <div class="mdui-col-xs-2 settingsDisplay"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="width:100%; height: 2vh;"></div>
+
+        <template id="trTemp">
+          <tr>
+            <td>
+              <label class="mdui-checkbox">
+                <input type="checkbox" onchange="$('#chart-'+$(this).parents('tr').children().eq(1).text()).toggle();">
+                <i class="mdui-checkbox-icon"></i>
+              </label>
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+        </template>
+        <template id="chartTemp">
+          <div class="chart"></div>
+        </template>
+
       </div>
     </div>
     <!-- log start >
@@ -60,6 +115,7 @@
     </div>
     <!-->
   </div>
+  <script src="js/main.js" type="module"></script>
 </body>
 
 </html>
