@@ -15,7 +15,7 @@
 using Clock = std::chrono::steady_clock;
 static_assert(std::is_same_v<Clock::period, std::nano>);
 
-enum class Color { Blue, Red, Negative };
+enum class Color { Blue, Red, Purple, Negative };
 
 struct GlobalSettings final {
     double gForce;
