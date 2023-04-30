@@ -6,6 +6,7 @@
 #include <caf/allowed_unsafe_message_type.hpp>
 #include <caf/is_error_code_enum.hpp>
 #include <caf/type_id.hpp>
+#include <magic_enum.hpp>
 
 #include "SuppressWarningEnd.hpp"
 
@@ -14,7 +15,7 @@
 using Clock = std::chrono::steady_clock;
 static_assert(std::is_same_v<Clock::period, std::nano>);
 
-enum class Color { Blue, Red, Negative };
+enum class Color { Blue, Red, Purple, Negative };
 
 struct GlobalSettings final {
     double gForce;
@@ -24,8 +25,8 @@ struct GlobalSettings final {
 
     double latency = 0.0;
 
-    Color selfColor = Color::Red;
-    double bulletSpeed = 15.00;
+    bool isRed;
+    double bulletSpeed;
     double shootDelayTime = 0.f;
     bool started = false;
 
@@ -37,6 +38,14 @@ struct GlobalSettings final {
         return bullet42mm ? massOf42mm : massOf17mm;
     }
 
+    [[nodiscard]] Color getColor() const noexcept {
+        return isRed ? Color::Red : Color::Blue;
+    }
+
+    void setColor(Color color) noexcept {
+        isRed = (color == Color::Blue ? false : true);
+    }
+
     static GlobalSettings& get() {
         static GlobalSettings settings;
         return settings;
@@ -46,7 +55,9 @@ struct GlobalSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, GlobalSettings& x) {
     return f.object(x).fields(f.field("gForce", x.gForce), f.field("dragCoefficient", x.dragCoefficient).fallback(0),
-                              f.field("airDensity", x.airDensity).fallback(0), f.field("bullet42mm", x.bullet42mm));
+                              f.field("airDensity", x.airDensity).fallback(0), f.field("bullet42mm", x.bullet42mm),
+                              f.field("defaultBulletSpeed", x.bulletSpeed).fallback(9.00),
+                              f.field("isRed", x.isRed).fallback(true));
 }
 
 struct Identifier {
@@ -81,6 +92,7 @@ CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id);
 CAF_ADD_ATOM(ArtinxHub, start_atom);
 CAF_ADD_ATOM(ArtinxHub, detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_atom);
+CAF_ADD_ATOM(ArtinxHub, set_period_target_atom);
 CAF_ADD_ATOM(ArtinxHub, set_period_outpost_atom);
 CAF_ADD_ATOM(ArtinxHub, set_target_info_atom);
 CAF_ADD_ATOM(ArtinxHub, sync_position_atom);

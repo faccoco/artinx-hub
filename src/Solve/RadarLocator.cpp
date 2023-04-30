@@ -41,8 +41,8 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
             cv::Rodrigues(rvec, rotateMat);
             glm::dmat3 rotate{};
             memcpy(glm::value_ptr(rotate), rotateMat.ptr(), sizeof(double) * 3 * 3);
-            glm::dmat4 trans(rotate);
-            auto selfColor = GlobalSettings::get().selfColor;
+            glm::dmat4 trans = { rotate };
+            auto&& selfColor = GlobalSettings::get().getColor();
             if(selfColor == Color::Blue) {
                 trans[3][0] = tvec[0];
                 trans[3][1] = tvec[1];

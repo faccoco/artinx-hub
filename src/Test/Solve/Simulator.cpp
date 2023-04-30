@@ -20,6 +20,8 @@
 
 #include "SuppressWarningEnd.hpp"
 
+enum class PredictorType { Car, Period, PeriodOutpost };  // aimType
+
 struct SimulatorSettings final {
     double step;
 
@@ -265,7 +267,7 @@ public:
         double mHeadYaw = 0, mHeadPitch = 0;
 
         if(PredictorType predictorType = magic_enum::enum_cast<PredictorType>(mConfig.aimType).value();
-           predictorType == PredictorType::PeriodOutpost) {
+           predictorType == PredictorType::Period || predictorType == PredictorType::PeriodOutpost) {
             std::this_thread::sleep_for(1ms);
             mHeadYaw = glm::radians(270 - mConfig.targetAngle);
             sendAll(outpost_detector_control_atom_v, true);
@@ -289,12 +291,12 @@ public:
             Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
             {
                 const HeadInfo info{ nowTimePoint,
-                                      decltype(HeadInfo::tfRobot2Gun){
-                                          glm::lookAtRH(glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
-                                                        glm::dvec3{ -std::sin(mHeadYaw) * std::cos(mHeadPitch),
-                                                                    mConfig.headHeightOffset + std::sin(mHeadPitch),
-                                                                    -std::cos(mHeadYaw) * std::cos(mHeadPitch) },
-                                                        glm::dvec3{ 0.0, 1.0, 0.0 }) } };
+                                     decltype(HeadInfo::tfRobot2Gun){
+                                         glm::lookAtRH(glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
+                                                       glm::dvec3{ -std::sin(mHeadYaw) * std::cos(mHeadPitch),
+                                                                   mConfig.headHeightOffset + std::sin(mHeadPitch),
+                                                                   -std::cos(mHeadYaw) * std::cos(mHeadPitch) },
+                                                       glm::dvec3{ 0.0, 1.0, 0.0 }) } };
                 tfRobot2Gun = info.tfRobot2Gun;
                 sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, info));
                 sendMasked(update_head_atom_v, 2U, 2U,

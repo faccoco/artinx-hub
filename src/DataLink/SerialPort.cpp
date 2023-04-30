@@ -24,6 +24,8 @@ struct SerialPortSettings final {
     double headForwardOffset1;
     double headForwardOffset2;
     bool enableEnergyControl;
+    double minBulletSpeed;
+    double maxBulletSpeed;
 };
 
 template <class Inspector>
@@ -33,7 +35,9 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
                               f.field("headHeightOffset2", x.headHeightOffset2).fallback(0.0),
                               f.field("headForwardOffset1", x.headForwardOffset1).fallback(0.0),
                               f.field("headForwardOffset2", x.headForwardOffset2).fallback(0.0),
-                              f.field("enableEnergyControl", x.enableEnergyControl).fallback(false));
+                              f.field("enableEnergyControl", x.enableEnergyControl).fallback(false),
+                              f.field("minBulletSpeed", x.minBulletSpeed).fallback(0.0),
+                              f.field("maxBulletSpeed", x.maxBulletSpeed).fallback(100.0));
 }
 
 class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom,
@@ -44,6 +48,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     constexpr static size_t latencyLen = 100;
     constexpr static size_t mShootDelayLen = 5;
     constexpr static std::uint16_t maxShootDelay = 500;
+    constexpr static size_t mBulletSpeedLen = 10;
 
     constexpr static Duration ChassisPowerRecordInterval = 100ms;
 
@@ -67,7 +72,6 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
     float mLastSpeedX = 0.0f, mLastSpeedY = 0.0f;
     TimePoint mLastReceivedTime, mLastUpTargetTime, mLastDownTargetTime;
-    std::optional<TimePoint> mFirstReceivedTime;
 
     std::atomic<float> mCapEnergy, mChasisPower;
 
@@ -76,6 +80,10 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
     std::deque<double> mLatency;
     std::deque<uint16_t> mShootDelay;
+    std::deque<double> mBulletSpeed;
+    std::optional<double> mLastBulletSpeed;
+
+    bool mHaveReceivedFdbPacket = false;
 
     void receive() {
         if(!started)
@@ -129,35 +137,62 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             reportFrameRate(Clock::now());
 
             FdbPacket fdb(mPacketBuffer);
-            if(fdb.bulletSpeed > 8.0f)
-                GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
+            mHaveReceivedFdbPacket = true;
             /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
-            if(mShootDelay.empty() || (fdb.shootDelayTime != mShootDelay.back() && fdb.shootDelayTime < maxShootDelay)) {
+            if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
+                ReadableTimePoint tmp = std::chrono::system_clock::now();
+                HubLogger::fileLog(fmt::format("time: {}:{}:{:.1f} bulletSpeed: {}", tmp.tm.tm_hour, tmp.tm.tm_hour,
+                                               tmp.tm.tm_sec + tmp.ms / 1000.0, fdb.bulletSpeed));
+                if(fdb.bulletSpeed > mConfig.minBulletSpeed && fdb.bulletSpeed < mConfig.maxBulletSpeed) {
+                    if(mBulletSpeed.size() >= mBulletSpeedLen)
+                        mBulletSpeed.pop_front();
+                    mBulletSpeed.push_back(fdb.bulletSpeed);
+                    if(mBulletSpeed.size() < 3) {
+                        GlobalSettings::get().bulletSpeed = avg(mBulletSpeed);
+                    } else {
+                        double maxSpeed = mBulletSpeed[0], minSpeed = mBulletSpeed[0], sumSpeed = 0;
+                        for(auto speed : mBulletSpeed) {
+                            if(speed > maxSpeed)
+                                maxSpeed = speed;
+                            if(speed < minSpeed)
+                                minSpeed = speed;
+                            sumSpeed += speed;
+                        }
+                        GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
+                    }
+                }
+                mLastBulletSpeed = fdb.bulletSpeed;
+            }
+            if(fdb.shootDelayTime < maxShootDelay && (mShootDelay.empty() || fdb.shootDelayTime != mShootDelay.back())) {
                 if(mShootDelay.size() >= mShootDelayLen)
                     mShootDelay.pop_front();
                 mShootDelay.push_back(fdb.shootDelayTime);
                 GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;
             }
-            HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
-            HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
-            HubLogger::watch("fdb shoot delay time", fdb.shootDelayTime);
-            HubLogger::watch("shoot delay time", static_cast<int>(GlobalSettings::get().shootDelayTime * 1000));
+            // HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
+            // HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
+            // HubLogger::watch("fdb shoot delay time", fdb.shootDelayTime);
+            // HubLogger::watch("shoot delay time", static_cast<int>(GlobalSettings::get().shootDelayTime * 1000));
 
             if(mConfig.enableEnergyControl) {
-                HubLogger::watch("energy mode", static_cast<bool>(fdb.energyMode));
+                // HubLogger::watch("energy mode", static_cast<bool>(fdb.energyMode));
                 sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
             }
 
             HubLogger::watch("yaw1", fdb.yaw);
             HubLogger::watch("pitch1", fdb.pitch);
-            HubLogger::watch("yaw2", fdb.downYaw);
-            HubLogger::watch("pitch2", fdb.downPitch);
-            HubLogger::watch("speed x", fdb.speedX);
-            HubLogger::watch("speed y", fdb.speedY);
+            // HubLogger::watch("yaw2", fdb.downYaw);
+            // HubLogger::watch("pitch2", fdb.downPitch);
+            // HubLogger::watch("speed x", fdb.speedX);
+            // HubLogger::watch("speed y", fdb.speedY);
+            HubLogger::watch("delta yaw1", gimbalSetPacket.up.yaw - fdb.yaw);
+            HubLogger::watch("delta pitch1", gimbalSetPacket.up.pitch - fdb.pitch);
+            // HubLogger::watch("delta yaw2", gimbalSetPacket.down.yaw - fdb.downYaw);
+            // HubLogger::watch("delta pitch2", gimbalSetPacket.down.pitch - fdb.downPitch);
 
-            GlobalSettings::get().selfColor = (fdb.color == 0 ? Color::Red : Color::Blue);
-            HubLogger::watch("self color", GlobalSettings::get().selfColor == Color::Red ? "Red" : "Blue");
+            GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
+            HubLogger::watch("self color", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
             fdb.yaw = (fdb.yaw < 0.0f) ? fdb.yaw + glm::two_pi<float>() : fdb.yaw;
             fdb.downYaw = (fdb.downYaw < 0.0f) ? fdb.downYaw + glm::two_pi<float>() : fdb.downYaw;
@@ -169,46 +204,35 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             }
             mOutpostMode = fdb.outpostMode;
             sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
-            HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
+            // HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
 
             mCapEnergy = fdb.capEnergy;
             mChasisPower = fdb.chasisPower;
 
-            const HeadInfo infoUp{ SynchronizedClock::instance().now(),
-                                   decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                                       glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
-                                       glm::dvec3{ std::cos(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
-                                                       std::cos(static_cast<double>(fdb.pitch)),
-                                                   mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
-                                                   mConfig.headForwardOffset1 -
-                                                       std::sin(static_cast<double>(fdb.yaw) + glm::half_pi<double>()) *
-                                                           std::cos(static_cast<double>(fdb.pitch)) },
-                                       glm::dvec3{ 0.0, 1.0, 0.0 }) } };
-            const HeadInfo infoDown{ SynchronizedClock::instance().now(),
-                                     decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                                         glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
-                                         glm::dvec3{ std::cos(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
-                                                         std::cos(static_cast<double>(fdb.downPitch)),
-                                                     mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
-                                                     mConfig.headForwardOffset2 -
-                                                         std::sin(static_cast<double>(fdb.downYaw) + glm::half_pi<double>()) *
-                                                             std::cos(static_cast<double>(fdb.downPitch)) },
-                                         glm::dvec3{ 0.0, 1.0, 0.0 }) } };
+            const HeadInfo infoUp{
+                SynchronizedClock::instance().now(),
+                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                    glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
+                    glm::dvec3{ -std::sin(static_cast<double>(fdb.yaw)) * std::cos(static_cast<double>(fdb.pitch)),
+                                mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
+                                mConfig.headForwardOffset1 -
+                                    std::cos(static_cast<double>(fdb.yaw)) * std::cos(static_cast<double>(fdb.pitch)) },
+                    glm::dvec3{ 0.0, 1.0, 0.0 }) }
+            };
+            const HeadInfo infoDown{
+                SynchronizedClock::instance().now(),
+                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                    glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
+                    glm::dvec3{ -std::sin(static_cast<double>(fdb.downYaw)) * std::cos(static_cast<double>(fdb.downPitch)),
+                                mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
+                                mConfig.headForwardOffset2 -
+                                    std::cos(static_cast<double>(fdb.downYaw)) * std::cos(static_cast<double>(fdb.downPitch)) },
+                    glm::dvec3{ 0.0, 1.0, 0.0 }) }
+            };
 
             PostureData posture;
             posture.lastUpdate = SynchronizedClock::instance().now();
             posture.tfGround2Robot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
-            if(!mFirstReceivedTime.has_value()) {
-                mFirstReceivedTime = SynchronizedClock::instance().now();
-                std::thread([this]() {
-                    while(globalStatus == RunStatus::running) {
-                        HubLogger::fileLog(fmt::format("time: {} s capEnergy: {:.1f} chasisPower: {:.2f}",
-                                                       durationCastDouble(Clock::now() - mFirstReceivedTime.value()), mCapEnergy,
-                                                       mChasisPower));
-                        std::this_thread::sleep_for(ChassisPowerRecordInterval);
-                    }
-                }).detach();
-            }
             mLastReceivedTime = SynchronizedClock::instance().now();
             mLastSpeedX = fdb.speedX;
             mLastSpeedY = fdb.speedY;
@@ -232,8 +256,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         mSendBufferLen = 0;
         HubLogger::watch("target yaw1", gimbalSetPacket.up.yaw);
         HubLogger::watch("target pitch1", gimbalSetPacket.up.pitch);
-        HubLogger::watch("target yaw2", gimbalSetPacket.down.yaw);
-        HubLogger::watch("target pitch2", gimbalSetPacket.down.pitch);
+        // HubLogger::watch("target yaw2", gimbalSetPacket.down.yaw);
+        // HubLogger::watch("target pitch2", gimbalSetPacket.down.pitch);
     }
 
 public:
@@ -271,6 +295,16 @@ public:
                 sendPacket();
             }
         } };
+        std::thread([this]() {
+            while(globalStatus == RunStatus::running) {
+                if(mHaveReceivedFdbPacket) {
+                    ReadableTimePoint tmp = std::chrono::system_clock::now();
+                    HubLogger::fileLog(fmt::format("time: {}:{}:{:.1f} capEnergy: {:.1f} chasisPower: {:.2f}", tmp.tm.tm_hour,
+                                                   tmp.tm.tm_min, tmp.tm.tm_sec + tmp.ms / 1000.0, mCapEnergy, mChasisPower));
+                }
+                std::this_thread::sleep_for(ChassisPowerRecordInterval);
+            }
+        }).detach();
     }
 
     ~SerialPort() override {
@@ -300,6 +334,7 @@ public:
                          if(yawAngle > glm::pi<double>())
                              yawAngle -= glm::two_pi<double>();
 
+                         //                         yawAngle = -yawAngle;
                          if(mask == 1U) {
                              gimbalSetPacket.setUpTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
                              mLastUpTargetTime = Clock::now();

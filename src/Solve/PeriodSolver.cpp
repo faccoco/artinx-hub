@@ -59,9 +59,10 @@ public:
                 if(!(data.has_value()))
                     return;
 
-                HubLogger::watch("x", data->position.mVal.x);
-                HubLogger::watch("y", data->position.mVal.y);
-                HubLogger::watch("z", data->position.mVal.z);
+                // HubLogger::watch("x", data->position.mVal.x);
+                HubLogger::watch("vertical distance", data->position.mVal.y);
+                // HubLogger::watch("z", data->position.mVal.z);
+                HubLogger::watch("horizontal distance", std::sqrt(square(data->position.mVal.z)+square(data->position.mVal.x)));
 
                 glm::dvec3 tfPos = tf(data->position.mVal);
                 auto res = solveWithoutAirDrag(tfPos, glm::dvec3{ 0, 0, 0 });
@@ -81,7 +82,15 @@ public:
                 std::thread([this, waitTime, data, res]() {
                     auto t1 = mUpdateCnt.load();
 
-                    SynchronizedClock::instance().sleep_for(waitTime - mHeadDelay);  // eserve time for turning head
+                    Duration firstDelay, secondDelay;
+                    if(waitTime > mHeadDelay) {
+                        firstDelay = waitTime - mHeadDelay;
+                        secondDelay = mHeadDelay;
+                    } else {
+                        firstDelay = 0s;
+                        secondDelay = waitTime;
+                    }
+                    SynchronizedClock::instance().sleep_for(firstDelay);  // eserve time for turning head
                     if(!mUpdateCnt.compare_exchange_strong(t1, t1))
                         return;
 
@@ -90,7 +99,7 @@ public:
                                         std::get<1>(res), std::get<2>(res), false, waitSolver);
                     //                    logInfo("send not shoot");
 
-                    SynchronizedClock::instance().sleep_for(mHeadDelay);  // ready for shoot
+                    SynchronizedClock::instance().sleep_for(secondDelay);  // ready for shoot
                     if(!mUpdateCnt.compare_exchange_strong(t1, t1))
                         return;
 

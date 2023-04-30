@@ -17,7 +17,7 @@
 
 static constexpr double sameThetaThreshold = glm::radians<double>(0.1);
 static constexpr double samePitchThreshold = glm::radians<double>(1);
-static constexpr double minPeriodThreshold = 0.1;       // s
+static constexpr double minIntervalThreshold = 0.1;       // s
 static constexpr double maxPeriodThreshold = 5;         // s
 static constexpr double maxPeriodStdThreshold = 0.015;  // s
 
@@ -79,7 +79,6 @@ public:
                 if(thetaDelta > glm::pi<double>())
                     thetaDelta = glm::two_pi<double>() - thetaDelta;
 
-                HubLogger::watch("thetaDelta", thetaDelta);
                 // check
                 if(thetaDelta <= sameThetaThreshold) {
                     // logInfo("PeriodOutpostPredictor: same theta");
@@ -91,14 +90,16 @@ public:
                         mTargetPitch = getPitch(posRefRobot.mVal);
                         mLastTime = data->lastUpdate;
                         // logInfo("PeriodOutpostPredictor: find first");
+                        sendAll(period_predict_success_atom_v,
+                                BlackBoard::instance().updateSync<PredictedPeriodTarget>(Identifier{ mKey.val }, res));
                         return;
                     }
-                    double timeGap = durationCastDouble(data->lastUpdate - mLastTime.value());
-                    if(timeGap > maxPeriodThreshold) {
+                    double interval = durationCastDouble(data->lastUpdate - mLastTime.value());
+                    if(interval > maxPeriodThreshold) {
                         clear();
-                        logInfo(fmt::format("PeriodOutpostPredictor: timeGap: {} too large", timeGap));
+                        logInfo(fmt::format("PeriodOutpostPredictor: interval: {} too large", interval));
                     }
-                    if(timeGap < minPeriodThreshold)
+                    if(interval < minIntervalThreshold)
                         return;
                     if(double pitchDelta = std::abs(getPitch(posRefRobot.mVal) - mTargetPitch); pitchDelta > samePitchThreshold) {
                         clear();
@@ -107,7 +108,7 @@ public:
                     }
                     // logInfo("PeriodOutpostPredictor: same pitch");
                     // logInfo(fmt::format("PeriodOutpostPredictor: pitch: {} degree", glm::degrees(getPitch(posRefRobot.mVal))));
-                    mPeriodTimes.push_back(timeGap);
+                    mPeriodTimes.push_back(interval);
                     mLastTime = data->lastUpdate;
                     double periodAvg = avg(mPeriodTimes);
                     double periodStd = Std(mPeriodTimes, periodAvg);
