@@ -317,7 +317,7 @@ class NNetArmorDetector final
         std::vector<Armor> enemyArmors;
 
         for(const auto& armor : armors) {
-           if(armor.robotColor == GlobalSettings::get().selfColor || armor.robotColor == Color::Negative)
+           if(armor.robotColor == GlobalSettings::get().getColor() || armor.robotColor == Color::Negative)
                continue;
 
             // 对候选框预测角点进行平均,降低误差
