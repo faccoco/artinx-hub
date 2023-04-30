@@ -43,7 +43,7 @@ cv::Mat NumberClassifier::extractNumbers(const cv::Mat& src, const cv::Point2f p
     // Binarize
     cv::cvtColor(numberImg, numberImg, cv::COLOR_RGB2GRAY);
     cv::threshold(numberImg, numberImg, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-
+    
     return numberImg;
 }
 
@@ -56,7 +56,7 @@ std::pair<int, float> NumberClassifier::classify(const cv::Mat& img) {
 
     // Create blob from image
     cv::Mat blob;
-    cv::dnn::blobFromImage(image, blob, 1., cv::Size(28, 20));
+    cv::dnn::blobFromImage(image, blob, 1., cv::Size(28, 28));
 
     // Set the input blob for the neural network
     net.setInput(blob);
