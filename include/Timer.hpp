@@ -26,7 +26,11 @@ struct ReadableTimePoint {
         auto t = std::chrono::duration_cast<std::chrono::milliseconds>(T.time_since_epoch()).count();
         ms = t % 1000;
         t /= 1000;
+#ifdef _MSC_VER
+        localtime_s(&tm, &t);
+#else
         localtime_r(&t, &tm);
+#endif
         raw = TimePoint(T.time_since_epoch());
     }
     operator TimePoint() {
