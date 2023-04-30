@@ -166,26 +166,26 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 mShootDelay.push_back(fdb.shootDelayTime);
                 GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;
             }
-            HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
-            HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
-            HubLogger::watch("fdb shoot delay time", fdb.shootDelayTime);
-            HubLogger::watch("shoot delay time", static_cast<int>(GlobalSettings::get().shootDelayTime * 1000));
+            // HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
+            // HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
+            // HubLogger::watch("fdb shoot delay time", fdb.shootDelayTime);
+            // HubLogger::watch("shoot delay time", static_cast<int>(GlobalSettings::get().shootDelayTime * 1000));
 
             if(mConfig.enableEnergyControl) {
-                HubLogger::watch("energy mode", static_cast<bool>(fdb.energyMode));
+                // HubLogger::watch("energy mode", static_cast<bool>(fdb.energyMode));
                 sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
             }
 
             HubLogger::watch("yaw1", fdb.yaw);
             HubLogger::watch("pitch1", fdb.pitch);
-            HubLogger::watch("yaw2", fdb.downYaw);
-            HubLogger::watch("pitch2", fdb.downPitch);
-            HubLogger::watch("speed x", fdb.speedX);
-            HubLogger::watch("speed y", fdb.speedY);
+            // HubLogger::watch("yaw2", fdb.downYaw);
+            // HubLogger::watch("pitch2", fdb.downPitch);
+            // HubLogger::watch("speed x", fdb.speedX);
+            // HubLogger::watch("speed y", fdb.speedY);
             HubLogger::watch("delta yaw1", gimbalSetPacket.up.yaw - fdb.yaw);
             HubLogger::watch("delta pitch1", gimbalSetPacket.up.pitch - fdb.pitch);
-            HubLogger::watch("delta yaw2", gimbalSetPacket.down.yaw - fdb.downYaw);
-            HubLogger::watch("delta pitch2", gimbalSetPacket.down.pitch - fdb.downPitch);
+            // HubLogger::watch("delta yaw2", gimbalSetPacket.down.yaw - fdb.downYaw);
+            // HubLogger::watch("delta pitch2", gimbalSetPacket.down.pitch - fdb.downPitch);
 
             GlobalSettings::get().selfColor = (fdb.color == 0 ? Red : Blue);
             HubLogger::watch("self color", GlobalSettings::get().selfColor == Red ? "Red" : "Blue");
@@ -200,7 +200,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             }
             mOutpostMode = fdb.outpostMode;
             sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
-            HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
+            // HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
 
             mCapEnergy = fdb.capEnergy;
             mChasisPower = fdb.chasisPower;
@@ -252,8 +252,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         mSendBufferLen = 0;
         HubLogger::watch("target yaw1", gimbalSetPacket.up.yaw);
         HubLogger::watch("target pitch1", gimbalSetPacket.up.pitch);
-        HubLogger::watch("target yaw2", gimbalSetPacket.down.yaw);
-        HubLogger::watch("target pitch2", gimbalSetPacket.down.pitch);
+        // HubLogger::watch("target yaw2", gimbalSetPacket.down.yaw);
+        // HubLogger::watch("target pitch2", gimbalSetPacket.down.pitch);
     }
 
 public:

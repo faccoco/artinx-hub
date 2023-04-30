@@ -76,15 +76,15 @@ class ArmorLocator final
         mImagePoint = { lt, lb, rb, rt };
 
         const auto ratio = (distance2D(lt, rt) + distance2D(lb, rb)) / (distance2D(lt, lb) + distance2D(rt, rb));
-        HubLogger::watch("armor ratio", ratio);
+        // HubLogger::watch("armor ratio", ratio);
         {
             static double maxRatio = 0, minRatio = 100;
             if(ratio > maxRatio)
                 maxRatio = ratio;
             if(ratio < minRatio)
                 minRatio = ratio;
-            HubLogger::watch("max armor ratio2", maxRatio);
-            HubLogger::watch("min armor ratio2", minRatio);
+            // HubLogger::watch("max armor ratio2", maxRatio);
+            // HubLogger::watch("min armor ratio2", minRatio);
         }
 //        const auto ratio3 = area1 > area2 ? area1 / area2 : area2 / area1;
 //        HubLogger::watch("armor ratio3", ratio3);
