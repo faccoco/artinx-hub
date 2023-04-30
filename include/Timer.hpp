@@ -7,6 +7,7 @@
 #include "SuppressWarningEnd.hpp"
 #include <chrono>
 #include <condition_variable>
+#include <ctime>
 #include <mutex>
 #include <optional>
 #include <queue>
@@ -16,35 +17,20 @@ using TimePoint = Clock::time_point;
 using Duration = Clock::duration;
 
 struct ReadableTimePoint {
-    TimePoint ori;
-    uint32_t d;
-    uint8_t h;
-    uint8_t m;
-    uint8_t s;
+    TimePoint raw;
+    std::tm tm;
     uint16_t ms;
-    uint16_t us;
-    uint16_t ns;
     ReadableTimePoint(const ReadableTimePoint&) = default;
     template <typename Clock, typename Duration>
-    ReadableTimePoint(std::chrono::time_point<Clock, Duration> T){
-        auto t = std::chrono::duration_cast<std::chrono::nanoseconds>(T.time_since_epoch()).count();
-        ns = t % 1000;
-        t /= 1000;
-        us = t % 1000;
-        t /= 1000;
+    ReadableTimePoint(std::chrono::time_point<Clock, Duration> T) {
+        auto t = std::chrono::duration_cast<std::chrono::milliseconds>(T.time_since_epoch()).count();
         ms = t % 1000;
         t /= 1000;
-        s = t % 60;
-        t /= 60;
-        m = t % 60;
-        t /= 60;
-        h = t % 24;
-        t /= 24;
-        d = t;
-        ori = TimePoint(T.time_since_epoch());
+        localtime_r(&t, &tm);
+        raw = TimePoint(T.time_since_epoch());
     }
     operator TimePoint() {
-        return ori;
+        return raw;
     }
 };
 

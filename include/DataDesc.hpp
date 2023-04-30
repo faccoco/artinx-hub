@@ -15,9 +15,7 @@
 using Clock = std::chrono::steady_clock;
 static_assert(std::is_same_v<Clock::period, std::nano>);
 
-using Color = bool;
-static constexpr Color Blue = false;
-static constexpr Color Red = true;
+enum class Color { Blue, Red, Negative };
 
 struct GlobalSettings final {
     double gForce;
@@ -27,7 +25,7 @@ struct GlobalSettings final {
 
     double latency = 0.0;
 
-    Color selfColor;
+    bool isRed;
     double bulletSpeed;
     double shootDelayTime = 0.f;
     bool started = false;
@@ -38,6 +36,14 @@ struct GlobalSettings final {
 
     [[nodiscard]] double bulletMass() const noexcept {
         return bullet42mm ? massOf42mm : massOf17mm;
+    }
+
+    [[nodiscard]] Color getColor() const noexcept {
+        return isRed ? Color::Red : Color::Blue;
+    }
+
+    void setColor(Color color) noexcept {
+        isRed = (color == Color::Blue ? false : true);
     }
 
     static GlobalSettings& get() {
@@ -51,7 +57,7 @@ bool inspect(Inspector& f, GlobalSettings& x) {
     return f.object(x).fields(f.field("gForce", x.gForce), f.field("dragCoefficient", x.dragCoefficient).fallback(0),
                               f.field("airDensity", x.airDensity).fallback(0), f.field("bullet42mm", x.bullet42mm),
                               f.field("defaultBulletSpeed", x.bulletSpeed).fallback(9.00),
-                              f.field("defaultSelfColor", x.selfColor).fallback(true));
+                              f.field("isRed", x.isRed).fallback(true));
 }
 
 struct Identifier {
@@ -133,12 +139,10 @@ struct __ImplActorProtocol final {
     }
 };
 
-#define ACTOR_PROTOCOL_DEFINE(...)                  \
-    template <>                                     \
-    struct __ImplActorProtocol<__VA_ARGS__> final { \
-        static constexpr bool check() noexcept {    \
-            return true;                            \
-        }                                           \
+#define ACTOR_PROTOCOL_DEFINE(...)                              \
+    template <>                                                 \
+    struct __ImplActorProtocol<__VA_ARGS__> final {             \
+        static constexpr bool check() noexcept { return true; } \
     }
 
 template <typename... Args>

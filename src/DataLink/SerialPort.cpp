@@ -24,6 +24,8 @@ struct SerialPortSettings final {
     double headForwardOffset1;
     double headForwardOffset2;
     bool enableEnergyControl;
+    double minBulletSpeed;
+    double maxBulletSpeed;
 };
 
 template <class Inspector>
@@ -33,7 +35,9 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
                               f.field("headHeightOffset2", x.headHeightOffset2).fallback(0.0),
                               f.field("headForwardOffset1", x.headForwardOffset1).fallback(0.0),
                               f.field("headForwardOffset2", x.headForwardOffset2).fallback(0.0),
-                              f.field("enableEnergyControl", x.enableEnergyControl).fallback(false));
+                              f.field("enableEnergyControl", x.enableEnergyControl).fallback(false),
+                              f.field("minBulletSpeed", x.minBulletSpeed).fallback(0.0),
+                              f.field("maxBulletSpeed", x.maxBulletSpeed).fallback(100.0));
 }
 
 class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom,
@@ -138,9 +142,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
             if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
                 ReadableTimePoint tmp = std::chrono::system_clock::now();
-                HubLogger::fileLog(
-                    fmt::format("time: {}:{}:{:.1f} bulletSpeed: {}", tmp.h, tmp.m, tmp.s + tmp.ms / 1000.0, fdb.bulletSpeed));
-                if(fdb.bulletSpeed > 7.0f && fdb.bulletSpeed < 10.0f) {
+                HubLogger::fileLog(fmt::format("time: {}:{}:{:.1f} bulletSpeed: {}", tmp.tm.tm_hour, tmp.tm.tm_hour,
+                                               tmp.tm.tm_sec + tmp.ms / 1000.0, fdb.bulletSpeed));
+                if(fdb.bulletSpeed > mConfig.minBulletSpeed && fdb.bulletSpeed < mConfig.maxBulletSpeed) {
                     if(mBulletSpeed.size() >= mBulletSpeedLen)
                         mBulletSpeed.pop_front();
                     mBulletSpeed.push_back(fdb.bulletSpeed);
@@ -187,8 +191,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             // HubLogger::watch("delta yaw2", gimbalSetPacket.down.yaw - fdb.downYaw);
             // HubLogger::watch("delta pitch2", gimbalSetPacket.down.pitch - fdb.downPitch);
 
-            GlobalSettings::get().selfColor = (fdb.color == 0 ? Red : Blue);
-            HubLogger::watch("self color", GlobalSettings::get().selfColor == Red ? "Red" : "Blue");
+            GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
+            HubLogger::watch("self color", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
             fdb.yaw = (fdb.yaw < 0.0f) ? fdb.yaw + glm::two_pi<float>() : fdb.yaw;
             fdb.downYaw = (fdb.downYaw < 0.0f) ? fdb.downYaw + glm::two_pi<float>() : fdb.downYaw;
@@ -295,8 +299,8 @@ public:
             while(globalStatus == RunStatus::running) {
                 if(mHaveReceivedFdbPacket) {
                     ReadableTimePoint tmp = std::chrono::system_clock::now();
-                    HubLogger::fileLog(fmt::format("time: {}:{}:{:.1f} capEnergy: {:.1f} chasisPower: {:.2f}", tmp.h, tmp.m,
-                                                   tmp.s + tmp.ms / 1000.0, mCapEnergy, mChasisPower));
+                    HubLogger::fileLog(fmt::format("time: {}:{}:{:.1f} capEnergy: {:.1f} chasisPower: {:.2f}", tmp.tm.tm_hour,
+                                                   tmp.tm.tm_min, tmp.tm.tm_sec + tmp.ms / 1000.0, mCapEnergy, mChasisPower));
                 }
                 std::this_thread::sleep_for(ChassisPowerRecordInterval);
             }

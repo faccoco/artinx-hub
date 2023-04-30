@@ -101,7 +101,7 @@ class ArmorDetector final
 
     cv::Mat binary(const cv::Mat& src) {
         cv::Mat result(src.size(), CV_8U);
-        if(GlobalSettings::get().selfColor == Red) {
+        if(GlobalSettings::get().getColor() == Color::Red) {
             const auto minB = mConfig.thresholdForBlue[0];
             const auto maxG = mConfig.thresholdForBlue[1];
             const auto maxR = mConfig.thresholdForBlue[2];
