@@ -188,7 +188,7 @@ class ArmorDetector final
     std::vector<Light> findLights(const cv::Mat& bgrImg, const cv::Mat& binary) {
         mDebugLights.clear();
 
-        auto selfColor = GlobalSettings::get().selfColor;
+        auto selfColor = GlobalSettings::get().selfColor();
         std::vector<std::vector<cv::Point2i>> contours;
         cv::findContours(binary, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
         std::vector<Light> lights;
@@ -285,7 +285,6 @@ class ArmorDetector final
                 float angle = std::fabs(std::atan(diff.y / diff.x)) / CV_PI * 180;
                 if(angle > mConfig.maxArmorAngle)
                     continue;
-
 
                 bool isContainLights = false;
                 std::vector<cv::Point2f> points = { light1.top, light1.bottom, light2.bottom, light2.top };
