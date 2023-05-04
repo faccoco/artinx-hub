@@ -97,20 +97,24 @@ class ArmorDetector final
         RobotType robotType;
         switch(id) {  // number define is different from NNetArmorDetector
             case 0:
-                robotType = RobotType::Base;
+                robotType = RobotType::Sentry;
                 break;
             case 1:
+                robotType = RobotType::Hero;
+                break ;
             case 2:
+                robotType = RobotType::Engineer;
+                break ;
             case 3:
             case 4:
             case 5:
                 robotType = static_cast<RobotType>(id);
                 break;
             case 6:
-                robotType = RobotType::Sentry;
+                robotType = RobotType::Outpost;
                 break;
             case 7:
-                robotType = RobotType::Outpost;
+                robotType = RobotType::Base;
                 break;
             default:
                 robotType = RobotType::Negative;
@@ -118,6 +122,7 @@ class ArmorDetector final
         }
         return robotType;
     }
+
 
     std::optional<Light> isLight(const cv::RotatedRect& lightRect) {
 
@@ -311,9 +316,15 @@ class ArmorDetector final
                 continue;
             }
             const auto img = NumberClassifier::extractNumbers(bgrImg, condArmor.points.data(), condArmor.isLargeArmor);
+            if (mConfig.debugView){
+                debugView("number", img, [](auto& src) {
+//                    cv::resize(src, src, (280, 280));
+                });
+            }
             const auto [id, prob] = mNumClassifierPtr->classify(img);
             condArmor.id = id;
             condArmor.prob = prob;
+            logInfo(fmt::format("id is {}, prob is {}", id, prob));
             if(id == 8 || prob < mConfig.numProbThresh)  // id 8 -> negative
                 continue;
             Armor armor = {};
