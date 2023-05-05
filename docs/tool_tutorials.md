@@ -123,10 +123,10 @@
 
 ### （1）四个区
 
-+ 工作区
-+ 暂存区
-+ 本地仓库
-+ 远程仓库
++ 工作区： 在本机里能看到的目录，代码存放的那个文件夹。即时性强，对文件的所有更改都会立刻提现在这里
++ 暂存区： git add以后，当前对文件的更改会保存到这里
++ 本地仓库：git commit以后，当前暂存区里对文件的更改会提交到本地仓库
++ 远程仓库：远程仓库名一般默认叫origin。git push以后，本地仓库里优先于远程仓库的commit会被push到远程仓库
 
 ## 2. 初始化配置
 
@@ -211,7 +211,7 @@ git push -u origin main
     git checkout branch1
     git stash pop
     //解决所有冲突后
-    got add -A
+    git add -A
     ```
 
 + 合并分支
@@ -288,7 +288,6 @@ git push -u origin main
 
 
 # docker
-
 ## 1. docker 安装
 **reference**: https://docs.docker.com/engine/install/ubuntu/
 
@@ -369,7 +368,8 @@ docker volume rm $(docker volume ls -qf dangling=true)
 #清理磁盘、删除关闭的容器、无用的数据卷和网络
 docker system prune
 ```
-
+# GitLab CI/CD
+## 
 # remote debug setting
 
 ## 1. Install ssh server
