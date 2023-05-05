@@ -108,8 +108,8 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
     std::string mCameraSerialNumber;
     bool mDoUndistort;
 
-    const Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> mTfGun2Camera =
-        glm::translate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 }), -mConfig.offset);
+    const Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> mTfGun2Camera = glm::translate(
+        glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 }), -mConfig.offset);
 
     void reportFrameRate(const Clock::time_point timeStamp) {
         const auto current = timeStamp.time_since_epoch().count();
@@ -145,6 +145,8 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         frameData.info.tfGun2Camera = mTfGun2Camera;
         if(mHeadKey.has_value()) {
             frameData.info.tfRobot2Gun = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->tfRobot2Gun;
+        } else {
+            frameData.info.tfRobot2Gun = glm::identity<glm::dmat4>();
         }
 
         // if (mDoUndistort) {

@@ -56,8 +56,17 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
 
     Transform<FrameOfRef::Gun, FrameOfRef::Robot, true> mTfGun2Robot;
 
-    glm::dvec3 getArmorPos(const DetectedTarget& p) {
-        return mTfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(p.center.mVal)).mVal;
+    glm::dvec3 getArmorPos(const DetectedTarget& armor) {
+        return mTfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(armor.center.mVal)).mVal;
+    }
+
+    double getArmorYaw(const DetectedTarget& armor) {
+        auto rvec = mTfGun2Robot(armor.rvec).mVal;
+        double theta = glm::length(rvec);
+        glm::dvec3 vec = rvec / theta;
+        double s = sin(theta), c = cos(theta);
+
+        return -atan2(s * vec.y + (1 - c) * vec.x * vec.z, c + (1 - c) * vec.z * vec.z);
     }
 
     double orientationToYaw(double yaw) {
@@ -132,11 +141,12 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
             default:
                 break;
         }
+        logInfo(fmt::format("ArmorPredictor: tracking state: {}", magic_enum::enum_name(mTrackedArmor.trackingState)));
     }
 
     void init(const DetectedTarget& armor) {
         mTrackedArmor.yaw = 0;
-        double yaw = orientationToYaw(armor.yaw);
+        double yaw = orientationToYaw(getArmorYaw(armor));
         // Set initial position at 0.2m behind the target
         double r = 0.2;
         auto p = getArmorPos(armor);
@@ -169,7 +179,7 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
                 auto p = getArmorPos(armor);
                 if(auto positionDiff = glm::distance(predictedPosition, p); positionDiff < minPositionDiff) {
                     minPositionDiff = positionDiff;
-                    candidate = { p, armor.yaw };
+                    candidate = { p, getArmorYaw(armor) };
                 }
             }
 
@@ -181,13 +191,14 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
                 Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, measuredYaw);
                 mTrackedArmor.state = mEKF.update(z);
                 logInfo(fmt::format("ArmorPredictor: update: {:.3f} {:.3f} {:.3f} {:.3f}", z(0), z(1), z(2), z(3)));
+                HubLogger::watch("update yaw", glm::degrees(normalizeAngle(z(3))));
             } else {
                 // Check if there is same id armor in current frame
                 for(const auto& armor : armors) {
                     if(armor.id == mTrackedArmor.id) {
                         // Armor jump happens
                         matched = true;
-                        handleArmorJump(getArmorPos(armor), armor.yaw);
+                        handleArmorJump(getArmorPos(armor), getArmorYaw(armor));
                         break;
                     }
                 }
@@ -319,10 +330,10 @@ public:
                     mTrackedArmor.lastUpdate = data->lastUpdate;
                 } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
                     const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
-                    if(!dataPosture.has_value())
+                    if(!dataPosture.has_value() || data->selected.empty())
                         return;
                     res.center = getArmorPos(data->selected[0]);
-                    res.theta = data->selected[0].yaw;
+                    res.theta = getArmorYaw(data->selected[0]);
                     res.lVel = -dataPosture->linearVelocityOfRobot.mVal;
                     res.aVel = 0;
                     res.radius = { 0, 0 };

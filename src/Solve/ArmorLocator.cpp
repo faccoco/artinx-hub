@@ -50,36 +50,26 @@ class ArmorLocator final
                  (mImagePoint[0].y + mImagePoint[1].y + mImagePoint[2].y + mImagePoint[3].y) / 4 };
     }
 
-    std::pair<Point<UnitType::Distance, FrameOfRef::Camera>, double>
+    std::pair<Point<UnitType::Distance, FrameOfRef::Camera>, Vector<UnitType::Distance,FrameOfRef::Camera>>
     solve([[maybe_unused]] cv::Mat& debugView, const cv::Mat& cameraMatrix, const cv::Mat& distCoeffs, bool isLargeArmor) {
         cv::Mat rvec, tvec;
 
         [[maybe_unused]] const auto res = cv::solvePnP(isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
                                                        cameraMatrix, distCoeffs, rvec, tvec, false, cv::SOLVEPNP_IPPE);
         glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
-        glm::dvec3 r = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
+        glm::dvec3 r = { rvec.at<double>(0, 0), -rvec.at<double>(0, 1), -rvec.at<double>(0, 2) };
 
         if(p0.z > 0.0)
             p0 = -p0;
         if(r.z > 0.0)
             r = -r;
 
-        double yaw;
-        {
-            double theta = glm::length(r);
-            glm::dvec3 vec = r / theta;
-            double s = sin(theta), c = cos(theta);
-            yaw = atan2(s * vec.y + (1 - c) * vec.x * vec.z, c + (1 - c) * vec.z * vec.z);
-        }
-
-        logInfo(fmt::format("rvec:{:.3f} {:.3f} {:.3f} yaw:{:.1f} degrees", r.x, r.y, r.z, glm::degrees(yaw)));
-
 #ifdef ARTINXHUB_DEBUG
         cv::drawFrameAxes(debugView, cameraMatrix, distCoeffs, rvec, tvec,
                           static_cast<float>(isLargeArmor ? widthOfLargeArmor : widthOfSmallArmor) * 0.5f);
 #endif
 
-        return std::make_pair(Point<UnitType::Distance, FrameOfRef::Camera>{ p0 }, yaw);
+        return std::make_pair(Point<UnitType::Distance, FrameOfRef::Camera>{ p0 }, Vector<UnitType::Distance, FrameOfRef::Camera>{ r });
     }
 
 public:
@@ -94,7 +84,7 @@ public:
                      DetectedTargetArray res;
                      res.lastUpdate = data.frame.lastUpdate;
                      const auto& cameraInfo = data.frame.info;
-                     res.tfRobot2Gun = cameraInfo.tfRobot2Gun.value();
+                     res.tfRobot2Gun = cameraInfo.tfRobot2Gun;
 
                      auto debugView = data.frame.frame.clone();
 
@@ -108,14 +98,15 @@ public:
                          for(auto num : mConfig.largeArmor)
                              if(static_cast<RobotType>(num) == armor.robotType)
                                  isLargeArmor = true;
-                         auto [point, yaw] = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
+                         auto [point, rvec] = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 
                          auto pointRefGun = tfCamera2Gun(point);
+                         auto rvecRefGun = tfCamera2Gun(rvec);
                          auto armorImgCenter = clcArmorImgCenter();
                          res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefGun, 0.0,
-                                                 armor.robotType, isLargeArmor ? ArmorType::Large : ArmorType::Small, yaw });
-                         logInfo(fmt::format("Position ref Camera: x:{:.3}, y:{:.3}, z:{:.3} Armor Type:{}", point.mVal.x,
-                                             point.mVal.y, point.mVal.z, isLargeArmor));
+                                                 armor.robotType, isLargeArmor ? ArmorType::Large : ArmorType::Small, rvecRefGun });
+//                         logInfo(fmt::format("Position ref Camera: x:{:.3}, y:{:.3}, z:{:.3} Armor Type:{}", point.mVal.x,
+//                                             point.mVal.y, point.mVal.z, isLargeArmor));
                          //                         logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{:.3}, y:{:.3}
                          //                         z:{:.3}", isLargeArmor,
                          //                                             pointRefGun.mVal.x, pointRefGun.mVal.y,

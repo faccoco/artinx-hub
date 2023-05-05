@@ -160,6 +160,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                             sumSpeed += speed;
                         }
                         GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
+                        HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
                     }
                 }
                 mLastBulletSpeed = fdb.bulletSpeed;
@@ -204,7 +205,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             }
             mOutpostMode = fdb.outpostMode;
             sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
-            // HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
+            HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
 
             mCapEnergy = fdb.capEnergy;
             mChasisPower = fdb.chasisPower;

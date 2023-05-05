@@ -14,7 +14,7 @@ struct DetectedTarget final {
     double area;
     int32_t id;
     ArmorType type;
-    double yaw;
+    Vector<UnitType::Distance, FrameOfRef::Gun> rvec;
 };
 
 struct DetectedTargetArray final {

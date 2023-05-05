@@ -91,7 +91,7 @@ public:
 
                 {
                     glm::dvec3 pos = getPos(center, R[0], theta);
-                    logInfo(fmt::format("AngleSolver: tfpos: {:.3f} {:.3f} {:.3f}", pos.x, pos.y, pos.z));
+                    //                    logInfo(fmt::format("AngleSolver: tfpos: {:.3f} {:.3f} {:.3f}", pos.x, pos.y, pos.z));
                     // HubLogger::watch("x", pos.x);
                     // HubLogger::watch("y", pos.y);
                     // HubLogger::watch("z", pos.z);
@@ -113,9 +113,9 @@ public:
                         auto [airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(predictPos, lVel);
 
                         double requiredTime = airTime + mConfig.delay + shootDelayTime;
-                        glm::dvec3 requiredCenter = center + lVel * requiredTime;
+                        //                        glm::dvec3 requiredCenter = center + lVel * requiredTime;
                         double requiredTheta = theta + aVel * requiredTime;
-                        glm::dvec3 requiredPos = getPos(requiredCenter, r, requiredTheta);
+                        //                        glm::dvec3 requiredPos = getPos(requiredCenter, r, requiredTheta);
 
                         if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {
                             // logInfo(fmt::format("AngleSolver: iter times: {}", iterTimes));
@@ -124,14 +124,15 @@ public:
                             //                 glm::degrees(normalizeAngle(requiredTheta)),
                             //                 glm::degrees(shortestAngularDistance(requiredTheta, yawAngle +
                             //                 glm::pi<double>()))));
-                            if(abs(shortestAngularDistance(requiredTheta, yawAngle + glm::pi<double>())) <= maxShootDeltaTheta) {
+                            if(r == 0 ||
+                               abs(shortestAngularDistance(requiredTheta, yawAngle + glm::pi<double>())) <= maxShootDeltaTheta) {
                                 yaw = yawAngle;
                                 pitch = pitchAngle;
-                                logInfo(fmt::format("AngleSolver: requiredPos: {:.3f} {:.3f} {:.3f}", requiredPos.x,
-                                                    requiredPos.y, requiredPos.z));
-                            }
-                            else{
-                                logInfo("AngleSolver: bad theta, switch to next armor");
+                                //                                logInfo(fmt::format("AngleSolver: requiredPos: {:.3f} {:.3f}
+                                //                                {:.3f}", requiredPos.x,
+                                //                                                    requiredPos.y, requiredPos.z));
+                            } else {
+                                //                                logInfo("AngleSolver: bad theta, switch to next armor");
                             }
                             break;
                         }
@@ -144,7 +145,7 @@ public:
                                             yaw.value(), pitch.value(), true, normalSolver);
                         break;
                     } else {
-                        logInfo("AngleSolver: iteration failed or bad theta");
+                        //                        logInfo("AngleSolver: iteration failed or bad theta");
                     }
                     theta += (aVel < 0 ? glm::half_pi<double>() : -glm::half_pi<double>());
                 }

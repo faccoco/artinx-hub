@@ -39,7 +39,7 @@ class VideoRecorder final : public HubHelper<caf::event_based_actor, VideoRecord
     std::unique_ptr<cv::VideoWriter> mWriter;
     Clock::time_point mStart = Clock::now();
 
-    const int mFourCc = cv::VideoWriter::fourcc('m', 'p', '4', 'v');
+    const int mFourCc = cv::VideoWriter::fourcc('D', 'I', 'V', 'X');
 
 public:
     VideoRecorder(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
@@ -78,7 +78,7 @@ public:
                              logError(error.c_str());
                          }
                          mWriter = std::make_unique<cv::VideoWriter>(
-                             fmt::format("{}/{}.mp4",mConfig.base,std::time(0)), mFourCc,mConfig.fps, frameData.frame.size());
+                             fmt::format("{}/{}.mkv",mConfig.base,std::time(0)), mFourCc,mConfig.fps, frameData.frame.size());
                          mFormat = frameData.frame.type();
                          mSize = frameData.frame.size();
                          mFrameCount = 0;

@@ -11,7 +11,7 @@
 
 struct CameraInfo final {
     Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> tfGun2Camera;
-    std::optional<Transform<FrameOfRef::Robot, FrameOfRef::Gun, true>> tfRobot2Gun;
+    Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
     std::string identifier;
     cv::Mat cameraMatrix;
     cv::Mat distCoefficients;
