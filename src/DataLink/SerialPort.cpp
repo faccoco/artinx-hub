@@ -168,7 +168,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 if(mShootDelay.size() >= mShootDelayLen)
                     mShootDelay.pop_front();
                 mShootDelay.push_back(fdb.shootDelayTime);
-                GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;
+                GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;  // ms -> s
             }
             // HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
             // HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
@@ -324,17 +324,10 @@ public:
                      isFire = solverType && isFire;
                      {
                          std::lock_guard lock{ mOutpostModeChangeMutex };
-                         if(mOutpostMode && solverType == normalSolver) {
+                         if(mOutpostMode && solverType == normalSolver)
                              return;
-                         }
 
-                         if(yawAngle <= -glm::pi<double>())
-                             yawAngle += glm::two_pi<double>();
-
-                         if(yawAngle > glm::pi<double>())
-                             yawAngle -= glm::two_pi<double>();
-
-                         //                         yawAngle = -yawAngle;
+                         yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
                          if(mask == 1U) {
                              gimbalSetPacket.setUpTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
                              mLastUpTargetTime = Clock::now();

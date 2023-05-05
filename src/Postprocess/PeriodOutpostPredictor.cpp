@@ -17,7 +17,7 @@
 
 static constexpr double sameThetaThreshold = glm::radians<double>(0.1);
 static constexpr double samePitchThreshold = glm::radians<double>(1);
-static constexpr double minIntervalThreshold = 0.1;       // s
+static constexpr double minIntervalThreshold = 0.1;     // s
 static constexpr double maxPeriodThreshold = 5;         // s
 static constexpr double maxPeriodStdThreshold = 0.015;  // s
 
@@ -55,15 +55,14 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
-                if(!(data->selected.has_value() && data->tfRobot2Gun.has_value()))
+                if(!(data->selected.size()))
                     return;
-                auto tfGun2Robot = data->tfRobot2Gun->invTransformObj();
-                HubLogger::watch("armor type", magic_enum::enum_name(data->selected->type));
+                auto tfGun2Robot = data->tfRobot2Gun.invTransformObj();
 
                 PredictedPeriodTarget res;
                 res.lastUpdate = data->lastUpdate;
 
-                Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data->selected->center.mVal);
+                Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data->selected[0].center.mVal);
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = tfGun2Robot(posOfRefGun);
                 res.position = posRefRobot;
 
@@ -78,6 +77,8 @@ public:
                 double thetaDelta = std::abs(getTheta(posRefRobot.mVal) - mTargetTheta);
                 if(thetaDelta > glm::pi<double>())
                     thetaDelta = glm::two_pi<double>() - thetaDelta;
+
+                logInfo(fmt::format("PeriodOutpostPredictor: theta delta: {}", thetaDelta));
 
                 // check
                 if(thetaDelta <= sameThetaThreshold) {

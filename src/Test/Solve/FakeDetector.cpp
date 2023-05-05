@@ -16,38 +16,48 @@
 #include "SuppressWarningEnd.hpp"
 
 struct FakeDetectorSettings final {
+    int fps;
     double delay;
     double detectLinearStd;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, FakeDetectorSettings& x) {
-    return f.object(x).fields(f.field("delay", x.delay).fallback(0.0),
+    return f.object(x).fields(f.field("fps", x.fps).fallback(100), f.field("delay", x.delay).fallback(0.0),
                               f.field("detectLinearStd", x.detectLinearStd).fallback(0.0));
 }
 
 class FakeDetector final : public HubHelper<caf::event_based_actor, FakeDetectorSettings, detect_available_atom> {
     Identifier mKey, mHeadKey{};
+    std::optional<TimePoint> mFirstReceive;
+    float mReceivedTimes;
     Duration mDelay;
     std::queue<SimulatorWorldInfo> mQueue;
 
 public:
     FakeDetector(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ generateKey(this) }, mDelay{ static_cast<Clock::rep>(
-                                                                    mConfig.delay * Clock::period::den / Clock::period::num) } {}
+        : HubHelper{ base, config }, mKey{ generateKey(this) }, mReceivedTimes(0), mDelay(doubleCastDuration(mConfig.delay)) {}
     caf::behavior make_behavior() override {
         return { [&](simulator_step_atom, Identifier key) {
                     ACTOR_PROTOCOL_CHECK(simulator_step_atom, TypedIdentifier<SimulatorWorldInfo>);
-                    mQueue.push(BlackBoard::instance().get<SimulatorWorldInfo>(key).value());
+                    auto newInfo = BlackBoard::instance().get<SimulatorWorldInfo>(key).value();
+
+                    if(!mFirstReceive.has_value())
+                        mFirstReceive = newInfo.lastUpdate;
+
+                    if(newInfo.lastUpdate - mFirstReceive.value() > doubleCastDuration(mReceivedTimes / mConfig.fps)) {
+                        mQueue.push(newInfo);
+                        mReceivedTimes += 1;
+                    } else {
+                        return;
+                    }
 
                     const auto headData = BlackBoard::instance().get<HeadInfo>(mHeadKey);
                     if(!headData.has_value())
                         return;
 
-                    const TimePoint current = mQueue.back().lastUpdate;
-
                     std::optional<SimulatorWorldInfo> cur;
-                    while(!mQueue.empty() && current - mQueue.front().lastUpdate > mDelay) {
+                    while(!mQueue.empty() && mQueue.back().lastUpdate - mQueue.front().lastUpdate > mDelay) {
                         cur = mQueue.front();
                         mQueue.pop();
                     }
@@ -60,12 +70,12 @@ public:
 
                     DetectedTargetArray data;
 
-                    data.lastUpdate = current;
+                    data.lastUpdate = cur->lastUpdate;
                     data.tfRobot2Gun = head.tfRobot2Gun;
 
                     const auto tfGround2Gun = combine(info.tfGround2Robot, head.tfRobot2Gun);
 
-                    for(const auto& target : info.targets) {
+                    for(const auto& [target, yaw] : info.targets) {
                         const auto pos = tfGround2Gun(target);
                         auto noise = glm::zero<glm::dvec3>();
                         if(mConfig.detectLinearStd > 1e-3) {
@@ -74,12 +84,14 @@ public:
                                                glm::dvec3{ 3.0 * mConfig.detectLinearStd });
                         }
 
-                        data.targets.push_back(DetectedTarget{ {0.0, 0.0},
-                            pos + Vector<UnitType::Distance, FrameOfRef::Gun>(noise),
-                            0.0,
-                            0,
-                            ArmorType::Small,
-                        });
+                        data.targets.push_back(
+                            DetectedTarget{ { 0.0, 0.0 },
+                                            length((pos + Vector<UnitType::Distance, FrameOfRef::Gun>(noise)).mVal),
+                                            pos + Vector<UnitType::Distance, FrameOfRef::Gun>(noise),
+                                            0.0,
+                                            0,
+                                            ArmorType::Small,
+                                            yaw });
                     }
 
                     sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, data));

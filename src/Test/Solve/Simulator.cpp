@@ -303,19 +303,25 @@ public:
                            BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, info));
             }
 
-            // step:update source pose and velocity
+            // step:update pose and velocity
             Vector<UnitType::LinearVelocity, FrameOfRef::Ground> vSrc;
-            Transform<FrameOfRef::Ground, FrameOfRef::Robot, true> tfGround2Robot;
+            Vector<UnitType::LinearVelocity, FrameOfRef::Ground> vTgt;
+            Transform<FrameOfRef::Ground, FrameOfRef::Robot, true> tfGround2Source;
             {
                 const auto p1 = mSource.first.translatePoint();
                 mSource.second->step(mSource.first, dt.mVal);
                 const auto p2 = mSource.first.translatePoint();
                 vSrc = (p2 - p1) / dt;
-                tfGround2Robot = mSource.first.invTransformObj();
-                PostureData posture{ nowTimePoint, tfGround2Robot, vSrc };
+                tfGround2Source = mSource.first.invTransformObj();
+                PostureData posture{ nowTimePoint, tfGround2Source, vSrc };
                 sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
             }
-            mTarget.second->step(mTarget.first, dt.mVal);
+            {
+                const auto p1 = mTarget.first.translatePoint();
+                mTarget.second->step(mTarget.first, dt.mVal);
+                const auto p2 = mTarget.first.translatePoint();
+                vTgt = (p2 - p1) / dt;
+            }
 
             // update drag forces
             for(size_t i = 0; i < mBullets.size(); i++) {
@@ -346,7 +352,7 @@ public:
                 info.lastUpdate = nowTimePoint;
                 SynchronizedClock::instance().setSimulationTime(info.lastUpdate);
 
-                info.tfGround2Robot = tfGround2Robot;
+                info.tfGround2Robot = tfGround2Source;
 
                 {
                     const auto& targetMotion = mTarget.first;
@@ -356,8 +362,18 @@ public:
                         auto vecRefArmor =
                             tfArmor2Ground.invTransform(mSource.first.translatePoint() - tfArmor2Ground.translatePoint());
                         double pitch = glm::asin(-vecRefArmor.mVal.z / glm::length(vecRefArmor.mVal));
-                        if(pitch > mMinVisiblePitch)
-                            info.targets.emplace_back(tfArmor2Ground.translatePoint());
+
+                        if(pitch > mMinVisiblePitch) {
+                            auto tfTarget2Source = tfGround2Source.raw() * targetMotion.raw();
+                            auto vecTarget2ArmorRefSource =
+                                tfTarget2Source * glm::dvec4{ armorRelatedMotion.translatePoint().mVal, 0 };
+                            double theta = atan2(vecTarget2ArmorRefSource.z, vecTarget2ArmorRefSource.x);
+                            info.targets.emplace_back(std::make_pair(tfArmor2Ground.translatePoint(), theta));
+                            // {
+                            //     auto p = tfArmor2Ground.translatePoint().mVal;
+                            //     logInfo(fmt::format("target: {:.3f} {:.3f} {:.3f} {:.3f}", p.x, p.y, p.z, theta));
+                            // }
+                        }
                     }
                 }
 
@@ -410,18 +426,6 @@ public:
                 }
             }
 
-            // update events
-            receive(
-                [&](set_target_info_atom, GroupMask, Clock::rep, const double yaw, const double pitch, const bool isFire,
-                    SolverType) {
-                    ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
-                    shoot = isFire;
-                    mHeadYaw = yaw;
-                    mHeadPitch = pitch;
-                },
-                [&](const caf::down_msg&) { runFlag = false; }, [&](const caf::exit_msg&) { runFlag = false; },
-                [&](timer_atom) { ACTOR_PROTOCOL_CHECK(timer_atom); });
-
             const auto tfGun2Ground = combine(tfRobot2Gun.invTransformObj(), mSource.first);
 
             // shoot
@@ -441,16 +445,32 @@ public:
                 shoot = false;
             }
 
+            // update events
+            receive(
+                [&](set_target_info_atom, GroupMask, Clock::rep t, const double yaw, const double pitch, const bool isFire,
+                    SolverType) {
+                    ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
+                    shoot = isFire;
+                    mHeadYaw = normalizeAngle(yaw - glm::half_pi<double>());
+                    mHeadPitch = pitch;
+                    GlobalSettings::get().shootDelayTime = time.mVal - double(t) / 1e9;
+                    logInfo(fmt::format("shoot delay: {}", GlobalSettings::get().shootDelayTime));
+                },
+                [&](const caf::down_msg&) { runFlag = false; }, [&](const caf::exit_msg&) { runFlag = false; },
+                [&](timer_atom) { ACTOR_PROTOCOL_CHECK(timer_atom); });
+
             logInfo(
                 fmt::format("Simulator time {:.3f}s bullet count {} hit {} shoot {}", time.mVal, bulletCount, hitCount, shoot));
             {
                 const auto posSrc = mSource.first.translatePoint();
 
                 logInfo(fmt::format("Source position   {:.3f} {:.3f} {:.3f}", posSrc.mVal.x, posSrc.mVal.y, posSrc.mVal.z));
+                logInfo(fmt::format("Source velocity   {:.3f} {:.3f} {:.3f}", vSrc.mVal.x, vSrc.mVal.y, vSrc.mVal.z));
 
                 const auto posDst = mTarget.first.translatePoint();
 
                 logInfo(fmt::format("Target position  {:.3f} {:.3f} {:.3f}", posDst.mVal.x, posDst.mVal.y, posDst.mVal.z));
+                logInfo(fmt::format("Target velocity  {:.3f} {:.3f} {:.3f}", vTgt.mVal.x, vTgt.mVal.y, vTgt.mVal.z));
 
                 auto diff = normalize(posDst - posSrc);
 

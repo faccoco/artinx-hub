@@ -49,6 +49,7 @@ set(SOURCE
         "Utility/ArmorDetectorDrawer.cpp"
         "Utility/CarDetectorDrawer.cpp"
         "Utility/Crc.cpp"
+        "Utility/EKF.cpp"
         "Utility/KM.cpp"
         "Utility/OpenCVHelper.cpp"
         "Utility/PID.cpp"

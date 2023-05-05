@@ -9,15 +9,17 @@ enum class ArmorType { Small, Large };
 
 struct DetectedTarget final {
     cv::Point2f armorImgCenter;
+    double distanceToImgCenter;
     Point<UnitType::Distance, FrameOfRef::Gun> center;
     double area;
     int32_t id;
     ArmorType type;
+    double yaw;
 };
 
 struct DetectedTargetArray final {
     TimePoint lastUpdate;
-    std::optional<Transform<FrameOfRef::Robot, FrameOfRef::Gun, true>> tfRobot2Gun;
+    Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
     std::vector<DetectedTarget> targets;
 };
 
