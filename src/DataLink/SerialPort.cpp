@@ -141,9 +141,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
             if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
-                ReadableTimePoint tmp = std::chrono::system_clock::now();
-                HubLogger::fileLog(fmt::format("time: {}:{}:{:.1f} bulletSpeed: {}", tmp.tm.tm_hour, tmp.tm.tm_hour,
-                                               tmp.tm.tm_sec + tmp.ms / 1000.0, fdb.bulletSpeed));
+                ReadableTimePoint nowReadableTimePoint = std::chrono::system_clock::now();
+                HubLogger::fileLog(fmt::format("time: {}:{}:{:.1f} bulletSpeed: {}", nowReadableTimePoint.tm.tm_hour, nowReadableTimePoint.tm.tm_min,
+                                               nowReadableTimePoint.tm.tm_sec + nowReadableTimePoint.ms / 1000.0, fdb.bulletSpeed));
                 if(fdb.bulletSpeed > mConfig.minBulletSpeed && fdb.bulletSpeed < mConfig.maxBulletSpeed) {
                     if(mBulletSpeed.size() >= mBulletSpeedLen)
                         mBulletSpeed.pop_front();
