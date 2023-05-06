@@ -10,8 +10,8 @@
 
 #include <caf/actor_ostream.hpp>
 #include <caf/event_based_actor.hpp>
-#include <opencv2/videoio.hpp>
 #include <fmt/format.h>
+#include <opencv2/videoio.hpp>
 
 #include "SuppressWarningEnd.hpp"
 
@@ -77,8 +77,10 @@ public:
                              const auto error = "Failed to create directory " + mConfig.base;
                              logError(error.c_str());
                          }
+                         ReadableTimePoint now(std::chrono::system_clock::now());
                          mWriter = std::make_unique<cv::VideoWriter>(
-                             fmt::format("{}/{}.mkv",mConfig.base,std::time(0)), mFourCc,mConfig.fps, frameData.frame.size());
+                             fmt::format("{}/{}:{}:{}.mkv", mConfig.base, now.tm.tm_hour, now.tm.tm_min, now.tm.tm_sec), mFourCc,
+                             mConfig.fps, frameData.frame.size());
                          mFormat = frameData.frame.type();
                          mSize = frameData.frame.size();
                          mFrameCount = 0;
