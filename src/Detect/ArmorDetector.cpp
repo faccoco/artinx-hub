@@ -56,9 +56,7 @@ template <class Inspector>
 bool inspect(Inspector& f, ArmorDetectorSettings& x) {
     return f.object(x).fields(
         f.field("debugView", x.debugView).fallback(false), f.field("binaryThresh", x.binaryThresh).fallback(100),
-        f.field("bSubtractR", x.bSubtractR).fallback(60), f.field("rSubtractB", x.rSubtractB).fallback(60),
-        f.field("maxLightLen", x.maxLightLen).fallback(50.0), f.field("sumPixelRatio", x.sumPixelRatio).fallback(4.0),
-        f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
+        f.field("maxLightLen", x.maxLightLen).fallback(50.0), f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
         f.field("minLightRectRatio", x.minLightRectRatio).fallback(0.15),
         f.field("maxLightRectRatio", x.maxLightRectRatio).fallback(0.6), f.field("maxLightAngle", x.maxLightAngle).fallback(40),
         f.field("min2lightLenRatio", x.min2lightLenRatio).fallback(0.6),
@@ -98,29 +96,27 @@ class ArmorDetector final
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame), name));
     }
 
-    static RobotType tfId2RobotType(int id) {
-        RobotType robotType;
+    static int tfId2RobotType(int id) {
+        int robotType;
         switch(id) {  // number define is different from NNetArmorDetector
             case 0:
-                robotType = RobotType::Base;
+                robotType = 7;
                 break;
             case 1:
             case 2:
             case 3:
-                robotType = static_cast<RobotType>(id);
-                break;
             case 4:
             case 5:
-                robotType = RobotType::Infantry;
+                robotType = id;
                 break;
             case 6:
-                robotType = RobotType::Sentry;
+                robotType = 0;
                 break;
             case 7:
-                robotType = RobotType::Outpost;
+                robotType = 6;
                 break;
             default:
-                robotType = RobotType::Negative;
+                robotType = 7;
                 break;
         }
         return robotType;
@@ -181,7 +177,6 @@ class ArmorDetector final
         cv::Mat binaryImg;
         cv::threshold(grayImg, binaryImg, mConfig.binaryThresh, 255, cv::THRESH_BINARY);
 
-        //        debugView("binary", result, [](auto) {});
         return binaryImg;
     }
 
@@ -204,27 +199,23 @@ class ArmorDetector final
                    rect.y + rect.height <= bgrImg.rows) {
                     int sumR = 0, sumB = 0;
                     auto roi = bgrImg(rect);
-
                     for(int i = 0; i < roi.rows; i++) {
                         for(int j = 0; j < roi.cols; j++) {
                             if(cv::pointPolygonTest(lightContour, cv::Point2f(j + rect.x, i + rect.y), false) >= 0) {
                                 // if point is inside contour
                                 auto b = static_cast<int>(roi.at<cv::Vec3b>(i, j)[0]),
                                      r = static_cast<int>(roi.at<cv::Vec3b>(i, j)[2]);
-                                if(b - r > mConfig.bSubtractR)
+                                if(b - r > 0){
                                     ++sumB;
-                                if(r - b > mConfig.rSubtractB)
+                                }else{
                                     ++sumR;
+                                }
                             }
                         }
                     }
-                    int sumPixelThresh = static_cast<int>(light->length * light->width / mConfig.sumPixelRatio);
                     light->color = sumR > sumB ? Color::Red : Color::Blue;
-                    if(std::max(sumB, sumR) <= sumPixelThresh) {
-                        light->color = Color::Negative;
-                    }
-                    if(light->color == selfColor || light->color == Color::Negative)
-                        continue;
+                    if (light->color == selfColor)
+                        continue ;
                     lights.emplace_back(light.value());
                 }
             }
@@ -321,6 +312,9 @@ class ArmorDetector final
                 continue;
             }
             const auto img = NumberClassifier::extractNumbers(bgrImg, condArmor.points.data(), condArmor.isLargeArmor);
+            if (mConfig.debugView){
+                debugView("num", img, [](auto &&){});
+            }
             const auto [id, prob] = mNumClassifierPtr->classify(img);
             condArmor.id = id;
             condArmor.prob = prob;

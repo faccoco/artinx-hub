@@ -77,6 +77,7 @@ public:
                              const auto error = "Failed to create directory " + mConfig.base;
                              logError(error.c_str());
                          }
+
                          mWriter = std::make_unique<cv::VideoWriter>(
                              fmt::format("{}/{}.mp4",mConfig.base,std::time(0)), mFourCc,mConfig.fps, frameData.frame.size());
                          mFormat = frameData.frame.type();
