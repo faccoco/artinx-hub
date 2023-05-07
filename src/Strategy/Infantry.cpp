@@ -12,7 +12,9 @@
 
 #include "SuppressWarningEnd.hpp"
 
-struct InfantryStrategySettings final {};
+struct InfantryStrategySettings final {
+
+};
 
 template <class Inspector>
 bool inspect(Inspector& f, InfantryStrategySettings& x) {
@@ -34,8 +36,6 @@ public:
                  },
                  [&](detect_available_atom, GroupMask, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
-                     if(mEnergyMode)
-                         return;
                      const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
 
                      SelectedTarget selected;
