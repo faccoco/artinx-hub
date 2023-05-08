@@ -15,6 +15,7 @@
 using TimePoint = Clock::time_point;
 using Duration = Clock::duration;
 
+// unit: s
 constexpr double durationCastDouble(const Duration& d) {
     return double(d.count()) / Duration::period::den * Duration::period::num;
 }
