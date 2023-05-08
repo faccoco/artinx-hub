@@ -1,3 +1,4 @@
+#ifndef ARTINX_RADAR
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
@@ -461,3 +462,4 @@ public:
 };
 
 HUB_REGISTER_CLASS(NNetArmorDetector);
+#endif

@@ -18,10 +18,6 @@
 #include <string>
 #include <type_traits>
 
-RadarTransform& RadarTransform::Instance() {
-    static RadarTransform instance;
-    return instance;
-}
 
 struct LivoxDriverSettings final {
     std::string broadercastCode;
