@@ -13,7 +13,9 @@ enum RobotType{
     Sentry = 0,
     Hero,
     Engineer,
-    Infantry,
+    Infantry1,
+    Infantry2,
+    Infantry3,
     Outpost,
     Base,
     Negative
