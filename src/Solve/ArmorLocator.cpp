@@ -16,15 +16,12 @@
 #include "SuppressWarningEnd.hpp"
 
 struct ArmorLocatorSettings final {
-    float ratioThreshold;
-    std::vector<int> largeArmor, smallArmor;
+    std::vector<int> largeArmor;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorSettings& x) {
-    return f.object(x).fields(f.field("ratioThreshold", x.ratioThreshold),
-                              f.field("largeArmor", x.largeArmor).fallback(std::vector<int>()),
-                              f.field("smallArmor", x.smallArmor).fallback(std::vector<int>()));
+    return f.object(x).fields(f.field("largeArmor", x.largeArmor).fallback(std::vector<int>()));
 }
 
 class ArmorLocator final
@@ -90,9 +87,11 @@ public:
                          mImagePoint = armor.light4Point;
 
                          bool isLargeArmor = false;
-                         for(auto num : mConfig.largeArmor)
-                             if(static_cast<RobotType>(num) == armor.robotType)
+                         for(auto num : mConfig.largeArmor){
+                             if(num == static_cast<int>(armor.robotType))
                                  isLargeArmor = true;
+                         }
+
                          auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 
                          auto pointRefGun = tfCamera2Gun(point);

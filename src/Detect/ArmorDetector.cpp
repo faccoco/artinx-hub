@@ -22,11 +22,8 @@
 struct ArmorDetectorSettings final {
     bool debugView;
     int32_t binaryThresh;
-    int32_t bSubtractR;
-    int32_t rSubtractB;
     float maxLightLen;
     float maxLightWidth;
-    float sumPixelRatio;       // the proportion of the total number of eligible pixel points to the total area of the light strip
     float minLightRectRatio;   // width/height
     float maxLightRectRatio;   // width/height
     float maxLightAngle;       // angle(degree)
@@ -56,9 +53,7 @@ template <class Inspector>
 bool inspect(Inspector& f, ArmorDetectorSettings& x) {
     return f.object(x).fields(
         f.field("debugView", x.debugView).fallback(false), f.field("binaryThresh", x.binaryThresh).fallback(100),
-        f.field("bSubtractR", x.bSubtractR).fallback(60), f.field("rSubtractB", x.rSubtractB).fallback(60),
-        f.field("maxLightLen", x.maxLightLen).fallback(50.0), f.field("sumPixelRatio", x.sumPixelRatio).fallback(4.0),
-        f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
+        f.field("maxLightLen", x.maxLightLen).fallback(50.0), f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
         f.field("minLightRectRatio", x.minLightRectRatio).fallback(0.15),
         f.field("maxLightRectRatio", x.maxLightRectRatio).fallback(0.6), f.field("maxLightAngle", x.maxLightAngle).fallback(40),
         f.field("min2lightLenRatio", x.min2lightLenRatio).fallback(0.6),
@@ -107,11 +102,9 @@ class ArmorDetector final
             case 1:
             case 2:
             case 3:
-                robotType = static_cast<RobotType>(id);
-                break;
             case 4:
             case 5:
-                robotType = RobotType::Infantry;
+                robotType = static_cast<RobotType>(id);
                 break;
             case 6:
                 robotType = RobotType::Sentry;
@@ -211,18 +204,15 @@ class ArmorDetector final
                                 // if point is inside contour
                                 auto b = static_cast<int>(roi.at<cv::Vec3b>(i, j)[0]),
                                      r = static_cast<int>(roi.at<cv::Vec3b>(i, j)[2]);
-                                if(b - r > mConfig.bSubtractR)
+                                if(b - r > 0){
                                     ++sumB;
-                                if(r - b > mConfig.rSubtractB)
+                                }else{
                                     ++sumR;
+                                }
                             }
                         }
                     }
-                    int sumPixelThresh = static_cast<int>(light->length * light->width / mConfig.sumPixelRatio);
                     light->color = sumR > sumB ? Color::Red : Color::Blue;
-                    if(std::max(sumB, sumR) <= sumPixelThresh) {
-                        light->color = Color::Negative;
-                    }
                     if(light->color == selfColor || light->color == Color::Negative)
                         continue;
                     lights.emplace_back(light.value());
