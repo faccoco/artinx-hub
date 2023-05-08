@@ -22,7 +22,7 @@ cv::Mat NumberClassifier::extractNumbers(const cv::Mat& src, const cv::Point2f p
     constexpr int smallArmorWidth = 32;
     constexpr int largeArmorWidth = 54;
     // Number ROI size
-    const cv::Size roiSize(22, 28);
+    const cv::Size roiSize(20, 28);
 
     // Warp perspective transform
     const int topLightY = (warpHeight - lightLen) / 2 - 1;
@@ -54,11 +54,11 @@ std::pair<int, float> NumberClassifier::classify(const cv::Mat& img) {
     cv::Mat image = img.clone();
     image /= 255.0;
 
-    cv::copyMakeBorder(image, image, 0, 0, 3, 3, cv::BORDER_CONSTANT, cv::Scalar(0));
+    //cv::copyMakeBorder(image, image, 0, 0, 4, 4, cv::BORDER_CONSTANT, cv::Scalar(0));
 
     // Create blob from image
     cv::Mat blob;
-    cv::dnn::blobFromImage(image, blob, 1., cv::Size(28, 28));
+    cv::dnn::blobFromImage(image, blob, 1., cv::Size(20, 28));
 
     // Set the input blob for the neural network
     net.setInput(blob);

@@ -311,22 +311,26 @@ class ArmorDetector final
         std::sort(condArmors.begin(), condArmors.end(),
                   [](const auto& armor1, const auto& armor2) { return armor1.angle < armor2.angle; });
         std::vector<bool> used(condArmors.size());
+        int cnt = 0;
         for(auto& condArmor : condArmors) {
             if(used[condArmor.rightLightIdx] || used[condArmor.leftLightIdx]) {
                 continue;
             }
             const auto img = NumberClassifier::extractNumbers(bgrImg, condArmor.points.data(), condArmor.isLargeArmor);
+            if (cnt++ % 20 == 0){
+                cv::imwrite(fmt::format("record/{}.jpg",std::time(0)), img);
+            }
+
             if (mConfig.debugView){
-                debugView("number", img, [](auto& src) {
-//                    cv::resize(src, src, (280, 280));
+                debugView("numberImg", img, [](auto& src) {
                 });
             }
-            // const auto t0 = Clock::now();
+            const auto t0 = Clock::now();
 
             const auto [id, prob] = mNumClassifierPtr->classify(img);
 
-            // const auto t1 = Clock::now();
-            // logInfo(fmt::format("Number classification cost {} ", durationCastDouble(t1 - t0)));
+            const auto t1 = Clock::now();
+            logInfo(fmt::format("Number classification cost {:.3f}ms ", durationCastDouble(t1 - t0)*1000));
             condArmor.id = id;
             condArmor.prob = prob;
             logInfo(fmt::format("id is {}, prob is {}", id, prob));
@@ -334,7 +338,7 @@ class ArmorDetector final
                 continue;
             Armor armor = {};
             armor.light4Point = condArmor.points;
-            armor.robotType = tfId2RobotType(id);
+            //armor.robotType = tfId2RobotType(id);
             armor.prob = prob;
             used[condArmor.leftLightIdx] = true;
             used[condArmor.rightLightIdx] = true;
