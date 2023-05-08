@@ -22,11 +22,8 @@
 
 namespace IE = InferenceEngine;
 
-static constexpr Clock::duration maxDiffTime{ 500ms };
-static constexpr double maxDistance = 6.0;
-static constexpr int maxLostTargetCnt = 5;
-
 struct NNetArmorDetectorSettings final {
+    bool debugView;
     std::string networkPath;  // network training file path
     int inputWidth;
     int inputHeight;
@@ -40,10 +37,11 @@ struct NNetArmorDetectorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, NNetArmorDetectorSettings& x) {
-    return f.object(x).fields(f.field("networkPath", x.networkPath), f.field("inputWidth", x.inputWidth),
-                              f.field("inputHeight", x.inputHeight), f.field("numClasses", x.numClasses),
-                              f.field("numColors", x.numColors), f.field("bboxConfThresh", x.bboxConfThresh),
-                              f.field("topK", x.topK), f.field("nmsThresh", x.nmsThresh).fallback(100));
+    return f.object(x).fields(
+        f.field("debugView", x.debugView).fallback(false), f.field("networkPath", x.networkPath),
+        f.field("inputWidth", x.inputWidth), f.field("inputHeight", x.inputHeight), f.field("numClasses", x.numClasses),
+        f.field("numColors", x.numColors), f.field("bboxConfThresh", x.bboxConfThresh), f.field("topK", x.topK),
+        f.field("nmsThresh", x.nmsThresh).fallback(100), f.field("binaryThresh", x.binaryThresh).fallback(100));
 }
 
 struct GridAndStride final {
@@ -56,7 +54,6 @@ struct GridAndStride final {
 class NNetArmorDetector final
     : public HubHelper<caf::event_based_actor, NNetArmorDetectorSettings, armor_detect_available_atom, image_frame_atom> {
     Identifier mKey;
-    std::optional<Identifier> mROIKey;
 
     IE::Core mIe;
     IE::CNNNetwork mNetwork;
@@ -67,9 +64,6 @@ class NNetArmorDetector final
     InferenceEngine::MemoryBlob::CPtr mOutputMemBlobPtr;
 
     Eigen::Matrix<float, 3, 3> mTransformMatrix;
-
-    int mLostTargetCnt = 0;
-    bool useROI = true;
 
     void debugView(const std::string_view& name, const cv::Mat& src, const std::function<void(cv::Mat&)>& func) {
 #ifndef ARTINXHUB_DEBUG
@@ -91,38 +85,7 @@ class NNetArmorDetector final
         CameraFrame frame;
         frame.frame = std::move(res);
 
-        sendAll(image_frame_atom_v,
-                BlackBoard::instance().updateSync(newKey, std::move(frame), std::string_view("NNetArmorDetector")));
-    }
-
-    cv::Mat getROIRegion(const cv::Mat& img, const cv::Point2f& centerROI) {
-        cv::Mat roi;
-        const auto centerX = static_cast<int>(centerROI.x);
-        const auto centerY = static_cast<int>(centerROI.y);
-
-        cv::Point2i ltOfROI;  // left top point of ROI
-
-        // get left top point Coordinate of the roi rect
-        const auto getCroppedCoord = [](int center, int inputSize, int originSize) {
-            int res = 0;
-            if(center - inputSize / 2 >= 0 && center + inputSize / 2 <= originSize) {
-                res = center - inputSize / 2;
-            } else if(center - inputSize / 2 < 0) {
-                res = 0;
-            } else if(center + inputSize / 2 > originSize) {
-                res = originSize - inputSize;
-            }
-            return res;
-        };
-
-        ltOfROI.x = getCroppedCoord(centerX, mConfig.inputWidth, img.cols);
-        ltOfROI.y = getCroppedCoord(centerY, mConfig.inputHeight, img.rows);
-
-        mTransformMatrix << 1.0, 0, ltOfROI.x, 0, 1.0, ltOfROI.y, 0, 0, 1;
-
-        cv::Rect2i roiRect{ ltOfROI, cv::Size{ mConfig.inputWidth, mConfig.inputHeight } };
-        // cv::rectangle(img, roiRect, cv::Scalar(255, 255, 255), 1);
-        return img(roiRect).clone();
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame), name));
     }
 
     cv::Mat scaledResize(const cv::Mat& img) {
@@ -155,7 +118,7 @@ class NNetArmorDetector final
         auto imgOffset = mConfig.inputHeight * mConfig.inputWidth;
         // 将img拷贝进blob
         for(int c = 0; c < 3; c++) {
-            // memcpy(blobDataPtr, preSplit[c].data, imgOffset * sizeof(float));
+//             memcpy(blobDataPtr, preSplit[c].data, imgOffset * sizeof(float));
             std::copy(reinterpret_cast<float*>(preSplit[c].data),
                       reinterpret_cast<float*>(preSplit[c].data) + imgOffset * sizeof(uchar), blobDataPtr);
             blobDataPtr += imgOffset;
@@ -193,8 +156,8 @@ class NNetArmorDetector final
         int y = fy > 0 ? static_cast<int>(fy) : 0;
         int w = static_cast<int>(rect.width * expandRatio);
         int h = static_cast<int>(rect.height * expandRatio);
-        w = x + w <= oriWidth ? w : oriWidth - w;
-        h = y + h <= oriHeight ? h : oriHeight - h;
+        w = x + w <= oriWidth ? w : oriWidth - x;
+        h = y + h <= oriHeight ? h : oriHeight - y;
         return cv::Rect2i{ x, y, w, h };
     }
 
@@ -252,7 +215,6 @@ class NNetArmorDetector final
 
                 armors.push_back(armor);
             }
-
         }  // point anchor loop
     }
 
@@ -314,12 +276,7 @@ class NNetArmorDetector final
         }
     }
 
-    std::vector<cv::Point2f> extractLightPoint(const cv::Mat& roiArmor, const cv::Point2i& ltOffset) {
-        cv::Mat gray, binary;
-        debugView("roiArmor", roiArmor, [](auto){});
-        cv::cvtColor(roiArmor, gray, cv::COLOR_BGR2GRAY);
-        cv::threshold(gray, binary, mConfig.binaryThresh, 255, cv::THRESH_BINARY);
-        debugView("binary", binary, [](const auto&) {});
+    std::vector<cv::Point2f> extractLightPoint(const cv::Mat& binary) {
         std::vector<std::vector<cv::Point2i>> contours;
         cv::findContours(binary, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
         std::vector<cv::RotatedRect> lights;
@@ -330,6 +287,9 @@ class NNetArmorDetector final
             }
             lightRect = cv::minAreaRect(lightContour);
             lights.emplace_back(lightRect);
+        }
+        if(lights.size() < 2) {
+            return {};
         }
 
         // 找到最左边和最右边的两个灯条
@@ -353,7 +313,7 @@ class NNetArmorDetector final
         };
         auto [lt, lb] = clcTopAndBottom(lights[lLight]);
         auto [rt, rb] = clcTopAndBottom(lights[rLight]);
-        return std::vector<cv::Point2f>{ lt, lb, rt, rb };
+        return std::vector<cv::Point2f>{ lt, lb, rb, rt };
     }
 
     std::vector<Armor> postProcess(const std::vector<Armor>& armors, const cv::Mat& img) {
@@ -363,10 +323,24 @@ class NNetArmorDetector final
             if(armor.robotColor == GlobalSettings::get().getColor() || armor.robotColor == Color::Negative)
                 continue;
 
-            // 采用传统视觉提取角度，提高pnp精度
+            // 采用传统视觉提取角点，提高pnp精度
             Armor enemyArmor = armor;
-            const auto roiArmorRect = expandRect(armor.lightRect, img.cols, img.rows);
-            enemyArmor.light4Point = extractLightPoint(img(roiArmorRect), roiArmorRect.tl());
+            cv::Mat roiArmor, gray, binary;
+            auto roiArmorRect = expandRect(armor.lightRect, img.cols, img.rows);
+            roiArmor = img(roiArmorRect);
+            cv::cvtColor(roiArmor, gray, cv::COLOR_BGR2GRAY);
+            cv::threshold(gray, binary, mConfig.binaryThresh, 255, cv::THRESH_BINARY);
+            if(mConfig.debugView) {
+                debugView("roiArmor", roiArmor, [](auto) {});
+                debugView("binary", binary, [](auto) {});
+            }
+            auto light4Points = extractLightPoint(binary);
+            if(light4Points.size() == 4) {
+                auto tlOffset = roiArmorRect.tl();
+                for(int i = 0; i < 4; ++i) {
+                    enemyArmor.light4Point[i] = { light4Points[i].x + tlOffset.x, light4Points[i].y + tlOffset.y };
+                }
+            }
 
             enemyArmors.push_back(enemyArmor);
         }
@@ -404,32 +378,14 @@ public:
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
-                     ACTOR_EXCEPTION_PROBE();
+                      ACTOR_EXCEPTION_PROBE();
 
-                     /*    const auto t0 = Clock::now();*/
+                     const auto t0 = Clock::now();
                      const auto frame = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
                      DetectedArmorArray res;
                      res.frame = frame;
 
-                     if(res.frame.frame.empty()) {
-                         logWarning("Src img is empty!");
-                         return;
-                     }
-
-                     cv::Mat croppedImg;
-                     if(mROIKey.has_value() && useROI) {
-                         const auto targetROI = BlackBoard::instance().get<TargetROI>(mROIKey.value());
-                         if(targetROI.has_value() && targetROI->lastUpdate - res.frame.lastUpdate < maxDiffTime &&
-                            targetROI->dist < maxDistance) {
-                             // logInfo("use ROI!");
-                             croppedImg = getROIRegion(res.frame.frame, targetROI->armorImgCenter);
-                         }
-                     }
-
-                     if(croppedImg.empty()) {
-                         // logInfo("not use ROI!");
-                         croppedImg = scaledResize(res.frame.frame);
-                     }
+                     auto croppedImg = scaledResize(res.frame.frame);
 
                      auto inputBlobHolder = mInputMemBlobPtr->wmap();
                      float* blobDataPtr = inputBlobHolder.as<float*>();
@@ -444,29 +400,11 @@ public:
 
                      res.armors = postProcess(allArmors, res.frame.frame);
 
-                     if(res.armors.size() == 0) {
-                         ++mLostTargetCnt;
-                         if(mLostTargetCnt >= maxLostTargetCnt) {
-                             mLostTargetCnt = maxLostTargetCnt;
-                             useROI = false;
-                         }
-                     } else {
-                         mLostTargetCnt = 0;
-                         useROI = true;
-                     }
-
-                     /*
-                                          const auto t1 = Clock::now();
-                                          logInfo(
-                                              fmt::format("NNet armor detector:decode time {:.4f}ms", static_cast<double>((t1 -
-                        t0).count()) / 1e6));
-                     */
+                     const auto t2 = Clock::now();
+                     logInfo(
+                         fmt::format("NNet armor detector:decode time {:.4f}ms", static_cast<double>((t2 - t0).count()) / 1e6));
 
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
-                 },
-                 [&](update_roi_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(update_roi_atom, TypedIdentifier<TargetROI>);
-                     mROIKey = key;
                  } };
     }
 };
