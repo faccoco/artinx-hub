@@ -4,49 +4,85 @@ project(artinx_hub)
 set(CMAKE_CXX_STANDARD 17)
 enable_testing()
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-    add_compile_definitions("UNICODE")
-    add_compile_definitions("_UNICODE")
-    add_compile_options("/utf-8")
-    add_compile_options("/MP")
-    add_compile_options("/Wall" "/WX-" "/wd4514" "/wd4625" "/wd5026" "/wd4626" "/wd5027" "/wd4820" "/wd4365" "/wd4355" "/wd4582" "/wd4619" "/wd5031" "/wd4668" "/wd5039" "/wd5204" "/wd4868" "/wd5045" "/wd4946" "/wd4866" "/wd4371" "/wd4711" "/wd4710" "/wd5220" "/wd4324")
-    add_compile_options("/permissive-")
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  add_compile_definitions("UNICODE")
+  add_compile_definitions("_UNICODE")
+  add_compile_options("/utf-8")
+  add_compile_options("/MP")
+  add_compile_options(
+    "/Wall"
+    "/WX-"
+    "/wd4514"
+    "/wd4625"
+    "/wd5026"
+    "/wd4626"
+    "/wd5027"
+    "/wd4820"
+    "/wd4365"
+    "/wd4355"
+    "/wd4582"
+    "/wd4619"
+    "/wd5031"
+    "/wd4668"
+    "/wd5039"
+    "/wd5204"
+    "/wd4868"
+    "/wd5045"
+    "/wd4946"
+    "/wd4866"
+    "/wd4371"
+    "/wd4711"
+    "/wd4710"
+    "/wd5220"
+    "/wd4324")
+  add_compile_options("/permissive-")
+  add_compile_options("-j 8")
 
-    if (CMAKE_BUILD_TYPE MATCHES Debug)
-        add_compile_options("/Od" "/Oy-")
-    else ()
-        add_compile_options("/O2" "/Ob2" "/Oi" "/Ot" "/Oy" "/GT" "/GL" "/Qpar")
-        add_link_options("/LTCG:incremental" "/OPT:REF" "/OPT:ICF")
-    endif ()
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    add_compile_options("-Wall" "-Werror")
+  if(CMAKE_BUILD_TYPE MATCHES Debug)
+    add_compile_options("/Od" "/Oy-")
+  else()
+    add_compile_options(
+      "/O2"
+      "/Ob2"
+      "/Oi"
+      "/Ot"
+      "/Oy"
+      "/GT"
+      "/GL"
+      "/Qpar")
+    add_link_options("/LTCG:incremental" "/OPT:REF" "/OPT:ICF")
+  endif()
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  add_compile_options("-Wall" "-Werror")
 
-    if (CMAKE_BUILD_TYPE MATCHES Debug)
-        add_compile_options("-O0" "-fno-omit-frame-pointer")
-    else ()
-        add_compile_options("-Ofast")
-    endif ()
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    add_compile_options(-Wall -Werror)
-    set(CMAKE_EXE_LINKER_FLAGS -fuse-ld=lld)
+  if(CMAKE_BUILD_TYPE MATCHES Debug)
+    add_compile_options("-O0" "-fno-omit-frame-pointer")
+  else()
+    add_compile_options("-Ofast")
+  endif()
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+  add_compile_options(-Wall -Werror)
+  set(CMAKE_EXE_LINKER_FLAGS -fuse-ld=lld)
 
-    if (CMAKE_BUILD_TYPE MATCHES Debug)
-        add_compile_options("-O0" "-fno-omit-frame-pointer")
-    else ()
-        add_compile_options("-Ofast")
-    endif ()
-endif ()
+  if(CMAKE_BUILD_TYPE MATCHES Debug)
+    add_compile_options("-O0" "-fno-omit-frame-pointer")
+  else()
+    add_compile_options("-Ofast")
+  endif()
+endif()
 
-if (CMAKE_BUILD_TYPE MATCHES Debug)
-    add_compile_definitions("ARTINXHUB_DEBUG")
-endif ()
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+  add_compile_definitions("ARTINXHUB_DEBUG")
+endif()
 
-if (DEFINED ENV{ARTINX_RADAR})
-    message(STATUS "Current bot type: Radar")
-    include_directories(BEFORE $ENV{LIVOX_SDK}/include)
-    include_directories(BEFORE $ENV{TensorRT_ROOT}/include)
-    add_compile_definitions(ARTINX_RADAR)
-endif ()
+if(DEFINED ENV{ARTINX_RADAR})
+  message(STATUS "Current bot type: Radar")
+  include_directories(BEFORE $ENV{LIVOX_SDK}/include)
+  include_directories(BEFORE $ENV{TensorRT_ROOT}/include)
+  include_directories(BEFORE $ENV{TRT_INFER_ROOT}/include)
+  add_compile_definitions(ARTINX_RADAR)
+  add_compile_options(-Wno-deprecated-declarations)
+endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include_directories(BEFORE include)

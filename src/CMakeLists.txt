@@ -26,7 +26,7 @@ set(SOURCE
         "Preprocess/Undistort.cpp"
         "Sensor/DahengDriver.cpp"
         "Sensor/ImageSequenceReplay.cpp"
-        "Sensor/LivoxDriver.cpp"
+#        "Sensor/LivoxDriver.cpp"
         "Sensor/VideoReplay.cpp"
         "Solve/AllBotsLocator.cpp"
         "Solve/AngleSolver.cpp"
@@ -54,7 +54,8 @@ set(SOURCE
         "Utility/PID.cpp"
         "Utility/Timer.cpp"
         "Utility/VideoRecorder.cpp"
-        "Utility/MathTools.cpp")
+        "Utility/MathTools.cpp"
+        "Utility/RadarInfo.cpp")
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
@@ -104,16 +105,24 @@ target_link_libraries(ArtinxHub PRIVATE gxiapi)
 #target_link_libraries(ArtinxHub PRIVATE LinearMath Bullet3Common BulletDynamics BulletCollision)
 target_link_libraries(ArtinxHub PRIVATE magic_enum::magic_enum)
 target_link_libraries(ArtinxHub PRIVATE fmt::fmt)
+
 if (DEFINED ENV{ARTINX_RADAR})
-    set(InferenceEngine_DIR /opt/intel/openvino/runtime/cmake)
     set(Thrust_DIR /opt/cuda/lib64/cmake/thrust)
     find_package(Thrust CONFIG REQUIRED)
     thrust_create_target(Thrust)
     target_link_libraries(ArtinxHub PRIVATE Thrust)
-    target_link_libraries(ArtinxHub PRIVATE Thrust)
+    set(CUDA_TOOLKIT_ROOT_DIR /opt/cuda-11.1)
+    find_package(CUDA REQUIRED)
+    target_link_libraries(ArtinxHub PRIVATE ${CUDA_LIBRARIES})
+    target_link_directories(ArtinxHub PRIVATE $ENV{TensorRT_ROOT}/lib)
+    target_link_libraries(ArtinxHub PRIVATE nvinfer)
+    target_link_directories(ArtinxHub PRIVATE $ENV{TRT_INFER_ROOT}/lib)
+    target_link_libraries(ArtinxHub PRIVATE trtinfer)
+else ()
+    find_package(InferenceEngine CONFIG REQUIRED)
+    target_link_libraries(ArtinxHub PRIVATE ${InferenceEngine_LIBRARIES})
 endif ()
-find_package(InferenceEngine CONFIG REQUIRED)
-target_link_libraries(ArtinxHub PRIVATE ${InferenceEngine_LIBRARIES})
+
 target_link_libraries(ArtinxHub PRIVATE nlohmann_json nlohmann_json::nlohmann_json)
 target_link_libraries(ArtinxHub PRIVATE Eigen3::Eigen)
 target_link_libraries(ArtinxHub PRIVATE spdlog::spdlog spdlog::spdlog_header_only)

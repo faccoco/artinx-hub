@@ -1,3 +1,4 @@
+#ifndef ARTINX_RADAR
 #include "BlackBoard.hpp"
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
@@ -209,3 +210,4 @@ public:
 };
 
 HUB_REGISTER_CLASS(CarDetector);
+#endif
