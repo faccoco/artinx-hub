@@ -10,7 +10,6 @@
 
 #include "DetectedArmor.hpp"
 
-// 0-8 : Base 1 2 3 4 5 sentry Outpost  Negative
 class NumberClassifier {
 public:
     explicit NumberClassifier(const std::string& modelPath) ;

@@ -132,15 +132,6 @@ public:
         mhostIpAddress = getHostIpAddress();
 #endif
     // std::clog.rdbuf(mLogStream.rdbuf());
-    std::thread([&]() {
-        while(true) {
-            double secs = static_cast<double>(SynchronizedClock::instance().now().time_since_epoch().count()) / 1e9;
-            HubLogger::watch("sample1", std::sin(secs * 5.));
-            HubLogger::watch("sample2", std::sin(secs * 12.) * std::cos(secs * 2.2));
-            HubLogger::watch("sample3", std::sin(secs) > 0 ? "value a" : "value b");
-            std::this_thread::sleep_for(50ms);
-        }
-    }).detach();
 
     mServer.set_mount_point("/pages", "./pages");
 

@@ -1,6 +1,5 @@
 #pragma once
 #include "CameraFrame.hpp"
-#include "DetectedTarget.hpp"
 #include "DataDesc.hpp"
 
 #include "SuppressWarningBegin.hpp"
@@ -13,11 +12,15 @@ enum RobotType{
     Sentry = 0,
     Hero,
     Engineer,
-    Infantry,
+    Infantry1,
+    Infantry2,
+    Infantry3,
     Outpost,
     Base,
     Negative
 };
+
+enum class ArmorType { Small, Large };
 
 struct PairedLight final {
     cv::RotatedRect r1;

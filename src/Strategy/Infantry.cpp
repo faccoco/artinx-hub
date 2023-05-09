@@ -4,7 +4,6 @@
 #include "EnergyDetect.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
-#include <cstdint>
 
 #include "SuppressWarningBegin.hpp"
 

@@ -22,15 +22,12 @@
 struct ArmorDetectorSettings final {
     bool debugView;
     int32_t binaryThresh;
-    int32_t bSubtractR;
-    int32_t rSubtractB;
-    float maxLightLen;
     float maxLightWidth;
-    float sumPixelRatio;       // the proportion of the total number of eligible pixel points to the total area of the light strip
     float minLightRectRatio;   // width/height
     float maxLightRectRatio;   // width/height
     float maxLightAngle;       // angle(degree)
-    float min2lightLenRatio;   // light1.height / light2.height
+    float min2LightLenRatio;   // light1.height / light2.height
+    float max2LightDiffAngle;  // max 2 lights diff angle
     float minArmorRectRatio;   // width/height
     float maxArmorRectRatio;   // width/height
     float maxArmorAngle;       // angle(degree)
@@ -56,12 +53,11 @@ template <class Inspector>
 bool inspect(Inspector& f, ArmorDetectorSettings& x) {
     return f.object(x).fields(
         f.field("debugView", x.debugView).fallback(false), f.field("binaryThresh", x.binaryThresh).fallback(100),
-        f.field("bSubtractR", x.bSubtractR).fallback(60), f.field("rSubtractB", x.rSubtractB).fallback(60),
-        f.field("maxLightLen", x.maxLightLen).fallback(50.0), f.field("sumPixelRatio", x.sumPixelRatio).fallback(4.0),
         f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
         f.field("minLightRectRatio", x.minLightRectRatio).fallback(0.15),
         f.field("maxLightRectRatio", x.maxLightRectRatio).fallback(0.6), f.field("maxLightAngle", x.maxLightAngle).fallback(40),
-        f.field("min2lightLenRatio", x.min2lightLenRatio).fallback(0.6),
+        f.field("min2LightLenRatio", x.min2LightLenRatio).fallback(0.6),
+        f.field("max2LightLenRation", x.max2LightDiffAngle).fallback(10.0),
         f.field("minArmorRectRatio", x.minArmorRectRatio).fallback(0.8),
         f.field("maxArmorRectRatio", x.maxArmorRectRatio).fallback(5.0), f.field("maxArmorAngle", x.maxArmorAngle).fallback(15.0),
         f.field("minLargeArmorRatio", x.minLargeArmorRatio).fallback(3.2),
@@ -98,34 +94,6 @@ class ArmorDetector final
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame), name));
     }
 
-    static RobotType tfId2RobotType(int id) {
-        RobotType robotType;
-        switch(id) {  // number define is different from NNetArmorDetector
-            case 0:
-                robotType = RobotType::Base;
-                break;
-            case 1:
-            case 2:
-            case 3:
-                robotType = static_cast<RobotType>(id);
-                break;
-            case 4:
-            case 5:
-                robotType = RobotType::Infantry;
-                break;
-            case 6:
-                robotType = RobotType::Sentry;
-                break;
-            case 7:
-                robotType = RobotType::Outpost;
-                break;
-            default:
-                robotType = RobotType::Negative;
-                break;
-        }
-        return robotType;
-    }
-
     std::optional<Light> isLight(const cv::RotatedRect& lightRect) {
 
         const auto clcCenter = [](auto&& p1, auto&& p2) { return cv::Point2f((p1.x + p2.x) / 2, (p1.y + p2.y) / 2); };
@@ -140,7 +108,6 @@ class ArmorDetector final
 
         light.length = cv::norm(light.top - light.bottom);
         light.width = cv::norm(p[0] - p[1]);
-        bool lenOK = std::max(light.length, light.width) < mConfig.maxLightLen;
 
         light.tiltAngle = std::atan2(std::fabs(light.top.x - light.bottom.x), std::fabs(light.top.y - light.bottom.y));
         light.tiltAngle /= (CV_PI * 180);
@@ -153,7 +120,7 @@ class ArmorDetector final
         if(mConfig.debugView) {
             mDebugLights.push_back(light);
         }
-        if(ratioOK && angleOK && lenOK) {
+        if(ratioOK && angleOK) {
             return light;
         } else {
             return {};
@@ -211,18 +178,15 @@ class ArmorDetector final
                                 // if point is inside contour
                                 auto b = static_cast<int>(roi.at<cv::Vec3b>(i, j)[0]),
                                      r = static_cast<int>(roi.at<cv::Vec3b>(i, j)[2]);
-                                if(b - r > mConfig.bSubtractR)
+                                if(b - r > 0) {
                                     ++sumB;
-                                if(r - b > mConfig.rSubtractB)
+                                } else {
                                     ++sumR;
+                                }
                             }
                         }
                     }
-                    int sumPixelThresh = static_cast<int>(light->length * light->width / mConfig.sumPixelRatio);
                     light->color = sumR > sumB ? Color::Red : Color::Blue;
-                    if(std::max(sumB, sumR) <= sumPixelThresh) {
-                        light->color = Color::Negative;
-                    }
                     if(light->color == selfColor || light->color == Color::Negative)
                         continue;
                     lights.emplace_back(light.value());
@@ -270,7 +234,10 @@ class ArmorDetector final
                 float lightLenRation =
                     light1.length < light2.length ? light1.length / light2.length : light2.length / light1.length;
 
-                if(lightLenRation < mConfig.min2lightLenRatio)
+                if(lightLenRation < mConfig.min2LightLenRatio)
+                    continue;
+
+                if(std::fabs(light1.tiltAngle - light2.tiltAngle) > mConfig.max2LightDiffAngle)
                     continue;
 
                 // Distance between the center of 2 lights (unit : light length)
@@ -316,19 +283,33 @@ class ArmorDetector final
         std::sort(condArmors.begin(), condArmors.end(),
                   [](const auto& armor1, const auto& armor2) { return armor1.angle < armor2.angle; });
         std::vector<bool> used(condArmors.size());
+        // int cnt = 0;
         for(auto& condArmor : condArmors) {
             if(used[condArmor.rightLightIdx] || used[condArmor.leftLightIdx]) {
                 continue;
             }
             const auto img = NumberClassifier::extractNumbers(bgrImg, condArmor.points.data(), condArmor.isLargeArmor);
+            //            if (cnt++ % 20 == 0){
+            //                cv::imwrite(fmt::format("record/{}.jpg",std::time(0)), img);
+            //            }
+
+            if(mConfig.debugView) {
+                debugView("n", img, [](auto& src) {});
+            }
+            //            const auto t0 = Clock::now();
+
             const auto [id, prob] = mNumClassifierPtr->classify(img);
+
+            //            const auto t1 = Clock::now();
+            //            logInfo(fmt::format("Number classification cost {:.3f}ms ", durationCastDouble(t1 - t0) * 1000));
             condArmor.id = id;
             condArmor.prob = prob;
+            logInfo(fmt::format("id is {}, prob is {}", id, prob));
             if(id == 8 || prob < mConfig.numProbThresh)  // id 8 -> negative
                 continue;
             Armor armor = {};
             armor.light4Point = condArmor.points;
-            armor.robotType = tfId2RobotType(id);
+            armor.robotType = static_cast<RobotType>(id);
             armor.prob = prob;
             used[condArmor.leftLightIdx] = true;
             used[condArmor.rightLightIdx] = true;

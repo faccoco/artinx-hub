@@ -17,20 +17,19 @@
 #include "SuppressWarningEnd.hpp"
 
 struct ArmorLocatorSettings final {
-    float ratioThreshold;
-    std::vector<int> largeArmor, smallArmor;
+    std::vector<int> largeArmor;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorSettings& x) {
-    return f.object(x).fields(f.field("ratioThreshold", x.ratioThreshold),
-                              f.field("largeArmor", x.largeArmor).fallback(std::vector<int>()),
-                              f.field("smallArmor", x.smallArmor).fallback(std::vector<int>()));
+    return f.object(x).fields(f.field("largeArmor", x.largeArmor).fallback(std::vector<int>()));
 }
 
 class ArmorLocator final
     : public HubHelper<caf::event_based_actor, ArmorLocatorSettings, detect_available_atom, image_frame_atom> {
     Identifier mKey /*, mHeadKey{}*/;
+    std::set<int> mLargeArmor;
+
     const std::vector<cv::Point3d> mObjectPointsSmall = {
         { -widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
         { -widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
@@ -74,7 +73,11 @@ class ArmorLocator final
     }
 
 public:
-    ArmorLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    ArmorLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
+        for (auto num : mConfig.largeArmor){
+            mLargeArmor.insert(num);
+        }
+    }
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
