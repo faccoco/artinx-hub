@@ -364,16 +364,7 @@ public:
                         double pitch = glm::asin(-vecRefArmor.mVal.z / glm::length(vecRefArmor.mVal));
 
                         if(pitch > mMinVisiblePitch) {
-                            cv::Mat rotateMat =
-                                (cv::Mat_<double>(3, 3) << tfArmor2Ground.raw()[0][0], tfArmor2Ground.raw()[1][0],
-                                 tfArmor2Ground.raw()[2][0], tfArmor2Ground.raw()[0][1], tfArmor2Ground.raw()[1][1],
-                                 tfArmor2Ground.raw()[2][1], tfArmor2Ground.raw()[0][2], tfArmor2Ground.raw()[1][2],
-                                 tfArmor2Ground.raw()[2][2]);
-                            cv::Matx31d rotateVec;
-                            cv::Rodrigues(rotateMat, rotateVec);
-                            Vector<UnitType::Distance, FrameOfRef::Ground> rvec(rotateVec(0), rotateVec(1), rotateVec(2));
-
-                            info.targets.emplace_back(std::make_pair(tfArmor2Ground.translatePoint(), rvec));
+                            info.targets.emplace_back(std::make_pair(tfArmor2Ground.translatePoint(), tfArmor2Ground));
                             // {
                             //     auto p = tfArmor2Ground.translatePoint().mVal;
                             //     logInfo(fmt::format("target: {:.3f} {:.3f} {:.3f} {:.3f}", p.x, p.y, p.z, theta));

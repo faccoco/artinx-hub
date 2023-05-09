@@ -75,9 +75,9 @@ public:
 
                     const auto tfGround2Gun = combine(info.tfGround2Robot, head.tfRobot2Gun);
 
-                    for(const auto& [target, rvec] : info.targets) {
+                    for(const auto& [target, tfArmor2Ground] : info.targets) {
                         const auto pos = tfGround2Gun(target);
-                        const auto rv = tfGround2Gun(rvec);
+                        const auto rmat = combine(tfGround2Gun, tfArmor2Ground);
                         auto noise = glm::zero<glm::dvec3>();
                         if(mConfig.detectLinearStd > 1e-3) {
                             noise = glm::gaussRand(glm::zero<glm::dvec3>(), glm::dvec3{ mConfig.detectLinearStd });
@@ -92,7 +92,7 @@ public:
                                             0.0,
                                             0,
                                             ArmorType::Small,
-                                            rv });
+                                            rmat });
                     }
 
                     sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, data));

@@ -61,12 +61,8 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
     }
 
     double getArmorYaw(const DetectedTarget& armor) {
-        auto rvec = mTfGun2Robot(armor.rvec).mVal;
-        double theta = glm::length(rvec);
-        glm::dvec3 vec = rvec / theta;
-        double s = sin(theta), c = cos(theta);
-
-        return -atan2(s * vec.y + (1 - c) * vec.x * vec.z, c + (1 - c) * vec.z * vec.z);
+        auto rmat = combine(mTfGun2Robot, armor.rmat);
+        return -atan2(rmat.raw()[2][0], rmat.raw()[2][2]);
     }
 
     double orientationToYaw(double yaw) {
