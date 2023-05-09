@@ -1,6 +1,5 @@
 #pragma once
 #include "CameraFrame.hpp"
-#include "DetectedTarget.hpp"
 #include "DataDesc.hpp"
 
 #include "SuppressWarningBegin.hpp"
@@ -20,6 +19,8 @@ enum RobotType{
     Base,
     Negative
 };
+
+enum class ArmorType { Small, Large };
 
 struct PairedLight final {
     cv::RotatedRect r1;

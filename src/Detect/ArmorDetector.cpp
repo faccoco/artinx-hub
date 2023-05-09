@@ -22,7 +22,6 @@
 struct ArmorDetectorSettings final {
     bool debugView;
     int32_t binaryThresh;
-    float maxLightLen;
     float maxLightWidth;
     float minLightRectRatio;   // width/height
     float maxLightRectRatio;   // width/height

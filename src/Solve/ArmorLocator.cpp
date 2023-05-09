@@ -27,6 +27,8 @@ bool inspect(Inspector& f, ArmorLocatorSettings& x) {
 class ArmorLocator final
     : public HubHelper<caf::event_based_actor, ArmorLocatorSettings, detect_available_atom, image_frame_atom> {
     Identifier mKey /*, mHeadKey{}*/;
+    std::set<int> mLargeArmor;
+
     const std::vector<cv::Point3d> mObjectPointsSmall = {
         { -widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
         { -widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
@@ -66,7 +68,11 @@ class ArmorLocator final
     }
 
 public:
-    ArmorLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    ArmorLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
+        for (auto num : mConfig.largeArmor){
+            mLargeArmor.insert(num);
+        }
+    }
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](armor_detect_available_atom, Identifier key) {
@@ -86,11 +92,7 @@ public:
                      for(const auto& armor : data.armors) {
                          mImagePoint = armor.light4Point;
 
-                         bool isLargeArmor = false;
-                         for(auto num : mConfig.largeArmor){
-                             if(num == static_cast<int>(armor.robotType))
-                                 isLargeArmor = true;
-                         }
+                         bool isLargeArmor = mLargeArmor.count(static_cast<int>(armor.robotType)) > 0;
 
                          auto point = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 

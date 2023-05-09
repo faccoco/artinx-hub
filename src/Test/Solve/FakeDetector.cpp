@@ -77,7 +77,7 @@ public:
                         data.targets.push_back(DetectedTarget{ {0.0, 0.0},
                             pos + Vector<UnitType::Distance, FrameOfRef::Gun>(noise),
                             0.0,
-                            0,
+                            RobotType::Infantry1,
                             ArmorType::Small,
                         });
                     }

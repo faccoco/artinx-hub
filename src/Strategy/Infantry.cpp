@@ -4,7 +4,6 @@
 #include "EnergyDetect.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
-#include <cstdint>
 
 #include "SuppressWarningBegin.hpp"
 
@@ -40,9 +39,6 @@ public:
                      const auto data = BlackBoard::instance().get<DetectedEnergyInfo>(key).value();
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
-                     selected.selected = {
-                         { 0.0, 0.0 }, data.point, 0.0, 1, ArmorType::Large
-                     };
 
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                  },
@@ -56,21 +52,20 @@ public:
                      selected.lastUpdate = data.lastUpdate;
                      selected.tfRobot2Gun = data.tfRobot2Gun;
 
-                     auto minDistance = std::numeric_limits<double>::max();
+                     std::optional<DetectedTarget> minDistTarget;
+                     auto minDistance = 10000.0;
                      for(auto& target : data.targets) {
-                         const auto vec = target.center.mVal;
-                         const auto distance = vec.x * vec.x + vec.y * vec.y;
-                         if(distance < minDistance) {
-                             selected.selected = target;
-                             minDistance = distance;
+                         auto pos = target.center.mVal;
+                         auto dist = pos.x * pos.x + pos.y * pos.y;
+                         if(dist < minDistance) {
+                             minDistance = dist;
+                             minDistTarget = target;
                          }
                      }
-                     if(!selected.selected.has_value())
-                         return;
-                     TargetROI roi{ selected.lastUpdate, minDistance, selected.selected->armorImgCenter };
+
+                     selected.selected = minDistTarget;
 
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
-                     sendAll(update_roi_atom_v, BlackBoard::instance().updateSync<TargetROI>(mKey, roi));
                  } };
     }
 };
