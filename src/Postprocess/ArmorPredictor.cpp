@@ -62,7 +62,7 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
 
     double getArmorYaw(const DetectedTarget& armor) {
         auto rmat = combine(mTfGun2Robot, armor.rmat);
-        return -atan2(rmat.raw()[2][0], rmat.raw()[2][2]);
+        return normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
     }
 
     double orientationToYaw(double yaw) {
@@ -187,7 +187,7 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
                 Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, measuredYaw);
                 mTrackedArmor.state = mEKF.update(z);
                 logInfo(fmt::format("ArmorPredictor: update: {:.3f} {:.3f} {:.3f} {:.3f}", z(0), z(1), z(2), z(3)));
-                HubLogger::watch("update yaw", glm::degrees(normalizeAngle(z(3))));
+                HubLogger::watch("updateYaw", glm::degrees(candidate.second));
             } else {
                 // Check if there is same id armor in current frame
                 for(const auto& armor : armors) {
@@ -324,6 +324,7 @@ public:
                                         mTrackedArmor.state(3), mTrackedArmor.state(4), mTrackedArmor.state(5),
                                         mTrackedArmor.state(6), mTrackedArmor.state(7), mTrackedArmor.state(8)));
                     mTrackedArmor.lastUpdate = data->lastUpdate;
+                    HubLogger::watch("lVel",glm::length(res.lVel.mVal));
                 } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
                     const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                     if(!dataPosture.has_value() || data->selected.empty())

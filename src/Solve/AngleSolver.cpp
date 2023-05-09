@@ -87,7 +87,6 @@ public:
                 double aVel = -data->aVel.mVal;
                 double R[2] = { data->radius.first, data->radius.second };
                 double Z[2] = { data->y.first, data->y.second };
-                double shootDelayTime = GlobalSettings::get().shootDelayTime;
 
                 {
                     glm::dvec3 pos = getPos(center, R[0], theta);
@@ -95,8 +94,8 @@ public:
                     // HubLogger::watch("x", pos.x);
                     // HubLogger::watch("y", pos.y);
                     // HubLogger::watch("z", pos.z);
-                    HubLogger::watch("vertical distance", pos.z);
-                    HubLogger::watch("horizontal distance", std::sqrt(square(pos.x) + square(pos.y)));
+                    HubLogger::watch("verticalDistance", pos.z);
+                    HubLogger::watch("horizontalDistance", std::sqrt(square(pos.x) + square(pos.y)));
                 }
 
                 // solve and determine possible armor
@@ -112,7 +111,7 @@ public:
 
                         auto [airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(predictPos, lVel);
 
-                        double requiredTime = airTime + mConfig.delay + shootDelayTime;
+                        double requiredTime = airTime + mConfig.delay + GlobalSettings::get().latency;
                         //                        glm::dvec3 requiredCenter = center + lVel * requiredTime;
                         double requiredTheta = theta + aVel * requiredTime;
                         //                        glm::dvec3 requiredPos = getPos(requiredCenter, r, requiredTheta);

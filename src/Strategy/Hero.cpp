@@ -70,7 +70,7 @@ public:
                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                 }
                 if(!selected.selected.empty())
-                    HubLogger::watch("armor type", magic_enum::enum_name(selected.selected[0].type));
+                    HubLogger::watch("armorType", magic_enum::enum_name(selected.selected[0].type));
             },
             [this](outpost_detector_control_atom, bool active) {
                 ACTOR_PROTOCOL_CHECK(outpost_detector_control_atom, bool);
