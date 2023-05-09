@@ -47,7 +47,6 @@ cv::Mat NumberClassifier::extractNumbers(const cv::Mat& src, const cv::Point2f p
     return numberImg;
 }
 
-// 0 - 8 (Base 1 2 3 4 5 Sentry Outpos Negative
 std::pair<int, float> NumberClassifier::classify(const cv::Mat& img) {
 
     // Normalize
