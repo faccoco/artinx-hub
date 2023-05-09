@@ -54,14 +54,9 @@ class ArmorLocator final
         cv::Mat rvec, tvec;
 
         [[maybe_unused]] const auto res = cv::solvePnP(isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
-                                                       cameraMatrix, distCoeffs, rvec, tvec, false, cv::SOLVEPNP_IPPE);
+                                                       cameraMatrix, {}, rvec, tvec, false, cv::SOLVEPNP_IPPE);
         glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
         glm::dvec3 r = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
-
-        if(p0.z > 0.0)
-            p0 = -p0;
-        if(r.z > 0.0)
-            r = -r;
 
 #ifdef ARTINXHUB_DEBUG
         cv::drawFrameAxes(debugView, cameraMatrix, distCoeffs, rvec, tvec,

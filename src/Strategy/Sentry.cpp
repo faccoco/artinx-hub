@@ -36,45 +36,45 @@ public:
             mIgnoreId.insert(id);
         }
     }
-    caf::behavior make_behavior() override {
-        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [&](detect_available_atom, GroupMask, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
-                     const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
-
-                     SelectedTarget selected;
-                     selected.lastUpdate = data.lastUpdate;
-                     selected.tfRobot2Gun = data.tfRobot2Gun;
-
-                     std::optional<DetectedTarget> heroTarget, sameTarget, minDistTarget;
-                     auto minDistance = 10000.0;
-                     for(auto& target : data.targets) {
-                         if(mIgnoreId.count(static_cast<int>(target.id)))
-                             continue;
-
-                         auto pos = target.center.mVal;
-                         auto dist = pos.x * pos.x + pos.y * pos.y;
-                         if(dist < minDistance) {
-                             minDistance = dist;
-                             minDistTarget = target;
-                         }
-                         if(mLastTarget.selected.has_value() && mLastTarget.selected->id == target.id) {
-                             sameTarget = target;
-                         }
-                     }
-
-                     if(sameTarget.has_value()){
-                         selected.selected = sameTarget;
-                     }else if (heroTarget.has_value()){
-                         selected.selected = heroTarget;
-                     }else{
-                         selected.selected = minDistTarget;
-                     }
-                     mLastTarget = selected;
-
-                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
-                 } };
-    }
+//    caf::behavior make_behavior() override {
+//        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+//                 [&](detect_available_atom, GroupMask, Identifier key) {
+//                     ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
+//                     const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
+//
+//                     SelectedTarget selected;
+//                     selected.lastUpdate = data.lastUpdate;
+//                     selected.tfRobot2Gun = data.tfRobot2Gun;
+//
+//                     std::optional<DetectedTarget> heroTarget, sameTarget, minDistTarget;
+//                     auto minDistance = 10000.0;
+//                     for(auto& target : data.targets) {
+//                         if(mIgnoreId.count(static_cast<int>(target.id)))
+//                             continue;
+//
+//                         auto pos = target.center.mVal;
+//                         auto dist = pos.x * pos.x + pos.y * pos.y;
+//                         if(dist < minDistance) {
+//                             minDistance = dist;
+//                             minDistTarget = target;
+//                         }
+//                         if(mLastTarget.selected.has_value() && mLastTarget.selected->id == target.id) {
+//                             sameTarget = target;
+//                         }
+//                     }
+//
+//                     if(sameTarget.has_value()){
+//                         selected.selected = sameTarget;
+//                     }else if (heroTarget.has_value()){
+//                         selected.selected = heroTarget;
+//                     }else{
+//                         selected.selected = minDistTarget;
+//                     }
+//                     mLastTarget = selected;
+//
+//                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+//                 } };
+//    }
 };
 
 HUB_REGISTER_CLASS(SentryStrategy);
