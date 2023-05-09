@@ -27,7 +27,8 @@ struct ArmorDetectorSettings final {
     float minLightRectRatio;   // width/height
     float maxLightRectRatio;   // width/height
     float maxLightAngle;       // angle(degree)
-    float min2lightLenRatio;   // light1.height / light2.height
+    float min2LightLenRatio;   // light1.height / light2.height
+    float max2LightDiffAngle;  // max 2 lights diff angle
     float minArmorRectRatio;   // width/height
     float maxArmorRectRatio;   // width/height
     float maxArmorAngle;       // angle(degree)
@@ -53,10 +54,11 @@ template <class Inspector>
 bool inspect(Inspector& f, ArmorDetectorSettings& x) {
     return f.object(x).fields(
         f.field("debugView", x.debugView).fallback(false), f.field("binaryThresh", x.binaryThresh).fallback(100),
-        f.field("maxLightLen", x.maxLightLen).fallback(50.0), f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
+        f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
         f.field("minLightRectRatio", x.minLightRectRatio).fallback(0.15),
         f.field("maxLightRectRatio", x.maxLightRectRatio).fallback(0.6), f.field("maxLightAngle", x.maxLightAngle).fallback(40),
-        f.field("min2lightLenRatio", x.min2lightLenRatio).fallback(0.6),
+        f.field("min2LightLenRatio", x.min2LightLenRatio).fallback(0.6),
+        f.field("max2LightLenRation", x.max2LightDiffAngle).fallback(10.0),
         f.field("minArmorRectRatio", x.minArmorRectRatio).fallback(0.8),
         f.field("maxArmorRectRatio", x.maxArmorRectRatio).fallback(5.0), f.field("maxArmorAngle", x.maxArmorAngle).fallback(15.0),
         f.field("minLargeArmorRatio", x.minLargeArmorRatio).fallback(3.2),
@@ -107,7 +109,6 @@ class ArmorDetector final
 
         light.length = cv::norm(light.top - light.bottom);
         light.width = cv::norm(p[0] - p[1]);
-        bool lenOK = std::max(light.length, light.width) < mConfig.maxLightLen;
 
         light.tiltAngle = std::atan2(std::fabs(light.top.x - light.bottom.x), std::fabs(light.top.y - light.bottom.y));
         light.tiltAngle /= (CV_PI * 180);
@@ -120,7 +121,7 @@ class ArmorDetector final
         if(mConfig.debugView) {
             mDebugLights.push_back(light);
         }
-        if(ratioOK && angleOK && lenOK) {
+        if(ratioOK && angleOK) {
             return light;
         } else {
             return {};
@@ -234,7 +235,10 @@ class ArmorDetector final
                 float lightLenRation =
                     light1.length < light2.length ? light1.length / light2.length : light2.length / light1.length;
 
-                if(lightLenRation < mConfig.min2lightLenRatio)
+                if(lightLenRation < mConfig.min2LightLenRatio)
+                    continue;
+
+                if(std::fabs(light1.tiltAngle - light2.tiltAngle) > mConfig.max2LightDiffAngle)
                     continue;
 
                 // Distance between the center of 2 lights (unit : light length)
@@ -293,12 +297,12 @@ class ArmorDetector final
             if(mConfig.debugView) {
                 debugView("n", img, [](auto& src) {});
             }
-//            const auto t0 = Clock::now();
+            //            const auto t0 = Clock::now();
 
             const auto [id, prob] = mNumClassifierPtr->classify(img);
 
-//            const auto t1 = Clock::now();
-//            logInfo(fmt::format("Number classification cost {:.3f}ms ", durationCastDouble(t1 - t0) * 1000));
+            //            const auto t1 = Clock::now();
+            //            logInfo(fmt::format("Number classification cost {:.3f}ms ", durationCastDouble(t1 - t0) * 1000));
             condArmor.id = id;
             condArmor.prob = prob;
             logInfo(fmt::format("id is {}, prob is {}", id, prob));
