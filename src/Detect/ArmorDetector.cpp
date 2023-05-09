@@ -93,37 +93,6 @@ class ArmorDetector final
         sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame), name));
     }
 
-    static RobotType tfId2RobotType(int id) {
-        RobotType robotType;
-        switch(id) {  // number define is different from NNetArmorDetector
-            case 0:
-                robotType = RobotType::Sentry;
-                break;
-            case 1:
-                robotType = RobotType::Hero;
-                break ;
-            case 2:
-                robotType = RobotType::Engineer;
-                break ;
-            case 3:
-            case 4:
-            case 5:
-                robotType = static_cast<RobotType>(id);
-                break;
-            case 6:
-                robotType = RobotType::Outpost;
-                break;
-            case 7:
-                robotType = RobotType::Base;
-                break;
-            default:
-                robotType = RobotType::Negative;
-                break;
-        }
-        return robotType;
-    }
-
-
     std::optional<Light> isLight(const cv::RotatedRect& lightRect) {
 
         const auto clcCenter = [](auto&& p1, auto&& p2) { return cv::Point2f((p1.x + p2.x) / 2, (p1.y + p2.y) / 2); };
@@ -209,9 +178,9 @@ class ArmorDetector final
                                 // if point is inside contour
                                 auto b = static_cast<int>(roi.at<cv::Vec3b>(i, j)[0]),
                                      r = static_cast<int>(roi.at<cv::Vec3b>(i, j)[2]);
-                                if(b - r > 0){
+                                if(b - r > 0) {
                                     ++sumB;
-                                }else{
+                                } else {
                                     ++sumR;
                                 }
                             }
@@ -311,26 +280,25 @@ class ArmorDetector final
         std::sort(condArmors.begin(), condArmors.end(),
                   [](const auto& armor1, const auto& armor2) { return armor1.angle < armor2.angle; });
         std::vector<bool> used(condArmors.size());
-        int cnt = 0;
+        // int cnt = 0;
         for(auto& condArmor : condArmors) {
             if(used[condArmor.rightLightIdx] || used[condArmor.leftLightIdx]) {
                 continue;
             }
             const auto img = NumberClassifier::extractNumbers(bgrImg, condArmor.points.data(), condArmor.isLargeArmor);
-            if (cnt++ % 20 == 0){
-                cv::imwrite(fmt::format("record/{}.jpg",std::time(0)), img);
-            }
+            //            if (cnt++ % 20 == 0){
+            //                cv::imwrite(fmt::format("record/{}.jpg",std::time(0)), img);
+            //            }
 
-            if (mConfig.debugView){
-                debugView("numberImg", img, [](auto& src) {
-                });
+            if(mConfig.debugView) {
+                debugView("numberImg", img, [](auto& src) {});
             }
-            const auto t0 = Clock::now();
+//            const auto t0 = Clock::now();
 
             const auto [id, prob] = mNumClassifierPtr->classify(img);
 
-            const auto t1 = Clock::now();
-            logInfo(fmt::format("Number classification cost {:.3f}ms ", durationCastDouble(t1 - t0)*1000));
+//            const auto t1 = Clock::now();
+//            logInfo(fmt::format("Number classification cost {:.3f}ms ", durationCastDouble(t1 - t0) * 1000));
             condArmor.id = id;
             condArmor.prob = prob;
             logInfo(fmt::format("id is {}, prob is {}", id, prob));
@@ -338,7 +306,7 @@ class ArmorDetector final
                 continue;
             Armor armor = {};
             armor.light4Point = condArmor.points;
-            //armor.robotType = tfId2RobotType(id);
+            armor.robotType = static_cast<RobotType>(id);
             armor.prob = prob;
             used[condArmor.leftLightIdx] = true;
             used[condArmor.rightLightIdx] = true;
@@ -377,15 +345,15 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
-//                     const auto t1 = Clock::now();
+                     const auto t1 = Clock::now();
                      const auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
                      auto frame = std::get<0>(data);
 
                      DetectedArmorArray res;
                      res.frame = frame;
                      res.armors = solve(frame.frame);
-//                     const auto t2 = Clock::now();
-//                     logInfo(fmt::format("Armor Detector Cost time: {:.3f}s", durationCastDouble(t2 - t1)));
+                     const auto t2 = Clock::now();
+                     logInfo(fmt::format("Armor Detector Cost time: {:.3f}s", durationCastDouble(t2 - t1)));
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
