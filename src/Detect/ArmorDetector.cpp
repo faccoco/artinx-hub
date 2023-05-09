@@ -291,7 +291,7 @@ class ArmorDetector final
             //            }
 
             if(mConfig.debugView) {
-                debugView("numberImg", img, [](auto& src) {});
+                debugView("n", img, [](auto& src) {});
             }
 //            const auto t0 = Clock::now();
 
