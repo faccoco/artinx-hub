@@ -249,7 +249,7 @@ class ArmorDetector final
                     continue;
 
                 // Angle of light center connection
-                float angle = std::fabs(std::atan(diff.y / diff.x)) / CV_PI * 180;
+                float angle = std::fabs(std::atan(diff.y / (diff.x + 1e-6))) / CV_PI * 180;
                 if(angle > mConfig.maxArmorAngle)
                     continue;
 

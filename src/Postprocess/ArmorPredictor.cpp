@@ -62,7 +62,6 @@ public:
     void initialKalmanFilter(const glm::dvec3& measuredPos, const TimePoint& curTimePoint) {
         mX.resize(6);
         mF.setIdentity(6, 6);
-        mP.setIdentity(6, 6);
         mQ.setIdentity(6, 6);
 
         for(int i = 0; i < 6; ++i) {
@@ -135,7 +134,12 @@ public:
     }
 
 
-    ArmorPredictor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    ArmorPredictor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
+        mP.setIdentity(6, 6);
+        for(int i = 0; i < 6; ++i) {
+            mP(i, i) = mConfig.P[i];
+        }
+    }
 
     caf::behavior make_behavior() override {
         return {
@@ -159,10 +163,10 @@ public:
                     Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data->selected->center.mVal);
                     Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->tfRobot2Gun->invTransform(posOfRefGun);
                     res.position = posRefRobot;
-//                    HubLogger::watch("armorType", magic_enum::enum_name(data->selected->type));
-//                    HubLogger::watch("xRefRobot", posRefRobot.mVal.x);
-//                    HubLogger::watch("yRefRobot", posRefRobot.mVal.y);
-//                    HubLogger::watch("zRefRobot", posRefRobot.mVal.z);
+                    HubLogger::watch("armorType", magic_enum::enum_name(data->selected->type));
+                    HubLogger::watch("xRefRobot", posRefRobot.mVal.x);
+                    HubLogger::watch("yRefRobot", posRefRobot.mVal.y);
+                    HubLogger::watch("zRefRobot", posRefRobot.mVal.z);
 
                     if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
                         glm::dvec3 measuredPos = posRefRobot.mVal;
