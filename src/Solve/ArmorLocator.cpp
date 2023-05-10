@@ -12,6 +12,7 @@
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <opencv2/calib3d.hpp>
 
 #include "SuppressWarningEnd.hpp"
@@ -103,17 +104,9 @@ public:
                     auto pointRefGun = tfCamera2Gun(point);
                     Transform<FrameOfRef::Armor, FrameOfRef::Camera> rmat;
                     {
-                        cv::Mat rvecTmp = (cv::Mat_<double>(1, 3) << rvec.mVal.x, rvec.mVal.y, rvec.mVal.z);
-                        cv::Mat rmatTmp;
-                        cv::Rodrigues(rvecTmp, rmatTmp);
-                        rmat = glm::dmat4{
-                            // clang-format off
-                            rmatTmp.at<double>(0,0), rmatTmp.at<double>(0,1), rmatTmp.at<double>(0,2), 0,
-                            rmatTmp.at<double>(1,0), rmatTmp.at<double>(1,1), rmatTmp.at<double>(1,2), 0,
-                            rmatTmp.at<double>(2,0), rmatTmp.at<double>(2,1), rmatTmp.at<double>(2,2), 0,
-                                                  0,                       0,                       0, 1
-                            // clang-format on
-                        };
+                        double angle = glm::length(rvec.mVal);
+                        auto axis = rvec.mVal / angle;
+                        rmat = glm::mat4_cast(glm::angleAxis(-angle, axis));
                     }
                     auto rmatRefGun = combine(tfCamera2Gun, rmat);
                     auto armorImgCenter = clcArmorImgCenter();
