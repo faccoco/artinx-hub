@@ -99,12 +99,11 @@ public:
                          auto pointRefGun = tfCamera2Gun(point);
                          res.targets.push_back({ clcArmorImgCenter(), pointRefGun, 0.0, armor.robotType,
                                                  isLargeArmor ? ArmorType::Large : ArmorType::Small });
-                         logInfo(fmt::format("Position ref Camera: x:{:.3}, y:{:.3}, z:{:.3} Armor Type:{}", point.mVal.x,
-                                             point.mVal.y, point.mVal.z, isLargeArmor));
-                         //                         logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{:.3}, y:{:.3}
-                         //                         z:{:.3}", isLargeArmor,
-                         //                                             pointRefGun.mVal.x, pointRefGun.mVal.y,
-                         //                                             pointRefGun.mVal.z));
+//                         logInfo(fmt::format("Position ref Camera: x:{:.3}, y:{:.3}, z:{:.3} Armor Type:{}", point.mVal.x,
+//                                             point.mVal.y, point.mVal.z, isLargeArmor));
+//                         HubLogger::watch("xRefGun", pointRefGun.mVal.x);
+//                         HubLogger::watch("yRefGun", pointRefGun.mVal.y);
+//                         HubLogger::watch("zRefGun", pointRefGun.mVal.z);
                      }
 
                      sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));

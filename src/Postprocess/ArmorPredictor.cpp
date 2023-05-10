@@ -24,7 +24,7 @@ struct ArmorPredictorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorPredictorSettings& x) {
-    return f.object(x).fields(f.field("enablePredictor", x.enablePredictor), f.field("maxDtThresh", x.maxDtThresh).fallback(0.4),
+    return f.object(x).fields(f.field("enablePredictor", x.enablePredictor), f.field("maxDtThresh", x.maxDtThresh).fallback(0.1),
                               f.field("maxDistThresh", x.maxDistThresh).fallback(0.2),
                               f.field("P", x.P).invariant([](auto& c) { return c.size() == 6; }),
                               f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 6; }),
@@ -49,6 +49,7 @@ P(k|k) = (I - K(k) * H(k)) * P(k|k-1)
 class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, predict_success_atom> {
     Identifier mKey, mIMUKey;
 
+public:
     bool mInitFlag = false;
     TimePoint mLastTimePoint;
     Eigen::VectorXd mX;  // State vector(Position & Velocity)
@@ -133,11 +134,8 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
         mLastTimePoint = curTimePoint;
     }
 
-public:
+
     ArmorPredictor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
-    Eigen::VectorXd getFilteredVal() {
-        return mX;
-    }
 
     caf::behavior make_behavior() override {
         return {
@@ -150,25 +148,27 @@ public:
                 PredictedTarget res;
                 res.lastUpdate = data->lastUpdate;
                 if(!data->selected.has_value()) {
+                    if (!mInitFlag) return;
                     auto dt = durationCastDouble(Clock::now() - res.lastUpdate);
                     if(dt > mConfig.maxDtThresh)
                         return;
-                    auto lastRes = getFilteredVal();
-                    glm::dvec3 pos = { lastRes(0), lastRes(1), lastRes(2) }, vel = { lastRes(3), lastRes(4), lastRes(5) };
+                    glm::dvec3 pos = {mX(0), mX(1), mX(2) }, vel = { mX(3), mX(4), mX(5) };
                     res.position.mVal = pos + vel * dt;
                     res.velocity.mVal = vel;
                 } else {
                     Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data->selected->center.mVal);
                     Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->tfRobot2Gun->invTransform(posOfRefGun);
                     res.position = posRefRobot;
-                    HubLogger::watch("armor type", magic_enum::enum_name(data->selected->type));
+//                    HubLogger::watch("armorType", magic_enum::enum_name(data->selected->type));
+//                    HubLogger::watch("xRefRobot", posRefRobot.mVal.x);
+//                    HubLogger::watch("yRefRobot", posRefRobot.mVal.y);
+//                    HubLogger::watch("zRefRobot", posRefRobot.mVal.z);
 
                     if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
                         glm::dvec3 measuredPos = posRefRobot.mVal;
                         runFilter(measuredPos, data.value().lastUpdate);
-                        auto filteredRes = getFilteredVal();
-                        res.position.mVal = { filteredRes(0), filteredRes(1), filteredRes(2) };
-                        res.velocity.mVal = { filteredRes(3), filteredRes(4), filteredRes(5) };
+                        res.position.mVal = { mX(0), mX(1), mX(2) };
+                        res.velocity.mVal = { mX(3), mX(4), mX(5) };
                         // logInfo(fmt::format("{}, {}, {}", measuredPos.z, measuredPos.y, measuredPos.x));
                     } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
                         res.velocity = -dataPosture->linearVelocityOfRobot.mVal;

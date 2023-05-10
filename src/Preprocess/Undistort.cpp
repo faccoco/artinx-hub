@@ -289,7 +289,7 @@ public:
                              msg = cv::format("%d/%d", static_cast<int>(mImagePoints.size()), mConfig.nrFrames);
                      }
 
-                     cv::putText(plotImg, msg, textOrigin, 1, 1, cv::Scalar(0, 255, 0));
+                     cv::putText(plotImg, msg, textOrigin, 5, 5, cv::Scalar(0, 255, 0));
 
                      //-------------------------output  undistorted ------------------------------
                      //! [output_undistorted]

@@ -58,7 +58,7 @@ public:
                 if(!(data->selected.has_value() && data->tfRobot2Gun.has_value()))
                     return;
                 auto tfGun2Robot = data->tfRobot2Gun->invTransformObj();
-                HubLogger::watch("armor type", magic_enum::enum_name(data->selected->type));
+                HubLogger::watch("armorType", magic_enum::enum_name(data->selected->type));
 
                 PredictedPeriodTarget res;
                 res.lastUpdate = data->lastUpdate;

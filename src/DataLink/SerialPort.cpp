@@ -186,13 +186,13 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             // HubLogger::watch("pitch2", fdb.downPitch);
             // HubLogger::watch("speed x", fdb.speedX);
             // HubLogger::watch("speed y", fdb.speedY);
-            HubLogger::watch("delta yaw1", gimbalSetPacket.up.yaw - fdb.yaw);
-            HubLogger::watch("delta pitch1", gimbalSetPacket.up.pitch - fdb.pitch);
+            HubLogger::watch("deltaYaw1", gimbalSetPacket.up.yaw - fdb.yaw);
+            HubLogger::watch("deltaPitch1", gimbalSetPacket.up.pitch - fdb.pitch);
             // HubLogger::watch("delta yaw2", gimbalSetPacket.down.yaw - fdb.downYaw);
             // HubLogger::watch("delta pitch2", gimbalSetPacket.down.pitch - fdb.downPitch);
 
             GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
-            HubLogger::watch("self color", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
+            HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
             fdb.yaw = (fdb.yaw < 0.0f) ? fdb.yaw + glm::two_pi<float>() : fdb.yaw;
             fdb.downYaw = (fdb.downYaw < 0.0f) ? fdb.downYaw + glm::two_pi<float>() : fdb.downYaw;
@@ -254,8 +254,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
         // std::cout << mSendBufferLen << std::endl;
         mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen = 0;
-        HubLogger::watch("target yaw1", gimbalSetPacket.up.yaw);
-        HubLogger::watch("target pitch1", gimbalSetPacket.up.pitch);
+        HubLogger::watch("targetYaw1", gimbalSetPacket.up.yaw);
+        HubLogger::watch("targetPitch1", gimbalSetPacket.up.pitch);
         // HubLogger::watch("target yaw2", gimbalSetPacket.down.yaw);
         // HubLogger::watch("target pitch2", gimbalSetPacket.down.pitch);
     }
@@ -354,8 +354,7 @@ public:
 
                      GlobalSettings::get().latency = avg(mLatency);
 
-                     HubLogger::watch("avg latency", static_cast<int>(GlobalSettings::get().latency * 1000));
-                     HubLogger::watch("now latency", static_cast<int>(latency * 1000));
+                     HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
                  } };
     }
 };
