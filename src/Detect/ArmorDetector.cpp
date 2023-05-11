@@ -57,7 +57,7 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
         f.field("minLightRectRatio", x.minLightRectRatio).fallback(0.15),
         f.field("maxLightRectRatio", x.maxLightRectRatio).fallback(0.6), f.field("maxLightAngle", x.maxLightAngle).fallback(40),
         f.field("min2LightLenRatio", x.min2LightLenRatio).fallback(0.6),
-        f.field("max2LightLenRation", x.max2LightDiffAngle).fallback(10.0),
+        f.field("max2LightDiffAngle", x.max2LightDiffAngle).fallback(10.0),
         f.field("minArmorRectRatio", x.minArmorRectRatio).fallback(0.8),
         f.field("maxArmorRectRatio", x.maxArmorRectRatio).fallback(5.0), f.field("maxArmorAngle", x.maxArmorAngle).fallback(15.0),
         f.field("minLargeArmorRatio", x.minLargeArmorRatio).fallback(3.2),
@@ -178,7 +178,7 @@ class ArmorDetector final
                                 // if point is inside contour
                                 auto b = static_cast<int>(roi.at<cv::Vec3b>(i, j)[0]),
                                      r = static_cast<int>(roi.at<cv::Vec3b>(i, j)[2]);
-                                if(b - r > 0) {
+                                if(b - r >= 0) {
                                     ++sumB;
                                 } else {
                                     ++sumR;
@@ -186,7 +186,7 @@ class ArmorDetector final
                             }
                         }
                     }
-                    light->color = sumR > sumB ? Color::Red : Color::Blue;
+                    light->color = sumB > sumR ? Color::Blue : Color::Red;
                     if(light->color == selfColor || light->color == Color::Negative)
                         continue;
                     lights.emplace_back(light.value());
@@ -249,7 +249,7 @@ class ArmorDetector final
                     continue;
 
                 // Angle of light center connection
-                float angle = std::fabs(std::atan(diff.y / diff.x)) / CV_PI * 180;
+                float angle = std::fabs(std::atan(diff.y / (diff.x + 1e-6))) / CV_PI * 180;
                 if(angle > mConfig.maxArmorAngle)
                     continue;
 

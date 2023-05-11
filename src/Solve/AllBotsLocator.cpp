@@ -77,7 +77,7 @@ private:
         const auto area = evalArea(lt, lb, rb, rt);
 
         const auto ratio = area / std::fmax(0.001, area1 + area2);
-        HubLogger::watch("armor ratio", ratio);
+        HubLogger::watch("armorRatio", ratio);
 
         return ratio > mConfig.ratioThreshold;
     }

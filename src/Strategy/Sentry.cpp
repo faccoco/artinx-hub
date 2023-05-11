@@ -19,7 +19,7 @@ struct SentryStrategySettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, SentryStrategySettings& x) {
-    return f.object(x).fields(f.field("ignoredId", x.ignoredId));
+    return f.object(x).fields(f.field("ignoredId", x.ignoredId), f.field("maxDistance", x.maxDistance).fallback(8.0));
 }
 
 // 如果上一次有选择目标，则选择与上次目标id相同的装甲板进行击打；
@@ -51,9 +51,10 @@ public:
                      for(auto& target : data.targets) {
                          if(mIgnoreId.count(static_cast<int>(target.id)))
                              continue;
-
                          auto pos = target.center.mVal;
                          auto dist = pos.x * pos.x + pos.y * pos.y;
+                         if (dist + pos.z * pos.z > mConfig.maxDistance * mConfig.maxDistance)
+                             continue ;
                          if(dist < minDistance) {
                              minDistance = dist;
                              minDistTarget = target;
