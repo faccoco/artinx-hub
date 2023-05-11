@@ -224,7 +224,3 @@ double normalizeAngle(double a) {
         a += glm::two_pi<double>();
     return a;
 }
-
-double shortestAngularDistance(double lhs, double rhs) {
-    return normalizeAngle(lhs - rhs);
-}

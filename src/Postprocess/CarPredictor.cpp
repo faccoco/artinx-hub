@@ -15,7 +15,7 @@
 #include <eigen3/Eigen/Dense>
 #include <magic_enum.hpp>
 
-struct ArmorPredictorSettings final {
+struct CarPredictorSettings final {
     bool enablePredictor;
     double maxMatchDistance;
     int trackingThreshold;
@@ -25,7 +25,7 @@ struct ArmorPredictorSettings final {
 };
 
 template <class Inspector>
-bool inspect(Inspector& f, ArmorPredictorSettings& x) {
+bool inspect(Inspector& f, CarPredictorSettings& x) {
     return f.object(x).fields(
         f.field("enablePredictor", x.enablePredictor), f.field("maxMatchDistance", x.maxMatchDistance).fallback(0.2),
         f.field("trackingThreshold", x.trackingThreshold).fallback(5), f.field("lostThreshold", x.lostThreshold).fallback(5),
@@ -33,7 +33,7 @@ bool inspect(Inspector& f, ArmorPredictorSettings& x) {
         f.field("R", x.R).invariant([](auto& c) { return c.size() == 4; }).fallback(std::vector<double>(4, 0)));
 }
 
-class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredictorSettings, predict_success_atom> {
+class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictorSettings, predict_success_atom> {
     Identifier mKey, mIMUKey;
 
     enum class TrackingState {
@@ -66,7 +66,7 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
     }
 
     double orientationToYaw(double yaw) {
-        mTrackedArmor.yaw = mTrackedArmor.yaw + shortestAngularDistance(yaw, mTrackedArmor.yaw);
+        mTrackedArmor.yaw = mTrackedArmor.yaw + normalizeAngle(yaw - mTrackedArmor.yaw);
         return mTrackedArmor.yaw;
     }
 
@@ -187,7 +187,10 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
                 Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, measuredYaw);
                 mTrackedArmor.state = mEKF.update(z);
                 logInfo(fmt::format("ArmorPredictor: update: {:.3f} {:.3f} {:.3f} {:.3f}", z(0), z(1), z(2), z(3)));
-                HubLogger::watch("updateYaw", glm::degrees(candidate.second));
+                HubLogger::watch("updateX", z(0));
+                HubLogger::watch("updateY", z(1));
+                HubLogger::watch("updateZ", z(2));
+                HubLogger::watch("updateYaw", candidate.second);
             } else {
                 // Check if there is same id armor in current frame
                 for(const auto& armor : armors) {
@@ -204,7 +207,7 @@ class ArmorPredictor final : public HubHelper<caf::event_based_actor, ArmorPredi
     }
 
 public:
-    ArmorPredictor(caf::actor_config& base, const HubConfig& config)
+    CarPredictor(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ generateKey(this) }, mTrackedArmor{ TimePoint(), Eigen::VectorXd::Zero(9), 0, -1,
                                                                                TrackingState::LOST } {
         // EKF
@@ -324,7 +327,9 @@ public:
                                         mTrackedArmor.state(3), mTrackedArmor.state(4), mTrackedArmor.state(5),
                                         mTrackedArmor.state(6), mTrackedArmor.state(7), mTrackedArmor.state(8)));
                     mTrackedArmor.lastUpdate = data->lastUpdate;
-                    HubLogger::watch("lVel",glm::length(res.lVel.mVal));
+                    HubLogger::watch("lVelX", res.lVel.mVal.x);
+                    HubLogger::watch("lVelY", res.lVel.mVal.y);
+                    HubLogger::watch("lVelZ", res.lVel.mVal.z);
                 } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
                     const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                     if(!dataPosture.has_value() || data->selected.empty())
@@ -349,4 +354,4 @@ public:
     }
 };
 
-HUB_REGISTER_CLASS(ArmorPredictor);
+HUB_REGISTER_CLASS(CarPredictor);

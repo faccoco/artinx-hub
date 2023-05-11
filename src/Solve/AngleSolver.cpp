@@ -121,10 +121,10 @@ public:
                             // logInfo(
                             //     fmt::format("AngleSolver: yaw: {} theta: {} delta theta : {}", glm::degrees(yawAngle),
                             //                 glm::degrees(normalizeAngle(requiredTheta)),
-                            //                 glm::degrees(shortestAngularDistance(requiredTheta, yawAngle +
+                            //                 glm::degrees(normalizeAngle(requiredTheta - yawAngle -
                             //                 glm::pi<double>()))));
                             if(r == 0 ||
-                               abs(shortestAngularDistance(requiredTheta, yawAngle + glm::pi<double>())) <= maxShootDeltaTheta) {
+                               abs(normalizeAngle(requiredTheta - yawAngle - glm::pi<double>())) <= maxShootDeltaTheta) {
                                 yaw = yawAngle;
                                 pitch = pitchAngle;
                                 //                                logInfo(fmt::format("AngleSolver: requiredPos: {:.3f} {:.3f}

@@ -55,7 +55,7 @@ class ArmorLocator final
         cv::Mat rvec, tvec;
 
         [[maybe_unused]] const auto res = cv::solvePnP(isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
-                                                       cameraMatrix, {}, rvec, tvec, false, cv::SOLVEPNP_IPPE);
+                                                       cameraMatrix, distCoeffs, rvec, tvec, false, cv::SOLVEPNP_IPPE);
         glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
         glm::dvec3 r = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
 
@@ -70,7 +70,7 @@ class ArmorLocator final
 
 public:
     ArmorLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-        for (auto num : mConfig.largeArmor){
+        for(auto num : mConfig.largeArmor) {
             mLargeArmor.insert(num);
         }
     }
@@ -107,6 +107,8 @@ public:
                         double angle = glm::length(rvec.mVal);
                         auto axis = rvec.mVal / angle;
                         rmat = glm::mat4_cast(glm::angleAxis(-angle, axis));
+
+                        HubLogger::watch("YawRefCam", glm::degrees(-atan2(rmat.raw()[2][0], rmat.raw()[2][2])));
                     }
                     auto rmatRefGun = combine(tfCamera2Gun, rmat);
                     auto armorImgCenter = clcArmorImgCenter();

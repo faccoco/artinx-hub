@@ -108,4 +108,3 @@ std::tuple<double, double, double> solveWithoutAirDrag(glm::dvec3 targetPos, glm
 
 // -pi < res <= pi
 [[nodiscard]] double normalizeAngle(double a);
-[[nodiscard]] double shortestAngularDistance(double lhs, double rhs);
