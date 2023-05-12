@@ -5,15 +5,16 @@
 #include "ExceptionProbe.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
+#include "Utility.hpp"
 
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <opencv2/calib3d.hpp>
 
-#include "SuppressWarningEnd.hpp"
 
 struct ArmorLocatorSettings final {
     std::vector<int> largeArmor;
