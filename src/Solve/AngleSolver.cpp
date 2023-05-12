@@ -71,8 +71,8 @@ public:
                 if(!(data.has_value()))
                     return;
 
-                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->position;
-                Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->velocity;
+                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->center;
+                Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->lVel;
                 // HubLogger::watch("x", posRefRobot.mVal.x);
                 HubLogger::watch("verticalDistance", posRefRobot.mVal.y);
                 // HubLogger::watch("z", posRefRobot.mVal.z);

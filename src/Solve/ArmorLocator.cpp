@@ -93,10 +93,7 @@ public:
                 for(const auto& armor : data.armors) {
                     mImagePoint = armor.light4Point;
 
-                    bool isLargeArmor = false;
-                    for(auto num : mConfig.largeArmor)
-                        if(static_cast<RobotType>(num) == armor.robotType)
-                            isLargeArmor = true;
+                    bool isLargeArmor = mLargeArmor.count(static_cast<int>(armor.robotType)) > 0;
                     auto [point, rvec] = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 
                     auto pointRefGun = tfCamera2Gun(point);
