@@ -357,6 +357,7 @@ public:
                      res.armors = solve(frame.frame);
                      const auto t2 = Clock::now();
                      logInfo(fmt::format("Armor Detector Cost time: {:.3f}s", durationCastDouble(t2 - t1)));
+                     HubLogger::watch("ArmorDetectorCostTime", durationCastDouble(t2 - t1));
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }

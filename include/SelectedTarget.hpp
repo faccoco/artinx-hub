@@ -5,7 +5,8 @@
 
 struct SelectedTarget final {
     TimePoint lastUpdate;
-    std::optional<Transform<FrameOfRef::Robot, FrameOfRef::Gun, true>> tfRobot2Gun;
+    Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
+    std::vector<DetectedTarget> targets;
     std::optional<DetectedTarget> selected;
 };
 
@@ -17,8 +18,12 @@ struct TargetROI final {
 
 struct PredictedTarget final {
     TimePoint lastUpdate;
-    Vector<UnitType::Distance, FrameOfRef::Robot> position;
-    Vector<UnitType::LinearVelocity, FrameOfRef::Robot> velocity;
+    Vector<UnitType::Distance, FrameOfRef::Robot> center;
+    Scalar<UnitType::Angle> theta;
+    Vector<UnitType::LinearVelocity, FrameOfRef::Robot> lVel;
+    Scalar<UnitType::AngularVelocity> aVel;
+    std::pair<double, double> radius;
+    std::pair<double, double> y;
 };
 
 struct PredictedPeriodTarget final {

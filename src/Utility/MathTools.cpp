@@ -212,7 +212,15 @@ std::tuple<double, double, double> solveWithoutAirDrag(glm::dvec3 targetPos, glm
     double horizontalSpeedY = (targetPos.y + targetVel.y * airDuration) / airDuration;
 
     double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
-    double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<double>();
+    double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX);
 
     return std::make_tuple(airDuration, yawAngle, pitchAngle);
+}
+
+double normalizeAngle(double a) {
+    while(a > glm::pi<double>())
+        a -= glm::two_pi<double>();
+    while(a <= -glm::pi<double>())
+        a += glm::two_pi<double>();
+    return a;
 }

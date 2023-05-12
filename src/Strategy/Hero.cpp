@@ -30,18 +30,18 @@ class HeroStrategy final : public HubHelper<caf::event_based_actor, HeroStrategy
 public:
     HeroStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         if(mConfig.periodPredictType == "outpost")
-            mSendPeriodFunc = [this](SelectedTarget selected) {
+            mSendPeriodFunc = [this](const SelectedTarget& selected) {
                 sendAll(set_period_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
                         !mPeriodInited);
             };
         else if(mConfig.periodPredictType == "car")
-            mSendPeriodFunc = [this](SelectedTarget selected) {
+            mSendPeriodFunc = [this](const SelectedTarget& selected) {
                 sendAll(set_period_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
                         !mPeriodInited);
             };
         else {
             logInfo("HeroStrategy wrong periodPredictType using fallback \"outpost\"");
-            mSendPeriodFunc = [this](SelectedTarget selected) {
+            mSendPeriodFunc = [this](const SelectedTarget& selected) {
                 sendAll(set_period_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
                         !mPeriodInited);
             };
@@ -57,23 +57,24 @@ public:
                 SelectedTarget selected;
                 selected.lastUpdate = data.lastUpdate;
                 selected.tfRobot2Gun = data.tfRobot2Gun;
+                selected.targets = data.targets;
 
-                auto minDistance = std::numeric_limits<double>::max();
-                for(auto& target : data.targets) {
-                    if(const auto distance = glm::length(target.center.mVal);
-                       ((target.type == selected.selected->type) && (minDistance > distance)) ||
-                       ((target.type == ArmorType::Large) && (selected.selected->type == ArmorType::Small))) {
+                double minDisToImgCenter = std::numeric_limits<double>::max();
+                for(const auto& target : selected.targets) {
+                    if(target.distanceToImgCenter < minDisToImgCenter) {
                         selected.selected = target;
-                        minDistance = distance;
+                        minDisToImgCenter = target.distanceToImgCenter;
                     }
                 }
                 if(mPeriodActive) {
                     mSendPeriodFunc(selected);
-                    if(selected.selected.has_value() && selected.tfRobot2Gun.has_value() && !mPeriodInited)
+                    if(selected.selected.has_value() && !mPeriodInited)
                         mPeriodInited = true;
                 } else {
                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                 }
+                if(selected.selected.has_value())
+                    HubLogger::watch("armorType", magic_enum::enum_name(selected.selected->type));
             },
             [this](outpost_detector_control_atom, bool active) {
                 ACTOR_PROTOCOL_CHECK(outpost_detector_control_atom, bool);

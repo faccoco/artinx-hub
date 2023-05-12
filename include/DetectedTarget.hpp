@@ -10,15 +10,17 @@
 
 struct DetectedTarget final {
     cv::Point2f armorImgCenter;
+    double distanceToImgCenter;
     Point<UnitType::Distance, FrameOfRef::Gun> center;
     double area;
     RobotType id;
     ArmorType type;
+    Transform<FrameOfRef::Armor, FrameOfRef::Gun> rmat;
 };
 
 struct DetectedTargetArray final {
     TimePoint lastUpdate;
-    std::optional<Transform<FrameOfRef::Robot, FrameOfRef::Gun, true>> tfRobot2Gun;
+    Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
     std::vector<DetectedTarget> targets;
 };
 

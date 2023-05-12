@@ -105,3 +105,6 @@ double ferrari(std::complex<double> a, std::complex<double> b, std::complex<doub
 
 // tuple[time,yawAngle,pitchAngle]
 std::tuple<double, double, double> solveWithoutAirDrag(glm::dvec3 targetPos, glm::dvec3 targetVel);
+
+// -pi < res <= pi
+[[nodiscard]] double normalizeAngle(double a);

@@ -104,10 +104,9 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
-                if(!(data->selected.has_value() && data->tfRobot2Gun.has_value()))
+                if(!(data->selected.has_value()))
                     return;
-                auto tfGun2Robot = data->tfRobot2Gun->invTransformObj();
-                HubLogger::watch("armorType", magic_enum::enum_name(data->selected->type));
+                auto tfGun2Robot = data->tfRobot2Gun.invTransformObj();
 
                 PredictedPeriodTarget res;
                 res.lastUpdate = data->lastUpdate;
