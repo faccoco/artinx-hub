@@ -41,26 +41,26 @@ public:
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
                      selected.tfRobot2Gun = data.tfRobot2Gun;
+                     selected.targets = data.targets;
 
                      auto minDistance = std::numeric_limits<double>::max();
-                     if(data.targets.size()) {
-                         selected.selected.resize(1);
-                         for(auto& target : data.targets) {
-                             const auto vec = target.center.mVal;
-                             const auto distance = vec.x * vec.x + vec.y * vec.y;
-                             if(distance < minDistance) {
-                                 selected.selected[0] = target;
-                                 minDistance = distance;
-                             }
+                     for(auto& target : data.targets) {
+                         const auto vec = target.center.mVal;
+                         const auto distance = vec.x * vec.x + vec.y * vec.y;
+                         if(distance < minDistance) {
+                             selected.selected = target;
+                             minDistance = distance;
                          }
                      }
-                     TargetROI roi{ selected.lastUpdate, minDistance, selected.selected[0].armorImgCenter };
 
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
-                     sendAll(update_roi_atom_v, BlackBoard::instance().updateSync<TargetROI>(mKey, roi));
+                     if(selected.selected.has_value()) {
+                         TargetROI roi{ selected.lastUpdate, minDistance, selected.selected->armorImgCenter };
+                         sendAll(update_roi_atom_v, BlackBoard::instance().updateSync<TargetROI>(mKey, roi));
+                     }
 
-                     if(!selected.selected.empty())
-                         HubLogger::watch("armor type", magic_enum::enum_name(selected.selected[0].type));
+                     if(selected.selected.has_value())
+                         HubLogger::watch("armor type", magic_enum::enum_name(selected.selected->type));
                  } };
     }
 };

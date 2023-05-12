@@ -66,11 +66,12 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
     }
 
     double orientationToYaw(double yaw) {
+        // Make yaw change continuous
         mTrackedArmor.yaw = mTrackedArmor.yaw + normalizeAngle(yaw - mTrackedArmor.yaw);
         return mTrackedArmor.yaw;
     }
 
-    glm::dvec3 getArmorPositionFromState(const Eigen::VectorXd& x) {
+    glm::dvec3 getArmorPosFromState(const Eigen::VectorXd& x) {
         // Calculate predicted position of the current armor
         double xc = x(0), ya = x(1), zc = x(2);
         double yaw = x(3), r = x(8);
@@ -88,7 +89,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             std::swap(mTrackedArmor.state(8), mLastR);
             logInfo("ArmorPredictor: Armor jump!");
         }
-        if(glm::distance(targetPos, getArmorPositionFromState(mTrackedArmor.state)) > mConfig.maxMatchDistance) {
+        if(glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state)) > mConfig.maxMatchDistance) {
             mTrackedArmor.state(0) = targetPos.x - mTrackedArmor.state(8) * cos(yaw);
             mTrackedArmor.state(2) = targetPos.z - mTrackedArmor.state(8) * sin(yaw);
             mTrackedArmor.state(4) = 0;
@@ -168,7 +169,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         if(!armors.empty()) {
             // pair[pos,yaw]
             std::pair<glm::dvec3, double> candidate;
-            auto predictedPosition = getArmorPositionFromState(ekfPrediction);
+            auto predictedPosition = getArmorPosFromState(ekfPrediction);
             // Difference of the current armor position and tracked armor's predicted position
             double minPositionDiff = std::numeric_limits<double>::max();
             for(const auto& armor : armors) {
@@ -291,12 +292,12 @@ public:
                 if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
                     if(mTrackedArmor.trackingState == TrackingState::LOST) {
                         // init
-                        if(data->selected.empty())
+                        if(!data->selected.has_value())
                             return;
-                        init(data->selected[0]);
+                        init(data->selected.value());
                     } else {
                         // update
-                        bool matched = update(durationCastDouble(data->lastUpdate - mTrackedArmor.lastUpdate), data->selected);
+                        bool matched = update(durationCastDouble(data->lastUpdate - mTrackedArmor.lastUpdate), data->targets);
 
                         // Prevent radius from spreading
                         if(mTrackedArmor.state(8) < 0.2) {
@@ -332,10 +333,10 @@ public:
                     HubLogger::watch("lVelZ", res.lVel.mVal.z);
                 } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
                     const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
-                    if(!dataPosture.has_value() || data->selected.empty())
+                    if(!dataPosture.has_value() || !data->selected.has_value())
                         return;
-                    res.center = getArmorPos(data->selected[0]);
-                    res.theta = getArmorYaw(data->selected[0]);
+                    res.center = getArmorPos(data->selected.value());
+                    res.theta = getArmorYaw(data->selected.value());
                     res.lVel = -dataPosture->linearVelocityOfRobot.mVal;
                     res.aVel = 0;
                     res.radius = { 0, 0 };

@@ -57,20 +57,24 @@ public:
                 SelectedTarget selected;
                 selected.lastUpdate = data.lastUpdate;
                 selected.tfRobot2Gun = data.tfRobot2Gun;
-                selected.selected = data.targets;
+                selected.targets = data.targets;
 
-                std::sort(selected.selected.begin(), selected.selected.end(), [](DetectedTarget lhs, DetectedTarget rhs) {
-                    return lhs.distanceToImgCenter < rhs.distanceToImgCenter;
-                });
+                double minDisToImgCenter = std::numeric_limits<double>::max();
+                for(const auto& target : selected.targets) {
+                    if(target.distanceToImgCenter < minDisToImgCenter) {
+                        selected.selected = target;
+                        minDisToImgCenter = target.distanceToImgCenter;
+                    }
+                }
                 if(mPeriodActive) {
                     mSendPeriodFunc(selected);
-                    if(selected.selected.size() && !mPeriodInited)
+                    if(selected.selected.has_value() && !mPeriodInited)
                         mPeriodInited = true;
                 } else {
                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                 }
-                if(!selected.selected.empty())
-                    HubLogger::watch("armorType", magic_enum::enum_name(selected.selected[0].type));
+                if(selected.selected.has_value())
+                    HubLogger::watch("armorType", magic_enum::enum_name(selected.selected->type));
             },
             [this](outpost_detector_control_atom, bool active) {
                 ACTOR_PROTOCOL_CHECK(outpost_detector_control_atom, bool);

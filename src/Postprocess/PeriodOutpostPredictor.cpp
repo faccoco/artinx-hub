@@ -55,14 +55,14 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
-                if(!(data->selected.size()))
+                if(!(data->selected.has_value()))
                     return;
                 auto tfGun2Robot = data->tfRobot2Gun.invTransformObj();
 
                 PredictedPeriodTarget res;
                 res.lastUpdate = data->lastUpdate;
 
-                Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data->selected[0].center.mVal);
+                Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data->selected->center.mVal);
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = tfGun2Robot(posOfRefGun);
                 res.position = posRefRobot;
 

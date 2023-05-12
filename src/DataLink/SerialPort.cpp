@@ -26,9 +26,6 @@ struct SerialPortSettings final {
     bool enableEnergyControl;
     double minBulletSpeed;
     double maxBulletSpeed;
-    bool getBulletSpeedFromSerial;
-    bool getOutpostModeFromSerial;
-    bool getShootDelayFromSerial;
 };
 
 template <class Inspector>
@@ -40,10 +37,7 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
                               f.field("headForwardOffset2", x.headForwardOffset2).fallback(0.0),
                               f.field("enableEnergyControl", x.enableEnergyControl).fallback(false),
                               f.field("minBulletSpeed", x.minBulletSpeed).fallback(0.0),
-                              f.field("maxBulletSpeed", x.maxBulletSpeed).fallback(100.0),
-                              f.field("getBulletSpeedFromSerial", x.getBulletSpeedFromSerial).fallback(true),
-                              f.field("getOutpostModeFromSerial", x.getOutpostModeFromSerial).fallback(true),
-                              f.field("getShootDelayFromSerial", x.getShootDelayFromSerial).fallback(true));
+                              f.field("maxBulletSpeed", x.maxBulletSpeed).fallback(100.0));
 }
 
 class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom,
@@ -146,41 +140,37 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             mHaveReceivedFdbPacket = true;
             /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
-            if(mConfig.getBulletSpeedFromSerial) {
-                if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
-                    ReadableTimePoint nowReadableTimePoint = std::chrono::system_clock::now();
-                    HubLogger::fileLog(fmt::format(
-                        "time: {}:{}:{:.1f} bulletSpeed: {}", nowReadableTimePoint.tm.tm_hour, nowReadableTimePoint.tm.tm_min,
-                        nowReadableTimePoint.tm.tm_sec + nowReadableTimePoint.ms / 1000.0, fdb.bulletSpeed));
-                    if(fdb.bulletSpeed > mConfig.minBulletSpeed && fdb.bulletSpeed < mConfig.maxBulletSpeed) {
-                        if(mBulletSpeed.size() >= mBulletSpeedLen)
-                            mBulletSpeed.pop_front();
-                        mBulletSpeed.push_back(fdb.bulletSpeed);
-                        if(mBulletSpeed.size() < 3) {
-                            GlobalSettings::get().bulletSpeed = avg(mBulletSpeed);
-                        } else {
-                            double maxSpeed = mBulletSpeed[0], minSpeed = mBulletSpeed[0], sumSpeed = 0;
-                            for(auto speed : mBulletSpeed) {
-                                if(speed > maxSpeed)
-                                    maxSpeed = speed;
-                                if(speed < minSpeed)
-                                    minSpeed = speed;
-                                sumSpeed += speed;
-                            }
-                            GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
-                            HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
+            if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
+                ReadableTimePoint nowReadableTimePoint = std::chrono::system_clock::now();
+                HubLogger::fileLog(fmt::format(
+                    "time: {}:{}:{:.1f} bulletSpeed: {}", nowReadableTimePoint.tm.tm_hour, nowReadableTimePoint.tm.tm_min,
+                    nowReadableTimePoint.tm.tm_sec + nowReadableTimePoint.ms / 1000.0, fdb.bulletSpeed));
+                if(fdb.bulletSpeed > mConfig.minBulletSpeed && fdb.bulletSpeed < mConfig.maxBulletSpeed) {
+                    if(mBulletSpeed.size() >= mBulletSpeedLen)
+                        mBulletSpeed.pop_front();
+                    mBulletSpeed.push_back(fdb.bulletSpeed);
+                    if(mBulletSpeed.size() < 3) {
+                        GlobalSettings::get().bulletSpeed = avg(mBulletSpeed);
+                    } else {
+                        double maxSpeed = mBulletSpeed[0], minSpeed = mBulletSpeed[0], sumSpeed = 0;
+                        for(auto speed : mBulletSpeed) {
+                            if(speed > maxSpeed)
+                                maxSpeed = speed;
+                            if(speed < minSpeed)
+                                minSpeed = speed;
+                            sumSpeed += speed;
                         }
+                        GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
+                        HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
                     }
-                    mLastBulletSpeed = fdb.bulletSpeed;
                 }
+                mLastBulletSpeed = fdb.bulletSpeed;
             }
-            if(mConfig.getShootDelayFromSerial) {
-                if(fdb.shootDelayTime < maxShootDelay && (mShootDelay.empty() || fdb.shootDelayTime != mShootDelay.back())) {
-                    if(mShootDelay.size() >= mShootDelayLen)
-                        mShootDelay.pop_front();
-                    mShootDelay.push_back(fdb.shootDelayTime);
-                    GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;  // ms -> s
-                }
+            if(fdb.shootDelayTime < maxShootDelay && (mShootDelay.empty() || fdb.shootDelayTime != mShootDelay.back())) {
+                if(mShootDelay.size() >= mShootDelayLen)
+                    mShootDelay.pop_front();
+                mShootDelay.push_back(fdb.shootDelayTime);
+                GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;  // ms -> s
             }
             // HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
             // HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
@@ -209,16 +199,14 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             fdb.yaw = (fdb.yaw < 0.0f) ? fdb.yaw + glm::two_pi<float>() : fdb.yaw;
             fdb.downYaw = (fdb.downYaw < 0.0f) ? fdb.downYaw + glm::two_pi<float>() : fdb.downYaw;
 
-            if(mConfig.getOutpostModeFromSerial) {
-                if(!mOutpostMode && fdb.outpostMode) {
-                    std::lock_guard lock{ mOutpostModeChangeMutex };
-                    mOutpostMode = true;
-                    gimbalSetPacket.setUpTarget(fdb.yaw, fdb.pitch, false);
-                }
-                mOutpostMode = fdb.outpostMode;
-                sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
-                HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
+            if(!mOutpostMode && fdb.outpostMode) {
+                std::lock_guard lock{ mOutpostModeChangeMutex };
+                mOutpostMode = true;
+                gimbalSetPacket.setUpTarget(fdb.yaw, fdb.pitch, false);
             }
+            mOutpostMode = fdb.outpostMode;
+            sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
+            HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
             mCapEnergy = fdb.capEnergy;
             mChasisPower = fdb.chasisPower;
 
@@ -362,7 +350,7 @@ public:
 
                      HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
                      HubLogger::watch("nowLatency", static_cast<int>(latency * 1000));
-                     logInfo(fmt::format("SerialPort: avgLatency: {}",static_cast<int>(GlobalSettings::get().latency * 1000)));
+                     logInfo(fmt::format("SerialPort: avgLatency: {}", static_cast<int>(GlobalSettings::get().latency * 1000)));
                  } };
     }
 };
