@@ -141,9 +141,10 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
             if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
-                ReadableTimePoint tmp = std::chrono::system_clock::now();
-                HubLogger::fileLog(fmt::format("time: {}:{}:{:.1f} bulletSpeed: {}", tmp.tm.tm_hour, tmp.tm.tm_hour,
-                                               tmp.tm.tm_sec + tmp.ms / 1000.0, fdb.bulletSpeed));
+                ReadableTimePoint nowReadableTimePoint = std::chrono::system_clock::now();
+                HubLogger::fileLog(fmt::format(
+                    "time: {}:{}:{:.1f} bulletSpeed: {}", nowReadableTimePoint.tm.tm_hour, nowReadableTimePoint.tm.tm_min,
+                    nowReadableTimePoint.tm.tm_sec + nowReadableTimePoint.ms / 1000.0, fdb.bulletSpeed));
                 if(fdb.bulletSpeed > mConfig.minBulletSpeed && fdb.bulletSpeed < mConfig.maxBulletSpeed) {
                     if(mBulletSpeed.size() >= mBulletSpeedLen)
                         mBulletSpeed.pop_front();
@@ -160,6 +161,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                             sumSpeed += speed;
                         }
                         GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
+                        HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
                     }
                 }
                 mLastBulletSpeed = fdb.bulletSpeed;
@@ -168,7 +170,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 if(mShootDelay.size() >= mShootDelayLen)
                     mShootDelay.pop_front();
                 mShootDelay.push_back(fdb.shootDelayTime);
-                GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;
+                GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;  // ms -> s
             }
             // HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
             // HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
@@ -204,8 +206,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             }
             mOutpostMode = fdb.outpostMode;
             sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
-            // HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
-
+            HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
             mCapEnergy = fdb.capEnergy;
             mChasisPower = fdb.chasisPower;
 
@@ -324,17 +325,10 @@ public:
                      isFire = solverType && isFire;
                      {
                          std::lock_guard lock{ mOutpostModeChangeMutex };
-                         if(mOutpostMode && solverType == normalSolver) {
+                         if(mOutpostMode && solverType == normalSolver)
                              return;
-                         }
 
-                         if(yawAngle <= -glm::pi<double>())
-                             yawAngle += glm::two_pi<double>();
-
-                         if(yawAngle > glm::pi<double>())
-                             yawAngle -= glm::two_pi<double>();
-
-                         //                         yawAngle = -yawAngle;
+                         yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
                          if(mask == 1U) {
                              gimbalSetPacket.setUpTarget(static_cast<float>(yawAngle), static_cast<float>(pitchAngle), isFire);
                              mLastUpTargetTime = Clock::now();

@@ -32,16 +32,6 @@ public:
                      ACTOR_PROTOCOL_CHECK(energy_detector_control_atom, bool);
                      mEnergyMode = enable;
                  },
-                 [&](energy_detect_available_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(energy_detect_available_atom, TypedIdentifier<DetectedEnergyInfo>);
-                     if(!mEnergyMode)
-                         return;
-                     const auto data = BlackBoard::instance().get<DetectedEnergyInfo>(key).value();
-                     SelectedTarget selected;
-                     selected.lastUpdate = data.lastUpdate;
-
-                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
-                 },
                  [&](detect_available_atom, GroupMask, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
                      if(mEnergyMode)
@@ -51,21 +41,26 @@ public:
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
                      selected.tfRobot2Gun = data.tfRobot2Gun;
+                     selected.targets = data.targets;
 
-                     std::optional<DetectedTarget> minDistTarget;
-                     auto minDistance = 10000.0;
+                     auto minDistance = std::numeric_limits<double>::max();
                      for(auto& target : data.targets) {
-                         auto pos = target.center.mVal;
-                         auto dist = pos.x * pos.x + pos.y * pos.y;
-                         if(dist < minDistance) {
-                             minDistance = dist;
-                             minDistTarget = target;
+                         const auto vec = target.center.mVal;
+                         const auto distance = vec.x * vec.x + vec.y * vec.y;
+                         if(distance < minDistance) {
+                             selected.selected = target;
+                             minDistance = distance;
                          }
                      }
 
-                     selected.selected = minDistTarget;
-
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                     if(selected.selected.has_value()) {
+                         TargetROI roi{ selected.lastUpdate, minDistance, selected.selected->armorImgCenter };
+                         sendAll(update_roi_atom_v, BlackBoard::instance().updateSync<TargetROI>(mKey, roi));
+                     }
+
+                     if(selected.selected.has_value())
+                         HubLogger::watch("armor type", magic_enum::enum_name(selected.selected->type));
                  } };
     }
 };

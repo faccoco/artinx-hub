@@ -60,9 +60,9 @@ public:
                     return;
 
                 // HubLogger::watch("x", data->position.mVal.x);
-                HubLogger::watch("vertical distance", data->position.mVal.y);
+                HubLogger::watch("verticalDistance", data->position.mVal.y);
                 // HubLogger::watch("z", data->position.mVal.z);
-                HubLogger::watch("horizontal distance", std::sqrt(square(data->position.mVal.z)+square(data->position.mVal.x)));
+                HubLogger::watch("horizontalDistance", std::sqrt(square(data->position.mVal.z)+square(data->position.mVal.x)));
 
                 glm::dvec3 tfPos = tf(data->position.mVal);
                 auto res = solveWithoutAirDrag(tfPos, glm::dvec3{ 0, 0, 0 });

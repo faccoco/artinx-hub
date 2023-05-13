@@ -8,7 +8,8 @@ struct SimulatorWorldInfo final {
 
     Transform<FrameOfRef::Ground, FrameOfRef::Robot, true> tfGround2Robot;
 
-    std::vector<Point<UnitType::Distance, FrameOfRef::Ground>> targets;
+    std::vector<std::pair<Point<UnitType::Distance, FrameOfRef::Ground>, Transform<FrameOfRef::Armor, FrameOfRef::Ground>>>
+        targets;
 };
 
 ACTOR_PROTOCOL_DEFINE(simulator_step_atom, TypedIdentifier<SimulatorWorldInfo>);
