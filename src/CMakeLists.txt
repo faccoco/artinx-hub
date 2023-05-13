@@ -19,6 +19,7 @@ set(SOURCE
         "Detect/RadarNNetDetector.cpp"
         "HubMain.cpp"
         "Postprocess/CarPredictor.cpp"
+        "Postprocess/ArmorPredictor.cpp"
         "Postprocess/PeriodPredictor.cpp"
         "Postprocess/PeriodOutpostPredictor.cpp"
         "Preprocess/ColorCalibration.cpp"

@@ -61,9 +61,9 @@ public:
 
                 double minDisToImgCenter = std::numeric_limits<double>::max();
                 for(const auto& target : selected.targets) {
-                    if(target.distanceToImgCenter < minDisToImgCenter) {
+                    if(target.distToImgCenter < minDisToImgCenter) {
                         selected.selected = target;
-                        minDisToImgCenter = target.distanceToImgCenter;
+                        minDisToImgCenter = target.distToImgCenter;
                     }
                 }
                 if(mPeriodActive) {
@@ -81,7 +81,6 @@ public:
                 if(active && !mPeriodActive)
                     mPeriodInited = false;
                 mPeriodActive = active;
-                
             },
         };
     }

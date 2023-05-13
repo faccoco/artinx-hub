@@ -12,17 +12,14 @@
 
 #include "SuppressWarningEnd.hpp"
 
-struct InfantryStrategySettings final {
-
-};
+struct InfantryStrategySettings final {};
 
 template <class Inspector>
 bool inspect(Inspector& f, InfantryStrategySettings& x) {
     return f.object(x).fields();
 }
 
-class InfantryStrategy final
-    : public HubHelper<caf::event_based_actor, InfantryStrategySettings, set_target_atom, update_roi_atom> {
+class InfantryStrategy final : public HubHelper<caf::event_based_actor, InfantryStrategySettings, set_target_atom> {
     Identifier mKey;
     bool mEnergyMode = false;
 
@@ -54,13 +51,6 @@ public:
                      }
 
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
-                     if(selected.selected.has_value()) {
-                         TargetROI roi{ selected.lastUpdate, minDistance, selected.selected->armorImgCenter };
-                         sendAll(update_roi_atom_v, BlackBoard::instance().updateSync<TargetROI>(mKey, roi));
-                     }
-
-                     if(selected.selected.has_value())
-                         HubLogger::watch("armor type", magic_enum::enum_name(selected.selected->type));
                  } };
     }
 };

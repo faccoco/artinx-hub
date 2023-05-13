@@ -119,7 +119,7 @@ public:
                 if(init) {
                     clear();
                     mTargetTheta = getTheta(tfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(0, 0, -1)).mVal);
-                    logInfo(fmt::format("PeriodPredictor: inited theta {} degree", glm::degrees(mTargetTheta)));
+                    logInfo(fmt::format("PeriodPredictor: inited yaw {} degree", glm::degrees(mTargetTheta)));
                     return;
                 }
 
@@ -129,11 +129,11 @@ public:
 
                 // check
                 if(thetaDelta <= sameThetaThreshold) {
-                    // logInfo("PeriodPredictor: same theta");
+                    // logInfo("PeriodPredictor: same yaw");
                     // logInfo(
                     //     fmt::format("PeriodPredictor: pos:{} {} {}", posRefRobot.mVal.x, posRefRobot.mVal.y,
                     //     posRefRobot.mVal.z));
-                    // logInfo(fmt::format("PeriodPredictor: theta: {} degree", glm::degrees(getTheta(posRefRobot.mVal))));
+                    // logInfo(fmt::format("PeriodPredictor: yaw: {} degree", glm::degrees(getTheta(posRefRobot.mVal))));
 
                     // logInfo(fmt::format("PeriodPredictor: mState: {}", mState));
 

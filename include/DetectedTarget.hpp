@@ -10,9 +10,8 @@
 
 struct DetectedTarget final {
     cv::Point2f armorImgCenter;
-    double distanceToImgCenter;
+    double distToImgCenter;
     Point<UnitType::Distance, FrameOfRef::Gun> center;
-    double area;
     RobotType id;
     ArmorType type;
     Transform<FrameOfRef::Armor, FrameOfRef::Gun> rmat;

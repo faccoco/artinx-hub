@@ -1,6 +1,6 @@
 # Code Details
 
-##  HubClassRegister
+## HubClassRegister
 
 + 宏定义中`#`的作用
 
@@ -16,10 +16,10 @@
         
         ```
 
-        总之，宏中的参数仅仅只有一个替换的作用。
+      总之，宏中的参数仅仅只有一个替换的作用。
 
 + 初始化时机
-    
+
     + **全局变量、文件域中的静态变量、类中的成员静态变量在main函数执行前初始化；局部变量中的静态变量在第一次调用时初始化。**
 
 ```c++
@@ -341,7 +341,8 @@ public:
     static BlackBoard& instance();
 };
 ```
-# ACTOR_PROTOCOL_DEFINE 
+
+# ACTOR_PROTOCOL_DEFINE
 
 + **该宏定义atom与发atom时需要从`blackboard`上拿的对应的结构体类型**
 
@@ -405,8 +406,10 @@ struct __ImplActorProtocol final {
     + 本质上通过执行非法命令来中止程序。
 
       ```css
-    __builtin_trap function causes the program to exit abnormally. GCC implements this function by using a target-dependent mechanism (such as intentionally executing an illegal instruction) or by calling abort. The mechanism used may vary from release to release so you should not rely on any particular implementation.
-      ```
+  __builtin_trap function causes the program to exit abnormally. GCC implements this function by using a
+  target-dependent mechanism (such as intentionally executing an illegal instruction) or by calling abort. The mechanism
+  used may vary from release to release so you should not rely on any particular implementation.
+  ```
 
 ```c++
 //定义ExceptionProbe __probe{}类
@@ -466,15 +469,15 @@ public:
 };
 ```
 
-
-
 ## Armor Detector
 
 ### 吉林大学2020方案
 
-+ *Reference*：[GitHub - QunShanHe/JLURoboVision: Standard Vision Software of TARS-GO Team, Jilin University on RoboMaster 2020 Robotic Competition](https://github.com/QunShanHe/JLURoboVision)
++ *Reference*
+  ：[GitHub - QunShanHe/JLURoboVision: Standard Vision Software of TARS-GO Team, Jilin University on RoboMaster 2020 Robotic Competition](https://github.com/QunShanHe/JLURoboVision)
 
 #### 二值化方案
+
 ```C++
 //RGB通道相减
 enemyColor == RED:
@@ -486,7 +489,9 @@ enemyColor == BLUE:
 kernel = getStructuringElement(MORPH_ELLIPSE, Size(3, 3))
 dilate(src, dist, kernel)
 ```
+
 #### 灯条寻找方案
+
 ```C++
 //寻找轮廓
 findContours(contourImg, lightContours, CV_RETR_EXTERNAL，CV_CHAIN_APPROX_SIMPLE)
@@ -501,7 +506,9 @@ fitEllipse(lightContours)
 
 //将灯条从左到右排序
 ```
+
 #### 灯条匹配方案
+
  ```c++
  // 从左到右，为每个灯条编号， 并与其他灯条进行一次匹配判断，判断条件如下
 // 1、角度差判断
@@ -513,6 +520,7 @@ fitEllipse(lightContours)
 //去除游离灯条导致错误识别的装甲板
 //如果装甲板左右两边灯条编号一致，则比较两装甲板灯条中心连线与水平线的夹角，谁小，则去除另外一个。
  ```
+
 ### Artinx 2022视觉方案
 
 #### 二值化方案
@@ -530,7 +538,9 @@ static bool isWhite(int32_t b, int32_t g, int32_t r) {
 ```
 
 #### 灯条寻找方案
+
 #### cv::minAreaRect旋转矩形定义测试代码
+
 ```C++
     void testMinAreaRect(){
         cv::Mat test_image(200, 200, CV_8UC3, cv::Scalar(0));
@@ -615,16 +625,17 @@ if(rect.size.width < rect.size.height) {  // rotate rect
 
 ```
 
-
-
 #### 深圳大学2019年方案
 
-+ *Reference*：[GitHub - yarkable/RP_Infantry_Plus: RoboMaster2019 Infantry Vision OpenSource Code of Shenzhen University](https://github.com/yarkable/RP_Infantry_Plus)
++ *Reference*
+  ：[GitHub - yarkable/RP_Infantry_Plus: RoboMaster2019 Infantry Vision OpenSource Code of Shenzhen University](https://github.com/yarkable/RP_Infantry_Plus)
 
 ## SolvePnP
 
-+ *Reference*:[OpenCV: Perspective-n-Point (PnP) pose computation](https://docs.opencv.org/3.4/d5/d1f/calib3d_solvePnP.html)
++ *
+  Reference*:[OpenCV: Perspective-n-Point (PnP) pose computation](https://docs.opencv.org/3.4/d5/d1f/calib3d_solvePnP.html)
 + *Reference*:https://www.cnblogs.com/singlex/category/911880.html
+
 ## Coordinate system regulation and coordinate transformation
 
 ### Coordinate system regulation
@@ -642,20 +653,22 @@ if(rect.size.width < rect.size.height) {  // rotate rect
 
 + 从装甲板坐标系到相机坐标系
 
-    通过`SolvePnP`能得到，从装甲板坐标系到相机坐标系的变化矩阵$^cT_w$
+  通过`SolvePnP`能得到，从装甲板坐标系到相机坐标系的变化矩阵$^cT_w$
 
-    取装甲板中心，即$X_w = 0，Y_w = 0, Z_w = 0$,则 $X_c = t_x, Y_c=t_y, Z_c=t_z$,由于`opencv solvePnP`中规定的y轴方向和z轴方向相反，所以y轴和z轴方向还需要做一个取负的运算。
+  取装甲板中心，即$X_w = 0，Y_w = 0, Z_w = 0$,则 $X_c = t_x, Y_c=t_y, Z_c=t_z$,由于`opencv solvePnP`
+  中规定的y轴方向和z轴方向相反，所以y轴和z轴方向还需要做一个取负的运算。
 
 + 从相机坐标系到枪管坐标系
 
-    由于相机安装会和枪管有一个固定的偏置，所以从相机坐标系到枪管坐标系需要有一个平移变换。
+  由于相机安装会和枪管有一个固定的偏置，所以从相机坐标系到枪管坐标系需要有一个平移变换。
 
 + 从机器人坐标系从枪管坐标系
 
-    利用`glm::lookAtRH`函数，以机器人坐标系为原点，去看枪管坐标系。
+  利用`glm::lookAtRH`函数，以机器人坐标系为原点，去看枪管坐标系。
 
-    *Reference*:[摄像机+LookAt矩阵+视角移动+欧拉角 - Garrett_Wale - 博客园 (cnblogs.com)](https://www.cnblogs.com/GarrettWale/p/11336589.html)
-    
+  *
+  Reference*:[摄像机+LookAt矩阵+视角移动+欧拉角 - Garrett_Wale - 博客园 (cnblogs.com)](https://www.cnblogs.com/GarrettWale/p/11336589.html)
+
     ```c++
         /**					
        * @brief 				根据要变换到的坐标系的原点在当前坐标系的位置，和三个向量的方向在当前坐标系的位置来求得两个坐标系之间的变换
@@ -675,8 +688,6 @@ if(rect.size.width < rect.size.height) {  // rotate rect
                 glm::dvec3{ 0.0, 1.0, 0.0 }) }
         };
     ```
-    
-    
 
 ## Angle Solver
 
@@ -684,27 +695,28 @@ if(rect.size.width < rect.size.height) {  // rotate rect
 
 + 考虑视觉算法处理的延迟、串口通信的延迟，云台电机执行动作的延迟以及子弹从拨弹轮到射出的延迟，这几类延迟之和设为$t_{f}$
 
-    $V_0$: 子弹相对车速度    $V_{0h}$ : 子弹的相对车水平面方向速度 	$V_{0v}$:子弹竖直方向的净速度  $V_2$: 目标移动的速度
+  $V_0$: 子弹相对车速度 $V_{0h}$ : 子弹的相对车水平面方向速度 $V_{0v}$:子弹竖直方向的净速度 $V_2$: 目标移动的速度
 
-     $V_1:$ 车的速度   $S$: 目标到枪口水平面方向的距离      $t$: 子弹从枪口射出到命中障碍物的时间   $h$: 目标到枪口的竖直高度
+  $V_1:$ 车的速度 $S$: 目标到枪口水平面方向的距离 $t$: 子弹从枪口射出到命中障碍物的时间 $h$: 目标到枪口的竖直高度
 
-+ 未知量有$\vec{V_{0h}}$  $V_{0v}$  $t$，其余量已知
++ 未知量有$\vec{V_{0h}}$ $V_{0v}$ $t$，其余量已知
 
 经过固定延迟$t_f$后，目标移动到$\vec{X_f}$处
 
-​					$\vec{S_f} = \vec{S} + (\vec{V_2}-\vec{V_1})t_f$
+​ $\vec{S_f} = \vec{S} + (\vec{V_2}-\vec{V_1})t_f$
 
-$V_{0v}t + \frac{1}{2}gt^2 = h$     												 --式一
+$V_{0v}t + \frac{1}{2}gt^2 = h$ --式一
 
 $\vec{V_{0h}}t = \vec{S_f} + (\vec{V_2} - \vec{V_1})t$
 
-$\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ 
+$\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$ $\Downarrow$
+$\Downarrow$ $\Downarrow$
 
-$V_{0h}cos\theta t= S_{fx} + ({V_2} - {V_1})_xt$   						--式二
+$V_{0h}cos\yaw t= S_{fx} + ({V_2} - {V_1})_xt$ --式二
 
-$V_{0h}sin\theta t= S_{fy} + ({V_2} - {V_1})_yt$							--式三
+$V_{0h}sin\yaw t= S_{fy} + ({V_2} - {V_1})_yt$ --式三
 
-$V_0^2 = V_{0h}^2 + V_{0v}^2 $														--式四
+$V_0^2 = V_{0h}^2 + V_{0v}^2 $ --式四
 
 联立式一、式二、式三、式四，利用`matlab`可解得一个关于`t`的四次方程， `matlab`脚本如下，图片不方便插入，想看结果自己运行查看一下。
 
@@ -730,8 +742,10 @@ double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<
 
 ## 开源方案
 
-+ *Reference*：[freezing00/Baldr: 本项目为桂林电子科技大学Evolution战队2021赛季常规机器人视觉项目 (github.com)](https://github.com/freezing00/Baldr)
-+ *Reference*：[WMJ2021/libControl/Predict at master · NZqian/WMJ2021 (github.com)](https://github.com/NZqian/WMJ2021/tree/master/libControl/Predict)
++ *Reference*
+  ：[freezing00/Baldr: 本项目为桂林电子科技大学Evolution战队2021赛季常规机器人视觉项目 (github.com)](https://github.com/freezing00/Baldr)
++ *Reference*
+  ：[WMJ2021/libControl/Predict at master · NZqian/WMJ2021 (github.com)](https://github.com/NZqian/WMJ2021/tree/master/libControl/Predict)
 
 ## Sentry actor workflow
 
@@ -747,23 +761,29 @@ double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<
 + `mGroup`未设置，为1。
 + `sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, tfGround2Robot))` 发送姿态信息
 + `sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoUp))`。发送上云台枪管坐标系到机器人坐标变换矩阵信息。
-+ ` sendMasked(update_head_atom_v, 2U, 2U, BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, infoDown))`;发送下云台枪管坐标系到机器人坐标系的变换矩阵信息。
++ ` sendMasked(update_head_atom_v, 2U, 2U, BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, infoDown))`
+  ;发送下云台枪管坐标系到机器人坐标系的变换矩阵信息。
 
-+ 接收 `[this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire)`    `mGroupMask == 1U` 为上云台数据，否则为下云台数据。
++
+接收 `[this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire)`    `mGroupMask == 1U`
+为上云台数据，否则为下云台数据。
 
 ### `detector_up`和`detector_down`
 
-+ 接收 `image_frame_atom` ，发送`sendAll(car_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)))`
++ 接收 `image_frame_atom`
+  ，发送`sendAll(car_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)))`
 + config 文件中配置了`detector_up`和`detector_down`分别接收`camera_up`和`camera_down`的`atom`和`key`。
 + `armor_detector_up`和`aromor_detector_down`
 
-+ 接受 `car_detector_available_atom`, 发送`sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)))`
++ 接受 `car_detector_available_atom`,
+  发送`sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)))`
 
 ### `armor_locator_up` 和`armor_locator_down`
 
 + 在config文件中`armor_loctor_up` 的`group_id`为0， `armor_locator_down ` 的 `group_id`为 1。
 
-+ 接收`armor_detect_available_atom`, 发送`sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)))`
++ 接收`armor_detect_available_atom`,
+  发送`sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)))`
 + 接收 `(update_head_atom, GroupMask, Identifier key)`, 更新`actor`的 `mHeadKey`
 
 ### `strategy`
@@ -772,14 +792,17 @@ double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX) - glm::half_pi<
 
 + 如果`selected`有数据，` (mask == 1U ? mLastSelected1 : mLastSelected2) = selected`;
 
-    如果`selected`没有数据，`selected = (mask == 1U ? mLastSelected2 : mLastSelected1)`,指从另外一个云台拿数据。
+  如果`selected`没有数据，`selected = (mask == 1U ? mLastSelected2 : mLastSelected1)`,指从另外一个云台拿数据。
 
-+ 发送`sendMasked(set_target_atom_v, mask, BlackBoard::instance().updateSync<SelectedTarget>(Identifier{mKey.val ^ mask}, selected));`，注意`sendMasked`指定了接收对象
++
+发送`sendMasked(set_target_atom_v, mask, BlackBoard::instance().updateSync<SelectedTarget>(Identifier{mKey.val ^ mask}, selected));`
+，注意`sendMasked`指定了接收对象
 + 接收`(update_head_atom, GroupMask mask, Identifier key)`,更新`mHead1`和`mHead2`的数据。
 
 ### `angleSolve_up` 和`angleSolve_down`
 
-+  接收`(set_target_atom, Identifier key)`
-+ 发送 `sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle, pitchAngle, isFire)`
++ 接收`(set_target_atom, Identifier key)`
++
+发送 `sendAll(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(), yawAngle, pitchAngle, isFire)`
 + 接收`(update_head_atom, GroupMask, Identifier key)`, 更新`mHeadKey`
 + 接收 `(update_posture_atom, Identifier key)`, 更新`mIMUKey`

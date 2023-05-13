@@ -133,7 +133,6 @@ public:
         mLastTimePoint = curTimePoint;
     }
 
-
     ArmorPredictor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         mP.setIdentity(6, 6);
         for(int i = 0; i < 6; ++i) {
@@ -149,33 +148,35 @@ public:
                 ACTOR_EXCEPTION_PROBE();
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
                 const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
-                PredictedTarget res;
+                PredictedTarget res{};
                 res.lastUpdate = data->lastUpdate;
                 if(!data->selected.has_value()) {
-                    if (!mInitFlag) return;
+                    if(!mInitFlag)
+                        return;
                     auto dt = durationCastDouble(Clock::now() - res.lastUpdate);
                     if(dt > mConfig.maxDtThresh)
                         return;
-                    glm::dvec3 pos = {mX(0), mX(1), mX(2) }, vel = { mX(3), mX(4), mX(5) };
-                    res.position.mVal = pos + vel * dt;
-                    res.velocity.mVal = vel;
+                    glm::dvec3 pos = { mX(0), mX(1), mX(2) }, vel = { mX(3), mX(4), mX(5) };
+                    res.center.mVal = pos + vel * dt;
+                    res.linearVel.mVal = vel;
                 } else {
                     Vector<UnitType::Distance, FrameOfRef::Gun> posOfRefGun(data->selected->center.mVal);
-                    Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->tfRobot2Gun->invTransform(posOfRefGun);
-                    res.position = posRefRobot;
+                    Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->tfRobot2Gun.invTransform(posOfRefGun);
+                    res.center = posRefRobot;
                     HubLogger::watch("armorType", magic_enum::enum_name(data->selected->type));
                     HubLogger::watch("xRefRobot", posRefRobot.mVal.x);
                     HubLogger::watch("yRefRobot", posRefRobot.mVal.y);
                     HubLogger::watch("zRefRobot", posRefRobot.mVal.z);
 
-                    if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
+                    if(mConfig
+                           .enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
                         glm::dvec3 measuredPos = posRefRobot.mVal;
                         runFilter(measuredPos, data.value().lastUpdate);
-                        res.position.mVal = { mX(0), mX(1), mX(2) };
-                        res.velocity.mVal = { mX(3), mX(4), mX(5) };
+                        res.center.mVal = { mX(0), mX(1), mX(2) };
+                        res.linearVel.mVal = { mX(3), mX(4), mX(5) };
                         // logInfo(fmt::format("{}, {}, {}", measuredPos.z, measuredPos.y, measuredPos.x));
                     } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
-                        res.velocity = -dataPosture->linearVelocityOfRobot.mVal;
+                        res.linearVel = -dataPosture->linearVelocityOfRobot.mVal;
                     }
                 }
                 //                logInfo("Predictor works well");

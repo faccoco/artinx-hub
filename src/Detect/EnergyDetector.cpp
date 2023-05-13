@@ -80,7 +80,8 @@ class EnergyDetector final
         CameraFrame frame;
         frame.frame = std::move(res);
 
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(newKey, std::move(frame), std::string_view("EnergyDetector")));
+        sendAll(image_frame_atom_v,
+                BlackBoard::instance().updateSync(newKey, std::move(frame), std::string_view("EnergyDetector")));
     }
 
     static void setBinary(const cv::Mat& src, cv::Mat& binary) {
@@ -210,7 +211,7 @@ class EnergyDetector final
             std::swap(rect.size.width, rect.size.height);
         }
         auto theta = 0.5 * std::atan2(2 * b, a - c);
-        // auto theta = glm::radians(rect.angle);
+        // auto yaw = glm::radians(rect.angle);
         const auto dx = (static_cast<double>(rect.center.x) - static_cast<double>(finalRect.x)) - centerX,
                    dy = (static_cast<double>(rect.center.y) - static_cast<double>(finalRect.y)) - centerY;
         if(dx * std::cos(theta) + dy * std::sin(theta) > 0.0)
@@ -459,7 +460,8 @@ public:
 
                      if(!mEnabled)
                          return;
-                     auto [lastUpdate, info, frame] = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
+                     auto [lastUpdate, info, frame] =
+                         std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
 
                      cv::RotatedRect armor;
                      double angle;
