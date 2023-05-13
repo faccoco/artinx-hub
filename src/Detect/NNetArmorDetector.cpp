@@ -210,7 +210,7 @@ class NNetArmorDetector final
                 std::vector<cv::Point2f> tmp(armor.light4Point.data(), armor.light4Point.data() + 4);
                 armor.lightRect = cv::boundingRect(tmp);
 
-                armor.robotType = boxClass;
+                armor.robotType = static_cast<RobotType>(boxClass);
                 armor.robotColor = static_cast<Color>(boxColor);
                 armor.prob = boxProb;
 
