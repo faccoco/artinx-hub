@@ -367,7 +367,7 @@ public:
                             info.targets.emplace_back(std::make_pair(tfArmor2Ground.translatePoint(), tfArmor2Ground));
                             // {
                             //     auto p = tfArmor2Ground.translatePoint().mVal;
-                            //     logInfo(fmt::format("target: {:.3f} {:.3f} {:.3f} {:.3f}", p.x, p.y, p.z, theta));
+                            //     logInfo(fmt::format("target: {:.3f} {:.3f} {:.3f} {:.3f}", p.x, p.y, p.z, yaw));
                             // }
                         }
                     }

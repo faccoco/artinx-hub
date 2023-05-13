@@ -89,7 +89,6 @@ public:
                             DetectedTarget{ { 0.0, 0.0 },
                                             length((pos + Vector<UnitType::Distance, FrameOfRef::Gun>(noise)).mVal),
                                             pos + Vector<UnitType::Distance, FrameOfRef::Gun>(noise),
-                                            0.0,
                                             RobotType::Infantry1,
                                             ArmorType::Small,
                                             rmat });

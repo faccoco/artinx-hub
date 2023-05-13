@@ -72,11 +72,11 @@ public:
                     return;
 
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->center;
-                Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->lVel;
+                Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->linearVel;
                 // HubLogger::watch("x", posRefRobot.mVal.x);
                 HubLogger::watch("verticalDistance", posRefRobot.mVal.y);
                 // HubLogger::watch("z", posRefRobot.mVal.z);
-                HubLogger::watch("horizontalDistance", std::sqrt(square(posRefRobot.mVal.z)+square(posRefRobot.mVal.x)));
+                HubLogger::watch("horizontalDistance", std::sqrt(square(posRefRobot.mVal.z) + square(posRefRobot.mVal.x)));
 
                 //(forward:+y,right:+x)
                 glm::dvec3 tfPos = tf(posRefRobot.mVal);

@@ -80,6 +80,7 @@ public:
             system.registry().put(name, actor);
             return actor;
         } catch(const std::exception& e) {
+            logError(fmt::format("Build Node {} error occurred! Check the corresponding config file", name));
             logError(e.what());
             throw;
         }
@@ -211,7 +212,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         logError("No config file path argument or config file path do not exsits!");
         return 0;
     }
-    spdlog::set_pattern("[%l]:%v");                 //set spdlog fmt
+    spdlog::set_pattern("[%l]:%v");  // set spdlog fmt
     spdlog::init_thread_pool(8192, 1);
 
     globalConfigName = fs::path{ argv[1] }.filename().string();
@@ -219,6 +220,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         globalConfigName = globalConfigName.substr(0, pos);
 
     const auto configData = loadConfig(argv[1]);
+    logInfo("Load config file data successfully!");
     const auto pipelineConfig = caf::config_value::parse(configData).value();
     GlobalSettings::get() = caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value();
 

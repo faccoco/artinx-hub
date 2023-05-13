@@ -86,7 +86,7 @@ public:
             if(auto configValue = caf::get_as<Config>(config)) {
                 mConfig = std::move(configValue.value());
             } else {
-                logError("Bad config");
+                logError("Parse node config file failed!");
             }
         }
 
@@ -171,8 +171,8 @@ public:
     }
 
     static void fileLog(const std::string_view msg) {
-        static auto mFileLogger = spdlog::rotating_logger_mt<spdlog::async_factory>(
-            "fileLogger", "data/logs/log.txt", 1024 * 1024 * 5, 200000);
+        static auto mFileLogger =
+            spdlog::rotating_logger_mt<spdlog::async_factory>("fileLogger", "data/logs/log.txt", 1024 * 1024 * 5, 200000);
         mFileLogger->info(msg);
     }
 };

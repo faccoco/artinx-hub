@@ -11,7 +11,6 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/string_cast.hpp>
 #include <magic_enum.hpp>
 #include <opencv2/opencv.hpp>
 #include <tuple>
@@ -51,6 +50,7 @@ struct DahengDriverSettings final {
     bool enableAutoWhiteBalance;
     double gain;
     glm::dvec3 offset;  // based on gun
+    double yaw;         // in degree
     double pitch;       // in degree
 };
 
@@ -66,7 +66,7 @@ bool inspect(Inspector& f, DahengDriverSettings& x) {
         f.field("disableUndistort", x.disableUndistort).fallback(false),
         f.field("enableAutoWhiteBalance", x.enableAutoWhiteBalance).fallback(false), f.field("gain", x.gain).fallback(0.0),
         f.field("dx", x.offset.x).fallback(0.0), f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0),
-        f.field("pitch", x.pitch).fallback(0.0));
+        f.field("yaw", x.yaw).fallback(0.0), f.field("pitch", x.pitch).fallback(0.0));
 }
 
 static void checkGXStatus(const GX_STATUS status) {
@@ -108,8 +108,10 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
     std::string mCameraSerialNumber;
     bool mDoUndistort;
 
-    const Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> mTfGun2Camera = glm::translate(
-        glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 }), -mConfig.offset);
+    glm::dmat4 rotateMat =
+        glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.yaw), glm::dvec3{ 0, 1, 0 }),
+                    -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 });   // first rotate yaw, second rotate pitch
+    const Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> mTfGun2Camera = glm::translate(rotateMat, -mConfig.offset);
 
     void reportFrameRate(const Clock::time_point timeStamp) {
         const auto current = timeStamp.time_since_epoch().count();

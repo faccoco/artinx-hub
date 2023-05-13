@@ -314,9 +314,9 @@ public:
                         if(mTrackedArmor.trackingState == TrackingState::TRACKING ||
                            mTrackedArmor.trackingState == TrackingState::TEMP_LOST) {
                             res.center = glm::dvec3{ mTrackedArmor.state(0), mTrackedArmor.state(1), mTrackedArmor.state(2) };
-                            res.theta = mTrackedArmor.state(3);
-                            res.lVel = glm::dvec3{ mTrackedArmor.state(4), mTrackedArmor.state(5), mTrackedArmor.state(6) };
-                            res.aVel = mTrackedArmor.state(7);
+                            res.yaw = mTrackedArmor.state(3);
+                            res.linearVel = glm::dvec3{ mTrackedArmor.state(4), mTrackedArmor.state(5), mTrackedArmor.state(6) };
+                            res.angularVel = mTrackedArmor.state(7);
                             res.radius = { mTrackedArmor.state(8), mLastR };
                             res.y = { mTrackedArmor.state(1), mLastY };
                             sendAll(predict_success_atom_v,
@@ -328,20 +328,21 @@ public:
                                         mTrackedArmor.state(3), mTrackedArmor.state(4), mTrackedArmor.state(5),
                                         mTrackedArmor.state(6), mTrackedArmor.state(7), mTrackedArmor.state(8)));
                     mTrackedArmor.lastUpdate = data->lastUpdate;
-                    HubLogger::watch("lVelX", res.lVel.mVal.x);
-                    HubLogger::watch("lVelY", res.lVel.mVal.y);
-                    HubLogger::watch("lVelZ", res.lVel.mVal.z);
+                    HubLogger::watch("lVelX", res.linearVel.mVal.x);
+                    HubLogger::watch("lVelY", res.linearVel.mVal.y);
+                    HubLogger::watch("lVelZ", res.linearVel.mVal.z);
                 } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
                     const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                     if(!dataPosture.has_value() || !data->selected.has_value())
                         return;
                     res.center = getArmorPos(data->selected.value());
-                    res.theta = getArmorYaw(data->selected.value());
-                    res.lVel = -dataPosture->linearVelocityOfRobot.mVal;
-                    res.aVel = 0;
+                    res.yaw = getArmorYaw(data->selected.value());
+                    res.linearVel = -dataPosture->linearVelocityOfRobot.mVal;
+                    res.angularVel = 0;
                     res.radius = { 0, 0 };
                     res.y = { res.center.mVal.y, res.center.mVal.y };
-                    logInfo(fmt::format("lVel:{:.3f} {:.3f} {:.3f}", res.lVel.mVal.x, res.lVel.mVal.y, res.lVel.mVal.z));
+                    logInfo(fmt::format("linearVel:{:.3f} {:.3f} {:.3f}", res.linearVel.mVal.x, res.linearVel.mVal.y,
+                                        res.linearVel.mVal.z));
                     sendAll(predict_success_atom_v,
                             BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
                 }

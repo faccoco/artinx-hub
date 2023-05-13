@@ -70,7 +70,7 @@ public:
                 if(init) {
                     clear();
                     mTargetTheta = getTheta(tfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(0, 0, -1)).mVal);
-                    logInfo(fmt::format("PeriodOutpostPredictor: inited theta {} degree", glm::degrees(mTargetTheta)));
+                    logInfo(fmt::format("PeriodOutpostPredictor: inited yaw {} degree", glm::degrees(mTargetTheta)));
                     return;
                 }
 
@@ -78,14 +78,14 @@ public:
                 if(thetaDelta > glm::pi<double>())
                     thetaDelta = glm::two_pi<double>() - thetaDelta;
 
-                logInfo(fmt::format("PeriodOutpostPredictor: theta delta: {}", thetaDelta));
+                logInfo(fmt::format("PeriodOutpostPredictor: yaw delta: {}", thetaDelta));
 
                 // check
                 if(thetaDelta <= sameThetaThreshold) {
-                    // logInfo("PeriodOutpostPredictor: same theta");
+                    // logInfo("PeriodOutpostPredictor: same yaw");
                     // logInfo(fmt::format("PeriodOutpostPredictor: pos:{} {} {}", posRefRobot.mVal.x, posRefRobot.mVal.y,
                     //                     posRefRobot.mVal.z));
-                    // logInfo(fmt::format("PeriodOutpostPredictor: theta: {} degree", glm::degrees(getTheta(posRefRobot.mVal))));
+                    // logInfo(fmt::format("PeriodOutpostPredictor: yaw: {} degree", glm::degrees(getTheta(posRefRobot.mVal))));
 
                     if(!mLastTime.has_value()) {
                         mTargetPitch = getPitch(posRefRobot.mVal);

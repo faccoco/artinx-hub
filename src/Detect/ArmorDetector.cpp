@@ -304,7 +304,6 @@ class ArmorDetector final
             //            logInfo(fmt::format("Number classification cost {:.3f}ms ", durationCastDouble(t1 - t0) * 1000));
             condArmor.id = id;
             condArmor.prob = prob;
-            logInfo(fmt::format("id is {}, prob is {}", id, prob));
             if(id == 8 || prob < mConfig.numProbThresh)  // id 8 -> negative
                 continue;
             Armor armor = {};
@@ -357,7 +356,6 @@ public:
                      res.armors = solve(frame.frame);
                      const auto t2 = Clock::now();
                      logInfo(fmt::format("Armor Detector Cost time: {:.3f}s", durationCastDouble(t2 - t1)));
-                     HubLogger::watch("ArmorDetectorCostTime", durationCastDouble(t2 - t1));
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
