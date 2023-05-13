@@ -12,7 +12,9 @@
 
 #include "SuppressWarningEnd.hpp"
 
-struct InfantryStrategySettings final {};
+struct InfantryStrategySettings final {
+
+};
 
 template <class Inspector>
 bool inspect(Inspector& f, InfantryStrategySettings& x) {
