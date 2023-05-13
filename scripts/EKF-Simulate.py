@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import math as m
+from copy import deepcopy
 
 dt = 0.01
 cnt = 1000 # Measure times
@@ -59,6 +60,12 @@ def EKF(x, Z):
 def static(x):
     return x
 
+v = np.array([1.0, 0.0, 0.0])
+def tranlateMove(x):
+    x[:3] += v * dt
+    x[4:7] = v
+    return x
+
 def generateMeasureData(x_init, move_fun):
     Z_list = []
     real_x_list = []
@@ -71,12 +78,14 @@ def generateMeasureData(x_init, move_fun):
     z_noise = np.random.normal(0, z_sigma, cnt)
     yaw_noise = np.random.normal(0, yaw_sigma, cnt) 
     noise = np.stack([x_noise, y_noise, z_noise, yaw_noise])
+    x = x_init
     for i in range(cnt):
-        real_x = move_fun(x_init)
-        real_x_list.append(x_init)
+        real_x = move_fun(x)
+        real_x_list.append(deepcopy(real_x))
         Z_no_noise = h(real_x)
         Z = Z_no_noise + noise[:, i]
-        Z_list.append(Z)
+        Z_list.append(deepcopy(Z))
+        x = real_x
     return [real_x_list, Z_list]
     
 def execEKF(Z_list):
@@ -92,11 +101,11 @@ def execEKF(Z_list):
     p_arr = np.zeros(9)
     for i in range(9):
         p_arr[i] = P[i][i]
-    P_list.append(p_arr)
+    P_list.append(deepcopy(p_arr))
     ekf_list.append(x_prio)
     for i in range(1, cnt):
         x_post = EKF(x_prio, Z_list[i])
-        ekf_list.append(x_post)
+        ekf_list.append(deepcopy(x_post))
         x_prio = x_post
         
         p_arr = np.zeros(9)
@@ -108,6 +117,7 @@ def execEKF(Z_list):
 
 x_init = np.array([0.1, -0.1, -3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2])
 real_x_list, Z_list = generateMeasureData(x_init, static)
+# real_x_list, Z_list = generateMeasureData(x_init, tranlateMove)
 ekf_list, P_list = execEKF(Z_list)
 
 t = np.arange(0, cnt * dt, dt)
