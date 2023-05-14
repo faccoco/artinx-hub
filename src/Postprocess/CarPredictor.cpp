@@ -1,4 +1,4 @@
-// https://github.com/chenjunnn/rm_auto_aim
+// Ref: https://github.com/chenjunnn/rm_auto_aim
 
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
@@ -12,7 +12,6 @@
 #include "Utility.hpp"
 
 #include <caf/event_based_actor.hpp>
-#include <eigen3/Eigen/Dense>
 #include <magic_enum.hpp>
 
 struct CarPredictorSettings final {
@@ -33,7 +32,7 @@ bool inspect(Inspector& f, CarPredictorSettings& x) {
         f.field("R", x.R).invariant([](auto& c) { return c.size() == 4; }).fallback(std::vector<double>(4, 0)));
 }
 
-class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictorSettings, predict_success_atom> {
+class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictorSettings, car_predict_atom> {
     Identifier mKey, mIMUKey;
 
     enum class TrackingState {
@@ -319,7 +318,7 @@ public:
                             res.angularVel = mTrackedArmor.state(7);
                             res.radius = { mTrackedArmor.state(8), mLastR };
                             res.y = { mTrackedArmor.state(1), mLastY };
-                            sendAll(predict_success_atom_v,
+                            sendAll(car_predict_atom_v,
                                     BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
                         }
                     }
@@ -343,8 +342,7 @@ public:
                     res.y = { res.center.mVal.y, res.center.mVal.y };
                     logInfo(fmt::format("linearVel:{:.3f} {:.3f} {:.3f}", res.linearVel.mVal.x, res.linearVel.mVal.y,
                                         res.linearVel.mVal.z));
-                    sendAll(predict_success_atom_v,
-                            BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
+                    sendAll(car_predict_atom_v, BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
                 }
             },
             [this](update_posture_atom, Identifier key) {
