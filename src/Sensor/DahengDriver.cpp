@@ -108,9 +108,10 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
     std::string mCameraSerialNumber;
     bool mDoUndistort;
 
+    // first rotate yaw, counterclockwise is positive, second rotate pitch, up is positive
     glm::dmat4 rotateMat =
-        glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.yaw), glm::dvec3{ 0, 1, 0 }),
-                    -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 });   // first rotate yaw, second rotate pitch
+        glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 }),
+                    -glm::radians<double>(mConfig.yaw), glm::dvec3{ 0, 1, 0 });
     const Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> mTfGun2Camera = glm::translate(rotateMat, -mConfig.offset);
 
     void reportFrameRate(const Clock::time_point timeStamp) {
