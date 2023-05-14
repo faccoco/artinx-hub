@@ -1,3 +1,4 @@
+from cProfile import label
 import numpy as np
 import matplotlib.pyplot as plt
 import math as m
@@ -7,10 +8,10 @@ dt = 0.01
 cnt = 1000 # Measure times
 
 P = np.diag([0.0009, 0.0009, 0.0009, 0.0009, 0.0009, 0.0009, 0.0009, 0.0009, 0.0009])
-             #xc    #yc  #zc   #yaw #v_xc #v_yc  #v_zc  #w #r
-Q = np.diag([0.0002, 0.0002, 0.0002, 0.0002, 0.0002, 0.0002, 0.0002, 0.0002, 0.0009])
+             #xc        #yc   #zc     #yaw    #v_xc #v_yc  #v_zc  #w #r
+Q = np.diag([0.0002, 0.0002, 0.0001, 0.0002, 0.0012, 0.0002, 0.0002, 0.0002, 0.0002])
 #Q = np.diag([0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
-R = np.diag([0.0009, 0.0009, 0.0016, 0.0036])
+R = np.diag([0.0006, 0.0006, 0.0009, 0.0009])
 
 F = np.array([[1,   0,   0,   0,   dt, 0,   0,   0,   0],
               [0,   1,   0,   0,   0,  dt,  0,   0,   0],
@@ -60,19 +61,30 @@ def EKF(x, Z):
 def static(x):
     return x
 
-v = np.array([1.0, 0.0, 0.0])
+v = np.array([3.0, 0.0, 0.0])
 def tranlateMove(x):
     x[:3] += v * dt
     x[4:7] = v
     return x
 
+w = 2.0
+def spinMove(x):
+    x[3] += w * dt
+    x[7] = w
+    return x
+
+def tranlateSpinMove(x):
+    x = tranlateMove(x)
+    x = spinMove(x)
+    return x
+
 def generateMeasureData(x_init, move_fun):
     Z_list = []
     real_x_list = []
-    x_sigma = 0.03
-    y_sigma = 0.03
-    z_sigma = 0.04
-    yaw_sigma = 0.06
+    x_sigma = 0.02
+    y_sigma = 0.02
+    z_sigma = 0.03
+    yaw_sigma = 0.03
     x_noise = np.random.normal(0, x_sigma, cnt)
     y_noise = np.random.normal(0, y_sigma, cnt)
     z_noise = np.random.normal(0, z_sigma, cnt)
@@ -116,8 +128,9 @@ def execEKF(Z_list):
     return [ekf_list, P_list]
 
 x_init = np.array([0.1, -0.1, -3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2])
-real_x_list, Z_list = generateMeasureData(x_init, static)
-# real_x_list, Z_list = generateMeasureData(x_init, tranlateMove)
+#real_x_list, Z_list = generateMeasureData(x_init, static)
+#real_x_list, Z_list = generateMeasureData(x_init, tranlateMove)
+real_x_list, Z_list = generateMeasureData(x_init, spinMove)
 ekf_list, P_list = execEKF(Z_list)
 
 t = np.arange(0, cnt * dt, dt)
@@ -126,26 +139,37 @@ Z_arr = np.array(Z_list)
 ekf_arr = np.array(ekf_list)
 P_arr = np.array(P_list)
 plt.subplot(421)
-plt.plot(t, real_x_arr[:, 0])
-plt.plot(t, ekf_arr[:, 0])
+plt.plot(t, real_x_arr[:, 0], label = 'real_xa')
+plt.plot(t, ekf_arr[:, 0], label = 'ekf_xa')
+plt.title('xa')
 plt.subplot(422)
-plt.plot(t, real_x_arr[:, 4])
-plt.plot(t, ekf_arr[:, 4])
+plt.plot(t, real_x_arr[:, 4], label = 'real_vx')
+plt.plot(t, ekf_arr[:, 4], label = 'ekf_va')
+plt.title('vx')
 plt.subplot(423)
-plt.plot(t, real_x_arr[:, 2])
-plt.plot(t, ekf_arr[:, 2])
+plt.plot(t, real_x_arr[:, 2], label = 'real_za')
+plt.plot(t, ekf_arr[:, 2], label = 'ekf_za')
+plt.title('za')
 plt.subplot(424)
-plt.plot(t, real_x_arr[:, 6])
-plt.plot(t, ekf_arr[:, 6])
+plt.plot(t, real_x_arr[:, 6], label = 'real_vz')
+plt.plot(t, ekf_arr[:, 6], label = 'ekf_vz')
+plt.title('vz')
 plt.subplot(425)
-plt.plot(t, real_x_arr[:, 3])
-plt.plot(t, ekf_arr[:, 3])
+plt.plot(t, real_x_arr[:, 3], label = 'real_yaw')
+plt.plot(t, ekf_arr[:, 3], label = 'ekf_yaw')
+plt.title('yaw')
 plt.subplot(426)
-plt.plot(t, real_x_arr[:, 7])
-plt.plot(t, ekf_arr[:, 7])
+plt.plot(t, real_x_arr[:, 7], label = 'real_w')
+plt.plot(t, ekf_arr[:, 7], label = 'ekf_w')
+plt.title('w')
 plt.subplot(427)
-plt.plot(t, P_arr[:, 0])
-plt.plot(t, P_arr[:, 4])
+plt.plot(t, real_x_arr[:, 8], label = 'real_r')
+plt.plot(t, ekf_arr[:, 8], label = 'ekf_r')
+plt.title('r')
+plt.subplot(428)
+for i in range(9):
+    plt.plot(t, P_arr[:, i], label = 'sigma_' + str(i))
+plt.title('P')
 plt.show()
 
 
