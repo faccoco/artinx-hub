@@ -677,16 +677,15 @@ if(rect.size.width < rect.size.height) {  // rotate rect
        * @param center 	  	    要变换到的坐标系三个向量的方向，根据yaw角和pitch角推出，可以自己想一想怎么推出来的
        * @param up				上向量
        */
-        const HeadInfo infoUp{
-            SynchronizedClock::instance().now(),
-            decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
-                glm::dvec3{ -std::sin(static_cast<double>(fdb.yaw)) * std::cos(static_cast<double>(fdb.pitch)),
-                            mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
-                            mConfig.headForwardOffset1 -
-                                std::cos(static_cast<double>(fdb.yaw)) * std::cos(static_cast<double>(fdb.pitch)) },
-                glm::dvec3{ 0.0, 1.0, 0.0 }) }
-        };
+        const double yaw = glm::half_pi<double>() - fdb.yaw;
+        const double pitch = fdb.pitch;
+        const HeadInfo infoUp{ SynchronizedClock::instance().now(),
+                                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                                    glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
+                                    glm::dvec3{ std::cos(pitch) * std::cos(yaw),
+                                                mConfig.headHeightOffset1 + std::sin(pitch),
+                                                mConfig.headForwardOffset1 + std::cos(pitch) * std::sin(yaw) },
+                                    glm::dvec3{ 0.0, 1.0, 0.0 }) } };
     ```
 
 ## Angle Solver

@@ -210,26 +210,23 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             mCapEnergy = fdb.capEnergy;
             mChasisPower = fdb.chasisPower;
 
-            const HeadInfo infoUp{
-                SynchronizedClock::instance().now(),
-                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                    glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
-                    glm::dvec3{ -std::sin(static_cast<double>(fdb.yaw)) * std::cos(static_cast<double>(fdb.pitch)),
-                                mConfig.headHeightOffset1 + std::sin(static_cast<double>(fdb.pitch)),
-                                mConfig.headForwardOffset1 -
-                                    std::cos(static_cast<double>(fdb.yaw)) * std::cos(static_cast<double>(fdb.pitch)) },
-                    glm::dvec3{ 0.0, 1.0, 0.0 }) }
-            };
-            const HeadInfo infoDown{
-                SynchronizedClock::instance().now(),
-                decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                    glm::dvec3{ 0.0, mConfig.headHeightOffset2, mConfig.headForwardOffset2 },
-                    glm::dvec3{ -std::sin(static_cast<double>(fdb.downYaw)) * std::cos(static_cast<double>(fdb.downPitch)),
-                                mConfig.headHeightOffset2 + std::sin(static_cast<double>(fdb.downPitch)),
-                                mConfig.headForwardOffset2 -
-                                    std::cos(static_cast<double>(fdb.downYaw)) * std::cos(static_cast<double>(fdb.downPitch)) },
-                    glm::dvec3{ 0.0, 1.0, 0.0 }) }
-            };
+            const double yaw = glm::half_pi<double>() - fdb.yaw;
+            const double pitch = fdb.pitch;
+            const HeadInfo infoUp{ SynchronizedClock::instance().now(),
+                                   decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                                       glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
+                                       glm::dvec3{ std::cos(pitch) * std::cos(yaw), mConfig.headHeightOffset1 + std::sin(pitch),
+                                                   mConfig.headForwardOffset1 + std::cos(pitch) * std::sin(yaw) },
+                                       glm::dvec3{ 0.0, 1.0, 0.0 }) } };
+            const double downYaw = glm::half_pi<double>() - fdb.downYaw;
+            const double downPitch = fdb.downPitch;
+            const HeadInfo infoDown{ SynchronizedClock::instance().now(),
+                                     decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                                         glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
+                                         glm::dvec3{ std::cos(downPitch) * std::cos(downYaw),
+                                                     mConfig.headHeightOffset1 + std::sin(downPitch),
+                                                     mConfig.headForwardOffset1 + std::cos(downPitch) * std::sin(downYaw) },
+                                         glm::dvec3{ 0.0, 1.0, 0.0 }) } };
 
             PostureData posture;
             posture.lastUpdate = SynchronizedClock::instance().now();

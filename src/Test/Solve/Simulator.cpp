@@ -290,13 +290,15 @@ public:
             // update head info
             Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
             {
+                const double yaw = glm::half_pi<double>() - mHeadYaw;
+                const double pitch = mHeadPitch;
                 const HeadInfo info{ nowTimePoint,
-                                     decltype(HeadInfo::tfRobot2Gun){
-                                         glm::lookAtRH(glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
-                                                       glm::dvec3{ -std::sin(mHeadYaw) * std::cos(mHeadPitch),
-                                                                   mConfig.headHeightOffset + std::sin(mHeadPitch),
-                                                                   -std::cos(mHeadYaw) * std::cos(mHeadPitch) },
-                                                       glm::dvec3{ 0.0, 1.0, 0.0 }) } };
+                                       decltype(HeadInfo::tfRobot2Gun){
+                                           glm::lookAtRH(glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
+                                                         glm::dvec3{ std::cos(pitch) * std::cos(yaw),
+                                                                     mConfig.headHeightOffset + std::sin(pitch),
+                                                                     std::cos(pitch) * std::sin(yaw) },
+                                                         glm::dvec3{ 0.0, 1.0, 0.0 }) } };
                 tfRobot2Gun = info.tfRobot2Gun;
                 sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, info));
                 sendMasked(update_head_atom_v, 2U, 2U,
