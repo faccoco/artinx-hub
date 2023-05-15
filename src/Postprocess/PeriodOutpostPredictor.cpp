@@ -121,7 +121,7 @@ public:
                 if(!mLastTime.has_value()) {
                     mTargetPitch = getPitch(res.position.mVal);
                     mLastTime = data->lastUpdate;
-                    // logInfo("PeriodOutpostPredictor: find first");
+//                    logInfo("PeriodOutpostPredictor: find first");
                     sendAll(period_predict_success_atom_v,
                             BlackBoard::instance().updateSync<PredictedPeriodTarget>(Identifier{ mKey.val }, res));
                     return;

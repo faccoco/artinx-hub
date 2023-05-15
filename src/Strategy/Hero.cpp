@@ -22,7 +22,7 @@ struct HeroStrategySettings final {
 template <class Inspector>
 bool inspect(Inspector& f, HeroStrategySettings& x) {
     return f.object(x).fields(f.field("periodPredictType", x.periodPredictType).fallback("outpost"),
-                              f.field("staticImgPosThreshold", x.staticImgPosThreshold).fallback(10),
+                              f.field("staticImgPosThreshold", x.staticImgPosThreshold).fallback(1),
                               f.field("maxMatchImgDistance", x.maxMatchImgDistance).fallback(10));
 }
 
@@ -101,6 +101,7 @@ public:
                         target.motion = ArmorMotion::Unsure;
                         continue;
                     }
+//                    logInfo(magic_enum::enum_name(target.motion));
                 }
                 
                 if(mPeriodActive) {
