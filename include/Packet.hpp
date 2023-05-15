@@ -12,7 +12,7 @@
 
 struct FdbPacket final {
     static constexpr uint16_t id = 0x0A;
-    float yaw, pitch, downYaw, downPitch, bulletSpeed, speedX, speedY;
+    float yaw, pitch, roll, downYaw, downPitch, bulletSpeed, speedX, speedY;
     uint8_t color, shooterId, energyMode, outpostMode;
     float capEnergy, chasisPower;
     uint16_t shootDelayTime;  // ms
@@ -20,6 +20,7 @@ struct FdbPacket final {
         PacketReader<1024> reader(buffer);
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
+        roll = reader.readCompressedFloat(-4.0f, 0.0005f);
         downYaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         downPitch = reader.readCompressedFloat(-4.0f, 0.0005f);
         speedX = reader.readCompressedFloat(-20.0f, 0.01f);

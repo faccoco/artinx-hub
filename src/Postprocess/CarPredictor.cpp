@@ -340,8 +340,6 @@ public:
                     res.angularVel = 0;
                     res.radius = { 0, 0 };
                     res.y = { res.center.mVal.y, res.center.mVal.y };
-                    logInfo(fmt::format("linearVel:{:.3f} {:.3f} {:.3f}", res.linearVel.mVal.x, res.linearVel.mVal.y,
-                                        res.linearVel.mVal.z));
                     sendAll(car_predict_atom_v, BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
                 }
             },

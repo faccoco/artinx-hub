@@ -161,8 +161,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                             sumSpeed += speed;
                         }
                         GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
-                        HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
                     }
+                    HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
                 }
                 mLastBulletSpeed = fdb.bulletSpeed;
             }
@@ -193,6 +193,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             // HubLogger::watch("delta yaw2", gimbalSetPacket.down.yaw - fdb.downYaw);
             // HubLogger::watch("delta pitch2", gimbalSetPacket.down.pitch - fdb.downPitch);
 
+//            logInfo(fmt::format("{:.5f} {:.5f} {:.5f}",fdb.yaw,fdb.pitch,fdb.roll));
+
             GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
             HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
@@ -212,12 +214,13 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
             const double yaw = -fdb.yaw - glm::half_pi<double>();
             const double pitch = fdb.pitch;
+            const double roll = fdb.roll;
             const HeadInfo infoUp{ SynchronizedClock::instance().now(),
                                    decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
                                        glm::dvec3{ 0.0, mConfig.headHeightOffset1, mConfig.headForwardOffset1 },
                                        glm::dvec3{ std::cos(pitch) * std::cos(yaw), mConfig.headHeightOffset1 + std::sin(pitch),
                                                    mConfig.headForwardOffset1 + std::cos(pitch) * std::sin(yaw) },
-                                       glm::dvec3{ 0.0, 1.0, 0.0 }) } };
+                                       glm::dvec3{ sin(roll), cos(roll), 0.0 }) } };
             const double downYaw = -fdb.downYaw - glm::half_pi<double>();
             const double downPitch = fdb.downPitch;
             const HeadInfo infoDown{ SynchronizedClock::instance().now(),
