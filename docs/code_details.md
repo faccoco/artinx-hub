@@ -677,7 +677,7 @@ if(rect.size.width < rect.size.height) {  // rotate rect
        * @param center 	  	    要变换到的坐标系三个向量的方向，根据yaw角和pitch角推出，可以自己想一想怎么推出来的
        * @param up				上向量
        */
-        const double yaw = glm::half_pi<double>() - fdb.yaw;
+        const double yaw = -fdb.yaw - glm::half_pi<double>();
         const double pitch = fdb.pitch;
         const HeadInfo infoUp{ SynchronizedClock::instance().now(),
                                 decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
