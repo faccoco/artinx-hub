@@ -91,6 +91,7 @@ public:
                                             pos + Vector<UnitType::Distance, FrameOfRef::Gun>(noise),
                                             RobotType::Infantry1,
                                             ArmorType::Small,
+                                            ArmorMotion::Unsure,
                                             rmat });
                     }
 

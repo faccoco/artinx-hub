@@ -21,8 +21,6 @@ struct PeriodOutpostPredictorSettings final {
     double minIntervalThreshold;   // s
     double maxPeriodThreshold;     // s
     double maxPeriodStdThreshold;  // s
-    double staticImgPosThreshold;
-    double maxMatchImgDistance;
 };
 
 template <class Inspector>
@@ -31,17 +29,12 @@ bool inspect(Inspector& f, PeriodOutpostPredictorSettings& x) {
                               f.field("samePitchThreshold", x.samePitchThreshold).fallback(1),
                               f.field("minIntervalThreshold", x.minIntervalThreshold).fallback(0.1),
                               f.field("maxPeriodThreshold", x.maxPeriodThreshold).fallback(5),
-                              f.field("maxPeriodStdThreshold", x.maxPeriodStdThreshold).fallback(0.015),
-                              f.field("staticImgPosThreshold", x.staticImgPosThreshold).fallback(10),
-                              f.field("maxMatchImgDistance", x.maxMatchImgDistance).fallback(10));
+                              f.field("maxPeriodStdThreshold", x.maxPeriodStdThreshold).fallback(0.015));
 }
 
 class PeriodOutpostPredictor final
     : public HubHelper<caf::event_based_actor, PeriodOutpostPredictorSettings, period_predict_success_atom> {
     Identifier mKey;
-
-    constexpr static Duration mTrackValidTime = 50ms;
-    constexpr static int mTrackSize = 10;
 
     const double mSameThetaThreshold;
     const double mSamePitchThreshold;
@@ -51,7 +44,6 @@ class PeriodOutpostPredictor final
     std::vector<double> mPeriodTimes;
     std::optional<TimePoint> mLastTime;
     Transform<FrameOfRef::Gun, FrameOfRef::Robot, true> mTfGun2Robot;
-    std::list<std::queue<std::pair<TimePoint, cv::Point2f>>> mTrackedArmors;
 
     glm::dvec3 getArmorPos(const DetectedTarget& armor) {
         return mTfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(armor.center.mVal)).mVal;
@@ -100,36 +92,10 @@ public:
                 PredictedPeriodTarget res;
                 res.lastUpdate = data->lastUpdate;
 
-                // exclude invalid data in mTrackedArmors
-                for(auto trackedIter = mTrackedArmors.begin(); trackedIter != mTrackedArmors.end(); trackedIter++) {
-                    while(!trackedIter->empty() && trackedIter->front().first - res.lastUpdate > mTrackValidTime)
-                        trackedIter->pop();
-                    if(trackedIter->empty())
-                        mTrackedArmors.erase(trackedIter);
-                }
-
+                // find same theta armor
                 bool findSameTheta = false;
                 for(const auto& target : data->targets) {
-                    // process whether armor is static
-                    std::optional<bool> isStatic;
-                    for(auto& tracked : mTrackedArmors) {
-                        // matched
-                        if(distance2D(tracked.back().second, target.armorImgCenter) < mConfig.maxMatchImgDistance) {
-                            isStatic = distance2D(tracked.front().second, target.armorImgCenter) < mConfig.staticImgPosThreshold;
-                            if(tracked.size() == mTrackSize)
-                                tracked.pop();
-                            tracked.emplace(data->lastUpdate, target.armorImgCenter);
-                            break;
-                        }
-                    }
-                    // not find match armor
-                    if(!isStatic.has_value()) {
-                        mTrackedArmors.emplace_back();
-                        mTrackedArmors.back().emplace(data->lastUpdate, target.armorImgCenter);
-                        continue;
-                    }
-                    // exclude static armor
-                    if(isStatic)
+                    if(target.motion == ArmorMotion::Static)
                         continue;
 
                     auto posRefRobot = getArmorPos(target);

@@ -109,7 +109,7 @@ public:
                          auto rmatRefGun = combine(tfCamera2Gun, rmat);
                          auto armorImgCenter = clcArmorImgCenter();
                          res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefGun,
-                                                 armor.robotType, armorType, rmatRefGun });
+                                                 armor.robotType, armorType, ArmorMotion::Unsure, rmatRefGun });
                          //                         logInfo(fmt::format("Position ref Camera: x:{:.3}, y:{:.3}, z:{:.3} Armor
                          //                         Type:{}", point.mVal.x,
                          //                                             point.mVal.y, point.mVal.z, isLargeArmor));
