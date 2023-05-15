@@ -40,7 +40,7 @@ public:
                         !mPeriodInited);
             };
         else {
-            logInfo("HeroStrategy wrong periodPredictType using fallback \"outpost\"");
+            logInfo("SimpleStrategy wrong periodPredictType using fallback \"outpost\"");
             mSendPeriodFunc = [this](const SelectedTarget& selected) {
                 sendAll(set_period_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
                         !mPeriodInited);
@@ -59,22 +59,19 @@ public:
                 selected.tfRobot2Gun = data.tfRobot2Gun;
                 selected.targets = data.targets;
 
-                double minDisToImgCenter = std::numeric_limits<double>::max();
-                for(const auto& target : selected.targets) {
-                    if(target.distToImgCenter < minDisToImgCenter) {
-                        selected.selected = target;
-                        minDisToImgCenter = target.distToImgCenter;
-                    }
-                }
                 if(mPeriodActive) {
                     mSendPeriodFunc(selected);
-                    if(selected.selected.has_value() && !mPeriodInited)
-                        mPeriodInited = true;
+                    mPeriodInited = true;
                 } else {
+                    double minDisToImgCenter = std::numeric_limits<double>::max();
+                    for(const auto& target : selected.targets) {
+                        if(target.distToImgCenter < minDisToImgCenter) {
+                            selected.selected = target;
+                            minDisToImgCenter = target.distToImgCenter;
+                        }
+                    }
                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                 }
-                if(selected.selected.has_value())
-                    HubLogger::watch("armor type", magic_enum::enum_name(selected.selected->type));
             },
             [this](outpost_detector_control_atom, bool active) {
                 ACTOR_PROTOCOL_CHECK(outpost_detector_control_atom, bool);
