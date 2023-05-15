@@ -25,7 +25,7 @@ struct AngleSolverSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
-    return f.object(x).fields(f.field("delay", x.delay), f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
+    return f.object(x).fields(f.field("delay", x.delay).fallback(0.010), f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
                               f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
                               f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60));
 }
@@ -63,13 +63,12 @@ public:
                      glm::dvec3 tfPos = tf(posRefRobot.mVal);
                      glm::dvec3 tfLinearVel = tf(linearVel.mVal);
 
-                     // logInfo(fmt::format("Source Velocity {} {} {}", linearVelocity.raw().x, linearVelocity.raw().y,
-                     // linearVelocity.raw().z));
                      tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
                                tfPos.z + delayTime * tfLinearVel.z };
 
                      auto [time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
-                     // logInfo(fmt::format("x:{}, y:{}, z:{}", tfPos.x, tfPos.y, tfPos.z));
+//                     logInfo(fmt::format("x:{}, y:{}, z:{}, xVel:{}, yVel:{}, zVel:{}", tfPos.x, tfPos.y, tfPos.z, tfLinearVel.x, tfLinearVel.y, tfLinearVel.z));
+//                     logInfo(fmt::format("time:{}, yawAngle:{}, pitch:{}", time, yawAngle, pitchAngle));
                      sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
                                          yawAngle, pitchAngle, true, normalSolver);
                  },
