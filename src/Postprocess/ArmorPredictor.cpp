@@ -24,11 +24,12 @@ struct ArmorPredictorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorPredictorSettings& x) {
-    return f.object(x).fields(f.field("enablePredictor", x.enablePredictor), f.field("maxDtThresh", x.maxDtThresh).fallback(0.1),
-                              f.field("maxDistThresh", x.maxDistThresh).fallback(0.2),
-                              f.field("P", x.P).invariant([](auto& c) { return c.size() == 6; }),
-                              f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 6; }),
-                              f.field("R", x.R).invariant([](auto& c) { return c.size() == 3; }));
+    return f.object(x).fields(
+        f.field("enablePredictor", x.enablePredictor), f.field("maxDtThresh", x.maxDtThresh).fallback(0.1),
+        f.field("maxDistThresh", x.maxDistThresh).fallback(0.2),
+        f.field("P", x.P).invariant([](auto& c) { return c.size() == 6; }).fallback(std::vector<double>(6)),
+        f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 6; }).fallback(std::vector<double>(6)),
+        f.field("R", x.R).invariant([](auto& c) { return c.size() == 3; }).fallback(std::vector<double>(3)));
 }
 
 /*   Kalman Filter:
