@@ -25,7 +25,7 @@ struct AngleSolverSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
-    return f.object(x).fields(f.field("delay", x.delay).fallback(0.010), f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
+    return f.object(x).fields(f.field("delay", x.delay).fallback(0.0), f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
                               f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
                               f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60));
 }
