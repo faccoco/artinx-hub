@@ -83,6 +83,7 @@ public:
                     for(auto& tracked : mTrackedArmors) {
                         // matched
                         if(distance2D(tracked.back().second, target.armorImgCenter) < mConfig.maxMatchImgDistance) {
+//                            logInfo(fmt::format("{}", distance2D(tracked.front().second, target.armorImgCenter)));
                             if(distance2D(tracked.front().second, target.armorImgCenter) < mConfig.staticImgPosThreshold)
                                 target.motion = ArmorMotion::Static;
                             else
@@ -101,9 +102,9 @@ public:
                         target.motion = ArmorMotion::Unsure;
                         continue;
                     }
-//                    logInfo(magic_enum::enum_name(target.motion));
+                    //                    logInfo(magic_enum::enum_name(target.motion));
                 }
-                
+
                 if(mPeriodActive) {
                     mSendPeriodFunc(selected);
                     mPeriodInited = true;

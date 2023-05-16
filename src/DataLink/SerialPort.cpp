@@ -48,7 +48,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     constexpr static size_t latencyLen = 100;
     constexpr static size_t mShootDelayLen = 5;
     constexpr static std::uint16_t maxShootDelay = 500;
-    constexpr static size_t mBulletSpeedLen = 10;
+    constexpr static size_t mBulletSpeedLen = 5;
 
     constexpr static Duration ChassisPowerRecordInterval = 100ms;
 
