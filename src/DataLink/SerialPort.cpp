@@ -162,7 +162,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                         }
                         GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
                     }
-                    HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
+                    HubLogger::watch("bulletSpeed", GlobalSettings::get().bulletSpeed);
                 }
                 mLastBulletSpeed = fdb.bulletSpeed;
             }
@@ -184,6 +184,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
             HubLogger::watch("yaw1", fdb.yaw);
             HubLogger::watch("pitch1", fdb.pitch);
+            HubLogger::watch("roll1", fdb.roll);
             // HubLogger::watch("yaw2", fdb.downYaw);
             // HubLogger::watch("pitch2", fdb.downPitch);
             // HubLogger::watch("speed x", fdb.speedX);

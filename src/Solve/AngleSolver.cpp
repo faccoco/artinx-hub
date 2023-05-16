@@ -121,8 +121,8 @@ public:
                              predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
                          }
                          if(yaw.has_value()) {
-                             logInfo(fmt::format("AngleSolver: target id: {} yaw: {:.3f} pitch: {:.3f}", i, yaw.value(),
-                                                 pitch.value()));
+//                             logInfo(fmt::format("AngleSolver: target id: {} yaw: {:.3f} pitch: {:.3f}", i, yaw.value(),
+//                                                 pitch.value()));
                              sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
                                                  yaw.value(), pitch.value(), true, normalSolver);
                              break;

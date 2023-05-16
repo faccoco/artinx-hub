@@ -78,7 +78,7 @@ public:
                 if(thetaDelta > glm::pi<double>())
                     thetaDelta = glm::two_pi<double>() - thetaDelta;
 
-                logInfo(fmt::format("PeriodOutpostPredictor: yaw delta: {}", thetaDelta));
+//                logInfo(fmt::format("PeriodOutpostPredictor: yaw delta: {}", thetaDelta));
 
                 // check
                 if(thetaDelta <= sameThetaThreshold) {
