@@ -32,7 +32,6 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
 
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
-    const double delayTime;
 
     static constexpr glm::dvec3 tf(const glm::dvec3& ori) {
         return { ori.x, -ori.z, ori.y };
@@ -43,7 +42,7 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
     }
 
 public:
-    AngleSolver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, delayTime(mConfig.delay) {}
+    AngleSolver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](predict_success_atom, Identifier key) {
@@ -63,6 +62,7 @@ public:
                      glm::dvec3 tfPos = tf(posRefRobot.mVal);
                      glm::dvec3 tfLinearVel = tf(linearVel.mVal);
 
+                     const auto delayTime = mConfig.delay + GlobalSettings::get().latency;
                      tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
                                tfPos.z + delayTime * tfLinearVel.z };
 
