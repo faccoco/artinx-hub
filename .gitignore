@@ -12,3 +12,4 @@ CMakeSettings.json
 .cache/
 compile_commands.json
 cmake-*.sh
+.DS_Store

@@ -42,17 +42,15 @@ public:
                      selected.tfRobot2Gun = data.tfRobot2Gun;
                      selected.targets = data.targets;
 
-                     auto minDistance = std::numeric_limits<double>::max();
-                     for(auto& target : data.targets) {
-                         const auto vec = target.center.mVal;
-                         const auto distance = vec.x * vec.x + vec.y * vec.y;
-                         if(distance < minDistance) {
-                             selected.selected = target;
-                             minDistance = distance;
-                         }
-                     }
+                    double minDisToImgCenter = std::numeric_limits<double>::max();
+                    for(const auto& target : selected.targets) {
+                        if(target.distToImgCenter < minDisToImgCenter) {
+                            selected.selected = target;
+                            minDisToImgCenter = target.distToImgCenter;
+                        }
+                    }
 
-                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                    sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                  } };
     }
 };

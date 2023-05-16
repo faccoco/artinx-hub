@@ -137,7 +137,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             default:
                 break;
         }
-        logInfo(fmt::format("ArmorPredictor: tracking state: {}", magic_enum::enum_name(mTrackedArmor.trackingState)));
+        logInfo(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}", magic_enum::enum_name(mTrackedArmor.trackingState), mDetectCount, mLostCount));
     }
 
     void init(const DetectedTarget& armor) {
@@ -185,12 +185,12 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                 // Update EKF
                 double measuredYaw = orientationToYaw(candidate.second);
                 Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, measuredYaw);
+                HubLogger::watch("xRefRobot", z(0));
+                HubLogger::watch("yRefRobot", z(1));
+                HubLogger::watch("zRefRobot", z(2));
+                HubLogger::watch("yawRefRobot", candidate.second);
                 mTrackedArmor.state = mEKF.update(z);
                 logInfo(fmt::format("ArmorPredictor: update: {:.3f} {:.3f} {:.3f} {:.3f}", z(0), z(1), z(2), z(3)));
-                HubLogger::watch("updateX", z(0));
-                HubLogger::watch("updateY", z(1));
-                HubLogger::watch("updateZ", z(2));
-                HubLogger::watch("updateYaw", candidate.second);
             } else {
                 // Check if there is same id armor in current frame
                 for(const auto& armor : armors) {
@@ -330,6 +330,7 @@ public:
                     HubLogger::watch("lVelX", res.linearVel.mVal.x);
                     HubLogger::watch("lVelY", res.linearVel.mVal.y);
                     HubLogger::watch("lVelZ", res.linearVel.mVal.z);
+                    HubLogger::watch("anglueVel", res.angularVel.mVal);
                 } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
                     const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                     if(!dataPosture.has_value() || !data->selected.has_value())

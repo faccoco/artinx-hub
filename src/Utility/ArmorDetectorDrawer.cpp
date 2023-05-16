@@ -44,10 +44,11 @@ public:
                          }
 
                          // 绘制目标颜色与类别
+                         std::string id(magic_enum::enum_name(armor.robotType));
                          int box_top_x = static_cast<int>(armor.light4Point[0].x);
                          int box_top_y = static_cast<int>(armor.light4Point[0].y);
 
-                         cv::putText(showImg, std::to_string(armor.robotType), cv::Point(box_top_x + 2, box_top_y), cv::FONT_HERSHEY_TRIPLEX, 0.5,
+                         cv::putText(showImg, id, cv::Point(box_top_x + 2, box_top_y), cv::FONT_HERSHEY_TRIPLEX, 0.5,
                                      cv::Scalar(0, 255, 255));
                      }
 
