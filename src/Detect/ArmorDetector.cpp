@@ -55,7 +55,7 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
         f.field("debugView", x.debugView).fallback(false), f.field("binaryThresh", x.binaryThresh).fallback(100),
         f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
         f.field("minLightRectRatio", x.minLightRectRatio).fallback(0.15),
-        f.field("maxLightRectRatio", x.maxLightRectRatio).fallback(0.6), f.field("maxLightAngle", x.maxLightAngle).fallback(40),
+        f.field("maxLightRectRatio", x.maxLightRectRatio).fallback(0.6), f.field("maxLightAngle", x.maxLightAngle).fallback(20),
         f.field("min2LightLenRatio", x.min2LightLenRatio).fallback(0.6),
         f.field("max2LightDiffAngle", x.max2LightDiffAngle).fallback(5.0),
         f.field("minArmorRectRatio", x.minArmorRectRatio).fallback(0.8),
@@ -110,7 +110,7 @@ class ArmorDetector final
         light.width = cv::norm(p[0] - p[1]);
 
         light.tiltAngle = std::atan2(std::fabs(light.top.x - light.bottom.x), std::fabs(light.top.y - light.bottom.y));
-        light.tiltAngle /= (CV_PI * 180);
+        light.tiltAngle = light.tiltAngle / CV_PI * 180;
 
         light.ratio = light.width / light.length;
 
@@ -283,15 +283,15 @@ class ArmorDetector final
         std::sort(condArmors.begin(), condArmors.end(),
                   [](const auto& armor1, const auto& armor2) { return armor1.angle < armor2.angle; });
         std::vector<bool> used(condArmors.size());
-//         int cnt = 0;
+        //         int cnt = 0;
         for(auto& condArmor : condArmors) {
             if(used[condArmor.rightLightIdx] || used[condArmor.leftLightIdx]) {
                 continue;
             }
             const auto img = NumberClassifier::extractNumbers(bgrImg, condArmor.points.data(), condArmor.isLargeArmor);
-//                        if (cnt++ % 20 == 0){
-//                            cv::imwrite(fmt::format("record/{}.jpg",std::time(0)), img);
-//                        }
+            //                        if (cnt++ % 20 == 0){
+            //                            cv::imwrite(fmt::format("record/{}.jpg",std::time(0)), img);
+            //                        }
 
             if(mConfig.debugView) {
                 debugView("n", img, [](auto& src) {});
