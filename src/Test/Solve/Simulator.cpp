@@ -124,7 +124,7 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
     std::mt19937_64 mEngine{ static_cast<uint64_t>(Clock::now().time_since_epoch().count()) };
 
     static constexpr double mNorThresholdVel = 6.0;
-    static constexpr double mMinVisiblePitch = glm::radians<double>(30);
+    static constexpr double mMinVisiblePitch = glm::radians<double>(0);
 
     void initializeTestCase() {
         {
@@ -292,8 +292,9 @@ public:
             {
                 const double yaw = -mHeadYaw - glm::half_pi<double>();
                 const double pitch = mHeadPitch;
-                logInfo(fmt::format("yaw:{} {} pitch:{} {}", glm::degrees(mHeadYaw), glm::degrees(yaw), glm::degrees(mHeadPitch),
-                                    glm::degrees(pitch)));
+                // logInfo(fmt::format("yaw:{} {} pitch:{} {}", glm::degrees(mHeadYaw), glm::degrees(yaw),
+                // glm::degrees(mHeadPitch),
+                //                     glm::degrees(pitch)));
                 const HeadInfo info{ nowTimePoint,
                                      decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
                                          glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },

@@ -86,7 +86,7 @@ public:
                         }
 
                         data.targets.push_back(
-                            DetectedTarget{ { 0.0, 0.0 },
+                            DetectedTarget{ { static_cast<float>(pos.mVal.x) * 1e9f, static_cast<float>(pos.mVal.z) * 1e9f },
                                             length((pos + Vector<UnitType::Distance, FrameOfRef::Gun>(noise)).mVal),
                                             pos + Vector<UnitType::Distance, FrameOfRef::Gun>(noise),
                                             RobotType::Infantry1,
