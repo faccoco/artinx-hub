@@ -63,6 +63,9 @@ public:
                          if(mLastTarget.selected.has_value() && mLastTarget.selected->id == target.id) {
                              sameTarget = target;
                          }
+                         if (target.id == RobotType::Hero){
+                             heroTarget = target;
+                         }
                      }
 
                      if(sameTarget.has_value()){

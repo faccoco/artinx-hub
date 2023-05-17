@@ -187,7 +187,7 @@ class ArmorDetector final
                         }
                     }
                     light->color = sumB > sumR ? Color::Blue : Color::Red;
-                    if(light->color == selfColor || light->color == Color::Negative)
+                    if(light->color == selfColor)
                         continue;
                     lights.emplace_back(light.value());
                 }
