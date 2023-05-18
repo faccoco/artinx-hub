@@ -141,8 +141,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
             if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
-                HubLogger::ElectricCtrlLog(fmt::format(
-                    "time: {}:{}:{:.1f} bulletSpeed: {}", fdb.bulletSpeed));
+                HubLogger::ElectricCtrlLog(fmt::format("bulletSpeed: {}", fdb.bulletSpeed));
                 if(fdb.bulletSpeed > mConfig.minBulletSpeed && fdb.bulletSpeed < mConfig.maxBulletSpeed) {
                     if(mBulletSpeed.size() >= mBulletSpeedLen)
                         mBulletSpeed.pop_front();
@@ -288,7 +287,7 @@ public:
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
                 if(mHaveReceivedFdbPacket) {
-                    HubLogger::ElectricCtrlLog(fmt::format("time: {}:{}:{:.1f} capEnergy: {:.1f} chasisPower: {:.2f}", mCapEnergy, mChasisPower));
+                    HubLogger::ElectricCtrlLog(fmt::format("capEnergy: {:.1f} chasisPower: {:.2f}", mCapEnergy, mChasisPower));
                 }
                 std::this_thread::sleep_for(ChassisPowerRecordInterval);
             }
@@ -334,7 +333,7 @@ public:
                      mLatency.push_back(latency);
                      GlobalSettings::get().latency = avg(mLatency);
                      HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
-                     HubLogger::VisualLog(fmt::format("SerialPort: target yaw: {:.3f}, target pitch: {:.3f}, avgLatency: {:.3f}ms", yawAngle, pitchAngle, GlobalSettings::get().latency * 1000));
+                     //HubLogger::VisualLog(fmt::format("SerialPort: target yaw: {:.3f}, target pitch: {:.3f}, avgLatency: {:.3f}ms", yawAngle, pitchAngle, GlobalSettings::get().latency * 1000));
                  } };
     }
 };
