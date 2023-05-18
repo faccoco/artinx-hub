@@ -114,8 +114,8 @@ public:
                                                      "{:.2f}), PositionRefGun:({:.2f}, {:.2f}, {:.2f})",
                                                      magic_enum::enum_name(armor.robotType), armorImgCenter.x, armorImgCenter.y,
                                                      pointRefGun.mVal.x, pointRefGun.mVal.y, pointRefGun.mVal.z));
-                     logInfo(fmt::format("Position ref Camera: x:{:.3}, y:{:.3}, z:{:.3} ArmorType:{}", pointRefGun.mVal.x,
-                                        pointRefGun.mVal.y, pointRefGun.mVal.z, isLargeArmor));
+//                     logInfo(fmt::format("Position ref Camera: x:{:.3}, y:{:.3}, z:{:.3} ArmorType:{}", pointRefGun.mVal.x,
+//                                        pointRefGun.mVal.y, pointRefGun.mVal.z, isLargeArmor));
                 }
 
                 sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
