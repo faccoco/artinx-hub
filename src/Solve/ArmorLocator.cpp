@@ -73,54 +73,54 @@ public:
         }
     }
     caf::behavior make_behavior() override {
-        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [&](armor_detect_available_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
-                     ACTOR_EXCEPTION_PROBE();
+        return {
+            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [&](armor_detect_available_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
+                ACTOR_EXCEPTION_PROBE();
 
-                     auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
-                     DetectedTargetArray res;
-                     res.lastUpdate = data.frame.lastUpdate;
-                     const auto& cameraInfo = data.frame.info;
-                     res.tfRobot2Gun = cameraInfo.tfRobot2Gun;
+                auto data = BlackBoard::instance().get<DetectedArmorArray>(key).value();
+                DetectedTargetArray res;
+                res.lastUpdate = data.frame.lastUpdate;
+                const auto& cameraInfo = data.frame.info;
+                res.tfRobot2Gun = cameraInfo.tfRobot2Gun;
 
-                     auto debugView = data.frame.frame.clone();
+                auto debugView = data.frame.frame.clone();
 
-                     auto tfCamera2Gun = data.frame.info.tfGun2Camera.invTransformObj();
+                auto tfCamera2Gun = data.frame.info.tfGun2Camera.invTransformObj();
 
-                     cv::Point2f imgCenter{ data.frame.frame.size[0] / 2.f, data.frame.frame.size[1] / 2.f };
-                     for(const auto& armor : data.armors) {
-                         mImagePoint = armor.light4Point;
+                cv::Point2f imgCenter{ data.frame.frame.size[0] / 2.f, data.frame.frame.size[1] / 2.f };
+                for(const auto& armor : data.armors) {
+                    mImagePoint = armor.light4Point;
 
-                         bool isLargeArmor = mLargeArmor.count(static_cast<int>(armor.robotType)) > 0;
-                         auto armorType = isLargeArmor ? ArmorType::Large : ArmorType::Small;
-                         auto [point, rvec] =
-                             solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
+                    bool isLargeArmor = mLargeArmor.count(static_cast<int>(armor.robotType)) > 0;
+                    auto armorType = isLargeArmor ? ArmorType::Large : ArmorType::Small;
+                    auto [point, rvec] = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 
-                         auto pointRefGun = tfCamera2Gun(point);
-                         Transform<FrameOfRef::Armor, FrameOfRef::Camera> rmat;
-                         {
-                             double angle = glm::length(rvec.mVal);
-                             auto axis = rvec.mVal / angle;
-                             rmat = glm::mat4_cast(glm::angleAxis(-angle, axis));
+                    auto pointRefGun = tfCamera2Gun(point);
+                    Transform<FrameOfRef::Armor, FrameOfRef::Camera> rmat;
 
-                             HubLogger::watch("YawRefCam", glm::degrees(-atan2(rmat.raw()[2][0], rmat.raw()[2][2])));
-                         }
-                         auto rmatRefGun = combine(tfCamera2Gun, rmat);
-                         auto armorImgCenter = clcArmorImgCenter();
-                         res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefGun,
-                                                 armor.robotType, armorType, rmatRefGun });
-                         //                         logInfo(fmt::format("Position ref Camera: x:{:.3}, y:{:.3}, z:{:.3} Armor
-                         //                         Type:{}", point.mVal.x,
-                         //                                             point.mVal.y, point.mVal.z, isLargeArmor));
-                         //                         logInfo(fmt::format("Armor Type:{}, Position ref Gun: x:{:.3}, y:{:.3}
-                         //                         z:{:.3}", isLargeArmor,
-                         //                                             pointRefGun.mVal.x, pointRefGun.mVal.y,
-                         //                                             pointRefGun.mVal.z));
-                     }
+                    double angle = glm::length(rvec.mVal);
+                    auto axis = rvec.mVal / angle;
+                    rmat = glm::mat4_cast(glm::angleAxis(-angle, axis));
 
-                     sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
-                 }
+                    // HubLogger::watch("YawRefCam", glm::degrees(-atan2(rmat.raw()[2][0], rmat.raw()[2][2])));
+
+                    auto rmatRefGun = combine(tfCamera2Gun, rmat);
+                    auto armorImgCenter = clcArmorImgCenter();
+                    res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefGun, armor.robotType,
+                                            armorType, rmatRefGun });
+                    HubLogger::VisualLog(fmt::format("ArmorLocator locate target: RobotType:{}, ArmorImgCenter:({:.2f}, "
+                                                     "{:.2f}), PositionRefGun:({:.2f}, {:.2f}, {:.2f})",
+                                                     magic_enum::enum_name(armor.robotType), armorImgCenter.x, armorImgCenter.y,
+                                                     pointRefGun.mVal.x, pointRefGun.mVal.y, pointRefGun.mVal.z));
+                    //                         logInfo(fmt::format("Position ref Camera: x:{:.3}, y:{:.3}, z:{:.3} Armor
+                    //                         Type:{}", point.mVal.x,
+                    //                                             point.mVal.y, point.mVal.z, isLargeArmor));
+                }
+
+                sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
+            }
 
         };
     }

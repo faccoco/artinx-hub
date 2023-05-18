@@ -212,7 +212,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         logError("No config file path argument or config file path do not exsits!");
         return 0;
     }
-    spdlog::set_pattern("[%l]:%v");  // set spdlog fmt
+    spdlog::set_pattern("[%l]:%Y-%m-%d-%H-%M-%S-%e: %v");  // set spdlog fmt
     spdlog::init_thread_pool(8192, 1);
 
     globalConfigName = fs::path{ argv[1] }.filename().string();

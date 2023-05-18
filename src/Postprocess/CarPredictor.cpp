@@ -81,12 +81,13 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
 
     void handleArmorJump(const glm::dvec3& targetPos, double targetYaw) {
         double yaw = orientationToYaw(targetYaw);
-        if(abs(yaw - mTrackedArmor.state(3)) > 0.4) {
+        if(std::fabs(yaw - mTrackedArmor.state(3)) > 0.4) {
             mLastY = mTrackedArmor.state(1);
             mTrackedArmor.state(1) = targetPos.y;
             mTrackedArmor.state(3) = yaw;
             std::swap(mTrackedArmor.state(8), mLastR);
-            logInfo("ArmorPredictor: Armor jump!");
+            logInfo("ArmorPredictor: Armor jump to another armor!");
+            HubLogger::VisualLog(fmt::format("EKF Armor jump to another armor"));
         }
         if(glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state)) > mConfig.maxMatchDistance) {
             mTrackedArmor.state(0) = targetPos.x - mTrackedArmor.state(8) * cos(yaw);
@@ -94,7 +95,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(4) = 0;
             mTrackedArmor.state(5) = 0;
             mTrackedArmor.state(6) = 0;
-            logInfo("ArmorPredictor: State wrong!");
+            logInfo("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF");
+            HubLogger::VisualLog(fmt::format("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF"));
         }
         mEKF.setState(mTrackedArmor.state);
     }
@@ -137,7 +139,10 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             default:
                 break;
         }
-        logInfo(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}", magic_enum::enum_name(mTrackedArmor.trackingState), mDetectCount, mLostCount));
+        logInfo(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}",
+                            magic_enum::enum_name(mTrackedArmor.trackingState), mDetectCount, mLostCount));
+        HubLogger::VisualLog(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}",
+                                         magic_enum::enum_name(mTrackedArmor.trackingState), mDetectCount, mLostCount));
     }
 
     void init(const DetectedTarget& armor) {
@@ -154,8 +159,10 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
 
         mEKF.setState(mTrackedArmor.state);
         logInfo("ArmorPredictor: Init EKF!");
-        mTrackedArmor.id = armor.id;
+        mTrackedArmor.id = static_cast<int>(armor.id);
         mTrackedArmor.trackingState = TrackingState::DETECTING;
+        HubLogger::VisualLog(fmt::format("CarPredictor Init EKF, target: id {}, armor pos ({:.3f}, {:.3f}, {:.3f} yaw {:.3f})",
+                                         mTrackedArmor.id, p.x, p.y, p.z, yaw));
     }
 
     bool update(const double dt, const std::vector<DetectedTarget>& armors) {
@@ -185,14 +192,15 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                 // Update EKF
                 double measuredYaw = orientationToYaw(candidate.second);
                 Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, measuredYaw);
+                mTrackedArmor.state = mEKF.update(z);
                 HubLogger::watch("xRefRobot", z(0));
                 HubLogger::watch("yRefRobot", z(1));
                 HubLogger::watch("zRefRobot", z(2));
-                HubLogger::watch("yawRefRobot", candidate.second);
-                mTrackedArmor.state = mEKF.update(z);
-                logInfo(fmt::format("ArmorPredictor: update: {:.3f} {:.3f} {:.3f} {:.3f}", z(0), z(1), z(2), z(3)));
+                HubLogger::watch("yawRefRobot", z(3));
+                HubLogger::VisualLog(fmt::format("EKF update Matched, minPositionDiff {:.3f})", minPositionDiff));
             } else {
                 // Check if there is same id armor in current frame
+                HubLogger::VisualLog(fmt::format("EKF update did not matched, minPositionDiff {:.3f})", minPositionDiff));
                 for(const auto& armor : armors) {
                     if(armor.id == mTrackedArmor.id) {
                         // Armor jump happens
@@ -322,15 +330,16 @@ public:
                                     BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
                         }
                     }
-                    logInfo(fmt::format("ArmorPredictor: state:{:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}",
-                                        mTrackedArmor.state(0), mTrackedArmor.state(1), mTrackedArmor.state(2),
-                                        mTrackedArmor.state(3), mTrackedArmor.state(4), mTrackedArmor.state(5),
-                                        mTrackedArmor.state(6), mTrackedArmor.state(7), mTrackedArmor.state(8)));
                     mTrackedArmor.lastUpdate = data->lastUpdate;
-                    HubLogger::watch("lVelX", res.linearVel.mVal.x);
-                    HubLogger::watch("lVelY", res.linearVel.mVal.y);
-                    HubLogger::watch("lVelZ", res.linearVel.mVal.z);
-                    HubLogger::watch("anglueVel", res.angularVel.mVal);
+                    HubLogger::watch("linearVelX", res.linearVel.mVal.x);
+                    HubLogger::watch("linearVelX", res.linearVel.mVal.y);
+                    HubLogger::watch("linearVelX", res.linearVel.mVal.z);
+                    HubLogger::watch("angularVel", res.angularVel.mVal);
+                    HubLogger::VisualLog(fmt::format(
+                        "ArmorPredictor: Predictor Armor state:{:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}",
+                        mTrackedArmor.state(0), mTrackedArmor.state(1), mTrackedArmor.state(2), mTrackedArmor.state(3),
+                        mTrackedArmor.state(4), mTrackedArmor.state(5), mTrackedArmor.state(6), mTrackedArmor.state(7),
+                        mTrackedArmor.state(8)));
                 } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
                     const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                     if(!dataPosture.has_value() || !data->selected.has_value())
@@ -341,8 +350,10 @@ public:
                     res.angularVel = 0;
                     res.radius = { 0, 0 };
                     res.y = { res.center.mVal.y, res.center.mVal.y };
-                    logInfo(fmt::format("linearVel:{:.3f} {:.3f} {:.3f}", res.linearVel.mVal.x, res.linearVel.mVal.y,
-                                        res.linearVel.mVal.z));
+                    HubLogger::VisualLog(fmt::format("ArmorPredictor do not use predict func, position : {:.3f} {:.3f} {:.3f}, "
+                                                     "linearVel {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}",
+                                                     res.center.mVal.x, res.center.mVal.y, res.center.mVal.z,
+                                                     res.linearVel.mVal.x, res.linearVel.mVal.y, res.linearVel.mVal.z));
                     sendAll(car_predict_atom_v, BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
                 }
             },
