@@ -294,12 +294,10 @@ class ArmorDetector final
             if(mConfig.debugView) {
                 debugView("n", img, [](auto& src) {});
             }
-            //            const auto t0 = Clock::now();
+
 
             const auto [id, prob] = mNumClassifierPtr->classify(img);
 
-            //            const auto t1 = Clock::now();
-            //            logInfo(fmt::format("Number classification cost {:.3f}ms ", durationCastDouble(t1 - t0) * 1000));
             condArmor.id = id;
             condArmor.prob = prob;
             if(id == 8 || prob < mConfig.numProbThresh)  // id 8 -> negative
@@ -345,6 +343,7 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
+                     HubLogger::VisualLog(fmt::format("ArmorDetector: Receive an img_frame_atom."));
                      const auto t1 = Clock::now();
                      const auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
                      auto frame = std::get<0>(data);
@@ -352,8 +351,7 @@ public:
                      DetectedArmorArray res;
                      res.frame = frame;
                      res.armors = solve(frame.frame);
-                     const auto t2 = Clock::now();
-                     logInfo(fmt::format("Armor Detector Cost time: {:.3f}s", durationCastDouble(t2 - t1)));
+                     HubLogger::VisualLog(fmt::format("ArmorDetector detected {} targets, cost time {:.3f}ms", res.armors.size(), durationCastDouble(Clock::now() - t1) * 1000));
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }

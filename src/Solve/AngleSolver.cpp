@@ -25,11 +25,11 @@ struct AngleSolverSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
-    return f.object(x).fields(f.field("delay", x.delay).fallback(0.0), f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
+    return f.object(x).fields(f.field("delay", x.delay).fallback(0.0),
+                              f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
                               f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
                               f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60));
 }
-
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
 
@@ -55,8 +55,9 @@ public:
 
                      Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->center;
                      Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->linearVel;
+                     auto horizontalDist = std::sqrt(square(posRefRobot.mVal.z) + square(posRefRobot.mVal.x));
                      HubLogger::watch("verticalDistance", posRefRobot.mVal.y);
-                     HubLogger::watch("horizontalDistance", std::sqrt(square(posRefRobot.mVal.z) + square(posRefRobot.mVal.x)));
+                     HubLogger::watch("horizontalDistance", horizontalDist);
 
                      //(forward:+y,right:+x)
                      glm::dvec3 tfPos = tf(posRefRobot.mVal);
@@ -67,8 +68,12 @@ public:
                                tfPos.z + delayTime * tfLinearVel.z };
 
                      auto [time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
-//                     logInfo(fmt::format("x:{}, y:{}, z:{}, xVel:{}, yVel:{}, zVel:{}", tfPos.x, tfPos.y, tfPos.z, tfLinearVel.x, tfLinearVel.y, tfLinearVel.z));
-//                     logInfo(fmt::format("time:{}, yawAngle:{}, pitch:{}", time, yawAngle, pitchAngle));
+                     //                     logInfo(fmt::format("x:{}, y:{}, z:{}, xVel:{}, yVel:{}, zVel:{}", tfPos.x, tfPos.y,
+                     //                     tfPos.z, tfLinearVel.x, tfLinearVel.y, tfLinearVel.z)); logInfo(fmt::format("time:{},
+                     //                     yawAngle:{}, pitch:{}", time, yawAngle, pitchAngle));
+                     HubLogger::VisualLog(fmt::format(
+                         "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
+                         posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
                      sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
                                          yawAngle, pitchAngle, true, normalSolver);
                  },
@@ -111,7 +116,8 @@ public:
 
                              if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {
                                  if(r == 0 ||
-                                    abs(normalizeAngle(requiredTheta - yawAngle - glm::pi<double>())) <= glm::radians(mConfig.maxShootDeltaTheta)) {
+                                    abs(normalizeAngle(requiredTheta - yawAngle - glm::pi<double>())) <=
+                                        glm::radians(mConfig.maxShootDeltaTheta)) {
                                      yaw = yawAngle;
                                      pitch = pitchAngle;
                                  }
@@ -122,6 +128,8 @@ public:
                          if(yaw.has_value()) {
                              logInfo(fmt::format("AngleSolver: target id: {} yaw: {:.3f} pitch: {:.3f}", i, yaw.value(),
                                                  pitch.value()));
+                             HubLogger::VisualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
+                                                              yaw.value(), pitch.value()));
                              sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
                                                  yaw.value(), pitch.value(), true, normalSolver);
                              break;
