@@ -77,6 +77,8 @@ public:
                     if(trackedIter->empty())
                         mTrackedArmors.erase(trackedIter);
                 }
+
+                // std::string tmp = "";
                 // process whether armor is static
                 for(auto& target : selected.targets) {
                     bool matched = false;
@@ -102,8 +104,10 @@ public:
                         target.motion = ArmorMotion::Unsure;
                         continue;
                     }
+                    // tmp += fmt::format("{} ", magic_enum::enum_name(target.motion));
                     //                    logInfo(magic_enum::enum_name(target.motion));
                 }
+                // logInfo(tmp);
 
                 if(mPeriodActive) {
                     mSendPeriodFunc(selected);
