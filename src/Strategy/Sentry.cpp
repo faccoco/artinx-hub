@@ -54,8 +54,8 @@ public:
                              continue;
                          auto pos = target.center.mVal;
                          auto dist = pos.x * pos.x + pos.y * pos.y + pos.z * pos.z;
-                         if (dist > mConfig.maxDistance * mConfig.maxDistance)
-                             continue ;
+                         if(dist > mConfig.maxDistance * mConfig.maxDistance)
+                             continue;
                          if(dist < minDistance) {
                              minDistance = dist;
                              minDistTarget = target;
@@ -63,17 +63,23 @@ public:
                          if(mLastTarget.selected.has_value() && mLastTarget.selected->id == target.id) {
                              sameTarget = target;
                          }
+                         if(target.id == RobotType::Hero) {
+                             heroTarget = target;
+                         }
                      }
 
-                     if(sameTarget.has_value()){
+                     if(sameTarget.has_value()) {
                          selected.selected = sameTarget;
-                     }else if (heroTarget.has_value()){
+                     } else if(heroTarget.has_value()) {
                          selected.selected = heroTarget;
-                     }else{
+                     } else {
                          selected.selected = minDistTarget;
                      }
                      mLastTarget = selected;
 
+                     if (selected.selected.has_value()){
+                         HubLogger::VisualLog(fmt::format("SentryStrategy Receive {} targets, choose target: {}", selected.targets.size(), magic_enum::enum_name(selected.selected->id)));
+                     }
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                  } };
     }

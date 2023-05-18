@@ -141,10 +141,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
             if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
-                ReadableTimePoint nowReadableTimePoint = std::chrono::system_clock::now();
-                HubLogger::fileLog(fmt::format(
-                    "time: {}:{}:{:.1f} bulletSpeed: {}", nowReadableTimePoint.tm.tm_hour, nowReadableTimePoint.tm.tm_min,
-                    nowReadableTimePoint.tm.tm_sec + nowReadableTimePoint.ms / 1000.0, fdb.bulletSpeed));
+                HubLogger::ElectricCtrlLog(fmt::format("bulletSpeed: {}", fdb.bulletSpeed));
                 if(fdb.bulletSpeed > mConfig.minBulletSpeed && fdb.bulletSpeed < mConfig.maxBulletSpeed) {
                     if(mBulletSpeed.size() >= mBulletSpeedLen)
                         mBulletSpeed.pop_front();
@@ -191,8 +188,6 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             // HubLogger::watch("speed y", fdb.speedY);
             HubLogger::watch("deltaYaw1", gimbalSetPacket.up.yaw - fdb.yaw);
             HubLogger::watch("deltaPitch1", gimbalSetPacket.up.pitch - fdb.pitch);
-            // HubLogger::watch("delta yaw2", gimbalSetPacket.down.yaw - fdb.downYaw);
-            // HubLogger::watch("delta pitch2", gimbalSetPacket.down.pitch - fdb.downPitch);
 
 //            logInfo(fmt::format("{:.5f} {:.5f} {:.5f}",fdb.yaw,fdb.pitch,fdb.roll));
 
@@ -253,13 +248,10 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             mSendBufferLen = 0;
         if(mSendBufferLen == 0)
             return;
-        // std::cout << mSendBufferLen << std::endl;
         mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen = 0;
-        HubLogger::watch("targetYaw1", gimbalSetPacket.up.yaw);
-        HubLogger::watch("targetPitch1", gimbalSetPacket.up.pitch);
-        // HubLogger::watch("target yaw2", gimbalSetPacket.down.yaw);
-        // HubLogger::watch("target pitch2", gimbalSetPacket.down.pitch);
+//        HubLogger::watch("targetYaw1", gimbalSetPacket.up.yaw);
+//        HubLogger::watch("targetPitch1", gimbalSetPacket.up.pitch);
     }
 
 public:
@@ -300,9 +292,7 @@ public:
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
                 if(mHaveReceivedFdbPacket) {
-                    ReadableTimePoint tmp = std::chrono::system_clock::now();
-                    HubLogger::fileLog(fmt::format("time: {}:{}:{:.1f} capEnergy: {:.1f} chasisPower: {:.2f}", tmp.tm.tm_hour,
-                                                   tmp.tm.tm_min, tmp.tm.tm_sec + tmp.ms / 1000.0, mCapEnergy, mChasisPower));
+                    HubLogger::ElectricCtrlLog(fmt::format("capEnergy: {:.1f} chasisPower: {:.2f}", mCapEnergy, mChasisPower));
                 }
                 std::this_thread::sleep_for(ChassisPowerRecordInterval);
             }
@@ -346,10 +336,9 @@ public:
                      if(mLatency.size() >= latencyLen)
                          mLatency.pop_front();
                      mLatency.push_back(latency);
-
                      GlobalSettings::get().latency = avg(mLatency);
-
                      HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
+                     //HubLogger::VisualLog(fmt::format("SerialPort: target yaw: {:.3f}, target pitch: {:.3f}, avgLatency: {:.3f}ms", yawAngle, pitchAngle, GlobalSettings::get().latency * 1000));
                  } };
     }
 };

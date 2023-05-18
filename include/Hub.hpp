@@ -170,9 +170,15 @@ public:
         print(log, name, interval);
     }
 
-    static void fileLog(const std::string_view msg) {
-        static auto mFileLogger =
-            spdlog::rotating_logger_mt<spdlog::async_factory>("fileLogger", "data/logs/log.txt", 1024 * 1024 * 5, 200000);
-        mFileLogger->info(msg);
+    static void ElectricCtrlLog(const std::string_view msg) {
+        static auto electricLogger =
+            spdlog::rotating_logger_mt<spdlog::async_factory>("electricLogger", "data/logs/electric_log.txt", 1024 * 1024 * 5, 200000);
+        electricLogger->info(msg);
+    }
+
+    static void VisualLog(const std::string_view msg) {
+        static auto visualLogger =
+            spdlog::rotating_logger_mt<spdlog::async_factory>("visualLogger", "data/logs/visual_log.txt", 1024 * 1024 * 5, 200000);
+        visualLogger->info(msg);
     }
 };
