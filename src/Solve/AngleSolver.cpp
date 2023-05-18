@@ -120,6 +120,9 @@ public:
                                         glm::radians(mConfig.maxShootDeltaTheta)) {
                                      yaw = yawAngle;
                                      pitch = pitchAngle;
+                                 }else{
+                                    logInfo(fmt::format("AngleSolver: {}th armor do not satisfy maxShootDeltaYaw", i));
+                                    HubLogger::VisualLog(fmt::format("AngleSolver: {}th armor do not satisfy maxShootDelatYaw", i));
                                  }
                                  break;
                              }
@@ -133,6 +136,9 @@ public:
                              sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
                                                  yaw.value(), pitch.value(), true, normalSolver);
                              break;
+                         }else{
+                            logInfo(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfify maxShootDeltaYaw"));
+                            HubLogger::VisualLog(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfify maxShootDeltaYaw"));
                          }
                          theta += (aVel < 0 ? glm::half_pi<double>() : -glm::half_pi<double>());
                      }
