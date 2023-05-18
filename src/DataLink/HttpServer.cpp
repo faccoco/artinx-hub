@@ -144,6 +144,18 @@ public:
     //        mServer.Get("/parameters", [this](const httplib::Request& req, httplib::Response& res) {
     //            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
     //        });
+    // std::thread([this]() {
+    //     while(true) {
+    //         double nowSec = Clock::now().time_since_epoch().count() / 1e9;
+    //         double _;
+    //         HubLogger::watch("Sample A", std::sin(nowSec * 5));
+    //         HubLogger::watch("Sample B", std::sin(nowSec * 5) * std::sin(nowSec * 13.2));
+    //         HubLogger::watch("Sample C", 10. * std::sin(std::sin(nowSec) * 20));
+    //         HubLogger::watch("Sample D", 0.01 * std::sin(nowSec * 5));
+    //         HubLogger::watch("Sample E", std::modf(nowSec, &_) < .5 ? "false" : "true");
+    //         std::this_thread::sleep_for(10ms);
+    //     }
+    // }).detach();
     mServer.Get(R"(/img/.*?(\d+).*)", [this](const httplib::Request& req, httplib::Response& res) {
         if(req.matches.empty())
             return;

@@ -17,10 +17,11 @@ window.settings = new Proxy(
         logLength,
     },
     {
-        get: (target, p, receiver) => $('#' + p).val(),
+        get: (target, p, receiver) => document.getElementById(p).value,
         set: function (target, p, value, receiver) {
-            $('#' + p).val(value);
-            $('#' + p).parents('.mdui-row').children('.settingsDisplay').text(value);
+            let $p = $(document.getElementById(p));
+            $p.val(value);
+            $p.parents('.mdui-row').children('.settingsDisplay').text(value);
             switch (p) {
                 case 'updateFreq':
                     clearInterval(updateInterval);
@@ -49,12 +50,12 @@ function updateWatches() {
         for (let k in data) {
             if (!$watchVals.hasOwnProperty(k)) {
                 newTableRow(k);
-                $('#tr-' + k + ' input:checkbox').attr('checked', false);
+                $(document.getElementById('tr-' + k)).children('input:checkbox').attr('checked', false);
                 if (!isNaN(+data[k])) {
                     newChart(k);
-                    $('#chart-' + k).hide();
+                    $(document.getElementById('chart-' + k)).hide();
                 } else {
-                    $('#tr-' + k + ' .mdui-checkbox').hide();
+                    $(document.getElementById('tr-' + k)).children('.mdui-checkbox').hide();
                 }
             }
             $watchVals[k].html(data[k]);
@@ -88,7 +89,7 @@ function newChart(key) {
             .clone(true)
             .attr('id', 'chart-' + key)
     );
-    let chart = echarts.init($('#chart-' + key)[0]);
+    let chart = echarts.init(document.getElementById('chart-' + key));
     let chartOption = {
         title: {
             text: key
