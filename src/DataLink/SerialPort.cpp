@@ -245,8 +245,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             return;
         mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen = 0;
-//        HubLogger::watch("targetYaw1", gimbalSetPacket.up.yaw);
-//        HubLogger::watch("targetPitch1", gimbalSetPacket.up.pitch);
+        HubLogger::watch("targetYaw1", gimbalSetPacket.up.yaw);
+        HubLogger::watch("targetPitch1", gimbalSetPacket.up.pitch);
     }
 
 public:

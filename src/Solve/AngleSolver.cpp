@@ -137,8 +137,8 @@ public:
                                                  yaw.value(), pitch.value(), true, normalSolver);
                              break;
                          }else{
-                            logInfo(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfify maxShootDeltaYaw"));
-                            HubLogger::VisualLog(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfify maxShootDeltaYaw"));
+                            logInfo(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfy maxShootDeltaYaw, exceed max iter times"));
+                            HubLogger::VisualLog(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfy maxShootDeltaYaw, exceed max iter times"));
                          }
                          theta += (aVel < 0 ? glm::half_pi<double>() : -glm::half_pi<double>());
                      }

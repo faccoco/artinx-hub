@@ -343,7 +343,6 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
-                     HubLogger::VisualLog(fmt::format("ArmorDetector: Receive an img_frame_atom."));
                      const auto t1 = Clock::now();
                      const auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
                      auto frame = std::get<0>(data);
@@ -351,7 +350,9 @@ public:
                      DetectedArmorArray res;
                      res.frame = frame;
                      res.armors = solve(frame.frame);
-                     HubLogger::VisualLog(fmt::format("ArmorDetector detected {} targets, cost time {:.3f}ms", res.armors.size(), durationCastDouble(Clock::now() - t1) * 1000));
+                     if (res.armors.size() > 0){
+                         HubLogger::VisualLog(fmt::format("ArmorDetector detected {} targets, cost time {:.3f}ms", res.armors.size(), durationCastDouble(Clock::now() - t1) * 1000));
+                     }
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }

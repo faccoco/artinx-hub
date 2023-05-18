@@ -127,7 +127,7 @@ public:
 class HubLogger final {
     static std::mutex mutex;
     static std::unordered_map<std::string, TimePoint> logs;
-    static std::string profix;
+    static std::string prefix;
 
 public:
     static std::unordered_map<std::string, std::string> watches;
@@ -173,13 +173,13 @@ public:
 
     static void ElectricCtrlLog(const std::string_view msg) {
         static auto electricLogger = spdlog::rotating_logger_mt<spdlog::async_factory>(
-            "electricLogger", "data/logs/electric_log.txt", 1024 * 1024 * 5, 200000);
+            "electricLogger", fmt::format("data/logs/electric_log{}.txt", prefix), 1024 * 1024 * 5, 200000);
         electricLogger->info(msg);
     }
 
     static void VisualLog(const std::string_view msg) {
         static auto visualLogger = spdlog::rotating_logger_mt<spdlog::async_factory>(
-            "visualLogger", fmt::format("data/logs/{}visual_log.txt", profix), 1024 * 1024 * 5, 200000);
+            "visualLogger", fmt::format("data/logs/visual_log{}.txt", prefix), 1024 * 1024 * 5, 200000);
         visualLogger->info(msg);
     }
 };

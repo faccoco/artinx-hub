@@ -259,8 +259,8 @@ std::mutex HubLogger::mutex;
 std::unordered_map<std::string, TimePoint> HubLogger::logs;
 std::unordered_map<std::string, std::string> HubLogger::watches;
 ReadableTimePoint nowReadableTimePoint(std::chrono::system_clock::now());
-std::string HubLogger::profix(fmt::format("{}-{}-{} {}:{}:{}", nowReadableTimePoint.tm.tm_year, nowReadableTimePoint.tm.tm_mon,
+std::string HubLogger::prefix(fmt::format("{}-{} {}:{}", nowReadableTimePoint.tm.tm_mon,
                                           nowReadableTimePoint.tm.tm_mday, nowReadableTimePoint.tm.tm_hour,
-                                          nowReadableTimePoint.tm.tm_min, nowReadableTimePoint.tm.tm_sec));
+                                          nowReadableTimePoint.tm.tm_min));
 
 CAF_MAIN(caf::id_block::ArtinxHub)
