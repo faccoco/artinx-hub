@@ -350,8 +350,7 @@ public:
                     res.angularVel = 0;
                     res.radius = { 0, 0 };
                     res.y = { res.center.mVal.y, res.center.mVal.y };
-                    HubLogger::VisualLog(fmt::format("ArmorPredictor do not use predict func, position : {:.3f} {:.3f} {:.3f}, "
-                                                     "linearVel {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}",
+                    HubLogger::VisualLog(fmt::format("ArmorPredictor do not use predict func, position : ({:.3f} {:.3f} {:.3f}), linearVel: ({:.3f} {:.3f} {:.3f})",
                                                      res.center.mVal.x, res.center.mVal.y, res.center.mVal.z,
                                                      res.linearVel.mVal.x, res.linearVel.mVal.y, res.linearVel.mVal.z));
                     sendAll(car_predict_atom_v, BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
