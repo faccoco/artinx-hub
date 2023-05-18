@@ -22,7 +22,6 @@
 struct ArmorDetectorSettings final {
     bool debugView;
     int32_t binaryThresh;
-    float maxLightWidth;
     float minLightRectRatio;   // width/height
     float maxLightRectRatio;   // width/height
     float maxLightAngle;       // angle(degree)
@@ -53,7 +52,6 @@ template <class Inspector>
 bool inspect(Inspector& f, ArmorDetectorSettings& x) {
     return f.object(x).fields(
         f.field("debugView", x.debugView).fallback(false), f.field("binaryThresh", x.binaryThresh).fallback(100),
-        f.field("maxLightWidth", x.maxLightWidth).fallback(10.0),
         f.field("minLightRectRatio", x.minLightRectRatio).fallback(0.15),
         f.field("maxLightRectRatio", x.maxLightRectRatio).fallback(0.6), f.field("maxLightAngle", x.maxLightAngle).fallback(20),
         f.field("min2LightLenRatio", x.min2LightLenRatio).fallback(0.6),
