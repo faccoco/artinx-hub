@@ -3,7 +3,6 @@
 #include "DetectedArmor.hpp"
 #include "DetectedTarget.hpp"
 #include "ExceptionProbe.hpp"
-#include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
 
