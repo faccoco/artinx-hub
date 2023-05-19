@@ -159,7 +159,6 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                             sumSpeed += speed;
                         }
                         GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
-                        HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
                     }
                 }
                 mLastBulletSpeed = fdb.bulletSpeed;
@@ -170,8 +169,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 mShootDelay.push_back(fdb.shootDelayTime);
                 GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;  // ms -> s
             }
+            HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
             // HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
-            // HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
             // HubLogger::watch("fdb shoot delay time", fdb.shootDelayTime);
             // HubLogger::watch("shoot delay time", static_cast<int>(GlobalSettings::get().shootDelayTime * 1000));
 
@@ -188,8 +187,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             if (mCntRecord % 100 == 0){
                 HubLogger::VisualLog(fmt::format("SerialPort: target yaw, pitch ({:.4f}, {:.4f}), delta yaw, pitch ({:.4f}, {:.4f})", fdb.yaw, fdb.pitch, deltaYaw1, deltaPitch1));
             }
-            HubLogger::watch("deltaYaw1", gimbalSetPacket.up.yaw - fdb.yaw);
-            HubLogger::watch("deltaPitch1", gimbalSetPacket.up.pitch - fdb.pitch);
+            HubLogger::watch("deltaYaw1", deltaYaw1);
+            HubLogger::watch("deltaPitch1", deltaPitch1);
 
             GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
             HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
@@ -207,8 +206,6 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
             mCapEnergy = fdb.capEnergy;
             mChasisPower = fdb.chasisPower;
-//            mYaw = fdb.yaw;
-//            mPitch = fdb.pitch;
 
             const HeadInfo infoUp{
                 SynchronizedClock::instance().now(),
