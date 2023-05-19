@@ -2,6 +2,7 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
+#include "Utility.hpp"
 #include <cstdint>
 
 #include "SuppressWarningBegin.hpp"
@@ -29,24 +30,26 @@ struct UndistortCalibratorSettings final {
     bool fixK4;                   // fix K4 distortion coefficient
     bool fixK5;                   // fix K5 distortion coefficient
     int winSize;                  // Half of search window for cornerSubPix
+    bool waitKey;                 // Whether get image after press
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, UndistortCalibratorSettings& x) {
-    return f.object(x).fields(
-        f.field("boardSizeWidth", x.boardSize.width), f.field("boardSizeHeight", x.boardSize.height),
-        f.field("squareSize", x.squareSize), f.field("flipVertical", x.flipVertical), f.field("nrFrames", x.nrFrames),
-        f.field("aspectRatio", x.aspectRatio), f.field("calibZeroTangentDist", x.calibZeroTangentDist),
-        f.field("calibFixPrincipalPoint", x.calibFixPrincipalPoint), f.field("writePoints", x.writePoints),
-        f.field("writeExtrinsics", x.writeExtrinsics), f.field("writeGrid", x.writeGrid),
-        f.field("showUndistorted", x.showUndistorted), f.field("fixK1", x.fixK1), f.field("fixK2", x.fixK2),
-        f.field("fixK3", x.fixK3), f.field("fixK4", x.fixK4), f.field("fixK5", x.fixK5), f.field("winSize", x.winSize));
+    return f.object(x).fields(f.field("boardSizeWidth", x.boardSize.width), f.field("boardSizeHeight", x.boardSize.height),
+                              f.field("squareSize", x.squareSize), f.field("flipVertical", x.flipVertical),
+                              f.field("nrFrames", x.nrFrames), f.field("aspectRatio", x.aspectRatio),
+                              f.field("calibZeroTangentDist", x.calibZeroTangentDist),
+                              f.field("calibFixPrincipalPoint", x.calibFixPrincipalPoint), f.field("writePoints", x.writePoints),
+                              f.field("writeExtrinsics", x.writeExtrinsics), f.field("writeGrid", x.writeGrid),
+                              f.field("showUndistorted", x.showUndistorted), f.field("fixK1", x.fixK1), f.field("fixK2", x.fixK2),
+                              f.field("fixK3", x.fixK3), f.field("fixK4", x.fixK4), f.field("fixK5", x.fixK5),
+                              f.field("winSize", x.winSize), f.field("waitKey", x.waitKey).fallback(false));
 }
 
 enum class Status { DETECTION = 0, CAPTURING = 1, CALIBRATED = 2 };
 
 class UndistortCalibrator final : public HubHelper<caf::event_based_actor, UndistortCalibratorSettings, image_frame_atom> {
-    Identifier mKey;
+    Identifier mKey, mImageKey;
     int32_t mFlag = 0;
     float mGridWidth;
     bool mReleaseObject = false;
@@ -230,76 +233,93 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
         return ok;
     }
 
+    void run() {
+        auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(mImageKey);
+        if(!data.has_value())
+            return;
+        auto res = std::get<0>(data.value());
+
+        //-----  If no more image, or got enough, then stop calibration and show result -------------
+        if(mMode == Status::CAPTURING && mImagePoints.size() >= static_cast<size_t>(mConfig.nrFrames)) {
+            if(runCalibrationAndSave(res.info.identifier))
+                mMode = Status::CALIBRATED;
+            else
+                mMode = Status::DETECTION;
+        }
+
+        cv::Mat plotImg = res.frame.clone();
+        mImageSize = res.frame.size();
+        if(mConfig.flipVertical)
+            cv::flip(res.frame, res.frame, 0);
+
+        std::vector<cv::Point2f> pointBuf;
+        int chessBoardFlags = cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE;
+
+        // Find feature points on the input format
+        bool found = cv::findChessboardCorners(res.frame, mConfig.boardSize, pointBuf, chessBoardFlags);
+
+        //! [pattern_found]
+        if(found) {
+            // improve the found corners' coordinate accuracy for chessboard
+            cv::Mat imgGray;
+            cv::cvtColor(res.frame, imgGray, cv::COLOR_BGR2GRAY);
+            cornerSubPix(imgGray, pointBuf, cv::Size(mConfig.winSize, mConfig.winSize), cv::Size(-1, -1),
+                         cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.0001));
+            mImagePoints.push_back(pointBuf);
+            // Draw the corners
+            cv::drawChessboardCorners(plotImg, mConfig.boardSize, cv::Mat(pointBuf), found);
+            // save the img
+            cv::imwrite(fmt::format("record/calibrate{:02d}.jpg", mImagePoints.size()), plotImg);
+        }
+
+        //----------------------------- Output Text ------------------------------------------------
+        //! [output_text]
+        std::string msg = (mMode == Status::CAPTURING) ? "100/100" : (mMode == Status::CALIBRATED) ? "Calibrated" : "Detected";
+        int baseLine = 0;
+        cv::Size textSize = cv::getTextSize(msg, 1, 2, 1, &baseLine);
+        cv::Point textOrigin(res.frame.cols - 2 * textSize.width - 10, res.frame.rows - 2 * baseLine - 10);
+
+        if(mMode == Status::CAPTURING) {
+            if(mConfig.showUndistorted)
+                msg = cv::format("%d/%d Undistort", static_cast<int>(mImagePoints.size()), mConfig.nrFrames);
+            else
+                msg = cv::format("%d/%d", static_cast<int>(mImagePoints.size()), mConfig.nrFrames);
+        }
+        logInfo(fmt::format("{}/{}", mImagePoints.size(), mConfig.nrFrames));
+
+        cv::putText(plotImg, msg, textOrigin, 5, 5, cv::Scalar(0, 255, 0));
+
+        //-------------------------output  undistorted ------------------------------
+        //! [output_undistorted]
+        if(mMode == Status::CALIBRATED && mConfig.showUndistorted) {
+            cv::Mat temp = res.frame.clone();
+            cv::undistort(temp, res.frame, mCameraMatrix, mDistCoeffs);
+        }
+        // For debugging
+        res.frame = plotImg;
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("Calibration")));
+    }
+
 public:
     UndistortCalibrator(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ generateKey(this) }, mMode(Status::CAPTURING) {
         initFlag();
         mGridWidth = mConfig.squareSize * static_cast<float>(mConfig.boardSize.width - 1);
+        if(mConfig.waitKey)
+            std::thread([this]() {
+                while(globalStatus == RunStatus::running) {
+                    std::cin.get();
+                    run();
+                }
+            }).detach();
     }
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
-                     auto res = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
-
-                     //-----  If no more image, or got enough, then stop calibration and show result -------------
-                     if(mMode == Status::CAPTURING && mImagePoints.size() >= static_cast<size_t>(mConfig.nrFrames)) {
-                         if(runCalibrationAndSave(res.info.identifier))
-                             mMode = Status::CALIBRATED;
-                         else
-                             mMode = Status::DETECTION;
-                     }
-
-                     cv::Mat plotImg = res.frame.clone();
-                     mImageSize = res.frame.size();
-                     if(mConfig.flipVertical)
-                         cv::flip(res.frame, res.frame, 0);
-
-                     std::vector<cv::Point2f> pointBuf;
-                     int chessBoardFlags = cv::CALIB_CB_ADAPTIVE_THRESH | cv::CALIB_CB_NORMALIZE_IMAGE;
-
-                     // Find feature points on the input format
-                     bool found = cv::findChessboardCorners(res.frame, mConfig.boardSize, pointBuf, chessBoardFlags);
-
-                     //! [pattern_found]
-                     if(found) {
-                         // improve the found corners' coordinate accuracy for chessboard
-                         cv::Mat imgGray;
-                         cv::cvtColor(res.frame, imgGray, cv::COLOR_BGR2GRAY);
-                         cornerSubPix(imgGray, pointBuf, cv::Size(mConfig.winSize, mConfig.winSize), cv::Size(-1, -1),
-                                      cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.0001));
-                         mImagePoints.push_back(pointBuf);
-                         // Draw the corners
-                         cv::drawChessboardCorners(plotImg, mConfig.boardSize, cv::Mat(pointBuf), found);
-                     }
-
-                     //----------------------------- Output Text ------------------------------------------------
-                     //! [output_text]
-                     std::string msg = (mMode == Status::CAPTURING) ? "100/100" :
-                         (mMode == Status::CALIBRATED)              ? "Calibrated" :
-                                                                      "Detected";
-                     int baseLine = 0;
-                     cv::Size textSize = cv::getTextSize(msg, 1, 2, 1, &baseLine);
-                     cv::Point textOrigin(res.frame.cols - 2 * textSize.width - 10, res.frame.rows - 2 * baseLine - 10);
-
-                     if(mMode == Status::CAPTURING) {
-                         if(mConfig.showUndistorted)
-                             msg = cv::format("%d/%d Undistort", static_cast<int>(mImagePoints.size()), mConfig.nrFrames);
-                         else
-                             msg = cv::format("%d/%d", static_cast<int>(mImagePoints.size()), mConfig.nrFrames);
-                     }
-
-                     cv::putText(plotImg, msg, textOrigin, 5, 5, cv::Scalar(0, 255, 0));
-
-                     //-------------------------output  undistorted ------------------------------
-                     //! [output_undistorted]
-                     if(mMode == Status::CALIBRATED && mConfig.showUndistorted) {
-                         cv::Mat temp = res.frame.clone();
-                         cv::undistort(temp, res.frame, mCameraMatrix, mDistCoeffs);
-                     }
-                     // For debugging
-                     res.frame = plotImg;
-                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("Calibration")));
+                     mImageKey = key;
+                     if(!mConfig.waitKey)
+                         run();
                  } };
     }
 };
