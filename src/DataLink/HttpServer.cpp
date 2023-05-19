@@ -41,12 +41,14 @@ struct ImageWithFilter {
 struct HttpServerSettings final {
     bool enableRadar;
     uint32_t radarPointsNum;
+    std::string ethName;
 };
 
 template <typename Inspector>
 bool inspect(Inspector& f, HttpServerSettings& x) {
     return f.object(x).fields(f.field("enableRadar", x.enableRadar).fallback(false),
-                              f.field("radarPointsNum", x.radarPointsNum).fallback(6));
+                              f.field("radarPointsNum", x.radarPointsNum).fallback(6),
+                              f.field("ethName", x.ethName).fallback("wlp0s20f3"));
 }
 
 class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSettings, radar_locate_request_atom> {
@@ -67,7 +69,6 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
     Identifier mKey;
 
 #if defined(ARTINXHUB_LINUX)
-#define ETH_NAME "wlp0s20f3"
     std::string getHostIpAddress() {
         int sockFd;
         struct sockaddr_in sockIn;
@@ -75,7 +76,8 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
 
         sockFd = socket(AF_INET, SOCK_DGRAM, 0);
         if(sockFd != -1) {
-            strncpy(ifReq.ifr_name, ETH_NAME, IFNAMSIZ);   // Interface name
+            strncpy(ifReq.ifr_name, mConfig.ethName.data(), IFNAMSIZ);  // Interface name
+            ifReq.ifr_name[IFNAMSIZ - 1] = 0;
             if(ioctl(sockFd, SIOCGIFADDR, &ifReq) == 0) {  // SIOCGIFADDR obtain interface address
                 memcpy(&sockIn, &ifReq.ifr_addr, sizeof(ifReq.ifr_addr));
                 return inet_ntoa(sockIn.sin_addr);
