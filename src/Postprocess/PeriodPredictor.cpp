@@ -1,7 +1,6 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "ExceptionProbe.hpp"
-#include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
 #include "Timer.hpp"
@@ -25,8 +24,10 @@ static constexpr Duration minSendInterval = 1s;
 class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, period_predict_success_atom> {
     Identifier mKey;
 
+    constexpr static size_t mPeriodTimesLen = 20;
+
     double mTargetTheta;
-    std::vector<double> mPeriodTimes;
+    std::deque<double> mPeriodTimes;
     std::optional<TimePoint> mLastSameYawTime;
     std::optional<TimePoint> mLastTime[4];
     int mErrorTimes;
@@ -158,6 +159,8 @@ public:
                     if(mLastTime[mState].has_value()) {
                         // logInfo("PeriodPredictor: same pitch");
                         // logInfo(fmt::format("PeriodPredictor: pitch: {} degree", glm::degrees(getPitch(posRefRobot.mVal))));
+                        if(mPeriodTimes.size() > mPeriodTimesLen)
+                            mPeriodTimes.pop_front();
                         mPeriodTimes.push_back(durationCastDouble(data->lastUpdate - mLastTime[mState].value()));
                         double periodAvg = avg(mPeriodTimes);
                         double periodStd = Std(mPeriodTimes, periodAvg);

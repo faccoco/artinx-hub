@@ -1,7 +1,6 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "ExceptionProbe.hpp"
-#include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
 #include "Timer.hpp"
@@ -36,12 +35,14 @@ class PeriodOutpostPredictor final
     : public HubHelper<caf::event_based_actor, PeriodOutpostPredictorSettings, period_predict_success_atom> {
     Identifier mKey;
 
+    constexpr static size_t mPeriodTimesLen = 10;
+
     const double mSameThetaThreshold;
     const double mSamePitchThreshold;
 
     double mTargetTheta;
     double mTargetPitch;
-    std::vector<double> mPeriodTimes;
+    std::deque<double> mPeriodTimes;
     std::optional<TimePoint> mLastTime;
     Transform<FrameOfRef::Gun, FrameOfRef::Robot, true> mTfGun2Robot;
 
@@ -121,7 +122,7 @@ public:
                 if(!mLastTime.has_value()) {
                     mTargetPitch = getPitch(res.position.mVal);
                     mLastTime = data->lastUpdate;
-//                    logInfo("PeriodOutpostPredictor: find first");
+                    //                    logInfo("PeriodOutpostPredictor: find first");
                     sendAll(period_predict_success_atom_v,
                             BlackBoard::instance().updateSync<PredictedPeriodTarget>(Identifier{ mKey.val }, res));
                     return;
@@ -146,6 +147,8 @@ public:
                 // logInfo(fmt::format("PeriodOutpostPredictor: pitch: {} degree", glm::degrees(getPitch(posRefRobot.mVal))));
 
                 // calculate period
+                if(mPeriodTimes.size() > mPeriodTimesLen)
+                    mPeriodTimes.pop_front();
                 mPeriodTimes.push_back(interval);
                 mLastTime = data->lastUpdate;
                 double periodAvg = avg(mPeriodTimes);
