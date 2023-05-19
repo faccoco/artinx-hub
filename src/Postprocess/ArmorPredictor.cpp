@@ -178,9 +178,9 @@ public:
                         // logInfo(fmt::format("{}, {}, {}", measuredPos.z, measuredPos.y, measuredPos.x));
                     } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
                         res.linearVel = -dataPosture->linearVelocityOfRobot.mVal;
+                        logInfo(fmt::format("{}, {}, {}", res.linearVel.mVal.x, res.linearVel.mVal.y, res.linearVel.mVal.z));
                     }
                 }
-                //                logInfo("Predictor works well");
                 sendAll(predict_success_atom_v, BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
             },
             [this](update_posture_atom, Identifier key) {

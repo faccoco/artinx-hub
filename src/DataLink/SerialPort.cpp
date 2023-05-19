@@ -74,6 +74,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     TimePoint mLastReceivedTime, mLastUpTargetTime, mLastDownTargetTime;
 
     std::atomic<float> mCapEnergy, mChasisPower;
+    uint64_t mCntRecord = 0;
 
     bool mOutpostMode = false;
     std::mutex mOutpostModeChangeMutex;
@@ -169,8 +170,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 mShootDelay.push_back(fdb.shootDelayTime);
                 GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;  // ms -> s
             }
+            HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
             // HubLogger::watch("fdb bullet speed", fdb.bulletSpeed);
-            // HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
             // HubLogger::watch("fdb shoot delay time", fdb.shootDelayTime);
             // HubLogger::watch("shoot delay time", static_cast<int>(GlobalSettings::get().shootDelayTime * 1000));
 
@@ -179,6 +180,12 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
             }
 
+            auto deltaYaw1 =  gimbalSetPacket.up.yaw - fdb.yaw;
+            auto deltaPitch1 = gimbalSetPacket.up.pitch - fdb.pitch;
+            mCntRecord++;
+            if (mCntRecord % 100 == 0){
+                HubLogger::VisualLog(fmt::format("SerialPort: target yaw, pitch ({:.4f}, {:.4f}), delta yaw, pitch ({:.4f}, {:.4f})", fdb.yaw, fdb.pitch, deltaYaw1, deltaPitch1));
+            }
             HubLogger::watch("yaw1", fdb.yaw);
             HubLogger::watch("pitch1", fdb.pitch);
             HubLogger::watch("roll1", fdb.roll);
@@ -186,9 +193,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             // HubLogger::watch("pitch2", fdb.downPitch);
             // HubLogger::watch("speed x", fdb.speedX);
             // HubLogger::watch("speed y", fdb.speedY);
-            HubLogger::watch("deltaYaw1", gimbalSetPacket.up.yaw - fdb.yaw);
-            HubLogger::watch("deltaPitch1", gimbalSetPacket.up.pitch - fdb.pitch);
-
+            HubLogger::watch("deltaYaw1", deltaYaw1);
+            HubLogger::watch("deltaPitch1", deltaPitch1);
 //            logInfo(fmt::format("{:.5f} {:.5f} {:.5f}",fdb.yaw,fdb.pitch,fdb.roll));
 
             GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
@@ -250,8 +256,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             return;
         mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen = 0;
-//        HubLogger::watch("targetYaw1", gimbalSetPacket.up.yaw);
-//        HubLogger::watch("targetPitch1", gimbalSetPacket.up.pitch);
+        HubLogger::watch("targetYaw1", gimbalSetPacket.up.yaw);
+        HubLogger::watch("targetPitch1", gimbalSetPacket.up.pitch);
     }
 
 public:
@@ -338,7 +344,7 @@ public:
                      mLatency.push_back(latency);
                      GlobalSettings::get().latency = avg(mLatency);
                      HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
-                     //HubLogger::VisualLog(fmt::format("SerialPort: target yaw: {:.3f}, target pitch: {:.3f}, avgLatency: {:.3f}ms", yawAngle, pitchAngle, GlobalSettings::get().latency * 1000));
+                     HubLogger::VisualLog(fmt::format("SerialPort: target yaw: {:.3f}, target pitch: {:.3f}, avgLatency: {:.3f}ms", yawAngle, pitchAngle, GlobalSettings::get().latency * 1000));
                  } };
     }
 };
