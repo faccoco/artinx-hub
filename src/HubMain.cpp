@@ -212,7 +212,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         logError("No config file path argument or config file path do not exsits!");
         return 0;
     }
-    spdlog::set_pattern("[%l]:%Y-%m-%d-%H-%M-%S-%e: %v");  // set spdlog fmt
+    spdlog::set_pattern("[%l]:%m-%d-%H-%M-%S-%e: %v");  // set spdlog fmt
     spdlog::init_thread_pool(8192, 1);
 
     globalConfigName = fs::path{ argv[1] }.filename().string();
@@ -259,7 +259,7 @@ std::mutex HubLogger::mutex;
 std::unordered_map<std::string, TimePoint> HubLogger::logs;
 std::unordered_map<std::string, std::string> HubLogger::watches;
 ReadableTimePoint nowReadableTimePoint(std::chrono::system_clock::now());
-std::string HubLogger::prefix(fmt::format("{}-{} {}:{}", nowReadableTimePoint.tm.tm_mon,
+std::string HubLogger::prefix(fmt::format("{}_{}_{}_{}", nowReadableTimePoint.tm.tm_mon,
                                           nowReadableTimePoint.tm.tm_mday, nowReadableTimePoint.tm.tm_hour,
                                           nowReadableTimePoint.tm.tm_min));
 
