@@ -22,7 +22,7 @@ struct PredictedTarget final {
 
 struct PredictedPeriodTarget final {
     TimePoint lastUpdate;
-    Vector<UnitType::Distance, FrameOfRef::Robot> position;
+    std::optional<Vector<UnitType::Distance, FrameOfRef::Robot>> position;
     std::optional<double> period;
 };
 

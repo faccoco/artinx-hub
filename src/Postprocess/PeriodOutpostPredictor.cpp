@@ -120,7 +120,7 @@ public:
 
                 // find first target, init pitch and lastTime
                 if(!mLastTime.has_value()) {
-                    mTargetPitch = getPitch(res.position.mVal);
+                    mTargetPitch = getPitch(res.position->mVal);
                     mLastTime = data->lastUpdate;
                     //                    logInfo("PeriodOutpostPredictor: find first");
                     sendAll(period_predict_success_atom_v,
@@ -138,7 +138,7 @@ public:
                     return;
 
                 // judge same pitch
-                if(double pitchDelta = std::abs(getPitch(res.position.mVal) - mTargetPitch); pitchDelta > mSamePitchThreshold) {
+                if(double pitchDelta = std::abs(getPitch(res.position->mVal) - mTargetPitch); pitchDelta > mSamePitchThreshold) {
                     clear();
                     logInfo(fmt::format("PeriodOutpostPredictor: pitchDelta: {} too large", pitchDelta));
                     return;
@@ -160,6 +160,8 @@ public:
                     return;
                 }
                 res.period = periodAvg;
+                if(mPeriodTimes.size() > 1)
+                    res.position = std::nullopt;
                 sendAll(period_predict_success_atom_v,
                         BlackBoard::instance().updateSync<PredictedPeriodTarget>(Identifier{ mKey.val }, res));
             },

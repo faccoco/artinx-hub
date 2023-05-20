@@ -5,6 +5,7 @@
 config
 bringup
 /data_test/
+/data/logs
 /record
 /record_down
 /record_up

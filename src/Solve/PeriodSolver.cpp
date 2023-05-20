@@ -1,9 +1,7 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "ExceptionProbe.hpp"
-#include "HeadInfo.hpp"
 #include "Hub.hpp"
-#include "PostureData.hpp"
 #include "SelectedTarget.hpp"
 #include "Utility.hpp"
 
@@ -31,6 +29,7 @@ class PeriodSolver final : public HubHelper<caf::event_based_actor, PeriodSolver
     const Duration mHeadDelay;
     bool mOutpostActive;
     std::atomic_uint mUpdateCnt = 0;
+    double mAirTime, mYaw, mPitch;
 
     static constexpr glm::dvec3 tf(const glm::dvec3& ori) {
         return { ori.x, -ori.z, ori.y };
@@ -57,19 +56,26 @@ public:
                 if(!(data.has_value()))
                     return;
 
-                // HubLogger::watch("x", data->position.mVal.x);
-                HubLogger::watch("verticalDistance", data->position.mVal.y);
-                // HubLogger::watch("z", data->position.mVal.z);
-                HubLogger::watch("horizontalDistance", std::sqrt(square(data->position.mVal.z) + square(data->position.mVal.x)));
-
-                glm::dvec3 tfPos = tf(data->position.mVal);
-                auto res = solveWithoutAirDrag(tfPos, glm::dvec3{ 0, 0, 0 });
-                if(!data->period.has_value()) {
-                    sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
-                                        std::get<1>(res), std::get<2>(res), false, waitSolver);
-                    return;
+                if(data->position.has_value()) {
+                    // HubLogger::watch("x", data->position.mVal.x);
+                    HubLogger::watch("verticalDistance", data->position->mVal.y);
+                    // HubLogger::watch("z", data->position.mVal.z);
+                    HubLogger::watch("horizontalDistance",
+                                     std::sqrt(square(data->position->mVal.z) + square(data->position->mVal.x)));
+                    glm::dvec3 tfPos = tf(data->position->mVal);
+                    auto [airTime, yaw, pitch] = solveWithoutAirDrag(tfPos, glm::dvec3{ 0, 0, 0 });
+                    if(!data->period.has_value()) {
+                        sendAllHighPriority(set_target_info_atom_v, mGroupMask,
+                                            data.value().lastUpdate.time_since_epoch().count(), yaw, pitch, false, waitSolver);
+                        return;
+                    } else {
+                        mAirTime = airTime;
+                        mYaw = yaw;
+                        mPitch = pitch;
+                    }
                 }
-                double waitTimeDouble = data->period.value() - std::get<0>(res) - delayTime - GlobalSettings::get().latency -
+
+                double waitTimeDouble = data->period.value() - mAirTime - delayTime - GlobalSettings::get().latency -
                     GlobalSettings::get().shootDelayTime;
                 while(waitTimeDouble < 0)
                     waitTimeDouble += data->period.value();
@@ -77,7 +83,7 @@ public:
                 logInfo(fmt::format("waitTime {}ms  shootDelay {}ms", static_cast<int>(waitTimeDouble * 1000),
                                     static_cast<int>(GlobalSettings::get().shootDelayTime * 1000)));
 
-                std::thread([this, waitTime, data, res]() {
+                std::thread([this, waitTime, data]() {
                     auto t1 = mUpdateCnt.load();
 
                     Duration firstDelay, secondDelay;
@@ -88,13 +94,13 @@ public:
                         firstDelay = 0s;
                         secondDelay = waitTime;
                     }
-                    SynchronizedClock::instance().sleep_for(firstDelay);  // eserve time for turning head
+                    SynchronizedClock::instance().sleep_for(firstDelay);  // reserve time for turning head
                     if(!mUpdateCnt.compare_exchange_strong(t1, t1))
                         return;
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask,
-                                        (data.value().lastUpdate + waitTime - mHeadDelay).time_since_epoch().count(),
-                                        std::get<1>(res), std::get<2>(res), false, waitSolver);
+                                        (data.value().lastUpdate + waitTime - mHeadDelay).time_since_epoch().count(), mYaw,
+                                        mPitch, false, waitSolver);
                     //                    logInfo("send not shoot");
 
                     SynchronizedClock::instance().sleep_for(secondDelay);  // ready for shoot
@@ -102,8 +108,8 @@ public:
                         return;
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask,
-                                        (data.value().lastUpdate + waitTime).time_since_epoch().count(), std::get<1>(res),
-                                        std::get<2>(res), true, waitSolver);  // shoot
+                                        (data.value().lastUpdate + waitTime).time_since_epoch().count(), mYaw, mPitch, true,
+                                        waitSolver);  // shoot
                 }).detach();
             },
             [this](outpost_detector_control_atom, bool active) {
