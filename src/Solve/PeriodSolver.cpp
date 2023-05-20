@@ -17,15 +17,13 @@
 #include "SuppressWarningEnd.hpp"
 
 struct PeriodSolverSettings final {
-    double precision;
     double delay;
     double headDelay;  // s
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, PeriodSolverSettings& x) {
-    return f.object(x).fields(f.field("precision", x.precision), f.field("delay", x.delay),
-                              f.field("headDelay", x.headDelay).fallback(0.001));
+    return f.object(x).fields(f.field("delay", x.delay), f.field("headDelay", x.headDelay).fallback(0.001));
 }
 
 class PeriodSolver final : public HubHelper<caf::event_based_actor, PeriodSolverSettings, set_target_info_atom> {
@@ -62,7 +60,7 @@ public:
                 // HubLogger::watch("x", data->position.mVal.x);
                 HubLogger::watch("verticalDistance", data->position.mVal.y);
                 // HubLogger::watch("z", data->position.mVal.z);
-                HubLogger::watch("horizontalDistance", std::sqrt(square(data->position.mVal.z)+square(data->position.mVal.x)));
+                HubLogger::watch("horizontalDistance", std::sqrt(square(data->position.mVal.z) + square(data->position.mVal.x)));
 
                 glm::dvec3 tfPos = tf(data->position.mVal);
                 auto res = solveWithoutAirDrag(tfPos, glm::dvec3{ 0, 0, 0 });

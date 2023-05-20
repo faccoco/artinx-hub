@@ -26,6 +26,7 @@ struct SerialPortSettings final {
     bool enableEnergyControl;
     double minBulletSpeed;
     double maxBulletSpeed;
+    bool getBulletSpeedFromSerial;
 };
 
 template <class Inspector>
@@ -37,7 +38,8 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
                               f.field("headForwardOffset2", x.headForwardOffset2).fallback(0.0),
                               f.field("enableEnergyControl", x.enableEnergyControl).fallback(false),
                               f.field("minBulletSpeed", x.minBulletSpeed).fallback(0.0),
-                              f.field("maxBulletSpeed", x.maxBulletSpeed).fallback(100.0));
+                              f.field("maxBulletSpeed", x.maxBulletSpeed).fallback(100.0),
+                              f.field("getBulletSpeedFromSerial", x.getBulletSpeedFromSerial).fallback(false));
 }
 
 class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom,
@@ -141,28 +143,30 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             mHaveReceivedFdbPacket = true;
             /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
-            if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
-                HubLogger::ElectricCtrlLog(fmt::format("bulletSpeed: {}", fdb.bulletSpeed));
-                if(fdb.bulletSpeed > mConfig.minBulletSpeed && fdb.bulletSpeed < mConfig.maxBulletSpeed) {
-                    if(mBulletSpeed.size() >= mBulletSpeedLen)
-                        mBulletSpeed.pop_front();
-                    mBulletSpeed.push_back(fdb.bulletSpeed);
-                    if(mBulletSpeed.size() < 3) {
-                        GlobalSettings::get().bulletSpeed = avg(mBulletSpeed);
-                    } else {
-                        double maxSpeed = mBulletSpeed[0], minSpeed = mBulletSpeed[0], sumSpeed = 0;
-                        for(auto speed : mBulletSpeed) {
-                            if(speed > maxSpeed)
-                                maxSpeed = speed;
-                            if(speed < minSpeed)
-                                minSpeed = speed;
-                            sumSpeed += speed;
+            if(mConfig.getBulletSpeedFromSerial) {
+                if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
+                    HubLogger::ElectricCtrlLog(fmt::format("bulletSpeed: {}", fdb.bulletSpeed));
+                    if(fdb.bulletSpeed > mConfig.minBulletSpeed && fdb.bulletSpeed < mConfig.maxBulletSpeed) {
+                        if(mBulletSpeed.size() >= mBulletSpeedLen)
+                            mBulletSpeed.pop_front();
+                        mBulletSpeed.push_back(fdb.bulletSpeed);
+                        if(mBulletSpeed.size() < 3) {
+                            GlobalSettings::get().bulletSpeed = avg(mBulletSpeed);
+                        } else {
+                            double maxSpeed = mBulletSpeed[0], minSpeed = mBulletSpeed[0], sumSpeed = 0;
+                            for(auto speed : mBulletSpeed) {
+                                if(speed > maxSpeed)
+                                    maxSpeed = speed;
+                                if(speed < minSpeed)
+                                    minSpeed = speed;
+                                sumSpeed += speed;
+                            }
+                            GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
                         }
-                        GlobalSettings::get().bulletSpeed = (sumSpeed - maxSpeed - minSpeed) / (mBulletSpeed.size() - 2);
+                        HubLogger::watch("bulletSpeed", GlobalSettings::get().bulletSpeed);
                     }
-                    HubLogger::watch("bulletSpeed", GlobalSettings::get().bulletSpeed);
+                    mLastBulletSpeed = fdb.bulletSpeed;
                 }
-                mLastBulletSpeed = fdb.bulletSpeed;
             }
             if(fdb.shootDelayTime < maxShootDelay && (mShootDelay.empty() || fdb.shootDelayTime != mShootDelay.back())) {
                 if(mShootDelay.size() >= mShootDelayLen)
@@ -180,11 +184,13 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
             }
 
-            auto deltaYaw1 =  gimbalSetPacket.up.yaw - fdb.yaw;
+            auto deltaYaw1 = gimbalSetPacket.up.yaw - fdb.yaw;
             auto deltaPitch1 = gimbalSetPacket.up.pitch - fdb.pitch;
             mCntRecord++;
-            if (mCntRecord % 100 == 0){
-                HubLogger::VisualLog(fmt::format("SerialPort: target yaw, pitch ({:.4f}, {:.4f}), delta yaw, pitch ({:.4f}, {:.4f})", fdb.yaw, fdb.pitch, deltaYaw1, deltaPitch1));
+            if(mCntRecord % 100 == 0) {
+                HubLogger::VisualLog(
+                    fmt::format("SerialPort: target yaw, pitch ({:.4f}, {:.4f}), delta yaw, pitch ({:.4f}, {:.4f})", fdb.yaw,
+                                fdb.pitch, deltaYaw1, deltaPitch1));
             }
             HubLogger::watch("yaw1", fdb.yaw);
             HubLogger::watch("pitch1", fdb.pitch);
@@ -195,7 +201,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             // HubLogger::watch("speed y", fdb.speedY);
             HubLogger::watch("deltaYaw1", deltaYaw1);
             HubLogger::watch("deltaPitch1", deltaPitch1);
-//            logInfo(fmt::format("{:.5f} {:.5f} {:.5f}",fdb.yaw,fdb.pitch,fdb.roll));
+            //            logInfo(fmt::format("{:.5f} {:.5f} {:.5f}",fdb.yaw,fdb.pitch,fdb.roll));
 
             GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
             HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
@@ -344,7 +350,9 @@ public:
                      mLatency.push_back(latency);
                      GlobalSettings::get().latency = avg(mLatency);
                      HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
-                     HubLogger::VisualLog(fmt::format("SerialPort: target yaw: {:.3f}, target pitch: {:.3f}, avgLatency: {:.3f}ms", yawAngle, pitchAngle, GlobalSettings::get().latency * 1000));
+                     HubLogger::VisualLog(
+                         fmt::format("SerialPort: target yaw: {:.3f}, target pitch: {:.3f}, avgLatency: {:.3f}ms", yawAngle,
+                                     pitchAngle, GlobalSettings::get().latency * 1000));
                  } };
     }
 };

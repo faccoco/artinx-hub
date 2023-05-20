@@ -85,7 +85,8 @@ public:
                     for(auto& tracked : mTrackedArmors) {
                         // matched
                         if(distance2D(tracked.back().second, target.armorImgCenter) < mConfig.maxMatchImgDistance) {
-//                            logInfo(fmt::format("{}", distance2D(tracked.front().second, target.armorImgCenter)));
+                            //                            logInfo(fmt::format("{}", distance2D(tracked.front().second,
+                            //                            target.armorImgCenter)));
                             if(distance2D(tracked.front().second, target.armorImgCenter) < mConfig.staticImgPosThreshold)
                                 target.motion = ArmorMotion::Static;
                             else
@@ -108,6 +109,8 @@ public:
                     //                    logInfo(magic_enum::enum_name(target.motion));
                 }
                 // logInfo(tmp);
+
+                HubLogger::VisualLog(fmt::format("Hero: mPeriodActive:{}", mPeriodActive));
 
                 if(mPeriodActive) {
                     mSendPeriodFunc(selected);
