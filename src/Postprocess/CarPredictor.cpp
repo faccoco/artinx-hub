@@ -17,7 +17,7 @@
 struct CarPredictorSettings final {
     bool enablePredictor;
     double maxMatchDist;
-    double maxSameArmorDist;
+    double maxMatchYaw;
     int trackingThreshold;
     int lostThreshold;
     std::vector<double> Q;  // Process covariance matrix
@@ -27,7 +27,7 @@ struct CarPredictorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, CarPredictorSettings& x) {
     return f.object(x).fields(
-        f.field("enablePredictor", x.enablePredictor), f.field("maxMatchDist", x.maxMatchDist).fallback(0.1), f.field("maxSameArmorDist", x.maxSameArmorDist).fallback(0.3),
+        f.field("enablePredictor", x.enablePredictor), f.field("maxMatchDist", x.maxMatchDist).fallback(0.2), f.field("maxMatchYaw", x.maxMatchYaw).fallback(0.3),
         f.field("trackingThreshold", x.trackingThreshold).fallback(5), f.field("lostThreshold", x.lostThreshold).fallback(5),
         f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 9; }).fallback(std::vector<double>(9, 0)),
         f.field("R", x.R).invariant([](auto& c) { return c.size() == 4; }).fallback(std::vector<double>(4, 0)));
@@ -80,18 +80,18 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         return glm::dvec3{ xa, ya, za };
     }
 
-    void handleArmorJump(const glm::dvec3& targetPos, double targetYaw) {
+    void handleArmorJump(const glm::dvec3& targetPos, double targetYaw, double deltaYaw) {
         double yaw = orientationToYaw(targetYaw);
-        if(std::fabs(yaw - mTrackedArmor.state(3)) > 0.3) {
+        if(deltaYaw > mConfig.maxMatchYaw) {
             mLastY = mTrackedArmor.state(1);
             mTrackedArmor.state(1) = targetPos.y;
             mTrackedArmor.state(3) = yaw;
             std::swap(mTrackedArmor.state(8), mLastR);
-            logInfo("ArmorPredictor: Armor jump to another armor!");
+            logInfo("ArmorPredictor: Armor  jump to another armor!");
             HubLogger::VisualLog(fmt::format("EKF Armor jump to another armor"));
         }
         auto dist = glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state));
-        if(dist > mConfig.maxSameArmorDist) {
+        if(dist > mConfig.maxMatchDist) {
             mTrackedArmor.state(0) = targetPos.x - mTrackedArmor.state(8) * cos(yaw);
             mTrackedArmor.state(2) = targetPos.z - mTrackedArmor.state(8) * sin(yaw);
             mTrackedArmor.state(4) = 0;
@@ -188,26 +188,27 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                 }
             }
 
+            double measuredYaw = orientationToYaw(candidate.second);
+            double deltaYaw = std::fabs(measuredYaw - mTrackedArmor.state(3));
             if(minPositionDiff < mConfig.maxMatchDist) {
                 // Matching armor found
                 matched = true;
                 // Update EKF
-                double measuredYaw = orientationToYaw(candidate.second);
                 Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, measuredYaw);
                 mTrackedArmor.state = mEKF.update(z);
                 HubLogger::watch("xRefRobot", z(0));
                 HubLogger::watch("yRefRobot", z(1));
                 HubLogger::watch("zRefRobot", z(2));
                 HubLogger::watch("yawRefRobot", z(3));
-                HubLogger::VisualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}", minPositionDiff));
+                HubLogger::VisualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}, deltaYaw {:.3f}", minPositionDiff, deltaYaw));
             } else {
                 // Check if there is same id armor in current frame
-                HubLogger::VisualLog(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, check if have another same armor", minPositionDiff));
+                HubLogger::VisualLog(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw {:.3f}, check if have another same armor", minPositionDiff, deltaYaw));
                 for(const auto& armor : armors) {
                     if(armor.id == mTrackedArmor.id) {
                         // Armor jump happens
                         matched = true;
-                        handleArmorJump(getArmorPos(armor), getArmorYaw(armor));
+                        handleArmorJump(getArmorPos(armor), getArmorYaw(armor), deltaYaw);
                         break;
                     }
                 }
