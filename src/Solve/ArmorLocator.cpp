@@ -88,7 +88,7 @@ public:
 
                 auto tfCamera2Gun = data.frame.info.tfGun2Camera.invTransformObj();
 
-                cv::Point2f imgCenter{ data.frame.frame.size[0] / 2.f, data.frame.frame.size[1] / 2.f };
+                cv::Point2f imgCenter{ data.frame.frame.cols / 2.f, data.frame.frame.rows / 2.f };
                 for(const auto& armor : data.armors) {
                     mImagePoint = armor.light4Point;
 
