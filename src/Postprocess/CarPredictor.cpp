@@ -27,7 +27,7 @@ struct CarPredictorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, CarPredictorSettings& x) {
     return f.object(x).fields(
-        f.field("enablePredictor", x.enablePredictor), f.field("maxMatchDist", x.maxMatchDist).fallback(0.2),
+        f.field("enablePredictor", x.enablePredictor), f.field("maxMatchDist", x.maxMatchDist).fallback(0.4),
         f.field("maxMatchYaw", x.maxMatchYaw).fallback(0.3), f.field("trackingThreshold", x.trackingThreshold).fallback(5),
         f.field("lostThreshold", x.lostThreshold).fallback(5),
         f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 9; }).fallback(std::vector<double>(9, 0)),
@@ -83,7 +83,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
 
     void handleArmorJump(const glm::dvec3& targetPos, double targetYaw) {
         double yaw = orientationToYaw(targetYaw);
-        if(std::fabs(yaw - mTrackedArmor.state(3)) > 0.3) {
+        if(std::fabs(yaw - mTrackedArmor.state(3)) > mConfig.maxMatchYaw) {
             mLastY = mTrackedArmor.state(1);
             mTrackedArmor.state(1) = targetPos.y;
             mTrackedArmor.state(3) = yaw;
