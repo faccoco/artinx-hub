@@ -80,8 +80,9 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         return glm::dvec3{ xa, ya, za };
     }
 
-    void handleArmorJump(const glm::dvec3& targetPos, double targetYaw, double deltaYaw) {
+    void handleArmorJump(const glm::dvec3& targetPos, double targetYaw) {
         double yaw = orientationToYaw(targetYaw);
+        double deltaYaw = std::fabs(yaw - targetYaw);
         if(deltaYaw > mConfig.maxMatchYaw) {
             mLastY = mTrackedArmor.state(1);
             mTrackedArmor.state(1) = targetPos.y;
@@ -208,7 +209,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                     if(armor.id == mTrackedArmor.id) {
                         // Armor jump happens
                         matched = true;
-                        handleArmorJump(getArmorPos(armor), getArmorYaw(armor), deltaYaw);
+                        handleArmorJump(getArmorPos(armor), getArmorYaw(armor));
                         break;
                     }
                 }
