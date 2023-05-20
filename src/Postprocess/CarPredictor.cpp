@@ -344,7 +344,8 @@ public:
                         mTrackedArmor.state(8)));
                 } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
                     const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
-                    logInfo("ArmorPredictor receive");
+                    // logInfo("ArmorPredictor receive");
+                    HubLogger::VisualLog("ArmorPredictor receive");
                     if(!dataPosture.has_value() || !data->selected.has_value())
                         return;
                     res.center = getArmorPos(data->selected.value());
@@ -353,7 +354,7 @@ public:
                     res.angularVel = 0;
                     res.radius = { 0, 0 };
                     res.y = { res.center.mVal.y, res.center.mVal.y };
-                    logInfo("ArmorPredictor send");
+                    // logInfo("ArmorPredictor send");
                     HubLogger::VisualLog(fmt::format("ArmorPredictor do not use predict func, position : ({:.3f} {:.3f} {:.3f}), linearVel: ({:.3f} {:.3f} {:.3f})",
                                                      res.center.mVal.x, res.center.mVal.y, res.center.mVal.z,
                                                      res.linearVel.mVal.x, res.linearVel.mVal.y, res.linearVel.mVal.z));
