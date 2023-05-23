@@ -76,7 +76,6 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     TimePoint mLastReceivedTime, mLastUpTargetTime, mLastDownTargetTime;
 
     std::atomic<float> mCapEnergy, mChasisPower;
-    uint64_t mCntRecord = 0;
 
     bool mOutpostMode = false;
     std::mutex mOutpostModeChangeMutex;
@@ -186,12 +185,6 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
             auto deltaYaw1 = gimbalSetPacket.up.yaw - fdb.yaw;
             auto deltaPitch1 = gimbalSetPacket.up.pitch - fdb.pitch;
-            mCntRecord++;
-            if(mCntRecord % 100 == 0) {
-                HubLogger::VisualLog(
-                    fmt::format("SerialPort: target yaw, pitch ({:.4f}, {:.4f}), delta yaw, pitch ({:.4f}, {:.4f})", fdb.yaw,
-                                fdb.pitch, deltaYaw1, deltaPitch1));
-            }
             HubLogger::watch("yaw1", fdb.yaw);
             HubLogger::watch("pitch1", fdb.pitch);
             HubLogger::watch("roll1", fdb.roll);
