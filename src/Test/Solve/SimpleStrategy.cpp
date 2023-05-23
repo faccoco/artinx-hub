@@ -17,13 +17,15 @@ struct SimpleStrategySettings final {
     std::string periodPredictType;
     double staticImgPosThreshold;
     double maxMatchImgDistance;
+    std::vector<RobotType> priorList;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, SimpleStrategySettings& x) {
     return f.object(x).fields(f.field("periodPredictType", x.periodPredictType).fallback("outpost"),
                               f.field("staticImgPosThreshold", x.staticImgPosThreshold).fallback(10),
-                              f.field("maxMatchImgDistance", x.maxMatchImgDistance).fallback(10));
+                              f.field("maxMatchImgDistance", x.maxMatchImgDistance).fallback(10),
+                              f.field("priorList", x.priorList).fallback(std::vector<RobotType>()));
 }
 
 class SimpleStrategy final : public HubHelper<caf::event_based_actor, SimpleStrategySettings, set_target_atom,
@@ -33,31 +35,19 @@ class SimpleStrategy final : public HubHelper<caf::event_based_actor, SimpleStra
     constexpr static Duration mTrackValidTime = 50ms;
     constexpr static int mTrackSize = 10;
 
-    std::function<void(SelectedTarget)> mSendPeriodFunc;
-    bool mPeriodActive = false, mPeriodInited = false;
-
     std::list<std::queue<std::pair<TimePoint, cv::Point2f>>> mTrackedArmors;
+
+    bool mPeriodActive = false, mPeriodToStart = false, mPeriodToInit = false, mPriorActive = false;
+    int mPrior[9];
 
 public:
     SimpleStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-        if(mConfig.periodPredictType == "outpost")
-            mSendPeriodFunc = [this](const SelectedTarget& selected) {
-                sendAll(set_period_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
-                        !mPeriodInited);
-            };
-        else if(mConfig.periodPredictType == "car")
-            mSendPeriodFunc = [this](const SelectedTarget& selected) {
-                sendAll(set_period_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
-                        !mPeriodInited);
-            };
-        else {
-            logInfo("SimpleStrategy wrong periodPredictType using fallback \"outpost\"");
-            mSendPeriodFunc = [this](const SelectedTarget& selected) {
-                sendAll(set_period_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
-                        !mPeriodInited);
-            };
-        }
+        memset(mPrior, 0, 9 * sizeof(int));
+        int prior = mConfig.priorList.size();
+        for(auto id : mConfig.priorList)
+            mPrior[id] = prior--;
     }
+
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
@@ -104,24 +94,38 @@ public:
                 }
 
                 if(mPeriodActive) {
-                    mSendPeriodFunc(selected);
-                    mPeriodInited = true;
-                } else {
-                    double minDisToImgCenter = std::numeric_limits<double>::max();
-                    for(const auto& target : selected.targets) {
-                        if(target.distToImgCenter < minDisToImgCenter) {
-                            selected.selected = target;
-                            minDisToImgCenter = target.distToImgCenter;
-                        }
+                    if(mPriorActive) {
+                        sendAll(set_period_outpost_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
+                                mPeriodToInit);
+                    } else {
+                        sendAll(set_period_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected),
+                                mPeriodToInit);
                     }
-                    sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                    mPeriodToInit = false;
+                } else {
+                    if(!selected.targets.empty()) {
+                        std::sort(selected.targets.begin(), selected.targets.end(),
+                                  [this](const DetectedTarget& lhs, const DetectedTarget& rhs) {
+                                      if(mPrior[lhs.id] != mPrior[rhs.id])
+                                          return mPrior[lhs.id] > mPrior[rhs.id];
+                                      if(lhs.id == RobotType::Outpost)
+                                          if(lhs.motion != rhs.motion)
+                                              return lhs.motion == ArmorMotion::Static;
+                                      return lhs.distToImgCenter < rhs.distToImgCenter;
+                                  });
+                        selected.selected = selected.targets[0];
+                        sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                    }
                 }
             },
             [this](hero_strategy_control_atom, bool periodActive, bool priorActive) {
                 ACTOR_PROTOCOL_CHECK(hero_strategy_control_atom, bool, bool);
-                if(periodActive && !mPeriodActive)
-                    mPeriodInited = false;
+                if((periodActive && !mPeriodActive) || (priorActive ^ mPriorActive)) {
+                    mPeriodToStart = true;
+                    mPeriodToInit = true;
+                }
                 mPeriodActive = periodActive;
+                mPriorActive = priorActive;
             },
         };
     }

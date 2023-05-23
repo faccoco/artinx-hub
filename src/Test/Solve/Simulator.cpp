@@ -270,7 +270,7 @@ public:
            predictorType == PredictorType::Period || predictorType == PredictorType::PeriodOutpost) {
             std::this_thread::sleep_for(1ms);
             mHeadYaw = glm::radians(270 - mConfig.targetAngle);
-            sendAll(hero_strategy_control_atom_v, true, false);
+            sendAll(hero_strategy_control_atom_v, true, true);
         }
 
         while(runFlag) {
