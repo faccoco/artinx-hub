@@ -43,7 +43,7 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
 }
 
 class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom,
-                                          energy_detector_control_atom, outpost_detector_control_atom> {
+                                          energy_detector_control_atom, hero_strategy_control_atom> {
     constexpr static size_t bufferLen = 1024;
     constexpr static size_t headerLen = 5;
     constexpr static size_t sendBufferLen = 1024;
@@ -77,8 +77,8 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
 
     std::atomic<float> mCapEnergy, mChasisPower;
 
-    bool mOutpostMode = false;
-    std::mutex mOutpostModeChangeMutex;
+    bool mPeriodMode = false;
+    std::mutex mPeriodModeChangeMutex;
 
     std::deque<double> mLatency;
     std::deque<uint16_t> mShootDelay;
@@ -199,14 +199,15 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
             HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
-            if(!mOutpostMode && fdb.outpostMode) {
-                std::lock_guard lock{ mOutpostModeChangeMutex };
-                mOutpostMode = true;
+            if(!mPeriodMode && fdb.periodMode) {
+                std::lock_guard lock{ mPeriodModeChangeMutex };
+                mPeriodMode = true;
                 gimbalSetPacket.setUpTarget(fdb.yaw, fdb.pitch, false);
             }
-            mOutpostMode = fdb.outpostMode;
-            sendAll(outpost_detector_control_atom_v, static_cast<bool>(mOutpostMode));
-            HubLogger::watch("outpost mode", static_cast<bool>(mOutpostMode));
+            mPeriodMode = fdb.periodMode;
+            sendAll(hero_strategy_control_atom_v, fdb.periodMode, fdb.priorMode);
+            HubLogger::watch("period mode", fdb.periodMode);
+            HubLogger::watch("prior mode", fdb.priorMode);
             mCapEnergy = fdb.capEnergy;
             mChasisPower = fdb.chasisPower;
 
@@ -267,7 +268,7 @@ public:
             while(globalStatus == RunStatus::running) {
                 receive();
                 static int sendTimes = 0;
-                if(gimbalSetPacket.up.isFire && mOutpostMode && sendTimes == 0) {
+                if(gimbalSetPacket.up.isFire && mPeriodMode && sendTimes == 0) {
                     sendTimes = 150;
                     //                    logInfo("start send fire");
                 }
@@ -275,7 +276,7 @@ public:
                     gimbalSetPacket.up.isFire = false;
                 std::this_thread::sleep_for(0.75ms);
                 uint8_t targetBits = 0;
-                if(mOutpostMode)
+                if(mPeriodMode)
                     targetBits |= 1;
                 else {
                     if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - mLastUpTargetTime).count() < 500)
@@ -317,8 +318,8 @@ public:
 
                      isFire = solverType && isFire;
                      {
-                         std::lock_guard lock{ mOutpostModeChangeMutex };
-                         if(mOutpostMode && solverType == normalSolver)
+                         std::lock_guard lock{ mPeriodModeChangeMutex };
+                         if(mPeriodMode && solverType == normalSolver)
                              return;
 
                          yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());

@@ -44,10 +44,9 @@ class PeriodOutpostPredictor final
     double mTargetPitch;
     std::deque<double> mPeriodTimes;
     std::optional<TimePoint> mLastTime;
-    Transform<FrameOfRef::Gun, FrameOfRef::Robot, true> mTfGun2Robot;
 
-    glm::dvec3 getArmorPos(const DetectedTarget& armor) {
-        return mTfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(armor.center.mVal)).mVal;
+    glm::dvec3 getArmorPos(const DetectedTarget& armor, const Transform<FrameOfRef::Gun, FrameOfRef::Robot, true>& tfGun2Robot) {
+        return tfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(armor.center.mVal)).mVal;
     }
 
     void clear() {
@@ -57,8 +56,7 @@ class PeriodOutpostPredictor final
     }
 
     double getTheta(const glm::dvec3& point) {
-        double theta = glm::acos(point.x / glm::sqrt(point.x * point.x + point.z * point.z));
-        return point.z < 0 ? glm::two_pi<double>() - theta : theta;
+        return std::atan2(point.z, point.x);
     }
 
     double getPitch(const glm::dvec3& point) {
@@ -77,18 +75,14 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
-                mTfGun2Robot = data->tfRobot2Gun.invTransformObj();
+                auto tfGun2Robot = data->tfRobot2Gun.invTransformObj();
 
                 // init
                 if(init) {
                     clear();
-                    mTargetTheta = getTheta(mTfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(0, 0, -1)).mVal);
+                    mTargetTheta = getTheta(tfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(0, 0, -1)).mVal);
                     logInfo(fmt::format("PeriodOutpostPredictor: inited yaw {} degree", glm::degrees(mTargetTheta)));
-                    return;
                 }
-
-                if(data->targets.empty())
-                    return;
 
                 PredictedPeriodTarget res;
                 res.lastUpdate = data->lastUpdate;
@@ -99,7 +93,7 @@ public:
                     if(target.motion == ArmorMotion::Static)
                         continue;
 
-                    auto posRefRobot = getArmorPos(target);
+                    auto posRefRobot = getArmorPos(target, tfGun2Robot);
                     double thetaDelta = std::abs(getTheta(posRefRobot) - mTargetTheta);
                     if(thetaDelta > glm::pi<double>())
                         thetaDelta = glm::two_pi<double>() - thetaDelta;

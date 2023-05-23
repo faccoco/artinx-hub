@@ -71,9 +71,9 @@ public:
                      //                     logInfo(fmt::format("x:{}, y:{}, z:{}, xVel:{}, yVel:{}, zVel:{}", tfPos.x, tfPos.y,
                      //                     tfPos.z, tfLinearVel.x, tfLinearVel.y, tfLinearVel.z)); logInfo(fmt::format("time:{},
                      //                     yawAngle:{}, pitch:{}", time, yawAngle, pitchAngle));
-                     HubLogger::VisualLog(fmt::format(
-                         "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
-                         posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
+                    //  HubLogger::VisualLog(fmt::format(
+                    //      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
+                    //      posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
                      sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
                                          yawAngle, pitchAngle, true, normalSolver);
                  },
@@ -130,10 +130,10 @@ public:
                              predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
                          }
                          if(yaw.has_value()) {
-                             logInfo(fmt::format("AngleSolver: choose {}th armor, yaw: {:.3f} pitch: {:.3f}", i, yaw.value(),
-                                                 pitch.value()));
-                             HubLogger::VisualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
-                                                              yaw.value(), pitch.value()));
+                            //  logInfo(fmt::format("AngleSolver: choose {}th armor, yaw: {:.3f} pitch: {:.3f}", i, yaw.value(),
+                            //                      pitch.value()));
+                            //  HubLogger::VisualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
+                            //                                   yaw.value(), pitch.value()));
                              sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
                                                  yaw.value(), pitch.value(), true, normalSolver);
                              break;

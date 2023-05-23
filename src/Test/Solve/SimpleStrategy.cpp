@@ -117,11 +117,11 @@ public:
                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                 }
             },
-            [this](outpost_detector_control_atom, bool active) {
-                ACTOR_PROTOCOL_CHECK(outpost_detector_control_atom, bool);
-                if(active && !mPeriodActive)
+            [this](hero_strategy_control_atom, bool periodActive, bool priorActive) {
+                ACTOR_PROTOCOL_CHECK(hero_strategy_control_atom, bool, bool);
+                if(periodActive && !mPeriodActive)
                     mPeriodInited = false;
-                mPeriodActive = active;
+                mPeriodActive = periodActive;
             },
         };
     }

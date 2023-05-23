@@ -27,7 +27,7 @@ bool inspect(Inspector& f, PeriodSolverSettings& x) {
 class PeriodSolver final : public HubHelper<caf::event_based_actor, PeriodSolverSettings, set_target_info_atom> {
     const double delayTime;
     const Duration mHeadDelay;
-    bool mOutpostActive;
+    bool mPeriodActive;
     std::atomic_uint mUpdateCnt = 0;
     double mAirTime, mYaw, mPitch;
 
@@ -112,12 +112,12 @@ public:
                                         waitSolver);  // shoot
                 }).detach();
             },
-            [this](outpost_detector_control_atom, bool active) {
-                ACTOR_PROTOCOL_CHECK(outpost_detector_control_atom, bool);
-                if(mOutpostActive ^ active) {  //
+            [this](hero_strategy_control_atom, bool periodActive, bool priorActive) {
+                ACTOR_PROTOCOL_CHECK(hero_strategy_control_atom, bool, bool);
+                if(mPeriodActive ^ periodActive) {
                     ++mUpdateCnt;
                 }
-                mOutpostActive = active;
+                mPeriodActive = periodActive;
             },
         };
     }

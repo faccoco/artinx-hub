@@ -90,9 +90,9 @@ struct BulletInfo {
     enum State { flying, hit, notHit } state;
     BulletInfo(Scalar<UnitType::Time> shootTime, Point<UnitType::Distance, FrameOfRef::Ground> shootPos,
                Vector<UnitType::LinearVelocity, FrameOfRef::Ground> shootVel)
-        : time(0), shootTime(shootTime), shootPos(shootPos),
-          shootVel(shootVel), closest{ glm::dvec3(), glm::dvec3(), glm::dvec3(), 0, glm::dvec3(), glm::dvec3(), 9999, 0 },
-          printed(false), state(flying) {}
+        : time(0), shootTime(shootTime), shootPos(shootPos), shootVel(shootVel),
+          closest{ glm::dvec3(), glm::dvec3(), glm::dvec3(), 0, glm::dvec3(), glm::dvec3(), 9999, 0 }, printed(false),
+          state(flying) {}
 };
 
 template <class Inspector>
@@ -110,8 +110,8 @@ bool inspect(Inspector& f, SimulatorSettings& x) {
         f.field("headHeightOffset", x.headHeightOffset));
 }
 
-class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom,
-                                         outpost_detector_control_atom, update_head_atom, update_posture_atom> {
+class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom, hero_strategy_control_atom,
+                                         update_head_atom, update_posture_atom> {
     Identifier mKey;
 
     std::vector<std::pair<Point<UnitType::Distance, FrameOfRef::Ground>, Vector<UnitType::LinearVelocity, FrameOfRef::Ground>>>
@@ -270,7 +270,7 @@ public:
            predictorType == PredictorType::Period || predictorType == PredictorType::PeriodOutpost) {
             std::this_thread::sleep_for(1ms);
             mHeadYaw = glm::radians(270 - mConfig.targetAngle);
-            sendAll(outpost_detector_control_atom_v, true);
+            sendAll(hero_strategy_control_atom_v, true, false);
         }
 
         while(runFlag) {

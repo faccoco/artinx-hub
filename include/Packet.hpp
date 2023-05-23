@@ -13,7 +13,7 @@
 struct FdbPacket final {
     static constexpr uint16_t id = 0x0A;
     float yaw, pitch, roll, downYaw, downPitch, bulletSpeed, speedX, speedY;
-    uint8_t color, shooterId, energyMode, outpostMode;
+    bool color, shooterId, energyMode, periodMode, priorMode;
     float capEnergy, chasisPower;
     uint16_t shootDelayTime;  // ms
     explicit FdbPacket(std::array<uint8_t, 1024>& buffer) {
@@ -29,7 +29,8 @@ struct FdbPacket final {
         color = mask & 1;
         shooterId = (mask >> 1) & 1;
         energyMode = (mask >> 2) & 1;
-        outpostMode = (mask >> 4) & 1;
+        periodMode = (mask >> 4) & 1;
+        priorMode = (mask >> 5) & 1;
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
         capEnergy = reader.readCompressedFloat(-1.0f, 0.1f);
         chasisPower = reader.readCompressedFloat(-1.0f, 0.01f);
