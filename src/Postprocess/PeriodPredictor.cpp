@@ -16,7 +16,7 @@
 
 static constexpr double sameThetaThreshold = glm::radians<double>(0.5);
 static constexpr double minIntervalThreshold = 0.1;    // s
-static constexpr double maxPeriodThreshold = 5;        // s
+static constexpr double maxPeriodThreshold = 2;        // s
 static constexpr double maxPeriodStdThreshold = 0.05;  // s
 static constexpr int maxErrorTimes = 3;
 static constexpr Duration minSendInterval = 1s;

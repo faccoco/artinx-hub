@@ -26,8 +26,8 @@ template <class Inspector>
 bool inspect(Inspector& f, PeriodOutpostPredictorSettings& x) {
     return f.object(x).fields(f.field("sameThetaThreshold", x.sameThetaThreshold).fallback(0.1),
                               f.field("samePitchThreshold", x.samePitchThreshold).fallback(1),
-                              f.field("minIntervalThreshold", x.minIntervalThreshold).fallback(0.1),
-                              f.field("maxPeriodThreshold", x.maxPeriodThreshold).fallback(5),
+                              f.field("minIntervalThreshold", x.minIntervalThreshold).fallback(0.5),
+                              f.field("maxPeriodThreshold", x.maxPeriodThreshold).fallback(2),
                               f.field("maxPeriodStdThreshold", x.maxPeriodStdThreshold).fallback(0.015));
 }
 
