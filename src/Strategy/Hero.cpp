@@ -23,7 +23,15 @@ template <class Inspector>
 bool inspect(Inspector& f, HeroStrategySettings& x) {
     return f.object(x).fields(f.field("staticImgPosThreshold", x.staticImgPosThreshold).fallback(1),
                               f.field("maxMatchImgDistance", x.maxMatchImgDistance).fallback(10),
-                              f.field("priorList", x.priorList).fallback(std::vector<int>()));
+                              f.field("priorList", x.priorList)
+                                  .invariant([](auto& ids) {
+                                      for(auto id : ids) {
+                                          if(id > 7 || id < 0)
+                                              return false;
+                                      }
+                                      return true;
+                                  })
+                                  .fallback(std::vector<int>()));
 }
 
 class HeroStrategy final : public HubHelper<caf::event_based_actor, HeroStrategySettings, set_target_atom, set_period_target_atom,
@@ -36,11 +44,11 @@ class HeroStrategy final : public HubHelper<caf::event_based_actor, HeroStrategy
     std::list<std::queue<std::pair<TimePoint, cv::Point2f>>> mTrackedArmors;
 
     bool mPeriodActive = false, mPeriodToStart = false, mPeriodToInit = false, mPriorActive = false;
-    int mPrior[9];
+    int mPrior[8];
 
 public:
     HeroStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-        memset(mPrior, 0, 9 * sizeof(int));
+        memset(mPrior, 0, 8 * sizeof(int));
         int prior = mConfig.priorList.size();
         for(auto id : mConfig.priorList)
             mPrior[id] = prior--;
