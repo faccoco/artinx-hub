@@ -14,18 +14,16 @@
 #include "SuppressWarningEnd.hpp"
 
 struct SimpleStrategySettings final {
-    std::string periodPredictType;
     double staticImgPosThreshold;
     double maxMatchImgDistance;
-    std::vector<RobotType> priorList;
+    std::vector<int> priorList;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, SimpleStrategySettings& x) {
-    return f.object(x).fields(f.field("periodPredictType", x.periodPredictType).fallback("outpost"),
-                              f.field("staticImgPosThreshold", x.staticImgPosThreshold).fallback(10),
+    return f.object(x).fields(f.field("staticImgPosThreshold", x.staticImgPosThreshold).fallback(10),
                               f.field("maxMatchImgDistance", x.maxMatchImgDistance).fallback(10),
-                              f.field("priorList", x.priorList).fallback(std::vector<RobotType>()));
+                              f.field("priorList", x.priorList).fallback(std::vector<int>()));
 }
 
 class SimpleStrategy final : public HubHelper<caf::event_based_actor, SimpleStrategySettings, set_target_atom,
