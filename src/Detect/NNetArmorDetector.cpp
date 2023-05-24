@@ -331,7 +331,8 @@ class NNetArmorDetector final
 
             // 采用传统视觉提取角点，提高pnp精度
             Armor enemyArmor = armor;
-            const auto numImg = NumberClassifier::extractNumbers(img, armor.light4Point.data(), false);
+            bool isLargeArmor = std::max(armor.lightRect.width, armor.lightRect.height) / std::min(armor.lightRect.width, armor.lightRect.width) > 3.2;
+            const auto numImg = NumberClassifier::extractNumbers(img, armor.light4Point.data(), isLargeArmor);
             const auto [id, prob] = mNumClassifierPtr->classify(numImg);
             if(id == 8 || prob < 0.8) {
                 continue;
