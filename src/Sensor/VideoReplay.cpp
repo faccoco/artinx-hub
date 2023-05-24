@@ -72,6 +72,12 @@ private:
             res.info.distCoefficients = distCoefficients;
         }
 
+        double dx = 0.06, dy = 0.02, dz = 0.01, pitch = 30, yaw = 60.0;
+        glm::dmat4 rotateMat =
+            glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(pitch), glm::dvec3{ 1, 0, 0 }),
+                        -glm::radians<double>(yaw), glm::dvec3{ 0, 1, 0 });
+        [[maybe_unused]] const auto mTfGun2Camera = glm::translate(rotateMat, {dx, dy, dz});
+
         res.info.tfGun2Camera = glm::identity<glm::dmat4>();
         res.info.tfRobot2Gun = glm::identity<glm::dmat4>();
         res.lastUpdate = SynchronizedClock::instance().now();

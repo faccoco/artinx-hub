@@ -1,5 +1,6 @@
 #ifndef ARTINX_RADAR
 #include "BlackBoard.hpp"
+#include "ClassifiedNum.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
 #include "ExceptionProbe.hpp"
@@ -33,6 +34,7 @@ struct NNetArmorDetectorSettings final {
     float bboxConfThresh;  // 0.6
     uint32_t topK;         // TopK
     float nmsThresh;       // 0.3
+    std::string numClassifyModelPath;
     int binaryThresh;
 };
 
@@ -42,7 +44,8 @@ bool inspect(Inspector& f, NNetArmorDetectorSettings& x) {
         f.field("debugView", x.debugView).fallback(false), f.field("networkPath", x.networkPath),
         f.field("inputWidth", x.inputWidth), f.field("inputHeight", x.inputHeight), f.field("numClasses", x.numClasses),
         f.field("numColors", x.numColors), f.field("bboxConfThresh", x.bboxConfThresh), f.field("topK", x.topK),
-        f.field("nmsThresh", x.nmsThresh).fallback(100), f.field("binaryThresh", x.binaryThresh).fallback(100));
+        f.field("nmsThresh", x.nmsThresh).fallback(100), f.field("binaryThresh", x.binaryThresh).fallback(100),
+        f.field("numClassifyModelPath", x.numClassifyModelPath));
 }
 
 struct GridAndStride final {
@@ -65,6 +68,8 @@ class NNetArmorDetector final
     InferenceEngine::MemoryBlob::CPtr mOutputMemBlobPtr;
 
     Eigen::Matrix<float, 3, 3> mTransformMatrix;
+
+    std::unique_ptr<NumberClassifier> mNumClassifierPtr;
 
     void debugView(const std::string_view& name, const cv::Mat& src, const std::function<void(cv::Mat&)>& func) {
 #ifndef ARTINXHUB_DEBUG
@@ -119,7 +124,7 @@ class NNetArmorDetector final
         auto imgOffset = mConfig.inputHeight * mConfig.inputWidth;
         // 将img拷贝进blob
         for(int c = 0; c < 3; c++) {
-//             memcpy(blobDataPtr, preSplit[c].data, imgOffset * sizeof(float));
+            //             memcpy(blobDataPtr, preSplit[c].data, imgOffset * sizeof(float));
             std::copy(reinterpret_cast<float*>(preSplit[c].data),
                       reinterpret_cast<float*>(preSplit[c].data) + imgOffset * sizeof(uchar), blobDataPtr);
             blobDataPtr += imgOffset;
@@ -317,7 +322,7 @@ class NNetArmorDetector final
         return std::vector<cv::Point2f>{ lt, lb, rb, rt };
     }
 
-    std::vector<Armor> postProcess(const std::vector<Armor>& armors, const cv::Mat& img) {
+    std::vector<Armor> postProcess(const std::vector<Armor>& armors, cv::Mat& img) {
         std::vector<Armor> enemyArmors;
 
         for(const auto& armor : armors) {
@@ -326,13 +331,21 @@ class NNetArmorDetector final
 
             // 采用传统视觉提取角点，提高pnp精度
             Armor enemyArmor = armor;
+            const auto numImg = NumberClassifier::extractNumbers(img, armor.light4Point.data(), false);
+            const auto [id, prob] = mNumClassifierPtr->classify(numImg);
+            if(id == 8 || prob < 0.8) {
+                continue;
+            } else {
+                enemyArmor.robotType = static_cast<RobotType>(id);
+            }
+
             cv::Mat roiArmor, gray, binary;
             auto roiArmorRect = expandRect(armor.lightRect, img.cols, img.rows);
             roiArmor = img(roiArmorRect);
             cv::cvtColor(roiArmor, gray, cv::COLOR_BGR2GRAY);
             cv::threshold(gray, binary, mConfig.binaryThresh, 255, cv::THRESH_BINARY);
             if(mConfig.debugView) {
-                debugView("roiArmor", roiArmor, [](auto) {});
+                cv::rectangle(img, roiArmorRect, {0, 255, 255});
                 debugView("binary", binary, [](auto) {});
             }
             auto light4Points = extractLightPoint(binary);
@@ -352,6 +365,7 @@ public:
     NNetArmorDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         // 1. 读取网络
         mNetwork = mIe.ReadNetwork(mConfig.networkPath);
+        mNumClassifierPtr = std::make_unique<NumberClassifier>(mConfig.numClassifyModelPath);
         if(mNetwork.getOutputsInfo().size() != 1) {
             throw std::logic_error("Sample supports topologies with 1 output only");
         }
@@ -379,9 +393,9 @@ public:
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
-                      ACTOR_EXCEPTION_PROBE();
+                     ACTOR_EXCEPTION_PROBE();
 
-                     const auto t0 = Clock::now();
+                     const auto t1 = Clock::now();
                      const auto frame = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
                      DetectedArmorArray res;
                      res.frame = frame;
@@ -401,10 +415,10 @@ public:
 
                      res.armors = postProcess(allArmors, res.frame.frame);
 
-                     const auto t2 = Clock::now();
-                     logInfo(
-                         fmt::format("NNet armor detector:decode time {:.4f}ms", static_cast<double>((t2 - t0).count()) / 1e6));
-
+                     if(res.armors.size() > 0) {
+                         HubLogger::VisualLog(fmt::format("ArmorDetector detected {} targets, cost time {:.3f}ms",
+                                                          res.armors.size(), durationCastDouble(Clock::now() - t1) * 1000));
+                     }
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
