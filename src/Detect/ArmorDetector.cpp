@@ -2,7 +2,6 @@
 #include "ClassifiedNum.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
-#include "DetectedCar.hpp"
 #include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
@@ -295,7 +294,6 @@ class ArmorDetector final
                 debugView("n", img, [](auto& src) {});
             }
 
-
             const auto [id, prob] = mNumClassifierPtr->classify(img);
 
             condArmor.id = id;
@@ -350,8 +348,9 @@ public:
                      DetectedArmorArray res;
                      res.frame = frame;
                      res.armors = solve(frame.frame);
-                     if (res.armors.size() > 0){
-                         HubLogger::VisualLog(fmt::format("ArmorDetector detected {} targets, cost time {:.3f}ms", res.armors.size(), durationCastDouble(Clock::now() - t1) * 1000));
+                     if(res.armors.size() > 0) {
+                         HubLogger::VisualLog(fmt::format("ArmorDetector detected {} targets, cost time {:.3f}ms",
+                                                          res.armors.size(), durationCastDouble(Clock::now() - t1) * 1000));
                      }
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
