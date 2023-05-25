@@ -142,9 +142,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             mHaveReceivedFdbPacket = true;
             /*            if((!mShootDelay.empty()) && (fdb.shootDelayTime != mShootDelay.back()))
                             logInfo(fmt::format("shoot delay {}", fdb.shootDelayTime));*/
-            if(mConfig.getBulletSpeedFromSerial) {
-                if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
-                    HubLogger::ElectricCtrlLog(fmt::format("bulletSpeed: {}", fdb.bulletSpeed));
+            if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
+                HubLogger::ElectricCtrlLog(fmt::format("bulletSpeed: {}", fdb.bulletSpeed));
+                if(mConfig.getBulletSpeedFromSerial) {
                     if(fdb.bulletSpeed > mConfig.minBulletSpeed && fdb.bulletSpeed < mConfig.maxBulletSpeed) {
                         if(mBulletSpeed.size() >= mBulletSpeedLen)
                             mBulletSpeed.pop_front();
@@ -164,9 +164,10 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                         }
                         HubLogger::watch("bulletSpeed", GlobalSettings::get().bulletSpeed);
                     }
-                    mLastBulletSpeed = fdb.bulletSpeed;
                 }
+                mLastBulletSpeed = fdb.bulletSpeed;
             }
+
             if(fdb.shootDelayTime < maxShootDelay && (mShootDelay.empty() || fdb.shootDelayTime != mShootDelay.back())) {
                 if(mShootDelay.size() >= mShootDelayLen)
                     mShootDelay.pop_front();
