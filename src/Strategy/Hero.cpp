@@ -26,7 +26,7 @@ bool inspect(Inspector& f, HeroStrategySettings& x) {
                               f.field("priorList", x.priorList)
                                   .invariant([](auto& ids) {
                                       for(auto id : ids) {
-                                          if(id >= magic_enum::enum_count<RobotType>() || id < 0)
+                                          if(id >= int(magic_enum::enum_count<RobotType>()) || id < 0)
                                               return false;
                                       }
                                       return true;
