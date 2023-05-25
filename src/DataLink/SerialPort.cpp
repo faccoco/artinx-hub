@@ -244,6 +244,15 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
             sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoUp));
             sendMasked(update_head_atom_v, 2U, 2U,
                        BlackBoard::instance().updateSync(Identifier{ mKey.val ^ 0xffffffff }, infoDown));
+
+            {
+                static int count = 0;
+                if((++count) == 100) {
+                    count = 0;
+                    HubLogger::VisualLog(fmt::format("shoot delay: fdb:{:.3f}s avg:{:.3f}s", fdb.shootDelayTime / 1000.0,
+                                                     GlobalSettings::get().shootDelayTime));
+                }
+            }
         }
     }
 
