@@ -26,7 +26,7 @@ bool inspect(Inspector& f, HeroStrategySettings& x) {
                               f.field("priorList", x.priorList)
                                   .invariant([](auto& ids) {
                                       for(auto id : ids) {
-                                          if(id > 7 || id < 0)
+                                          if(id >= magic_enum::enum_count<RobotType>() || id < 0)
                                               return false;
                                       }
                                       return true;
@@ -44,14 +44,14 @@ class HeroStrategy final : public HubHelper<caf::event_based_actor, HeroStrategy
     std::list<std::queue<std::pair<TimePoint, cv::Point2f>>> mTrackedArmors;
 
     bool mPeriodActive = false, mPeriodToStart = false, mPeriodToInit = false, mPriorActive = false;
-    int mPrior[8];
+    int mPrior[magic_enum::enum_count<RobotType>()];
 
 public:
     HeroStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-        memset(mPrior, 0, 8 * sizeof(int));
-        int prior = mConfig.priorList.size();
+        memset(mPrior, 0, magic_enum::enum_count<RobotType>() * sizeof(int));
+        int prior = mConfig.priorList.size() + 1;
         for(auto id : mConfig.priorList)
-            mPrior[id] = prior--;
+            mPrior[id] = (--prior);
     }
 
     caf::behavior make_behavior() override {
