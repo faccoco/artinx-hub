@@ -303,6 +303,7 @@ class ArmorDetector final
             Armor armor = {};
             armor.light4Point = condArmor.points;
             armor.robotType = static_cast<RobotType>(id);
+            armor.isLargeArmor = condArmor.isLargeArmor;
             armor.prob = prob;
             used[condArmor.leftLightIdx] = true;
             used[condArmor.rightLightIdx] = true;

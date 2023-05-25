@@ -300,7 +300,7 @@ class NNetArmorDetector final
 
         // 找到最左边和最右边的两个灯条
         int lLight = 0, rLight = lights.size() - 1;
-        for(uint32_t i = 1; i < lights.size(); ++i) {
+        for(uint32_t i = 0; i < lights.size(); ++i) {
             if(lights[i].center.x < lights[lLight].center.x) {
                 lLight = i;
             }
@@ -331,8 +331,8 @@ class NNetArmorDetector final
 
             // 采用传统视觉提取角点，提高pnp精度
             Armor enemyArmor = armor;
-            bool isLargeArmor = std::max(armor.lightRect.width, armor.lightRect.height) / std::min(armor.lightRect.width, armor.lightRect.width) > 3.2;
-            const auto numImg = NumberClassifier::extractNumbers(img, armor.light4Point.data(), isLargeArmor);
+            enemyArmor.isLargeArmor = std::max(armor.lightRect.width, armor.lightRect.height) / std::min(armor.lightRect.width, armor.lightRect.width) > 3.2;
+            const auto numImg = NumberClassifier::extractNumbers(img, armor.light4Point.data(), enemyArmor.isLargeArmor);
             const auto [id, prob] = mNumClassifierPtr->classify(numImg);
             if(id == 8 || prob < 0.8) {
                 continue;
