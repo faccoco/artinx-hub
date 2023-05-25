@@ -92,7 +92,11 @@ public:
                 for(const auto& armor : data.armors) {
                     mImagePoint = armor.light4Point;
 
-                    bool isLargeArmor = mLargeArmor.count(static_cast<int>(armor.robotType)) > 0;
+                    int id = static_cast<int>(armor.robotType);
+                    bool isLargeArmor = mLargeArmor.count(id) > 0;
+                    if (id >= 3 || id <= 5){   // judge Balance Infantry
+                        isLargeArmor = armor.isLargeArmor;
+                    }
                     auto armorType = isLargeArmor ? ArmorType::Large : ArmorType::Small;
                     auto [point, rvec] = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 
