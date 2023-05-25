@@ -300,7 +300,7 @@ class NNetArmorDetector final
 
         // 找到最左边和最右边的两个灯条
         int lLight = 0, rLight = lights.size() - 1;
-        for(uint32_t i = 1; i < lights.size(); ++i) {
+        for(uint32_t i = 0; i < lights.size(); ++i) {
             if(lights[i].center.x < lights[lLight].center.x) {
                 lLight = i;
             }
