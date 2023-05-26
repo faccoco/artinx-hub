@@ -79,7 +79,7 @@ public:
 
                 // init
                 if(init) {
-                    clear();
+                    mLastTime = std::nullopt;
                     mTargetTheta = getTheta(tfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(0, 0, -1)).mVal);
                     logInfo(fmt::format("PeriodOutpostPredictor: inited yaw {} degree", glm::degrees(mTargetTheta)));
                 }
@@ -90,7 +90,8 @@ public:
                 // find same theta armor
                 bool findSameTheta = false;
                 for(const auto& target : data->targets) {
-                    if(target.motion == ArmorMotion::Static)
+                    if(target.motion == ArmorMotion::Static ||
+                       (target.id == RobotType::Negative && target.type == ArmorType::Large))
                         continue;
 
                     auto posRefRobot = getArmorPos(target, tfGun2Robot);
@@ -117,6 +118,18 @@ public:
                     mTargetPitch = getPitch(res.position->mVal);
                     mLastTime = data->lastUpdate;
                     //                    logInfo("PeriodOutpostPredictor: find first");
+                    // use last period if have
+                    if(!mPeriodTimes.empty()) {
+                        double periodAvg = avg(mPeriodTimes);
+                        double periodStd = Std(mPeriodTimes, periodAvg);
+                        logInfo(fmt::format("PeriodOutpostPredictor: avg = {} | Std = {}", periodAvg, periodStd));
+                        HubLogger::VisualLog(fmt::format("PeriodOutpostPredictor: avg = {} | Std = {}", periodAvg, periodStd));
+                        if(periodStd > mConfig.maxPeriodStdThreshold) {
+                            clear();
+                            return;
+                        }
+                        res.period = periodAvg;
+                    }
                     sendAll(period_predict_success_atom_v,
                             BlackBoard::instance().updateSync<PredictedPeriodTarget>(Identifier{ mKey.val }, res));
                     return;
@@ -141,10 +154,10 @@ public:
                 // logInfo(fmt::format("PeriodOutpostPredictor: pitch: {} degree", glm::degrees(getPitch(posRefRobot.mVal))));
 
                 // calculate period
+                mLastTime = data->lastUpdate;
                 if(mPeriodTimes.size() > mPeriodTimesLen)
                     mPeriodTimes.pop_front();
                 mPeriodTimes.push_back(interval);
-                mLastTime = data->lastUpdate;
                 double periodAvg = avg(mPeriodTimes);
                 double periodStd = Std(mPeriodTimes, periodAvg);
                 logInfo(fmt::format("PeriodOutpostPredictor: avg = {} | Std = {}", periodAvg, periodStd));

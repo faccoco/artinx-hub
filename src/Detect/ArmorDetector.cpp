@@ -32,6 +32,7 @@ struct ArmorDetectorSettings final {
     float minLargeArmorRatio;  // width / height
     std::string numClassifyModelPath;
     float numProbThresh;  // number classify probability threshold
+    float armorRatio;
 };
 
 constexpr float fontScale = 1.5;
@@ -58,7 +59,8 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
         f.field("minArmorRectRatio", x.minArmorRectRatio).fallback(0.8),
         f.field("maxArmorRectRatio", x.maxArmorRectRatio).fallback(5.0), f.field("maxArmorAngle", x.maxArmorAngle).fallback(15.0),
         f.field("minLargeArmorRatio", x.minLargeArmorRatio).fallback(3.2),
-        f.field("numClassifyModelPath", x.numClassifyModelPath), f.field("numProbThresh", x.numProbThresh).fallback(0.7));
+        f.field("numClassifyModelPath", x.numClassifyModelPath), f.field("numProbThresh", x.numProbThresh).fallback(0.7),
+        f.field("armorRatio", x.armorRatio).fallback(2.8));
 }
 
 // reference: https://github.com/chenjunnn/rm_auto_aim
@@ -300,6 +302,9 @@ class ArmorDetector final
             condArmor.prob = prob;
             // if(id == 8 || prob < mConfig.numProbThresh)  // id 8 -> negative
             //     continue;
+            if(condArmor.ratio > mConfig.armorRatio)
+                continue;
+            HubLogger::watch("armorRatio", condArmor.ratio);
             Armor armor = {};
             armor.light4Point = condArmor.points;
             armor.robotType = static_cast<RobotType>(id);
