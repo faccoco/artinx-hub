@@ -47,24 +47,6 @@ class ArmorLocator final
                  (mImagePoint[0].y + mImagePoint[1].y + mImagePoint[2].y + mImagePoint[3].y) / 4 };
     }
 
-    std::pair<Point<UnitType::Distance, FrameOfRef::Camera>, Vector<UnitType::Distance, FrameOfRef::Camera>>
-    solve([[maybe_unused]] cv::Mat& debugView, const cv::Mat& cameraMatrix, const cv::Mat& distCoeffs, bool isLargeArmor) {
-        cv::Mat rvec, tvec;
-
-        [[maybe_unused]] const auto res = cv::solvePnP(isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
-                                                       cameraMatrix, distCoeffs, rvec, tvec, false, cv::SOLVEPNP_IPPE);
-        glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
-        glm::dvec3 r = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
-
-#ifdef ARTINXHUB_DEBUG
-        cv::drawFrameAxes(debugView, cameraMatrix, distCoeffs, rvec, tvec,
-                          static_cast<float>(isLargeArmor ? widthOfLargeArmor : widthOfSmallArmor) * 0.5f);
-#endif
-
-        return std::make_pair(Point<UnitType::Distance, FrameOfRef::Camera>{ p0 },
-                              Vector<UnitType::Distance, FrameOfRef::Camera>{ r });
-    }
-
 public:
     ArmorLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
         for(auto num : mConfig.largeArmor) {
@@ -91,20 +73,23 @@ public:
                 cv::Point2f imgCenter{ data.frame.frame.cols / 2.f, data.frame.frame.rows / 2.f };
                 for(const auto& armor : data.armors) {
                     mImagePoint = armor.light4Point;
+                    auto armorType = armor.isLargeArmor ? ArmorType::Large : ArmorType::Small;
 
-                    int id = static_cast<int>(armor.robotType);
-                    bool isLargeArmor = mLargeArmor.count(id) > 0;
-                    if (id >= 3 || id <= 5){   // judge Balance Infantry
-                        isLargeArmor = armor.isLargeArmor;
-                    }
-                    auto armorType = isLargeArmor ? ArmorType::Large : ArmorType::Small;
-                    auto [point, rvec] = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
+                    cv::Mat rvec, tvec;
+                    const auto pnpRes =
+                        cv::solvePnP(armor.isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
+                                     cameraInfo.cameraMatrix, cameraInfo.distCoefficients, rvec, tvec, false, cv::SOLVEPNP_IPPE);
+                    if(!pnpRes)
+                        continue ;
+                    glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
+                    glm::dvec3 r = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
 
-                    auto pointRefGun = tfCamera2Gun(point);
+                    auto pointRefGun = tfCamera2Gun(Point<UnitType::Distance, FrameOfRef::Camera>{ p0 });
+                    auto rvecRefCam = Vector<UnitType::Distance, FrameOfRef::Camera>{ r };
                     Transform<FrameOfRef::Armor, FrameOfRef::Camera> rmat;
 
-                    double angle = glm::length(rvec.mVal);
-                    auto axis = rvec.mVal / angle;
+                    double angle = glm::length(rvecRefCam.mVal);
+                    auto axis = rvecRefCam.mVal / angle;
                     rmat = glm::mat4_cast(glm::angleAxis(-angle, axis));
 
                     // HubLogger::watch("YawRefCam", glm::degrees(-atan2(rmat.raw()[2][0], rmat.raw()[2][2])));
@@ -117,8 +102,9 @@ public:
                                                      "{:.2f}), PositionRefGun:({:.2f}, {:.2f}, {:.2f})",
                                                      magic_enum::enum_name(armor.robotType), armorImgCenter.x, armorImgCenter.y,
                                                      pointRefGun.mVal.x, pointRefGun.mVal.y, pointRefGun.mVal.z));
-//                     logInfo(fmt::format("Position ref Camera: x:{:.3}, y:{:.3}, z:{:.3} ArmorType:{}", pointRefGun.mVal.x,
-//                                        pointRefGun.mVal.y, pointRefGun.mVal.z, isLargeArmor));
+                    //                     logInfo(fmt::format("Position ref Camera: x:{:.3}, y:{:.3}, z:{:.3} ArmorType:{}",
+                    //                     pointRefGun.mVal.x,
+                    //                                        pointRefGun.mVal.y, pointRefGun.mVal.z, isLargeArmor));
                 }
 
                 sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
