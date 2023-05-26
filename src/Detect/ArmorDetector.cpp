@@ -298,12 +298,13 @@ class ArmorDetector final
 
             condArmor.id = id;
             condArmor.prob = prob;
-            if(id == 8 || prob < mConfig.numProbThresh)  // id 8 -> negative
-                continue;
+            // if(id == 8 || prob < mConfig.numProbThresh)  // id 8 -> negative
+            //     continue;
             Armor armor = {};
             armor.light4Point = condArmor.points;
             armor.robotType = static_cast<RobotType>(id);
             armor.prob = prob;
+            armor.ratio = condArmor.ratio;
             used[condArmor.leftLightIdx] = true;
             used[condArmor.rightLightIdx] = true;
             armors.push_back(armor);

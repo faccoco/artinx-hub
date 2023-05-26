@@ -16,11 +16,13 @@
 
 struct ArmorLocatorSettings final {
     std::vector<int> largeArmor;
+    float armorRatio;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorSettings& x) {
-    return f.object(x).fields(f.field("largeArmor", x.largeArmor).fallback(std::vector<int>()));
+    return f.object(x).fields(f.field("largeArmor", x.largeArmor).fallback(std::vector<int>()),
+                              f.field("armorRatio", x.armorRatio).fallback(2.8));
 }
 
 class ArmorLocator final
@@ -92,7 +94,9 @@ public:
                 for(const auto& armor : data.armors) {
                     mImagePoint = armor.light4Point;
 
-                    bool isLargeArmor = mLargeArmor.count(static_cast<int>(armor.robotType)) > 0;
+                    bool isLargeArmor = (armor.robotType == RobotType::Negative) ?
+                        armor.ratio > mConfig.armorRatio :
+                        (mLargeArmor.count(static_cast<int>(armor.robotType)) > 0);
                     auto armorType = isLargeArmor ? ArmorType::Large : ArmorType::Small;
                     auto [point, rvec] = solve(debugView, cameraInfo.cameraMatrix, cameraInfo.distCoefficients, isLargeArmor);
 
@@ -106,6 +110,7 @@ public:
                     HubLogger::watch("XRefCam", point.mVal.x);
                     HubLogger::watch("YRefCam", point.mVal.y);
                     HubLogger::watch("ZRefCam", point.mVal.z);
+                    HubLogger::watch("isLargeArmor", isLargeArmor);
                     // HubLogger::watch("YawRefCam", glm::degrees(-atan2(rmat.raw()[2][0], rmat.raw()[2][2])));
 
                     auto rmatRefGun = combine(tfCamera2Gun, rmat);

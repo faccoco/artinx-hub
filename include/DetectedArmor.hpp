@@ -42,6 +42,7 @@ struct Armor final {
     RobotType robotType;  // 机器人类别（0：哨兵，1：英雄，2：工程，3、4、5：步兵，6：前哨站，7：基地）
     Color robotColor;  // 颜色分类（0：蓝色，1：红色，2：灰色）
     float prob;        // 分类置信度
+    float ratio;
 };
 
 struct DetectedArmorArray final {
