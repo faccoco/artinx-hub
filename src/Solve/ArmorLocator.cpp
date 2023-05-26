@@ -22,7 +22,7 @@ struct ArmorLocatorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorSettings& x) {
     return f.object(x).fields(f.field("largeArmor", x.largeArmor).fallback(std::vector<int>()),
-                              f.field("armorRatio", x.armorRatio).fallback(2.8));
+                              f.field("armorRatio", x.armorRatio).fallback(3.0));
 }
 
 class ArmorLocator final
@@ -111,6 +111,7 @@ public:
                     HubLogger::watch("YRefCam", point.mVal.y);
                     HubLogger::watch("ZRefCam", point.mVal.z);
                     HubLogger::watch("isLargeArmor", isLargeArmor);
+                    // logInfo(fmt::format("isLargeArmor: {} {}", armor.ratio, isLargeArmor));
                     // HubLogger::watch("YawRefCam", glm::degrees(-atan2(rmat.raw()[2][0], rmat.raw()[2][2])));
 
                     auto rmatRefGun = combine(tfCamera2Gun, rmat);
