@@ -91,7 +91,8 @@ public:
                 bool findSameTheta = false;
                 for(const auto& target : data->targets) {
                     if(target.motion == ArmorMotion::Static ||
-                       (target.id == RobotType::Negative && target.type == ArmorType::Large))
+                       (target.id == RobotType::Negative && target.type != ArmorType::Small) ||
+                       (target.id != RobotType::Negative && target.id != RobotType::Outpost))
                         continue;
 
                     auto posRefRobot = getArmorPos(target, tfGun2Robot);
