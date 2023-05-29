@@ -57,7 +57,7 @@ set(SOURCE
         "Utility/Timer.cpp"
         "Utility/VideoRecorder.cpp"
         "Utility/MathTools.cpp"
-        "Utility/RadarInfo.cpp")
+        "Utility/RadarInfo.cpp" DataLink/HeroSerialPort.cpp DataLink/InfantrySerialPort.cpp DataLink/SerialPort.cpp)
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)

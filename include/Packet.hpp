@@ -36,14 +36,16 @@ struct FdbPacket final {
     }
 };
 
-struct GimbalSetPacket final {
+
+class GimbalSetPacket final {
     static constexpr uint16_t id = 0x0F;
+
     struct Info {
         float yaw, pitch;
         bool isFire;
     };
 
-    Info up{}, down{};
+    Info up{};
     uint8_t hasTargets{};
     PacketBuffer<9, id> buffer{};
 
@@ -51,22 +53,20 @@ struct GimbalSetPacket final {
         up = { yaw, pitch, isFire };
     }
 
-    void setDownTarget(float yaw, float pitch, bool isFire) {
-        down = { yaw, pitch, isFire };
-    }
-
     void setHasTargetBits(uint8_t targetBits) {
         hasTargets = targetBits;
     }
 
+    void setPacketData(float yaw, float pitch, uint8_t targetBits, bool isFire){
+        up = { yaw, pitch, isFire };
+        hasTargets = targetBits;
+    }
     void serialize() {
         buffer = {};
         buffer.serialize(up.yaw, -4.0f, 0.0005f);
         buffer.serialize(up.pitch, -4.0f, 0.0005f);
-        buffer.serialize(down.yaw, -4.0f, 0.0005f);
-        buffer.serialize(down.pitch, -4.0f, 0.0005f);
         buffer.serialize(
-            static_cast<uint8_t>(static_cast<uint8_t>(up.isFire) | (static_cast<uint8_t>(down.isFire) << 1) | (hasTargets << 2)));
+            static_cast<uint8_t>(static_cast<uint8_t>(up.isFire) | (hasTargets << 2)));
         buffer.serializeCrc16();
     }
 };
