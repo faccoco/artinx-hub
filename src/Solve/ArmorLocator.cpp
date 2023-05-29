@@ -14,19 +14,16 @@
 #include <glm/gtc/quaternion.hpp>
 #include <opencv2/calib3d.hpp>
 
-struct ArmorLocatorSettings final {
-    std::vector<int> largeArmor;
-};
+struct ArmorLocatorSettings final {};
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorSettings& x) {
-    return f.object(x).fields(f.field("largeArmor", x.largeArmor).fallback(std::vector<int>()));
+    return  f.object(x).fields();
 }
 
 class ArmorLocator final
     : public HubHelper<caf::event_based_actor, ArmorLocatorSettings, detect_available_atom, image_frame_atom> {
     Identifier mKey /*, mHeadKey{}*/;
-    std::set<int> mLargeArmor;
 
     const std::vector<cv::Point3d> mObjectPointsSmall = {
         { -widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
@@ -48,11 +45,7 @@ class ArmorLocator final
     }
 
 public:
-    ArmorLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-        for(auto num : mConfig.largeArmor) {
-            mLargeArmor.insert(num);
-        }
-    }
+    ArmorLocator(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
@@ -66,8 +59,6 @@ public:
                 const auto& cameraInfo = data.frame.info;
                 res.tfRobot2Gun = cameraInfo.tfRobot2Gun;
 
-                auto debugView = data.frame.frame.clone();
-
                 auto tfCamera2Gun = data.frame.info.tfGun2Camera.invTransformObj();
 
                 cv::Point2f imgCenter{ data.frame.frame.cols / 2.f, data.frame.frame.rows / 2.f };
@@ -80,7 +71,7 @@ public:
                         cv::solvePnP(armor.isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
                                      cameraInfo.cameraMatrix, cameraInfo.distCoefficients, rvec, tvec, false, cv::SOLVEPNP_IPPE);
                     if(!pnpRes)
-                        continue ;
+                        continue;
                     glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
                     glm::dvec3 r = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
 

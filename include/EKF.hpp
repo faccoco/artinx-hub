@@ -39,9 +39,9 @@ public:
     Eigen::MatrixXd R;
 
     // Priori error estimate covariance matrix
-    Eigen::MatrixXd P_pri;
+    Eigen::MatrixXd PPri;
     // Posteriori error estimate covariance matrix
-    Eigen::MatrixXd P_post;
+    Eigen::MatrixXd PPost;
 
     // Kalman gain
     Eigen::MatrixXd K;
@@ -53,7 +53,7 @@ public:
     Eigen::MatrixXd I;
 
     // Priori state
-    Eigen::VectorXd x_pri;
+    Eigen::VectorXd xPri;
     // Posteriori state
-    Eigen::VectorXd x_post;
+    Eigen::VectorXd xPost;
 };
