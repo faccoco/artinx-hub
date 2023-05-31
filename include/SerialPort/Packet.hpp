@@ -1,8 +1,8 @@
 #pragma once
 
 #include "AsyncSerial/BufferedAsyncSerial.h"
-#include "Crc.hpp"
 #include "PacketHelper.hpp"
+#include "SerialPort/Crc.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -36,7 +36,6 @@ struct FdbPacket final {
     }
 };
 
-
 class GimbalSetPacket final {
     static constexpr uint16_t id = 0x0F;
 
@@ -47,7 +46,7 @@ class GimbalSetPacket final {
 
     Info up{};
     uint8_t hasTargets{};
-    PacketBuffer<9, id> buffer{};
+    PacketBuffer<5, id> buffer{};
 
     void setUpTarget(float yaw, float pitch, bool isFire) {
         up = { yaw, pitch, isFire };
@@ -57,7 +56,7 @@ class GimbalSetPacket final {
         hasTargets = targetBits;
     }
 
-    void setPacketData(float yaw, float pitch, uint8_t targetBits, bool isFire){
+    void setPacketData(float yaw, float pitch, uint8_t targetBits, bool isFire) {
         up = { yaw, pitch, isFire };
         hasTargets = targetBits;
     }
@@ -65,8 +64,7 @@ class GimbalSetPacket final {
         buffer = {};
         buffer.serialize(up.yaw, -4.0f, 0.0005f);
         buffer.serialize(up.pitch, -4.0f, 0.0005f);
-        buffer.serialize(
-            static_cast<uint8_t>(static_cast<uint8_t>(up.isFire) | (hasTargets << 2)));
+        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(up.isFire) | (hasTargets << 2)));
         buffer.serializeCrc16();
     }
 };

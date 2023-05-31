@@ -1,7 +1,9 @@
+#pragma once
 #include "SuppressWarningBegin.hpp"
 
 #include "AsyncSerial/BufferedAsyncSerial.h"
-#include "Crc.hpp"
+#include "SerialPort/Crc.hpp"
+#include "Utility.hpp"
 
 #include "SuppressWarningEnd.hpp"
 
@@ -9,13 +11,21 @@
 
 template <typename RecvPacket, typename SendPacket>
 class SerialPort {
-
 public:
-    SerialPort(const std::string& devPath, uint32_t baudRate)
-        : mSerialPort(std::make_unique<BufferedAsyncSerial>()), mCheckingHeader(false), mSendBufferLen(0) {
+    SerialPort(const std::string& devPath, uint32_t baudRate, std::function<void(const RecvPacket& recvPacket)> recvCB,
+               std::function<void()> setPack)
+        : mSerialPort(std::make_unique<BufferedAsyncSerial>()), mCheckingHeader(false), mSendBufferLen(0), recvCallback(recvCB),
+          setPacket(setPack) {
         mSerialPort->open(devPath, baudRate);
-        packetSend.serialize();
-        mThread = std::thread(startListen);
+        sendPacket.serialize();
+        mThread = std::thread{ [this]() {
+            while(globalStatus == RunStatus::running) {
+                receive();
+                std::this_thread::sleep_for(0.75ms);
+                setPacket();
+                send();
+            }
+        } };
     }
 
     constexpr static uint8_t RecvHeader = 0xA5;
@@ -37,9 +47,10 @@ public:
     std::array<uint8_t, SendBufferLen> mSendBuffer;
     size_t mSendBufferLen;
 
-    SendPacket packetSend{};
-    std::function<void(uint16_t id)> handlePacket;  //TODO
-    std::function<void()> startListen;              //TODO
+    std::mutex mPacketMutex;
+    SendPacket sendPacket{};
+    std::function<void(const RecvPacket& recvPacket)> recvCallback;
+    std::function<void()> setPacket;
 
     void receive() {
         if(!started)
@@ -50,7 +61,9 @@ public:
             if(mPacketLen < RecvBufferLen) {
                 mPacketBuffer[mPacketLen++] = data;
                 if(mPacketLen == mExpectedLen && Crc::VerifyCrc16CheckSum(mPacketBuffer.data(), mPacketLen)) {
-                    handlePacket(mPacketBuffer[5]);  // mPacketBuffer[5] ==> Protocol id
+                    if(mPacketBuffer[5] == RecvPacket::id) {  // mPacketBuffer[5] ==> Protocol id
+                        recvCallback(RecvPacket(mPacketBuffer));
+                    }
                 }
             }
 
@@ -75,11 +88,14 @@ public:
         }
     }
 
-    void sendPacket() {
-        packetSend.serialize();
-        packetSend.buffer.copyToSendBuffer(mSendBuffer.data() + mSendBufferLen);
+    void send() {
+        {
+            std::lock_guard lock{ mPacketMutex };
+            sendPacket.serialize();
+            sendPacket.buffer.copyToSendBuffer(mSendBuffer.data() + mSendBufferLen);
+        }
         mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
-        mSendBufferLen += packetSend.buffer.size();
+        mSendBufferLen += sendPacket.buffer.size();
 
         if(mSendBufferLen > SendBufferLen)
             mSendBufferLen = 0;

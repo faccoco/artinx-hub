@@ -1,7 +1,7 @@
-#include "Crc.hpp"
+#include "SerialPort/Crc.hpp"
 
 uint8_t Crc::Get_CRC8_Check_Sum(uint8_t* pchMessage, uint32_t dwLength, uint8_t ucCRC8) {
-//    unsigned char ucIndex;
+    //    unsigned char ucIndex;
     while(dwLength--) {
         ucCRC8 = CRC8_TAB[ucCRC8 ^ (*pchMessage++)];
     }

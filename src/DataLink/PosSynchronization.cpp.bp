@@ -2,8 +2,8 @@
 #include "Common.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include "Packet.hpp"
 #include "RadarInfo.hpp"
+#include "SerialPort/Packet.hpp"
 #include "Utility.hpp"
 
 #include "SuppressWarningBegin.hpp"

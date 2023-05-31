@@ -9,7 +9,7 @@ set(SOURCE
         "DataLink/AsyncSerial/AsyncSerial.cpp"
         "DataLink/AsyncSerial/BufferedAsyncSerial.cpp"
         "DataLink/HttpServer.cpp"
-        "DataLink/SerialPort.cpp"
+        "DataLink/InfantrySerialPort.cpp"
         "DataLink/PosSynchronization.cpp"
         "Detect/CarDetector.cpp"
         "Detect/NumClassifier.cpp"
@@ -57,7 +57,7 @@ set(SOURCE
         "Utility/Timer.cpp"
         "Utility/VideoRecorder.cpp"
         "Utility/MathTools.cpp"
-        "Utility/RadarInfo.cpp" DataLink/HeroSerialPort.cpp DataLink/InfantrySerialPort.cpp DataLink/SerialPort.cpp)
+        "Utility/RadarInfo.cpp" DataLink/HeroSerialPort.cpp DataLink/InfantrySerialPort.cpp ../include/SerialPort/SerialPort.hpp)
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
