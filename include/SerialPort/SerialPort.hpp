@@ -94,13 +94,12 @@ public:
             sendPacket.serialize();
             sendPacket.buffer.copyToSendBuffer(mSendBuffer.data() + mSendBufferLen);
         }
-        mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen += sendPacket.buffer.size();
-
         if(mSendBufferLen > SendBufferLen)
             mSendBufferLen = 0;
         if(mSendBufferLen == 0)
             return;
+        mSerialPort->write(reinterpret_cast<char*>(mSendBuffer.data()), mSendBufferLen);
         mSendBufferLen = 0;
     }
 
