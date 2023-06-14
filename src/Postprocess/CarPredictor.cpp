@@ -206,7 +206,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                                                  minPositionDiff, deltaYaw));
             } else {
                 // Check if there is same id armor in current frame
-                HubLogger::VisualLog(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw {:.3f}, check if have another same armor",
+                HubLogger::VisualLog(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
+                                                 "{:.3f}, check if have another same armor",
                                                  minPositionDiff, deltaYaw));
                 for(const auto& armor : armors) {
                     if(armor.id == mTrackedArmor.id) {
@@ -239,7 +240,7 @@ public:
             return x_new;
         };
         // J_f - Jacobian of process function
-        auto j_f = [this](const Eigen::VectorXd&) {
+        auto JF = [this](const Eigen::VectorXd&) {
             Eigen::MatrixXd f(9, 9);
             // clang-format off
             f <<  1,   0,   0,   0,   mDt, 0,   0,   0,   0,
@@ -265,7 +266,7 @@ public:
             return z;
         };
         // J_h - Jacobian of observation function
-        auto j_h = [](const Eigen::VectorXd& x) {
+        auto JH = [](const Eigen::VectorXd& x) {
             Eigen::MatrixXd h(4, 9);
             double yaw = x(3), r = x(8);
             // clang-format off
@@ -287,7 +288,7 @@ public:
         // P - error estimate covariance matrix
         Eigen::DiagonalMatrix<double, 9> p0;
         p0.setIdentity();
-        mEKF = ExtendedKalmanFilter{ f, h, j_f, j_h, q, r, p0 };
+        mEKF = ExtendedKalmanFilter{ f, h, JF, JH, q, r, p0 };
     }
 
     caf::behavior make_behavior() override {

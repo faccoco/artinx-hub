@@ -45,13 +45,13 @@ public:
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
                      selected.tfRobot2Gun = data.tfRobot2Gun;
-                     selected.targets = data.targets;
 
                      std::optional<DetectedTarget> heroTarget, sameTarget, minDistTarget;
                      auto minDistance = 10000.0;
                      for(auto& target : data.targets) {
                          if(mIgnoreId.count(static_cast<int>(target.id)))
                              continue;
+                         selected.targets.emplace_back(target);
                          auto pos = target.center.mVal;
                          auto dist = pos.x * pos.x + pos.y * pos.y + pos.z * pos.z;
                          if(dist > mConfig.maxDistance * mConfig.maxDistance)

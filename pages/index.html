@@ -96,7 +96,7 @@
           <tr>
             <td>
               <label class="mdui-checkbox">
-                <input type="checkbox" onchange="$('#chart-'+$(this).parents('tr').children().eq(1).text()).toggle();">
+                <input type="checkbox" onchange="$(document.getElementById('chart-'+$(this).parents('tr').children().eq(1).text())).toggle();">
                 <i class="mdui-checkbox-icon"></i>
               </label>
             </td>
