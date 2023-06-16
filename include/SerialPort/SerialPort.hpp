@@ -14,8 +14,8 @@ class SerialPort {
 public:
     SerialPort(const std::string& devPath, uint32_t baudRate, std::function<void(const RecvPacket& recvPacket)> recvCB,
                std::function<void()> setPack)
-        : mSerialPort(std::make_unique<BufferedAsyncSerial>()), mCheckingHeader(false), mSendBufferLen(0), recvCallback(recvCB),
-          setPacket(setPack) {
+        : mSerialPort(std::make_unique<BufferedAsyncSerial>()), mPacketLen(0), mCheckingHeader(false), mSendBufferLen(0),
+          recvCallback(recvCB), setPacket(setPack) {
         mSerialPort->open(devPath, baudRate);
         sendPacket.serialize();
         mThread = std::thread{ [this]() {
@@ -56,7 +56,6 @@ public:
         if(!started)
             return;
         std::vector<char> vec = mSerialPort->read();
-        mPacketLen = 0;
         for(uint8_t data : vec) {
             if(mPacketLen < RecvBufferLen) {
                 mPacketBuffer[mPacketLen++] = data;
