@@ -249,3 +249,5 @@ public:
         };
     }
 };
+
+HUB_REGISTER_CLASS(HeroSerialPort);
