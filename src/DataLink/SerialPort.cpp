@@ -178,9 +178,9 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
                 sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
             }
 
-//            HubLogger::watch("yaw1", fdb.yaw);
-//            HubLogger::watch("pitch1", fdb.pitch);
-            auto deltaYaw1 =  gimbalSetPacket.up.yaw - fdb.yaw;
+            //            HubLogger::watch("yaw1", fdb.yaw);
+            //            HubLogger::watch("pitch1", fdb.pitch);
+            auto deltaYaw1 = gimbalSetPacket.up.yaw - fdb.yaw;
             auto deltaPitch1 = gimbalSetPacket.up.pitch - fdb.pitch;
             HubLogger::watch("deltaYaw1", deltaYaw1);
             HubLogger::watch("deltaPitch1", deltaPitch1);
@@ -288,7 +288,8 @@ public:
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
                 if(mHaveReceivedFdbPacket) {
-                    HubLogger::ElectricCtrlLog(fmt::format("capEnergy: {:.1f} chasisPower: {:.2f}", mCapEnergy, mChasisPower));
+                    HubLogger::ElectricCtrlLog(
+                        fmt::format("capEnergy: {:.1f} chasisPower: {:.2f}", mCapEnergy.load(), mChasisPower.load()));
                 }
                 std::this_thread::sleep_for(ChassisPowerRecordInterval);
             }
@@ -334,7 +335,9 @@ public:
                      mLatency.push_back(latency);
                      GlobalSettings::get().latency = avg(mLatency);
                      HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
-                     HubLogger::VisualLog(fmt::format("SerialPort: target yaw: {:.3f}, target pitch: {:.3f}, avgLatency: {:.3f}ms", yawAngle, pitchAngle, GlobalSettings::get().latency * 1000));
+                     HubLogger::VisualLog(
+                         fmt::format("SerialPort: target yaw: {:.3f}, target pitch: {:.3f}, avgLatency: {:.3f}ms", yawAngle,
+                                     pitchAngle, GlobalSettings::get().latency * 1000));
                  } };
     }
 };
