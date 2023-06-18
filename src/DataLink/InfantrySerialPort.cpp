@@ -87,8 +87,8 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
 
         sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
 
-        auto deltaYaw1 = sendPacket.yaw - fdb.yaw;
-        auto deltaPitch1 = sendPacket.pitch - fdb.pitch;
+        auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
+        auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
         HubLogger::watch("deltaYaw1", deltaYaw1);
         HubLogger::watch("deltaPitch1", deltaPitch1);
 
@@ -115,11 +115,10 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
     }
 
     void infantrySetPacket() {
-        std::lock_guard lock{mPacketMutex};
-        uint8_t targetBits = 0;
-        if(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - mLastTargetTime).count() < 500)
-            targetBits |= 1;
-        HubLogger::watch("hasTargets", targetBits);
+        mSendPacket.hasTargets = 0;
+        if(Clock::now() - mLastTargetTime < 500ms)
+            mSendPacket.hasTargets |= 1;
+        HubLogger::watch("hasTargets", mSendPacket.hasTargets);
     }
 
 public:
@@ -131,40 +130,42 @@ public:
           mKey{ generateKey(this) } {}
 
     caf::behavior make_behavior() override {
-        return { [this](start_atom) {
-                    ACTOR_PROTOCOL_CHECK(start_atom);
-                    started = true;
-                },
-                 [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
-                        SolverType solverType) {
-                     ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
+        return {
+            [this](start_atom) {
+                ACTOR_PROTOCOL_CHECK(start_atom);
+                started = true;
+            },
+            [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
+                   SolverType solverType) {
+                ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
 
-                     yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
+                yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
 
-                     {
-                         std::lock_guard lock{ mPacketMutex };
-                         sendPacket.yaw = static_cast<float>(yawAngle);
-                         sendPacket.pitch = static_cast<float>(pitchAngle);
-                         sendPacket.isFire = isFire;
-                         mLastTargetTime = Clock::now();
-                     }
+                {
+                    std::lock_guard lock{ mPacketMutex };
+                    mSendPacket.yaw = static_cast<float>(yawAngle);
+                    mSendPacket.pitch = static_cast<float>(pitchAngle);
+                    mSendPacket.isFire = isFire;
+                    mLastTargetTime = Clock::now();
+                }
 
+                const auto current = Clock::now();
+                const auto latency =
+                    double(current.time_since_epoch().count() - begin) / Duration::period::den * Duration::period::num;
 
-                     const auto current = Clock::now();
-                     const auto latency =
-                         double(current.time_since_epoch().count() - begin) / Duration::period::den * Duration::period::num;
-
-                     if(mLatency.size() >= latencyLen)
-                         mLatency.pop_front();
-                     mLatency.push_back(latency);
-                     GlobalSettings::get().latency = avg(mLatency);
-                     HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
-                     HubLogger::watch("targetYaw1", yawAngle);
-                     HubLogger::watch("targetPitch1", pitchAngle);
-                     HubLogger::VisualLog(
-                         fmt::format("InfantrySerialPort: target yaw: {:.3f}, target pitch: {:.3f}, avgLatency: {:.3f}ms",
-                                     yawAngle, pitchAngle, GlobalSettings::get().latency * 1000));
-                 } };
+                if(mLatency.size() >= latencyLen)
+                    mLatency.pop_front();
+                mLatency.push_back(latency);
+                GlobalSettings::get().latency = avg(mLatency);
+                HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
+                HubLogger::watch("targetYaw1", yawAngle);
+                HubLogger::watch("targetPitch1", pitchAngle);
+                HubLogger::VisualLog(
+                    fmt::format("InfantrySerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
+                                yawAngle, pitchAngle, static_cast<int>(mLatency.back() * 1000),
+                                static_cast<int>(GlobalSettings::get().latency * 1000)));
+            },
+        };
     }
 };
 

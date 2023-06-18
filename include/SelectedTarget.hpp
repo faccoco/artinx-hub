@@ -26,6 +26,7 @@ struct PredictedPeriodTarget final {
     std::optional<double> period;
 };
 
+ACTOR_PROTOCOL_DEFINE(hero_strategy_control_atom, bool, bool);
 ACTOR_PROTOCOL_DEFINE(outpost_detector_control_atom, bool);
 ACTOR_PROTOCOL_DEFINE(set_target_atom, TypedIdentifier<SelectedTarget>);
 ACTOR_PROTOCOL_DEFINE(set_period_target_atom, TypedIdentifier<SelectedTarget>, bool);
