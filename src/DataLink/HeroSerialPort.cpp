@@ -211,7 +211,7 @@ public:
 
     caf::behavior make_behavior() override {
         return {
-            [this](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
                    SolverType solverType) {
                 ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
