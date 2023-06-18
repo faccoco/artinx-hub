@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Crc.hpp"
 #include "Hub.hpp"
+#include "SerialPort/Crc.hpp"
 
 #include <array>
 #include <cassert>

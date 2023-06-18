@@ -2,9 +2,9 @@
 #include "EnergyDetect.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
-#include "Packet.hpp"
 #include "PostureData.hpp"
 #include "SelectedTarget.hpp"
+#include "SerialPort/Packet.hpp"
 #include "Utility.hpp"
 
 #include "SuppressWarningBegin.hpp"
@@ -268,7 +268,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     }
 
 public:
-    SerialPort(caf::actor_config& base, const HubConfig& config)
+    RefSerialPort(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ generateKey(this) },
           mCheckingHeader(false), mSendBufferLen(0) {
         mSerialPort->open(mConfig.devPath, mConfig.baudRate);
@@ -312,7 +312,7 @@ public:
         }).detach();
     }
 
-    ~SerialPort() override {
+    ~RefSerialPort() override {
         mSerialPort.release()->close();
         mThread.detach();
     }
@@ -358,4 +358,4 @@ public:
     }
 };
 
-HUB_REGISTER_CLASS(SerialPort);
+HUB_REGISTER_CLASS(RefSerialPort);
