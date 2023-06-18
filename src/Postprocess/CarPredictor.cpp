@@ -66,10 +66,9 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         return normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
     }
 
-    double orientationToYaw(double yaw) {
+    void setArmorYaw(double yaw) {
         // Make yaw change continuous
         mTrackedArmor.yaw = mTrackedArmor.yaw + normalizeAngle(yaw - mTrackedArmor.yaw);
-        return mTrackedArmor.yaw;
     }
 
     glm::dvec3 getArmorPosFromState(const Eigen::VectorXd& x) {
@@ -82,7 +81,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
     }
 
     void handleArmorJump(const glm::dvec3& targetPos, double targetYaw) {
-        double yaw = orientationToYaw(targetYaw);
+        setArmorYaw(targetYaw);
+        double yaw = mTrackedArmor.yaw;
         if(std::fabs(yaw - mTrackedArmor.state(3)) > mConfig.maxMatchYaw) {
             mLastY = mTrackedArmor.state(1);
             mTrackedArmor.state(1) = targetPos.y;
@@ -151,9 +151,9 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
 
     void init(const DetectedTarget& armor) {
         mTrackedArmor.yaw = 0;
-        double yaw = orientationToYaw(getArmorYaw(armor));
+        setArmorYaw(getArmorYaw(armor));
         // Set initial position at 0.2m behind the target
-        double r = 0.2;
+        double r = 0.2, yaw = mTrackedArmor.yaw;
         auto p = getArmorPos(armor);
         double x = p.x - r * cos(yaw);
         double y = p.y;
@@ -195,8 +195,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                 // Matching armor found
                 matched = true;
                 // Update EKF
-                double measuredYaw = orientationToYaw(candidate.second);
-                Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, measuredYaw);
+                setArmorYaw(candidate.second);
+                Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, mTrackedArmor.yaw);
                 mTrackedArmor.state = mEKF.update(z);
                 HubLogger::watch("xRefRobot", z(0));
                 HubLogger::watch("yRefRobot", z(1));

@@ -2,9 +2,9 @@
 #include "EnergyDetect.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
-#include "Packet.hpp"
 #include "PostureData.hpp"
 #include "SelectedTarget.hpp"
+#include "SerialPort/Packet.hpp"
 #include "Utility.hpp"
 
 #include "SuppressWarningBegin.hpp"
@@ -40,8 +40,8 @@ bool inspect(Inspector& f, SerialPortSettings& x) {
                               f.field("maxBulletSpeed", x.maxBulletSpeed).fallback(100.0));
 }
 
-class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom,
-                                          energy_detector_control_atom, outpost_detector_control_atom> {
+class RefSerialPort final : public HubHelper<caf::event_based_actor, SerialPortSettings, update_head_atom, update_posture_atom,
+                                             energy_detector_control_atom, outpost_detector_control_atom> {
     constexpr static size_t bufferLen = 1024;
     constexpr static size_t headerLen = 5;
     constexpr static size_t sendBufferLen = 1024;
@@ -251,7 +251,7 @@ class SerialPort final : public HubHelper<caf::event_based_actor, SerialPortSett
     }
 
 public:
-    SerialPort(caf::actor_config& base, const HubConfig& config)
+    RefSerialPort(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mKey{ generateKey(this) },
           mCheckingHeader(false), mSendBufferLen(0) {
         mSerialPort->open(mConfig.devPath, mConfig.baudRate);
@@ -296,7 +296,7 @@ public:
         }).detach();
     }
 
-    ~SerialPort() override {
+    ~RefSerialPort() override {
         mSerialPort.release()->close();
         mThread.detach();
     }
@@ -342,4 +342,4 @@ public:
     }
 };
 
-HUB_REGISTER_CLASS(SerialPort);
+HUB_REGISTER_CLASS(RefSerialPort);
