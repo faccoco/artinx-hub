@@ -8,16 +8,16 @@
 
 #include "SuppressWarningEnd.hpp"
 
-enum RobotType{
+enum RobotType {
     Sentry = 0,
-    Hero,
-    Engineer,
-    Infantry1,
-    Infantry2,
-    Infantry3,
-    Outpost,
-    Base,
-    Negative
+    Hero = 1,
+    Engineer = 2,
+    Infantry1 = 3,
+    Infantry2 = 4,
+    Infantry3 = 5,
+    Outpost = 6,
+    Base = 7,
+    Negative = 8
 };
 
 enum class ArmorType { Small, Large };

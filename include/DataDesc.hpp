@@ -119,7 +119,6 @@ CAF_ADD_ATOM(ArtinxHub, monitor_response_atom);
 CAF_ADD_ATOM(ArtinxHub, payload_atom);
 CAF_ADD_ATOM(ArtinxHub, ore_alignment_available_atom);
 CAF_ADD_ATOM(ArtinxHub, energy_detector_control_atom);
-CAF_ADD_ATOM(ArtinxHub, outpost_detector_control_atom);
 CAF_ADD_ATOM(ArtinxHub, hero_strategy_control_atom);
 
 CAF_ADD_TYPE_ID(ArtinxHub, (Identifier));

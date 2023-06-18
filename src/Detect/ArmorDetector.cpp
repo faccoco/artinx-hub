@@ -32,6 +32,8 @@ struct ArmorDetectorSettings final {
     float minLargeArmorRatio;  // width / height
     std::string numClassifyModelPath;
     float numProbThresh;  // number classify probability threshold
+    float armorRatio;
+    bool excludeNegative;
 };
 
 constexpr float fontScale = 1.5;
@@ -57,8 +59,9 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
         f.field("max2LightDiffAngle", x.max2LightDiffAngle).fallback(5.0),
         f.field("minArmorRectRatio", x.minArmorRectRatio).fallback(0.8),
         f.field("maxArmorRectRatio", x.maxArmorRectRatio).fallback(5.0), f.field("maxArmorAngle", x.maxArmorAngle).fallback(15.0),
-        f.field("minLargeArmorRatio", x.minLargeArmorRatio).fallback(3.2),
-        f.field("numClassifyModelPath", x.numClassifyModelPath), f.field("numProbThresh", x.numProbThresh).fallback(0.7));
+        f.field("minLargeArmorRatio", x.minLargeArmorRatio).fallback(3.0),
+        f.field("numClassifyModelPath", x.numClassifyModelPath), f.field("numProbThresh", x.numProbThresh).fallback(0.7),
+        f.field("excludeNegative", x.excludeNegative).fallback(true));
 }
 
 // reference: https://github.com/chenjunnn/rm_auto_aim
@@ -298,7 +301,7 @@ class ArmorDetector final
 
             condArmor.id = id;
             condArmor.prob = prob;
-            if(id == 8 || prob < mConfig.numProbThresh)  // id 8 -> negative
+            if(mConfig.excludeNegative && (id == 8 || prob < mConfig.numProbThresh))  // id 8 -> negative
                 continue;
             Armor armor = {};
             armor.light4Point = condArmor.points;

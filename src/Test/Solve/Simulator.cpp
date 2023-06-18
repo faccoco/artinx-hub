@@ -90,9 +90,9 @@ struct BulletInfo {
     enum State { flying, hit, notHit } state;
     BulletInfo(Scalar<UnitType::Time> shootTime, Point<UnitType::Distance, FrameOfRef::Ground> shootPos,
                Vector<UnitType::LinearVelocity, FrameOfRef::Ground> shootVel)
-        : time(0), shootTime(shootTime), shootPos(shootPos),
-          shootVel(shootVel), closest{ glm::dvec3(), glm::dvec3(), glm::dvec3(), 0, glm::dvec3(), glm::dvec3(), 9999, 0 },
-          printed(false), state(flying) {}
+        : time(0), shootTime(shootTime), shootPos(shootPos), shootVel(shootVel),
+          closest{ glm::dvec3(), glm::dvec3(), glm::dvec3(), 0, glm::dvec3(), glm::dvec3(), 9999, 0 }, printed(false),
+          state(flying) {}
 };
 
 template <class Inspector>
@@ -110,8 +110,8 @@ bool inspect(Inspector& f, SimulatorSettings& x) {
         f.field("headHeightOffset", x.headHeightOffset));
 }
 
-class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom,
-                                         outpost_detector_control_atom, update_head_atom, update_posture_atom> {
+class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings, simulator_step_atom, hero_strategy_control_atom,
+                                         update_head_atom, update_posture_atom> {
     Identifier mKey;
 
     std::vector<std::pair<Point<UnitType::Distance, FrameOfRef::Ground>, Vector<UnitType::LinearVelocity, FrameOfRef::Ground>>>
@@ -124,7 +124,7 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
     std::mt19937_64 mEngine{ static_cast<uint64_t>(Clock::now().time_since_epoch().count()) };
 
     static constexpr double mNorThresholdVel = 6.0;
-    static constexpr double mMinVisiblePitch = glm::radians<double>(30);
+    static constexpr double mMinVisiblePitch = glm::radians<double>(0);
 
     void initializeTestCase() {
         {
@@ -270,7 +270,7 @@ public:
            predictorType == PredictorType::Period || predictorType == PredictorType::PeriodOutpost) {
             std::this_thread::sleep_for(1ms);
             mHeadYaw = glm::radians(270 - mConfig.targetAngle);
-            sendAll(outpost_detector_control_atom_v, true);
+            sendAll(hero_strategy_control_atom_v, true, true);
         }
 
         while(runFlag) {
@@ -290,13 +290,17 @@ public:
             // update head info
             Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
             {
+                const double yaw = -mHeadYaw - glm::half_pi<double>();
+                const double pitch = mHeadPitch;
+                // logInfo(fmt::format("yaw:{} {} pitch:{} {}", glm::degrees(mHeadYaw), glm::degrees(yaw),
+                // glm::degrees(mHeadPitch),
+                //                     glm::degrees(pitch)));
                 const HeadInfo info{ nowTimePoint,
-                                     decltype(HeadInfo::tfRobot2Gun){
-                                         glm::lookAtRH(glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
-                                                       glm::dvec3{ -std::sin(mHeadYaw) * std::cos(mHeadPitch),
-                                                                   mConfig.headHeightOffset + std::sin(mHeadPitch),
-                                                                   -std::cos(mHeadYaw) * std::cos(mHeadPitch) },
-                                                       glm::dvec3{ 0.0, 1.0, 0.0 }) } };
+                                     decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
+                                         glm::dvec3{ 0.0, mConfig.headHeightOffset, 0.0 },
+                                         glm::dvec3{ std::cos(pitch) * std::cos(yaw), mConfig.headHeightOffset + std::sin(pitch),
+                                                     std::cos(pitch) * std::sin(yaw) },
+                                         glm::dvec3{ 0.0, 1.0, 0.0 }) } };
                 tfRobot2Gun = info.tfRobot2Gun;
                 sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, info));
                 sendMasked(update_head_atom_v, 2U, 2U,

@@ -83,12 +83,17 @@ public:
                     auto axis = rvecRefCam.mVal / angle;
                     rmat = glm::mat4_cast(glm::angleAxis(-angle, axis));
 
+                    HubLogger::watch("XRefCam", rvecRefCam.mVal.x);
+                    HubLogger::watch("YRefCam", rvecRefCam.mVal.y);
+                    HubLogger::watch("ZRefCam", rvecRefCam.mVal.z);
+                    HubLogger::watch("isLargeArmor", armor.isLargeArmor);
+                    // logInfo(fmt::format("isLargeArmor: {} {}", armor.ratio, isLargeArmor));
                     // HubLogger::watch("YawRefCam", glm::degrees(-atan2(rmat.raw()[2][0], rmat.raw()[2][2])));
 
                     auto rmatRefGun = combine(tfCamera2Gun, rmat);
                     auto armorImgCenter = clcArmorImgCenter();
                     res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefGun, armor.robotType,
-                                            armorType, rmatRefGun });
+                                            armorType, ArmorMotion::Unsure, rmatRefGun });
                     HubLogger::VisualLog(fmt::format("ArmorLocator locate target: RobotType:{}, ArmorImgCenter:({:.2f}, "
                                                      "{:.2f}), PositionRefGun:({:.2f}, {:.2f}, {:.2f})",
                                                      magic_enum::enum_name(armor.robotType), armorImgCenter.x, armorImgCenter.y,

@@ -1,12 +1,12 @@
 #pragma once
+#include "DetectedArmor.hpp"
 #include "Timer.hpp"
 #include "Transform.hpp"
-#include "DetectedArmor.hpp"
 #include <vector>
 
 #include <opencv2/opencv.hpp>
 
-
+enum class ArmorMotion { Unsure, Static, Moving };
 
 struct DetectedTarget final {
     cv::Point2f armorImgCenter;
@@ -14,6 +14,7 @@ struct DetectedTarget final {
     Point<UnitType::Distance, FrameOfRef::Gun> center;
     RobotType id;
     ArmorType type;
+    ArmorMotion motion;     //get from strategy
     Transform<FrameOfRef::Armor, FrameOfRef::Gun> rmat;
 };
 
