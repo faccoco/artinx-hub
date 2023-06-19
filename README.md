@@ -165,7 +165,7 @@ Artinx视觉组 集成框架
 
 ## 本地构建指南
 
-下面仅介绍VS工作流和Clion工作流，可以自行探索VS Code/Vim工作流
+下面仅介绍VS工作流和Clion工作流，VS Code工作流于docs文件夹中，可以自行探索Vim工作流
 
 ### Windows
 
@@ -192,7 +192,7 @@ sudo vim /etc/profile                           #打开/etc/profile文件
 #在文件末尾加入以后命令
 export DAHENG_SDK=<PATH>/Galaxy_camera     #PATH为相机SDK所在目录
 export ONEAPI_ROOT=/opt/intel                  #/opt/intel 为ONEAPI默认安装目录，若不在,请修改
-source /opt/intel/openvino_2021/bin/setupvars.sh
+source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference engine一般为未运行此行的问题
 ```
 
 - optional: 安装clang, 见LLVM-Clang

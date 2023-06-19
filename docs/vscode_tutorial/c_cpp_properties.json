@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "1",
+            "includePath": [                                      // 只是告诉Intelli Sense(语法检查、自动跳转啥的)用了哪些头文件，和编译没有半毛钱关系
+                "${default}",
+                "${workspaceFolder}/include/*",
+                "/home/init/vcpkg/installed/x64-linux/include/*"  // vcpkg里的库的目录，差不多长这样，自行修改，注意x64-linux可能也不一样
+                // 一般是不会出现找不到标准库、跳转不到标准库的问题的，出了可以自己把目录加过来
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compilerPath": "/usr/bin/g++",                       // 编译器目录，如果用的不是该目录的编译器可改
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "linux-gcc-x64"                   // 鼠标放上去看看vscode怎么说的，可能要改，虽然可能没啥区别
+        }
+    ],
+    "version": 4
+}

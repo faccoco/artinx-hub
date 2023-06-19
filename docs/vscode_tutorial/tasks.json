@@ -1,0 +1,73 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "CMake: config debug",
+			"command": "cmake",                             // 指定cmake版本必须大于等于3.17，可直接通过路径指定
+			"args": [
+				"-S ${workspaceFolder}",                    // 源文件夹
+				"-B ${workspaceFolder}/cmake-build-debug",  // 目标文件夹，可改
+				"-D ARTINX_HUB_CAMERA=USB3",
+				"-D CMAKE_TOOLCHAIN_FILE=/home/init/vcpkg/scripts/buildsystems/vcpkg.cmake",
+				"-D CMAKE_EXPORT_COMPILE_COMMANDS=1",
+				"-D CMAKE_BUILD_TYPE=Debug",
+				"-G Ninja"
+			],
+			"detail": "CMake config task (debug)"
+		},
+		{
+			"type": "shell",
+			"label": "CMake: config release",
+			"command": "cmake",                             // 指定cmake版本必须大于等于3.17，可直接通过路径指定
+			"args": [
+				"-S ${workspaceFolder}",                    // 源文件夹
+				"-B ${workspaceFolder}/cmake-build-debug",  // 目标文件夹，可改
+				"-D ARTINX_HUB_CAMERA=USB3",
+				"-D CMAKE_TOOLCHAIN_FILE=/home/init/vcpkg/scripts/buildsystems/vcpkg.cmake",
+				"-D CMAKE_EXPORT_COMPILE_COMMANDS=1",
+				"-D CMAKE_BUILD_TYPE=Release",
+				"-G Ninja"
+			],
+			"detail": "CMake config task (release)"
+		},
+		{
+			"type": "shell",
+			"label": "CMake: build debug",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"${workspaceFolder}/cmake-build-debug",     // 目标文件夹，注意对应前置任务的目标文件夹
+				"--target",
+				"ArtinxHub",
+				"-j",
+				"8"  // 同时进行的编译任务数，配置高可改高，过高可能会爆内存
+			],
+			"group": "build",
+			"problemMatcher": [
+				"$gcc"
+			],
+			"detail": "CMake build task (debug)",
+			"dependsOn": "CMake: config debug"              // 对应前置任务的lable
+		},
+		{
+			"type": "shell",
+			"label": "CMake: build release",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"${workspaceFolder}/cmake-build-release",   // 目标文件夹，注意对应前置任务的目标文件夹
+				"--target",
+				"ArtinxHub",
+				"-j",
+				"8"  // 同时进行的编译任务数，配置高可改高，过高可能会爆内存
+			],
+			"group": "build",
+			"problemMatcher": [
+				"$gcc"
+			],
+			"detail": "CMake build task (release)",
+			"dependsOn": "CMake: config release"            // 对应前置任务的lable
+		}
+	]
+}
