@@ -228,7 +228,7 @@ source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference en
 
 - 安装OneAPI [Download the Intel® oneAPI Base Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
   - 仅勾选TBB即可，其它没用
-- 安装2021 离线版OpenVINO [Download Intel® Distribution of OpenVINO™ Toolkit](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit-download.html)
+- 安装2021 离线版OpenVINO [Download Intel® Distribution of OpenVINO™ Toolkit](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit-download.html)(OpenVINO2021不支持win11)
   - 也要安装在OneAPI文件夹下
 
 - 根据需求(USB2/USB3)安装大恒相机驱动[Daheng Imaging](https://daheng-imaging.com/list-58-1.html), 对应CMake参数的ARTINX_HUB_CAMERA=USB2/USB3

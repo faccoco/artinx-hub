@@ -8,7 +8,7 @@
             "name": "debug",                                                    // 任务名，只是方便你分辨的名字，随便改
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/cmake-build-debug/src/ArtinxHub",    // 选择你要运行的目标程序，一般在编译目标文件夹/src/ArtinxHub，建议与前置任务的目标目录相同，除非你知道自己在干什么
+            "program": "${workspaceFolder}/cmake-build-debug/src/ArtinxHub",    // 选择你要运行的目标程序，windows上可能要加.exe，一般在编译目标文件夹/src/ArtinxHub，建议与前置任务的目标目录相同，除非你知道自己在干什么
             "args": [
                 "${workspaceFolder}/config_templates/pnp_test.conf"             // 配置文件
             ],
@@ -35,7 +35,7 @@
             "name": "release",                                                  // 任务名，只是方便你分辨的名字，随便改
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/cmake-build-release/src/ArtinxHub",  // 选择你要运行的目标程序，一般在编译目标文件夹/src/ArtinxHub，建议与前置任务的目标目录相同，除非你知道自己在干什么
+            "program": "${workspaceFolder}/cmake-build-release/src/ArtinxHub",  // 选择你要运行的目标程序，windows上可能要加.exe，一般在编译目标文件夹/src/ArtinxHub，建议与前置任务的目标目录相同，除非你知道自己在干什么
             "args": [
                 "${workspaceFolder}/config_templates/pnp_test.conf"             // 配置文件
             ],
