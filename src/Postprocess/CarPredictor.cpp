@@ -20,8 +20,14 @@ struct CarPredictorSettings final {
     double maxMatchYaw;
     int trackingThreshold;
     int lostThreshold;
-    std::vector<double> Q;  // Process covariance matrix
-    std::vector<double> R;  // Measurement covariance mat
+
+    double sigma2Qxyz; // Process noise variance of xyz
+    double sigma2Qyaw; // Process noise variance of yaw
+    double sigma2QR;   // Process noise variance of r
+    double Rxyz; // Measurement covariance matrix factor of xyz
+    double Ryaw; // Measurement covariance matrix factor of yaw
+    // std::vector<double> Q;  // Process covariance matrix
+    // std::vector<double> R;  // Measurement covariance mat
 };
 
 template <class Inspector>
@@ -30,8 +36,14 @@ bool inspect(Inspector& f, CarPredictorSettings& x) {
         f.field("enablePredictor", x.enablePredictor), f.field("maxMatchDist", x.maxMatchDist).fallback(0.4),
         f.field("maxMatchYaw", x.maxMatchYaw).fallback(0.3), f.field("trackingThreshold", x.trackingThreshold).fallback(5),
         f.field("lostThreshold", x.lostThreshold).fallback(5),
-        f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 9; }).fallback(std::vector<double>(9, 0)),
-        f.field("R", x.R).invariant([](auto& c) { return c.size() == 4; }).fallback(std::vector<double>(4, 0)));
+        f.field("sigma2Qxyz", x.sigma2Qxyz).fallback(20.0),
+        f.field("sigma2Qyaw", x.sigma2Qyaw).fallback(100.0),
+        f.field("sigma2QR", x.sigma2QR).fallback(800.0),
+        f.field("Rxyz", x.Rxyz).fallback(0.05),
+        f.field("Ryaw", x.Ryaw).fallback(0.02),
+
+        // f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 9; }).fallback(std::vector<double>(9, 0)),
+        // f.field("R", x.R).invariant([](auto& c) { return c.size() == 4; }).fallback(std::vector<double>(4, 0)));
 }
 
 class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictorSettings, car_predict_atom> {
@@ -239,7 +251,7 @@ public:
             x_new(3) += x(7) * mDt;
             return x_new;
         };
-        // J_f - Jacobian of process function
+        // J_f - Jacobian of process function 
         auto JF = [this](const Eigen::VectorXd&) {
             Eigen::MatrixXd f(9, 9);
             // clang-format off
@@ -279,16 +291,45 @@ public:
             return h;
         };
         // Q - process noise covariance matrix
-        Eigen::DiagonalMatrix<double, 9> q;
-        q.diagonal() << mConfig.Q[0], mConfig.Q[1], mConfig.Q[2], mConfig.Q[3], mConfig.Q[4], mConfig.Q[5], mConfig.Q[6],
-            mConfig.Q[7], mConfig.Q[8];
+        auto UQ = [this]() {
+            Eigen::MatrixXd q(9, 9);
+            double t = mDt, x = mConfig.sigma2Qxyz, y = mDonfig.sigma2Qyaw, r = mConfig.sigma2QR;
+            double Qxx = pow(t, 4) / 4 * x, QxVx = pow(t, 3) / 2 * x, QVxVx = pow(t, 2) * x;
+            double Qyy = pow(t, 4) / 4 * y, QyVy = pow(t, 3) / 2 * x, QVyVy = pow(t, 2) * y;
+            double QR = pow(t, 4) / 4 * r;
+            
+            // clang-format off
+            //    xc        yc      zc      yaw     vxc     vyc     vzc     vyaw    r
+            q <<  Qxx,    0,      0,      0,      QxVx, 0,      0,      0,      0,
+                    0,      Qxx,  0,      0,      0,      QxVx, 0,      0,      0,
+                    0,      0,      Qxx,  0,      0,      0,      QxVx, 0,      0,
+                    0,      0,      0,      Qyy,  0,      0,      0,      QyVy, 0,
+                    QxVx, 0,      0,      0,      QVxVx,0,      0,      0,      0,
+                    0,      QxVx, 0,      0,      0,      QVxVx,0,      0,      0,
+                    0,      0,      QxVx, 0,      0,      0,      Qyy,  0,      0,
+                    0,      0,      0,      QyVy, 0,      0,      0,      QVyVy,0,
+                    0,      0,      0,      0,      0,      0,      0,      0,      QR;
+            // clang-format on
+            
+            return q;
+        };
+
+        // Eigen::DiagonalMatrix<double, 9> q;
+        // q.diagonal() << mConfig.Q[0], mConfig.Q[1], mConfig.Q[2], mConfig.Q[3], mConfig.Q[4], mConfig.Q[5], mConfig.Q[6],
+        //     mConfig.Q[7], mConfig.Q[8];
         // R - measurement noise covariance matrix
-        Eigen::DiagonalMatrix<double, 4> r;
-        r.diagonal() << mConfig.R[0], mConfig.R[1], mConfig.R[2], mConfig.R[3];
+        auto UR = [this](const Eigen::VectorXd & z) {
+            Eigen::DiagonalMatrix<double, 4> r;
+            double x = mConfig.Rxyz;
+            r.diagonal() << abs(x * z[0]), abs(x * z[1]), abs(x * z[2]), mConfig.Ryaw;
+            return r;
+        };
+        // Eigen::DiagonalMatrix<double, 4> r;
+        // r.diagonal() << mConfig.R[0], mConfig.R[1], mConfig.R[2], mConfig.R[3];
         // P - error estimate covariance matrix
         Eigen::DiagonalMatrix<double, 9> p0;
         p0.setIdentity();
-        mEKF = ExtendedKalmanFilter{ f, h, JF, JH, q, r, p0 };
+        mEKF = ExtendedKalmanFilter{ f, h, JF, JH, UQ, UR, p0 };
     }
 
     caf::behavior make_behavior() override {
