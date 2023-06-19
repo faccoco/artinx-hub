@@ -9,7 +9,7 @@
 
 ### 步骤
 + 先照着[README.md](../../README.md#本地构建指南)的教程配，但不用下Clion，Windows的话VS还是要的
-+ 下载版本大于等于3.17的[cmake](https://cmake.org)（Ubuntu20.04通过apt所获取的最新cmake一般为3.16，可通过命令行输入cmake --version查看）[cmake历史版本](https://cmake.org/files/)
++ 下[cmake](https://cmake.org)（可以尝试sudo apt-get install cmake获取，Ubuntu20.04通过apt所获取的最新cmake一般为3.16，可通过命令行输入cmake --version查看，但cmake3.16很可能会报找不到LibArchive::LibArchive）[cmake历史版本](https://cmake.org/files/)
 + 在vscode中下载“C/C++”拓展
 + 把该文件夹下的另外仨json文件（c_cpp_properties.json、tasks.json、launch.json）复制到项目根目录下的".vscode"文件夹里（指ARTINX-HUB/.vscode）（没有就自己建一个，要是有对应文件你想留就备份不想留删了都行反正只是vscode的配置文件而且你都要看这个教程了多半那配置文件也没法让你好好用vscode）（别忘了文件夹名字最前面有个点）
 + 好好看看那仨文件，直接用不大现实，有啥可能要改的注释都写好了，不懂哪个参数是什么意思直接把鼠标放上去vscode有提示
@@ -35,3 +35,4 @@ $\begin{array}{c|cc}
 \end{array}$
 + vscode可以只编译不运行（默认快捷键ctrl+shift+b（你要下了cmake拓展这个快捷键可能会被夺舍，左下角齿轮->键盘快捷方式可以改，甚至还能录制按键查找））
 + vscode远程调试就多下个“Remote - SSH”插件，照提示输入目标计算机ip、用户名、密码啥的，固定ip可参照[wired_vnc.md](../wired_vnc.md)，连接成功后点击左侧拓展栏可直接在目标计算机上下载插件，再照着上面教程配就对了
++ 报错找不到LibArchive::LibArchive换官网上3.17及以上版本cmake可以解决，但有的3.16cmake又无问题，原因未知

@@ -1,14 +1,15 @@
 {
+	// 通过cmake生成项目，要经历两个过程，在目标文件夹配置好准备编译->编译，这也就是为什么下面有两套任务（两套任务分别有debug和release版本所以共四个任务）
 	"version": "2.0.0",
 	"tasks": [
 		{
 			// 编译出来的是debug还是release取决于这
 			"type": "shell",
 			"label": "CMake: config debug",
-			"command": "cmake",                               // 指定cmake版本必须大于等于3.17，可直接通过路径指定
+			"command": "cmake",                               // 可直接通过路径指定（如/usr/bin/cmake）
 			"args": [
-				"-S ${workspaceFolder}",                      // 源文件夹
-				"-B ${workspaceFolder}/cmake-build-debug",    // 目标文件夹，可改（这是clion的默认文件夹，不建议和clion混用可能会出问题，要是报错了这个文件夹随便删）
+				"-S ${workspaceFolder}",                      // 源代码文件夹
+				"-B ${workspaceFolder}/cmake-build-debug",    // 生成目标文件夹，可改（这是clion的默认文件夹，不建议和clion混用可能会出问题，要是报错了这个文件夹随便删）
 				"-D ARTINX_HUB_CAMERA=USB3",
 				"-D CMAKE_TOOLCHAIN_FILE=/home/init/vcpkg/scripts/buildsystems/vcpkg.cmake",  //vcpkg目录，要改
 				"-D CMAKE_EXPORT_COMPILE_COMMANDS=1",
@@ -21,10 +22,10 @@
 			// 编译出来的是debug还是release取决于这
 			"type": "shell",
 			"label": "CMake: config release",
-			"command": "cmake",                               // 指定cmake版本必须大于等于3.17，可直接通过路径指定
+			"command": "cmake",                               // 可直接通过路径指定（如/usr/bin/cmake）
 			"args": [
-				"-S ${workspaceFolder}",                      // 源文件夹
-				"-B ${workspaceFolder}/cmake-build-release",  // 目标文件夹，可改（这是clion的默认文件夹，不建议和clion混用可能会出问题，要是报错了这个文件夹随便删）
+				"-S ${workspaceFolder}",                      // 源代码文件夹
+				"-B ${workspaceFolder}/cmake-build-release",  // 生成目标文件夹，可改（这是clion的默认文件夹，不建议和clion混用可能会出问题，要是报错了这个文件夹随便删）
 				"-D ARTINX_HUB_CAMERA=USB3",
 				"-D CMAKE_TOOLCHAIN_FILE=/home/init/vcpkg/scripts/buildsystems/vcpkg.cmake",  //vcpkg目录，要改
 				"-D CMAKE_EXPORT_COMPILE_COMMANDS=1",
