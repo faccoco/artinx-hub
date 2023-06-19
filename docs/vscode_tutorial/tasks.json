@@ -2,72 +2,76 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			// 编译出来的是debug还是release取决于这
 			"type": "shell",
 			"label": "CMake: config debug",
-			"command": "cmake",                             // 指定cmake版本必须大于等于3.17，可直接通过路径指定
+			"command": "cmake",                               // 指定cmake版本必须大于等于3.17，可直接通过路径指定
 			"args": [
-				"-S ${workspaceFolder}",                    // 源文件夹
-				"-B ${workspaceFolder}/cmake-build-debug",  // 目标文件夹，可改
+				"-S ${workspaceFolder}",                      // 源文件夹
+				"-B ${workspaceFolder}/cmake-build-debug",    // 目标文件夹，可改（这是clion的默认文件夹，不建议和clion混用可能会出问题，要是报错了这个文件夹随便删）
 				"-D ARTINX_HUB_CAMERA=USB3",
-				"-D CMAKE_TOOLCHAIN_FILE=/home/init/vcpkg/scripts/buildsystems/vcpkg.cmake",
+				"-D CMAKE_TOOLCHAIN_FILE=/home/init/vcpkg/scripts/buildsystems/vcpkg.cmake",  //vcpkg目录，要改
 				"-D CMAKE_EXPORT_COMPILE_COMMANDS=1",
-				"-D CMAKE_BUILD_TYPE=Debug",
+				"-D CMAKE_BUILD_TYPE=Debug",                  // 决定你编译的程序是debug还是release版本
 				"-G Ninja"
 			],
 			"detail": "CMake config task (debug)"
 		},
 		{
+			// 编译出来的是debug还是release取决于这
 			"type": "shell",
 			"label": "CMake: config release",
-			"command": "cmake",                             // 指定cmake版本必须大于等于3.17，可直接通过路径指定
+			"command": "cmake",                               // 指定cmake版本必须大于等于3.17，可直接通过路径指定
 			"args": [
-				"-S ${workspaceFolder}",                    // 源文件夹
-				"-B ${workspaceFolder}/cmake-build-debug",  // 目标文件夹，可改
+				"-S ${workspaceFolder}",                      // 源文件夹
+				"-B ${workspaceFolder}/cmake-build-release",  // 目标文件夹，可改（这是clion的默认文件夹，不建议和clion混用可能会出问题，要是报错了这个文件夹随便删）
 				"-D ARTINX_HUB_CAMERA=USB3",
-				"-D CMAKE_TOOLCHAIN_FILE=/home/init/vcpkg/scripts/buildsystems/vcpkg.cmake",
+				"-D CMAKE_TOOLCHAIN_FILE=/home/init/vcpkg/scripts/buildsystems/vcpkg.cmake",  //vcpkg目录，要改
 				"-D CMAKE_EXPORT_COMPILE_COMMANDS=1",
-				"-D CMAKE_BUILD_TYPE=Release",
+				"-D CMAKE_BUILD_TYPE=Release",                // 决定你编译的程序是debug还是release版本
 				"-G Ninja"
 			],
 			"detail": "CMake config task (release)"
 		},
 		{
+			// 编译出来的是debug还是release不取决于这，取决于目标文件夹被创建时选择的是debug还是release，如果目标文件夹和前置任务对应那就取决于前置任务
 			"type": "shell",
 			"label": "CMake: build debug",
 			"command": "cmake",
 			"args": [
 				"--build",
-				"${workspaceFolder}/cmake-build-debug",     // 目标文件夹，注意对应前置任务的目标文件夹
+				"${workspaceFolder}/cmake-build-debug",       // 目标文件夹，注意对应前置任务的目标文件夹，除非你知道自己在干什么
 				"--target",
 				"ArtinxHub",
 				"-j",
-				"8"  // 同时进行的编译任务数，配置高可改高，过高可能会爆内存
+				"8"                                           // 同时进行的编译任务数，配置高可改高，过高可能会爆内存
 			],
 			"group": "build",
 			"problemMatcher": [
 				"$gcc"
 			],
 			"detail": "CMake build task (debug)",
-			"dependsOn": "CMake: config debug"              // 对应前置任务的lable
+			"dependsOn": "CMake: config debug"                // 对应前置任务的lable
 		},
 		{
+			// 编译出来的是debug还是release不取决于这，取决于目标文件夹被创建时选择的是debug还是release，如果目标文件夹和前置任务对应那就取决于前置任务
 			"type": "shell",
 			"label": "CMake: build release",
 			"command": "cmake",
 			"args": [
 				"--build",
-				"${workspaceFolder}/cmake-build-release",   // 目标文件夹，注意对应前置任务的目标文件夹
+				"${workspaceFolder}/cmake-build-release",     // 目标文件夹，注意对应前置任务的目标文件夹，除非你知道自己在干什么
 				"--target",
 				"ArtinxHub",
 				"-j",
-				"8"  // 同时进行的编译任务数，配置高可改高，过高可能会爆内存
+				"8"                                           // 同时进行的编译任务数，配置高可改高，过高可能会爆内存
 			],
 			"group": "build",
 			"problemMatcher": [
 				"$gcc"
 			],
 			"detail": "CMake build task (release)",
-			"dependsOn": "CMake: config release"            // 对应前置任务的lable
+			"dependsOn": "CMake: config release"              // 对应前置任务的lable
 		}
 	]
 }

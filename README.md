@@ -165,7 +165,7 @@ Artinx视觉组 集成框架
 
 ## 本地构建指南
 
-下面仅介绍VS工作流和Clion工作流，VS Code工作流于docs文件夹中，可以自行探索Vim工作流
+下面仅介绍VS工作流和Clion工作流，VS Code工作流于docs文件夹中，可以自行探索Vim工作流（就是教你怎么调试跑程序）
 
 ### Windows
 
