@@ -7,13 +7,37 @@
 
 #include "SuppressWarningBegin.hpp"
 
+#include <algorithm>
 #include <caf/event_based_actor.hpp>
+#include <ctime>
+#include <filesystem>
+#include <fmt/core.h>
 #include <glm/gtc/matrix_transform.hpp>
+#include <iomanip>
+#include <iterator>
 #include <opencv2/core/persistence.hpp>
 #include <opencv2/videoio.hpp>
+#include <sstream>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "SuppressWarningEnd.hpp"
+#include "Timer.hpp"
+
+namespace fs = std::filesystem;
+using namespace std::literals;
+
+std::time_t parseTimePoint(const std::string& filePath) {
+    size_t beg = filePath.find_last_of("/") + 1;
+    std::string fileName = filePath.substr(beg, filePath.find_last_of(".") - beg);
+    std::tm tmp;
+    std::istringstream ss("1900_1_1_" + fileName);
+    ss >> std::get_time(&tmp, "%Y_%m_%d_%H_%M_%S");
+    // logInfo(fmt::format("filename: {}\tconverted time: {} Y {} M {} D {} h {} m {} s", fileName, tmp.tm_year, tmp.tm_mon,
+    // tmp.tm_mday, tmp.tm_hour, tmp.tm_min, tmp.tm_sec));
+    return std::mktime(&tmp);
+}
 
 struct VideoReplaySettings final {
     std::string path;
@@ -38,6 +62,9 @@ class VideoReplay final : public HubHelper<caf::event_based_actor, VideoReplaySe
 private:
     cv::VideoCapture mCapture;
     Identifier mKey;
+    bool isDirectory;
+    uint32_t mVideoIndex;
+    std::vector<std::string> videoPaths;
 
     cv::Mat cameraMatrix, distCoefficients;
     cv::Mat resize(const cv::Mat& frame) const {
@@ -46,11 +73,29 @@ private:
         return resized;
     }
 
+    void getDirectoryVideos(const std::string directoryPath) {
+        for(const auto& file : fs::directory_iterator(directoryPath))
+            videoPaths.push_back(file.path());
+        std::sort(videoPaths.begin(), videoPaths.end(), [](const std::string& lhs, const std::string& rhs) {
+            return std::difftime(parseTimePoint(lhs), parseTimePoint(rhs)) < 0;
+        });
+    }
+
+    std::string getNextPath() {
+        if(mVideoIndex >= videoPaths.size())
+            mVideoIndex = 0;
+        // logInfo(fmt::format("Current play: {}", videoPaths[mVideoIndex]));
+        return videoPaths[mVideoIndex++];
+    }
+
     void next() {
         cv::Mat img;
         if(!mCapture.read(img)) {
             mCapture.release();
-            mCapture.open(mConfig.path);
+            if(isDirectory)
+                mCapture.open(getNextPath());
+            else
+                mCapture.open(mConfig.path);
             return;
         }
 
@@ -63,8 +108,9 @@ private:
         if(mConfig.identifier.empty()) {
             res.info.identifier = "VideoReplay";
             res.info.cameraMatrix =
-                (cv::Mat_<double>(3, 3) << mConfig.width / 2 / std::tan(glm::radians(mConfig.fov) / 2), 0, mConfig.width / 2, 0,
-                 mConfig.height / 2 / std::tan(glm::radians(mConfig.fov) / 2), mConfig.height / 2, 0, 0, 1);
+                (cv::Mat_<double>(3, 3) << static_cast<float>(mConfig.width) / 2 / std::tan(glm::radians(mConfig.fov) / 2), 0,
+                 mConfig.width / 2, 0, static_cast<float>(mConfig.height) / 2 / std::tan(glm::radians(mConfig.fov) / 2),
+                 mConfig.height / 2, 0, 0, 1);
             res.info.distCoefficients = cv::Mat_<double>{};
         } else {
             res.info.identifier = mConfig.identifier;
@@ -85,15 +131,23 @@ private:
     }
 
 public:
-    VideoReplay(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-
-        if(!mCapture.open(mConfig.path)) {
-            const auto error = "Failed to load video " + mConfig.path;
-            logError(error.c_str());
+    VideoReplay(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ generateKey(this) }, mVideoIndex(0) {
+        isDirectory = fs::is_directory(mConfig.path);
+        if(isDirectory) {
+            if(fs::is_empty(mConfig.path)) {
+                throw std::runtime_error(fmt::format("The directory is empty", mConfig.path));
+            } else {
+                getDirectoryVideos(mConfig.path);
+            }
+        } else {
+            if(!mCapture.open(mConfig.path)) {
+                const auto error = "Failed to load video " + mConfig.path;
+                logError(error.c_str());
+            }
         }
 
         if(mConfig.identifier.empty()) {
-            logInfo("You haven't input the identifier, make sure your config doesn't use camera inner matrix");
         } else {
             const auto inputFileName = "./data/camera_calibration/" + mConfig.identifier + ".xml";
             const cv::FileStorage fs(inputFileName, cv::FileStorage::READ);
