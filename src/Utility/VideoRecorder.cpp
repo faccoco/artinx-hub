@@ -79,7 +79,7 @@ public:
                          }
                          ReadableTimePoint now(std::chrono::system_clock::now());
                          mWriter = std::make_unique<cv::VideoWriter>(
-                             fmt::format("{}/{}:{}:{}.mkv", mConfig.base, now.tm.tm_hour, now.tm.tm_min, now.tm.tm_sec), mFourCc,
+                             fmt::format("{}/{}_{}_{}.mkv", mConfig.base, now.tm.tm_hour, now.tm.tm_min, now.tm.tm_sec), mFourCc,
                              mConfig.fps, frameData.frame.size());
                          mFormat = frameData.frame.type();
                          mSize = frameData.frame.size();
