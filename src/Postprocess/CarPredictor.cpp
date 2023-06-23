@@ -40,7 +40,7 @@ bool inspect(Inspector& f, CarPredictorSettings& x) {
         f.field("sigma2Qyaw", x.sigma2Qyaw).fallback(100.0),
         f.field("sigma2QR", x.sigma2QR).fallback(800.0),
         f.field("Rxyz", x.Rxyz).fallback(0.05),
-        f.field("Ryaw", x.Ryaw).fallback(0.02),
+        f.field("Ryaw", x.Ryaw).fallback(0.02));
 
         // f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 9; }).fallback(std::vector<double>(9, 0)),
         // f.field("R", x.R).invariant([](auto& c) { return c.size() == 4; }).fallback(std::vector<double>(4, 0)));
@@ -293,7 +293,7 @@ public:
         // Q - process noise covariance matrix
         auto UQ = [this]() {
             Eigen::MatrixXd q(9, 9);
-            double t = mDt, x = mConfig.sigma2Qxyz, y = mDonfig.sigma2Qyaw, r = mConfig.sigma2QR;
+            double t = mDt, x = mConfig.sigma2Qxyz, y = mConfig.sigma2Qyaw, r = mConfig.sigma2QR;
             double Qxx = pow(t, 4) / 4 * x, QxVx = pow(t, 3) / 2 * x, QVxVx = pow(t, 2) * x;
             double Qyy = pow(t, 4) / 4 * y, QyVy = pow(t, 3) / 2 * x, QVyVy = pow(t, 2) * y;
             double QR = pow(t, 4) / 4 * r;

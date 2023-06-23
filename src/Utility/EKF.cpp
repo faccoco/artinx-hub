@@ -24,7 +24,7 @@ Eigen::MatrixXd ExtendedKalmanFilter::predict() {
 }
 
 Eigen::MatrixXd ExtendedKalmanFilter::update(const Eigen::VectorXd& z) {
-    H = Jh(xPri), R = updateR();
+    H = Jh(xPri), R = updateR(z);
     K = PPri * H.transpose() * (H * PPri * H.transpose() + R).inverse();
     xPost = xPri + K * (z - h(xPri));
     PPost = (I - K * H) * PPri;

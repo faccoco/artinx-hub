@@ -10,6 +10,8 @@ public:
 
     using NonlinearFunc = std::function<Eigen::VectorXd(const Eigen::VectorXd&)>;
     using JacobianFunc = std::function<Eigen::MatrixXd(const Eigen::VectorXd&)>;
+    using VecVecFunc = std::function<Eigen::VectorXd(const Eigen::VectorXd&)>;
+    using VecMatFunc = std::function<Eigen::MatrixXd (const Eigen::VectorXd&)>;
     using VoidMatFunc = std::function<Eigen::MatrixXd()>;
 
     explicit ExtendedKalmanFilter(const NonlinearFunc& f, const NonlinearFunc& h, const JacobianFunc& Jf, const JacobianFunc& Jh,
