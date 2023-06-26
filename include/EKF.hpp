@@ -10,9 +10,12 @@ public:
 
     using NonlinearFunc = std::function<Eigen::VectorXd(const Eigen::VectorXd&)>;
     using JacobianFunc = std::function<Eigen::MatrixXd(const Eigen::VectorXd&)>;
+    using VecVecFunc = std::function<Eigen::VectorXd(const Eigen::VectorXd&)>;
+    using VecMatFunc = std::function<Eigen::MatrixXd (const Eigen::VectorXd&)>;
+    using VoidMatFunc = std::function<Eigen::MatrixXd()>;
 
     explicit ExtendedKalmanFilter(const NonlinearFunc& f, const NonlinearFunc& h, const JacobianFunc& Jf, const JacobianFunc& Jh,
-                                  const Eigen::MatrixXd& Q, const Eigen::MatrixXd& R, const Eigen::MatrixXd& P0);
+                                  const VoidMatFunc & UQ, const VecMatFunc & UR, const Eigen::MatrixXd& P0);
 
     // Set the initial state
     void setState(const Eigen::VectorXd& x0);
@@ -34,8 +37,10 @@ public:
     JacobianFunc Jh;
     Eigen::MatrixXd H;
     // Process noise covariance matrix
+    VoidMatFunc updateQ;
     Eigen::MatrixXd Q;
     // Measurement noise covariance matrix
+    VecMatFunc updateR;
     Eigen::MatrixXd R;
 
     // Priori error estimate covariance matrix
