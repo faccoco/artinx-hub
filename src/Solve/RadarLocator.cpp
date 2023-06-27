@@ -1,3 +1,4 @@
+#ifdef ARTINX_RADAR
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "ExceptionProbe.hpp"
@@ -7,36 +8,34 @@
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
+#include <glm/fwd.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <opencv2/calib3d.hpp>
+#include <opencv2/core/types.hpp>
+#include <opencv2/imgproc.hpp>
+#include <optional>
 
 #include "SuppressWarningEnd.hpp"
 
-struct RadarLocatorSetting final {};
-
-template <class Inspector>
-bool inspect(Inspector& f, RadarLocatorSetting& x) {
-    return f.object(x).fields();
-}
-
-class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocatorSetting, radar_locate_succeed_atom> {
+class RadarLocator final : public HubHelper<caf::event_based_actor, void, radar_locate_succeed_atom> {
     Identifier mKey;
-    const std::vector<cv::Point3f> mObjectPoints = {
-        cv::Point3f(1.51f, 7.5f, 1.12f),                                            // from rival's base,clockwise
-        cv::Point3f(12.897f, 1.867f, 0.6f), cv::Point3f(19.195f, 8.612f, 0.615f),  cv::Point3f(19.195f, 9.272f, 0.615f),
-        cv::Point3f(12.03f, 10.500f, 0.6f), cv::Point3f(10.931f, 12.546f, 1.228f),  // guardStation's height unknown, can't find
-                                                                                    // in manual
-        /*could add two additional points but may be too many points
-         *cv::Point3f(11.446,11.653,0.000),
+    const std::vector<cv::Point3f> ObjectPoints = {
+        cv::Point3f(7.5f, 1.51f, 1.12f), cv::Point3f(6.39f, 19.195, 0.615f),
+        cv::Point3f(5.73f, 19.195f, 0.615f),                                              // from rival's base,clockwise
+        /*  cv::Point3f(12.03f, 10.500f, 0.6f),*/ cv::Point3f(2.4532f, 10.931f, 1.228f),  // guardStation's height unknown, can't
+        /*cv::Point3f(11.446,11.653,0.000),
          *cv::Point3f(11.446,13.44,0.000),
          */
     };
+    const std::vector<cv::Point2f> PerspectPoints = { cv::Point2f(570, 1919.5), cv::Point2f(639, 1919.5), cv::Point2f(335, 1145),
+                                                      cv::Point2f(156, 1145) };
 
-    std::optional<RadarTransform> locatePosition(const cv::Mat& cameraMatrix, const std::vector<cv::Point2f>& imagePoints) {
+    std::optional<glm::dmat4> solveTransform(const RadarCameraPoints& info) {
         const cv::Mat_<double> distCoeff;
         std::vector<double> rvec, tvec;
-        if(cv::solvePnP(mObjectPoints, imagePoints, cameraMatrix, distCoeff, rvec, tvec, false, cv::SOLVEPNP_ITERATIVE)) {
+        if(cv::solvePnP(ObjectPoints, info.points, info.frame.cameraMatrix, distCoeff, rvec, tvec, false,
+                        cv::SOLVEPNP_ITERATIVE)) {
             cv::Mat rotateMat;
             cv::Rodrigues(rvec, rotateMat);
             glm::dmat3 rotate{};
@@ -52,8 +51,12 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, RadarLocator
             }
             trans[3][2] = tvec[2];
             trans[3][3] = 1;
-            return { { glm::inverse(trans) } };
+            return { glm::inverse(trans) };
         }
+        return std::nullopt;
+    }
+    std::optional<cv::Mat> solvePerspectTransform(const RadarCameraPoints& info) {
+        return { cv::getPerspectiveTransform(info.points, PerspectPoints) };
         return std::nullopt;
     }
 
@@ -64,14 +67,22 @@ public:
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](radar_locate_request_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(radar_locate_request_atom, TypedIdentifier<RadarCameraPoints>);
-                     ACTOR_EXCEPTION_PROBE();
 
-                     const auto data = BlackBoard::instance().get<RadarCameraPoints>(key).value();
-                     if(const auto radarTransform = locatePosition(data.info.cameraMatrix, data.points)) {
-                         sendAll(radar_locate_succeed_atom_v);
+                     if(const auto data = BlackBoard::instance().get<RadarCameraPoints>(key)) {
+                         // if(const auto radarTransform = solveTransform(data.value())) {
+                         // RadarTransform::instant().set(radarTransform.value());
+                         // sendAll(radar_locate_succeed_atom_v);
+                         //}
+
+                         if(const auto perspectTransform = solvePerspectTransform(data.value())) {
+                             RadarPerspectTransform::instant().store(perspectTransform.value());
+                             RadarPerspectTransform::instant().setReady();
+                             sendAll(radar_locate_succeed_atom_v);
+                         }
                      }
                  } };
     }
 };
 
 HUB_REGISTER_CLASS(RadarLocator);
+#endif

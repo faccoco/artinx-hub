@@ -1,3 +1,4 @@
+#ifdef ARTINX_RADAR
 #include "BlackBoard.hpp"
 #include "Common.hpp"
 #include "DataDesc.hpp"
@@ -77,3 +78,4 @@ public:
 };
 
 HUB_REGISTER_CLASS(PosSynchronization);
+#endif

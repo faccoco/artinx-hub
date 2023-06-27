@@ -1,3 +1,4 @@
+#ifdef ARTINX_RADAR
 #include "BlackBoard.hpp"
 #include "Common.hpp"
 #include "DataDesc.hpp"
@@ -30,7 +31,7 @@ class SerialPortTester final : public HubHelper<caf::event_based_actor, void, sy
         std::uniform_real_distribution<float> botX(0.0, 15.0), botY(0.0, 15), botZ(0.0, 1);
         auto& data = mPosition.data;
         for(int i = 0; i < botNum(gen); ++i) {
-            data.push_back({ botId(gen), botX(gen), botY(gen), botZ(gen) });
+            data.push_back({ botId(gen), botX(gen), botY(gen) });
             // logInfo(fmt::format("Bot ID: {} X: {} Y: {} Z: {}", std::to_string(data.back().id), std::to_string(data.back().x),
             // std::to_string(data.back().y), std::to_string(data.back().z)));
         }
@@ -59,3 +60,4 @@ public:
 };
 
 HUB_REGISTER_CLASS(SerialPortTester);
+#endif

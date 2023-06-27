@@ -1,8 +1,8 @@
 var cvs, ctx;
 let img, currentRes;
 let allPoints = [];
-const ImageUrl = "http://127.0.0.1:5630/img/RadarCenter";
-const AllPosition = ["标志点1", "标志点2", "...3", "4", "5", "6"];
+const ImageUrl = "/img/RadarCenter";
+const AllPosition = ["标志点1", "标志点2", "...3", "4"];
 const TotalPointCounts = AllPosition.length;
 
 $(document).ready(() => {

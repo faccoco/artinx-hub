@@ -14,7 +14,6 @@
 #include <fmt/core.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iomanip>
-#include <iterator>
 #include <opencv2/core/persistence.hpp>
 #include <opencv2/videoio.hpp>
 #include <sstream>
@@ -30,12 +29,10 @@ using namespace std::literals;
 
 std::time_t parseTimePoint(const std::string& filePath) {
     size_t beg = filePath.find_last_of("/") + 1;
-    std::string fileName = filePath.substr(beg, filePath.find_last_of(".") - beg);
-    std::tm tmp;
+    std::string fileName = filePath.substr(beg, filePath.find_last_of('.') - beg);
+    std::tm tmp{};
     std::istringstream ss("1900_1_1_" + fileName);
     ss >> std::get_time(&tmp, "%Y_%m_%d_%H_%M_%S");
-    // logInfo(fmt::format("filename: {}\tconverted time: {} Y {} M {} D {} h {} m {} s", fileName, tmp.tm_year, tmp.tm_mon,
-    // tmp.tm_mday, tmp.tm_hour, tmp.tm_min, tmp.tm_sec));
     return std::mktime(&tmp);
 }
 
@@ -73,7 +70,7 @@ private:
         return resized;
     }
 
-    void getDirectoryVideos(const std::string directoryPath) {
+    void getDirectoryVideos(const std::string& directoryPath) {
         for(const auto& file : fs::directory_iterator(directoryPath))
             videoPaths.push_back(file.path());
         std::sort(videoPaths.begin(), videoPaths.end(), [](const std::string& lhs, const std::string& rhs) {
@@ -84,7 +81,7 @@ private:
     std::string getNextPath() {
         if(mVideoIndex >= videoPaths.size())
             mVideoIndex = 0;
-        // logInfo(fmt::format("Current play: {}", videoPaths[mVideoIndex]));
+        logInfo(fmt::format("Current play: {}", videoPaths[mVideoIndex]));
         return videoPaths[mVideoIndex++];
     }
 
@@ -92,10 +89,11 @@ private:
         cv::Mat img;
         if(!mCapture.read(img)) {
             mCapture.release();
-            if(isDirectory)
+            if(isDirectory) {
                 mCapture.open(getNextPath());
-            else
+            } else {
                 mCapture.open(mConfig.path);
+            }
             return;
         }
 

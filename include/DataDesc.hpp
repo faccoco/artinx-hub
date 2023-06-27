@@ -112,7 +112,6 @@ CAF_ADD_ATOM(ArtinxHub, period_predict_success_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_succeed_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_request_atom);
 CAF_ADD_ATOM(ArtinxHub, bots_locate_request_atom);
-CAF_ADD_ATOM(ArtinxHub, bots_locate_succeed_atom);
 CAF_ADD_ATOM(ArtinxHub, num_classify_request_atom);
 CAF_ADD_ATOM(ArtinxHub, monitor_request_atom);
 CAF_ADD_ATOM(ArtinxHub, monitor_response_atom);
