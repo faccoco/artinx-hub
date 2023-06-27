@@ -220,7 +220,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
         globalConfigName = globalConfigName.substr(0, pos);
 
     const auto configData = loadConfig(argv[1]);
-    logInfo("Load config file data successfully!");
+    logInfo("Load config file bots successfully!");
     const auto pipelineConfig = caf::config_value::parse(configData).value();
     GlobalSettings::get() = caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value();
 

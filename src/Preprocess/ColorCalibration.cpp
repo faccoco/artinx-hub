@@ -2,7 +2,6 @@
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
-#include <cstdint>
 
 #include "SuppressWarningBegin.hpp"
 

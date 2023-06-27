@@ -7,13 +7,15 @@
 #include "SuppressWarningBegin.hpp"
 #include "Utility.hpp"
 
+#include <array>
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
-#include <cstdint>
 #include <fmt/core.h>
 #include <functional>
 #include <httplib.h>
 #include <nlohmann/json.hpp>
+#include <opencv2/core/types.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <string>
@@ -47,7 +49,7 @@ struct HttpServerSettings final {
 template <typename Inspector>
 bool inspect(Inspector& f, HttpServerSettings& x) {
     return f.object(x).fields(f.field("enableRadar", x.enableRadar).fallback(false),
-                              f.field("radarPointsNum", x.radarPointsNum).fallback(6),
+                              f.field("radarPointsNum", x.radarPointsNum).fallback(4),
                               f.field("ethName", x.ethName).fallback("wlp0s20f3"));
 }
 
@@ -63,7 +65,6 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
 #ifdef ARTINX_RADAR
     uint64_t radarKey;
     CameraInfo radarCameraInfo;
-    std::reference_wrapper<RadarTransform> radarTrans;
 #endif
 
     Identifier mKey;
@@ -121,8 +122,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
 public:
 #ifdef ARTINX_RADAR
     HttpServer(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mClogBuffer{ std::clog.rdbuf() }, radarTrans(RadarTransform::Instance()),
-          mKey{ generateKey(this) } {
+        : HubHelper{ base, config }, mClogBuffer{ std::clog.rdbuf() }, mKey{ generateKey(this) } {
 #else
     HttpServer(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mClogBuffer{ std::clog.rdbuf() }, mKey{ generateKey(this) } {
@@ -225,7 +225,7 @@ public:
         //            mServer.Get("/log", [this](const httplib::Request&, httplib::Response& res) {
         //                std::string send("trans mat:\n");
         //                for(int i = 0; i < 4; ++i) {
-        //                    for(int j = 0; j < 4; ++j)
+        //                    for(int j = 0; j < 4; ++j)c
         //                        send += std::to_string(radarSuccessTransform.trans[i][j]) + " ";
         //                    send += "\n";
         //                }
@@ -236,14 +236,15 @@ public:
         //                    send += "\n";
         //                }
         //                res.set_content(json(send).dump(), "text/plain");
+        //            });t(json(send).dump(), "text/plain");
         //            });
 
         mServer.Post("/radar_points", [this](const httplib::Request& req, httplib::Response& res) {
             auto allPoints = json::parse(req.body);
             RadarCameraPoints data;
-            data.info = radarCameraInfo;
+            data.frame = radarCameraInfo;
             for(uint32_t i = 0; i < mConfig.radarPointsNum; ++i)
-                data.points.emplace_back(static_cast<int>(allPoints[i]["x"]), static_cast<int>(allPoints[i]["y"]));
+                data.points.emplace_back(static_cast<float>(allPoints[i]["x"]), static_cast<float>(allPoints[i]["y"]));
             sendAll(radar_locate_request_atom_v, BlackBoard::instance().updateSync(mKey, std::move(data)));
             res.set_content(json(json("success")).dump(), "text/plain");
         });
@@ -267,7 +268,7 @@ caf::behavior make_behavior() override {
 #if defined(ARTINXHUB_WINDOWS)
                     ShellExecuteA(nullptr, "open", "http://localhost:5630/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
 #elif defined(ARTINXHUB_LINUX)
-                        ::system(fmt::format("xdg-open http://{}:5630/pages/index.html", mhostIpAddress).c_str());
+                        std::system(fmt::format("xdg-open http://{}:5630/pages/index.html", mhostIpAddress).c_str());
 #else
                     0;
 #endif
@@ -278,16 +279,22 @@ caf::behavior make_behavior() override {
                  auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key);
                  auto [cameraFrame, name] = data.value();
 #ifdef ARTINX_RADAR
-                 if(name == "RadarCenter")
+                 if(name == std::string_view("RadarCenter")) {
                      radarKey = key.val;
-                 radarCameraInfo = cameraFrame.info;
+                     radarCameraInfo = cameraFrame.info;
+                 }
 #endif
                  mImage[key.val] = { name, cameraFrame.frame, true };
              }
 #ifdef ARTINX_RADAR
              ,
              [](radar_locate_succeed_atom) {
-                 // TODO
+                 auto transformRes = RadarTransform::instant().load();
+                 logInfo(fmt::format("Transformer:{"));
+                 for(int i = 0; i < 4; ++i)
+                     logInfo(fmt::format("{}\t{}\t{}\t{}", transformRes[i][0], transformRes[i][1], transformRes[i][2],
+                                         transformRes[i][3]));
+                 logInfo("}");
              }
 #endif
     };
