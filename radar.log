@@ -1,0 +1,61 @@
+[INFO] Initializing
+[INFO] Command Arguments: /home/artinx-7/Desktop/workspaces/codes/artinx-hub/deploy_config/radar_recorder.conf 
+[INFO] Build node camera1
+[ERROR] GX Error: -3
+[ERROR] GX Error: -6
+[INFO] open camera алЫиэ
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[INFO] Resolution for алЫиэ: 94272292291104 x 94272292291104
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[INFO] Current camera gain range: 4.6576700980806e-310 to 3e-323
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[WARNING] Failed to get calibration info for S/N алЫиэ. Use fallback fov 30 instead.
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[INFO] Build node camera2
+[ERROR] GX Error: -3
+[ERROR] GX Error: -6
+[INFO] open camera 
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[INFO] Resolution for : 94272292291104 x 94272292291104
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[INFO] Current camera gain range: 4.65767013286284e-310 to 0
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[WARNING] Failed to get calibration info for S/N . Use fallback fov 30 instead.
+[ERROR] GX Error: -6
+[ERROR] GX Error: -6
+[INFO] Build node judge-system
+[INFO] Build node position-tester
+[INFO] Build node recorder1
+[INFO] Build node recorder2
+[INFO] Build node server
+terminate called after throwing an instance of 'boost::wrapexcept<boost::system::system_error>'
+  what():  open: No such file or directory [system:2]
