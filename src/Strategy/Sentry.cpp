@@ -22,12 +22,11 @@ bool inspect(Inspector& f, SentryStrategySettings& x) {
     return f.object(x).fields(f.field("ignoredId", x.ignoredId), f.field("maxDistance", x.maxDistance).fallback(8.0));
 }
 
-// 如果上一次有选择目标，则选择与上次目标id相同的装甲板进行击打；
-// 否则，先选择英雄击打；
+// 先杀英雄，若无英雄，则选择与上次目标id相同的装甲板进行击打；
 // 无英雄，无上次选择的相同目标，则击打最近的装甲板；
 class SentryStrategy final : public HubHelper<caf::event_based_actor, SentryStrategySettings, set_target_atom> {
     Identifier mKey;
-    SelectedTarget mLastTarget;
+    SelectedTarget mLastTarget1, mLastTarget2;
     std::set<int> mIgnoreId;
 
 public:
@@ -38,7 +37,7 @@ public:
     }
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [&](detect_available_atom, GroupMask, Identifier key) {
+                 [&](detect_available_atom, GroupMask mask, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
                      const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
 
@@ -54,13 +53,14 @@ public:
                          selected.targets.emplace_back(target);
                          auto pos = target.center.mVal;
                          auto dist = pos.x * pos.x + pos.y * pos.y + pos.z * pos.z;
-                         if(dist > mConfig.maxDistance * mConfig.maxDistance)
+                         if(dist > mConfig.maxDistance * mConfig.maxDistance || pos.y > 1.5)  //距离太远或者高度超过1.2m不打弹
                              continue;
                          if(dist < minDistance) {
                              minDistance = dist;
                              minDistTarget = target;
                          }
-                         if(mLastTarget.selected.has_value() && mLastTarget.selected->id == target.id) {
+                         if((mLastTarget1.selected.has_value() && mLastTarget1.selected->id == target.id) ||
+                            (mLastTarget2.selected.has_value() && mLastTarget2.selected->id == target.id)) {
                              sameTarget = target;
                          }
                          if(target.id == RobotType::Hero) {
@@ -68,17 +68,27 @@ public:
                          }
                      }
 
-                     if(sameTarget.has_value()) {
-                         selected.selected = sameTarget;
-                     } else if(heroTarget.has_value()) {
+                     if(heroTarget.has_value()) {
                          selected.selected = heroTarget;
+                     } else if(heroTarget.has_value()) {
+                         selected.selected = sameTarget;
                      } else {
+                         if(mask == 2U) {
+                             if(mLastTarget1.selected.has_value() && mLastTarget1.lastUpdate - Clock::now() < 0.5s) {
+                                 return;
+                             }
+                         }
                          selected.selected = minDistTarget;
                      }
-                     mLastTarget = selected;
+                     if(mask == 1U) {
+                         mLastTarget1 = selected;
+                     } else {
+                         mLastTarget2 = selected;
+                     }
 
-                     if (selected.selected.has_value()){
-                         HubLogger::VisualLog(fmt::format("SentryStrategy Receive {} targets, choose target: {}", selected.targets.size(), magic_enum::enum_name(selected.selected->id)));
+                     if(selected.selected.has_value()) {
+                         HubLogger::VisualLog(fmt::format("SentryStrategy Receive {} targets, choose target: {}",
+                                                          selected.targets.size(), magic_enum::enum_name(selected.selected->id)));
                      }
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                  } };
