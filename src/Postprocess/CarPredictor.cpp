@@ -155,8 +155,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             default:
                 break;
         }
-        logInfo(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}",
-                            magic_enum::enum_name(mTrackedArmor.trackingState), mDetectCount, mLostCount));
+        // logInfo(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}",
+        //                     magic_enum::enum_name(mTrackedArmor.trackingState), mDetectCount, mLostCount));
         HubLogger::VisualLog(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}",
                                          magic_enum::enum_name(mTrackedArmor.trackingState), mDetectCount, mLostCount));
     }
