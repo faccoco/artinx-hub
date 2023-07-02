@@ -100,8 +100,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(1) = targetPos.y;
             mTrackedArmor.state(3) = yaw;
             std::swap(mTrackedArmor.state(8), mLastR);
-            logInfo("ArmorPredictor: Armor  jump to another armor!");
-            HubLogger::VisualLog(fmt::format("EKF Armor jump to another armor"));
+            logInfo("ArmorPredictor: Armor may experience a jump. Yaw and Y changed");
+            HubLogger::VisualLog(fmt::format("EKF Armor may experience a jump"));
         }
         auto dist = glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state));
         if(dist > mConfig.maxMatchDist) {
