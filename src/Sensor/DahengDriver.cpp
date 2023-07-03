@@ -162,7 +162,7 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         sendAll(image_frame_atom_v,
                 BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
 #else
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view("Origin")));
+        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
 #endif
     }
 
