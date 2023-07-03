@@ -100,8 +100,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(1) = targetPos.y;
             mTrackedArmor.state(3) = yaw;
             std::swap(mTrackedArmor.state(8), mLastR);
-            logInfo("ArmorPredictor: Armor may experience a jump. Yaw and Y changed");
-            HubLogger::VisualLog(fmt::format("EKF Armor may experience a jump"));
+            logInfo("ArmorPredictor: Armor may experience a jump. Change Yaw and Y");
+            HubLogger::VisualLog(fmt::format("EKF Armor may experience a jump. Change Yaw and Y"));
         }
         auto dist = glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state));
         if(dist > mConfig.maxMatchDist) {
@@ -300,14 +300,14 @@ public:
             
             // clang-format off
             //    xc        yc      zc      yaw     vxc     vyc     vzc     vyaw    r
-            q <<  Qxx,    0,      0,      0,      QxVx, 0,      0,      0,      0,
-                    0,      Qxx,  0,      0,      0,      QxVx, 0,      0,      0,
-                    0,      0,      Qxx,  0,      0,      0,      QxVx, 0,      0,
-                    0,      0,      0,      Qyy,  0,      0,      0,      QyVy, 0,
-                    QxVx, 0,      0,      0,      QVxVx,0,      0,      0,      0,
-                    0,      QxVx, 0,      0,      0,      QVxVx,0,      0,      0,
-                    0,      0,      QxVx, 0,      0,      0,      Qyy,  0,      0,
-                    0,      0,      0,      QyVy, 0,      0,      0,      QVyVy,0,
+            q <<    Qxx,    0,      0,      0,      QxVx,   0,      0,      0,      0,
+                    0,      Qxx,    0,      0,      0,      QxVx,   0,      0,      0,
+                    0,      0,      Qxx,    0,      0,      0,      QxVx,   0,      0,
+                    0,      0,      0,      Qyy,    0,      0,      0,      QyVy,   0,
+                    QxVx,   0,      0,      0,      QVxVx,  0,      0,      0,      0,
+                    0,      QxVx,   0,      0,      0,      QVxVx,  0,      0,      0,
+                    0,      0,      QxVx,   0,      0,      0,      Qyy,    0,      0,
+                    0,      0,      0,      QyVy,   0,      0,      0,      QVyVy,  0,
                     0,      0,      0,      0,      0,      0,      0,      0,      QR;
             // clang-format on
             
