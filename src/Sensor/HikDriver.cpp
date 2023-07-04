@@ -23,12 +23,10 @@ class HikDriver final : public HubHelper<caf::event_based_actor, HikDriverSettin
     Identifier mKey;
 
 public:
-    HikDriver(caf::actor_config& base, const HubConfig& config) : HubHelper(base, config), mKey{ generateKey(this) } {}
+    HikDriver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
 
     caf::behavior make_behavior() override {
-        return {
-            [](start_atom) {}
-        };
+        return { [](start_atom) {} };
     }
 };
 HUB_REGISTER_CLASS(HikDriver);

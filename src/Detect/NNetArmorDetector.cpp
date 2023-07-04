@@ -331,7 +331,9 @@ class NNetArmorDetector final
 
             // 采用传统视觉提取角点，提高pnp精度
             Armor enemyArmor = armor;
-            enemyArmor.isLargeArmor = std::max(armor.lightRect.width, armor.lightRect.height) / std::min(armor.lightRect.width, armor.lightRect.width) > 3.2;
+            enemyArmor.isLargeArmor =
+                std::max(armor.lightRect.width, armor.lightRect.height) / std::min(armor.lightRect.width, armor.lightRect.width) >
+                3.2;
             const auto numImg = NumberClassifier::extractNumbers(img, armor.light4Point.data(), enemyArmor.isLargeArmor);
             const auto [id, prob] = mNumClassifierPtr->classify(numImg);
             if(id == 8 || prob < 0.8) {
@@ -346,7 +348,7 @@ class NNetArmorDetector final
             cv::cvtColor(roiArmor, gray, cv::COLOR_BGR2GRAY);
             cv::threshold(gray, binary, mConfig.binaryThresh, 255, cv::THRESH_BINARY);
             if(mConfig.debugView) {
-                cv::rectangle(img, roiArmorRect, {0, 255, 255});
+                cv::rectangle(img, roiArmorRect, { 0, 255, 255 });
                 debugView("binary", binary, [](auto) {});
             }
             auto light4Points = extractLightPoint(binary);
@@ -417,7 +419,7 @@ public:
                      res.armors = postProcess(allArmors, res.frame.frame);
 
                      if(res.armors.size() > 0) {
-                         HubLogger::VisualLog(fmt::format("ArmorDetector detected {} targets, cost time {:.3f}ms",
+                         HubLogger::visualLog(fmt::format("ArmorDetector detected {} targets, cost time {:.3f}ms",
                                                           res.armors.size(), durationCastDouble(Clock::now() - t1) * 1000));
                      }
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));

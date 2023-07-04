@@ -53,7 +53,5 @@ public:
     }
 };
 
-#define ACTOR_EXCEPTION_PROBE()          \
-    ExceptionProbe __probe {             \
-        __FILE__, __FUNCTION__, __LINE__ \
-    }
+#define ACTOR_EXCEPTION_PROBE() \
+    ExceptionProbe __probe { __FILE__, __FUNCTION__, __LINE__ }

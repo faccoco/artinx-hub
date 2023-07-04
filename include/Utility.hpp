@@ -43,7 +43,7 @@ namespace caf {
 void terminateSystem(caf::local_actor& actor, bool success);
 
 extern std::string globalConfigName;
-void appendTestResult(const std::string& message);
+void appendTestResult(std::string_view message);
 std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>& w);
 
 // width < height

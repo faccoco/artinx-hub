@@ -26,7 +26,7 @@ struct ImageSequenceReplaySettings final {
 template <class Inspector>
 bool inspect(Inspector& f, ImageSequenceReplaySettings& x) {
     return f.object(x).fields(
-        f.field("path", x.path).invariant([](const std::string& path) { return fs::exists(path) && fs::is_directory(path); }),
+        f.field("path", x.path).invariant([](std::string_view path) { return fs::exists(path) && fs::is_directory(path); }),
         f.field("extension", x.extension),
         f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 120.0; }),
         f.field("fov", x.fov), f.field("width", x.width), f.field("height", x.height));
@@ -63,11 +63,12 @@ class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, Image
         res.info.tfGun2Camera = Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>(glm::identity<glm::dmat4>());
         res.lastUpdate = SynchronizedClock::instance().now();
 
-        if (mHeadKey.has_value()){
+        if(mHeadKey.has_value()) {
             res.info.tfRobot2Gun = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->tfRobot2Gun;
         }
 
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("ImageSequenceReply")));
+        sendAll(image_frame_atom_v,
+                BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("ImageSequenceReply")));
 
         ++mCount;
     }

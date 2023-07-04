@@ -87,7 +87,7 @@ public:
                      }
 
                      if(selected.selected.has_value()) {
-                         HubLogger::VisualLog(fmt::format("SentryStrategy Receive {} targets, choose target: {}",
+                         HubLogger::visualLog(fmt::format("SentryStrategy Receive {} targets, choose target: {}",
                                                           selected.targets.size(), magic_enum::enum_name(selected.selected->id)));
                      }
                      sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));

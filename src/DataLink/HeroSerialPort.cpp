@@ -96,7 +96,7 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
         // bullet speed
         // new value
         if(!mLastBulletSpeed.has_value() || mLastBulletSpeed.value() != fdb.bulletSpeed) {
-            HubLogger::ElectricCtrlLog(fmt::format("bulletSpeed: {}", fdb.bulletSpeed));
+            HubLogger::electricCtrlLog(fmt::format("bulletSpeed: {}", fdb.bulletSpeed));
             // valid value
             if(mConfig.getBulletSpeedFromSerial && fdb.bulletSpeed > mConfig.minBulletSpeed &&
                fdb.bulletSpeed < mConfig.maxBulletSpeed) {
@@ -134,7 +134,7 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
                 mShootDelay.push_back(fdb.shootDelayTime);
                 GlobalSettings::get().shootDelayTime = avg(mShootDelay) / 1000.0;  // ms -> s
             }
-            HubLogger::VisualLog(fmt::format("shoot delay: fdb:{:.3f}s avg:{:.3f}s", fdb.shootDelayTime / 1000.0,
+            HubLogger::visualLog(fmt::format("shoot delay: fdb:{:.3f}s avg:{:.3f}s", fdb.shootDelayTime / 1000.0,
                                              GlobalSettings::get().shootDelayTime));
         }
 
@@ -241,7 +241,7 @@ public:
                 HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
                 HubLogger::watch("targetYaw1", yawAngle);
                 HubLogger::watch("targetPitch1", pitchAngle);
-                HubLogger::VisualLog(
+                HubLogger::visualLog(
                     fmt::format("HeroSerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
                                 yawAngle, pitchAngle, static_cast<int>(mLatency.back() * 1000),
                                 static_cast<int>(GlobalSettings::get().latency * 1000)));

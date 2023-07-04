@@ -14,7 +14,7 @@ struct DetectedTarget final {
     Point<UnitType::Distance, FrameOfRef::Gun> center;
     RobotType id;
     ArmorType type;
-    ArmorMotion motion;     //get from strategy
+    ArmorMotion motion;  // get from strategy
     Transform<FrameOfRef::Armor, FrameOfRef::Gun> rmat;
 };
 

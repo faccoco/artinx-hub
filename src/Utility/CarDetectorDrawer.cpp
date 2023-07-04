@@ -27,7 +27,9 @@ public:
                          cv::rectangle(res.frame.frame, rect, green, 3);
                      }
 
-                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res.frame), std::string_view("CarDetectorDrawer")));
+                     sendAll(
+                         image_frame_atom_v,
+                         BlackBoard::instance().updateSync(mKey, std::move(res.frame), std::string_view("CarDetectorDrawer")));
                  } };
     }
 };

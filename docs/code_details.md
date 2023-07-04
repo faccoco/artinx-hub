@@ -55,7 +55,7 @@ public:
     //由HubClassRegister类调用，把actor的名称和制造方法存放到mClass中。
     void addNodeType(std::string name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction);
  	//根据配置文件中给定actor的type，在mClasser中寻找与其名称相对的actor，并调用其制造方法生成该actor，并将其注册到系统中。
-    caf::actor buildNode(caf::actor_system& system, const std::string& name, const HubConfig& config);
+    caf::actor buildNode(caf::actor_system& system, std::string_view name, const HubConfig& config);
    //单例模式
     static NodeFactory& get() {
         static NodeFactory instance;
@@ -104,7 +104,7 @@ struct TypedIdentifier final : Identifier {
    * @param name		atom的名字
    * @retrun			需要发送到的actor的名称
    **/
-std::vector<std::string> parseSucceed(const HubConfig& config, const std::string& name) {
+std::vector<std::string> parseSucceed(const HubConfig& config, std::string_view name) {
     std::string_view nameNormalized = name;
     //由于name由typeid.name(atom) 传入， name会带上struct关键，所以调用demangle函数去掉
     demangle(nameNormalized);

@@ -92,7 +92,8 @@ public:
                          detectColorCheckerAndCalibrate(res.frame);
                      }
 
-                     sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("ColorCalibration")));
+                     sendAll(image_frame_atom_v,
+                             BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("ColorCalibration")));
                  } };
     }
 };

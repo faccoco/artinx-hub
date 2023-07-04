@@ -12,7 +12,7 @@
 
 class NumberClassifier {
 public:
-    explicit NumberClassifier(const std::string& modelPath) ;
+    explicit NumberClassifier(const std::string& modelPath);
 
     static cv::Mat extractNumbers(const cv::Mat& src, const cv::Point2f points[], bool isLargeArmor);
 
@@ -20,5 +20,4 @@ public:
 
 private:
     cv::dnn::Net net;
-
 };

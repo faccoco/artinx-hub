@@ -106,7 +106,7 @@ public:
      * To send binary data, use write()
      * \param s string to send
      */
-    void writeString(const std::string& s);
+    void writeString(std::string_view s);
 
     std::shared_ptr<AsyncSerialImpl> GetImpl() {
         return pimpl;
