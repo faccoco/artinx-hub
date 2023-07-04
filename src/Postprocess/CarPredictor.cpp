@@ -136,7 +136,6 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             case TrackingState::TRACKING: {
                 if(!matched) {
                     mTrackedArmor.trackingState = TrackingState::TEMP_LOST;
-                    logInfo("Tracker come into TEMP_LOST state");
                     mLostCount++;
                 }
                 break;
@@ -219,6 +218,10 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                 HubLogger::watch("yRefRobot", z(1));
                 HubLogger::watch("zRefRobot", z(2));
                 HubLogger::watch("yawRefRobot", z(3));
+                HubLogger::watch("xPrecited", mTrackedArmor.state[0]);
+                HubLogger::watch("yPrecited", mTrackedArmor.state[1]);
+                HubLogger::watch("zPrecited", mTrackedArmor.state[2]);
+
                 HubLogger::VisualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}, deltaYaw {:.3f}",
                                                  minPositionDiff, deltaYaw));
             } else {

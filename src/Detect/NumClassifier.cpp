@@ -18,11 +18,11 @@ cv::Mat NumberClassifier::extractNumbers(const cv::Mat& src, const cv::Point2f p
     // Light length in image
     constexpr int lightLen = 12;
     // Image size after warp
-    constexpr int warpHeight = 28;
+    constexpr int warpHeight = 26;
     constexpr int smallArmorWidth = 32;
     constexpr int largeArmorWidth = 54;
     // Number ROI size
-    const cv::Size roiSize(20, 28);
+    const cv::Size roiSize(20, 26);
 
     // Warp perspective transform
     const int topLightY = (warpHeight - lightLen) / 2 - 1;
