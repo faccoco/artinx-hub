@@ -53,7 +53,7 @@ public:
                          selected.targets.emplace_back(target);
                          auto pos = target.center.mVal;
                          auto dist = pos.x * pos.x + pos.y * pos.y + pos.z * pos.z;
-                         if(dist > mConfig.maxDistance * mConfig.maxDistance || pos.y > 1.5)  //距离太远或者高度超过1.2m不打弹
+                         if(dist > mConfig.maxDistance * mConfig.maxDistance || pos.y > 1.5)  // 距离太远或者高度超过1.2m不打弹
                              continue;
                          if(dist < minDistance) {
                              minDistance = dist;
@@ -70,11 +70,16 @@ public:
 
                      if(heroTarget.has_value()) {
                          selected.selected = heroTarget;
-                     } else if(heroTarget.has_value()) {
+                     } else if(sameTarget.has_value()) {
                          selected.selected = sameTarget;
                      } else {
-                         if(mask == 2U) {
-                             if(mLastTarget1.selected.has_value() && mLastTarget1.lastUpdate - Clock::now() < 0.5s) {
+                         if(mask == 1U) {
+                             if(selected.targets.empty() && !mLastTarget2.targets.empty()) {
+                                 return;
+                             }
+                         } else {
+                             if((mLastTarget1.selected.has_value() && mLastTarget1.lastUpdate - Clock::now() < 0.5s)||
+                                (selected.targets.empty() && !mLastTarget1.targets.empty())) {
                                  return;
                              }
                          }
