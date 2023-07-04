@@ -71,9 +71,9 @@ public:
                      //                     logInfo(fmt::format("x:{}, y:{}, z:{}, xVel:{}, yVel:{}, zVel:{}", tfPos.x, tfPos.y,
                      //                     tfPos.z, tfLinearVel.x, tfLinearVel.y, tfLinearVel.z)); logInfo(fmt::format("time:{},
                      //                     yawAngle:{}, pitch:{}", time, yawAngle, pitchAngle));
-                    //  HubLogger::VisualLog(fmt::format(
-                    //      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
-                    //      posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
+                     //  HubLogger::visualLog(fmt::format(
+                     //      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
+                     //      posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
                      sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
                                          yawAngle, pitchAngle, true, normalSolver);
                  },
@@ -122,7 +122,7 @@ public:
                                      pitch = pitchAngle;
                                  } else {
                                      logInfo(fmt::format("AngleSolver: {}th armor do not satisfy maxShootDeltaYaw", i));
-                                     HubLogger::VisualLog(
+                                     HubLogger::visualLog(
                                          fmt::format("AngleSolver: {}th armor do not satisfy maxShootDelatYaw", i));
                                  }
                                  break;
@@ -130,17 +130,17 @@ public:
                              predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
                          }
                          if(yaw.has_value()) {
-                            //  logInfo(fmt::format("AngleSolver: choose {}th armor, yaw: {:.3f} pitch: {:.3f}", i, yaw.value(),
-                            //                      pitch.value()));
-                            //  HubLogger::VisualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
-                            //                                   yaw.value(), pitch.value()));
+                             //  logInfo(fmt::format("AngleSolver: choose {}th armor, yaw: {:.3f} pitch: {:.3f}", i, yaw.value(),
+                             //                      pitch.value()));
+                             //  HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
+                             //                                   yaw.value(), pitch.value()));
                              sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
                                                  yaw.value(), pitch.value(), true, normalSolver);
                              break;
                          } else {
                              logInfo(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfy "
                                                  "maxShootDeltaYaw, exceed max iter times"));
-                             HubLogger::VisualLog(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfy "
+                             HubLogger::visualLog(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfy "
                                                               "maxShootDeltaYaw, exceed max iter times"));
                          }
                          theta += (aVel < 0 ? glm::half_pi<double>() : -glm::half_pi<double>());

@@ -43,7 +43,7 @@ cv::Mat NumberClassifier::extractNumbers(const cv::Mat& src, const cv::Point2f p
     // Binarize
     cv::cvtColor(numberImg, numberImg, cv::COLOR_RGB2GRAY);
     cv::threshold(numberImg, numberImg, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-    
+
     return numberImg;
 }
 
@@ -53,7 +53,7 @@ std::pair<int, float> NumberClassifier::classify(const cv::Mat& img) {
     cv::Mat image = img.clone();
     image /= 255.0;
 
-    //cv::copyMakeBorder(image, image, 0, 0, 4, 4, cv::BORDER_CONSTANT, cv::Scalar(0));
+    // cv::copyMakeBorder(image, image, 0, 0, 4, 4, cv::BORDER_CONSTANT, cv::Scalar(0));
 
     // Create blob from image
     cv::Mat blob;
@@ -76,5 +76,5 @@ std::pair<int, float> NumberClassifier::classify(const cv::Mat& img) {
     minMaxLoc(softmaxProb.reshape(1, 1), nullptr, &confidence, nullptr, &classIdPoint);
     int labelId = classIdPoint.x;
 
-    return {labelId, confidence};
+    return { labelId, confidence };
 }

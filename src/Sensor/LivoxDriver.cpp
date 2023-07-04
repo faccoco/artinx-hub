@@ -18,7 +18,6 @@
 #include <string>
 #include <type_traits>
 
-
 struct LivoxDriverSettings final {
     std::string broadercastCode;
 };

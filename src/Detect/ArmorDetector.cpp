@@ -353,7 +353,7 @@ public:
                      res.frame = frame;
                      res.armors = solve(frame.frame);
                      if(res.armors.size() > 0) {
-                         HubLogger::VisualLog(fmt::format("ArmorDetector detected {} targets, cost time {:.3f}ms",
+                         HubLogger::visualLog(fmt::format("ArmorDetector detected {} targets, cost time {:.3f}ms",
                                                           res.armors.size(), durationCastDouble(Clock::now() - t1) * 1000));
                      }
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));

@@ -124,7 +124,7 @@ public:
                         double periodAvg = avg(mPeriodTimes);
                         double periodStd = Std(mPeriodTimes, periodAvg);
                         logInfo(fmt::format("PeriodOutpostPredictor: avg = {} | Std = {}", periodAvg, periodStd));
-                        HubLogger::VisualLog(fmt::format("PeriodOutpostPredictor: avg = {} | Std = {}", periodAvg, periodStd));
+                        HubLogger::visualLog(fmt::format("PeriodOutpostPredictor: avg = {} | Std = {}", periodAvg, periodStd));
                         if(periodStd > mConfig.maxPeriodStdThreshold) {
                             clear();
                             return;
@@ -162,7 +162,7 @@ public:
                 double periodAvg = avg(mPeriodTimes);
                 double periodStd = Std(mPeriodTimes, periodAvg);
                 logInfo(fmt::format("PeriodOutpostPredictor: avg = {} | Std = {}", periodAvg, periodStd));
-                HubLogger::VisualLog(fmt::format("PeriodOutpostPredictor: avg = {} | Std = {}", periodAvg, periodStd));
+                HubLogger::visualLog(fmt::format("PeriodOutpostPredictor: avg = {} | Std = {}", periodAvg, periodStd));
                 if(periodStd > mConfig.maxPeriodStdThreshold) {
                     clear();
                     return;

@@ -5,6 +5,7 @@ set(SOURCE
     "Core/ChaosMonkey.cpp"
     "Core/Daemon.cpp"
     "Core/Logger.cpp"
+    "Core/Config.cpp"
     "Core/PerformanceMonitor.cpp"
     "DataLink/AsyncSerial/AsyncSerial.cpp"
     "DataLink/AsyncSerial/BufferedAsyncSerial.cpp"
@@ -181,11 +182,11 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   file(
     GLOB NGRAPH_DLLS
     $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/ngraph/lib/*.dll)
-  remove(
+  list(REMOVE_ITEM
     NGRAPH_DLLS
     $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/ngraph/lib/libprotobuf.dll
   )
-  remove(
+  list(REMOVE_ITEM
     NGRAPH_DLLS
     $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/ngraph/lib/libprotobufd.dll
   )

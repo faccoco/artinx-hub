@@ -1,4 +1,3 @@
-
 #ifdef ARTINX_RADAR
 #include "BlackBoard.hpp"
 #include "CameraFrame.hpp"
@@ -89,13 +88,13 @@ public:
                                  continue;
                              cv::rectangle(debug, cv::Point2f(each.left, each.top), cv::Point2f(each.right, each.bottom),
                                            cv::Scalar(0, 255, 0), 1);
-                             result.botBoxs.push_back(each);
+                             result.botBoxes.push_back(each);
                          }
 
                          debugView("Detected", debug, [](auto&) {});
-                         std::sort(result.botBoxs.begin(), result.botBoxs.end(),
+                         std::sort(result.botBoxes.begin(), result.botBoxes.end(),
                                    [](const auto& lhs, const auto& rhs) { return lhs.left < rhs.left; });
-                         if(result.botBoxs.empty())
+                         if(result.botBoxes.empty())
                              return;
                          ACTOR_PROTOCOL_CHECK(bots_locate_request_atom, TypedIdentifier<DetectedBots>);
                          sendAll(bots_locate_request_atom_v, BlackBoard::instance().updateSync(mKey, std::move(result)));

@@ -90,9 +90,9 @@ struct BulletInfo {
     enum State { flying, hit, notHit } state;
     BulletInfo(Scalar<UnitType::Time> shootTime, Point<UnitType::Distance, FrameOfRef::Ground> shootPos,
                Vector<UnitType::LinearVelocity, FrameOfRef::Ground> shootVel)
-        : time(0), shootTime(shootTime), shootPos(shootPos), shootVel(shootVel),
-          closest{ glm::dvec3(), glm::dvec3(), glm::dvec3(), 0, glm::dvec3(), glm::dvec3(), 9999, 0 }, printed(false),
-          state(flying) {}
+        : time(0), shootTime(shootTime), shootPos(shootPos),
+          shootVel(shootVel), closest{ glm::dvec3(), glm::dvec3(), glm::dvec3(), 0, glm::dvec3(), glm::dvec3(), 9999, 0 },
+          printed(false), state(flying) {}
 };
 
 template <class Inspector>

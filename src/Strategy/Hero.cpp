@@ -106,7 +106,7 @@ public:
                 }
                 // logInfo(tmp);
 
-                HubLogger::VisualLog(fmt::format("Hero: mPeriodActive:{}", mPeriodActive));
+                HubLogger::visualLog(fmt::format("Hero: mPeriodActive:{}", mPeriodActive));
 
                 if(mPeriodActive) {
                     if(mPriorActive) {

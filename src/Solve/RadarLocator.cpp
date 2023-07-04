@@ -18,8 +18,8 @@
 
 #include "SuppressWarningEnd.hpp"
 
-class RadarLocator final : public HubHelper<caf::event_based_actor, void, radar_locate_succeed_atom> {
-    Identifier mKey;
+class RadarLocator final : public HubHelper<caf::event_based_actor, void> {
+    [[maybe_unused]] Identifier mKey;
     const std::vector<cv::Point3f> ObjectPoints = {
         cv::Point3f(7.5f, 1.51f, 1.12f), cv::Point3f(6.39f, 19.195, 0.615f),
         cv::Point3f(5.73f, 19.195f, 0.615f),                                              // from rival's base,clockwise
@@ -56,7 +56,11 @@ class RadarLocator final : public HubHelper<caf::event_based_actor, void, radar_
         return std::nullopt;
     }
     std::optional<cv::Mat> solvePerspectTransform(const RadarCameraPoints& info) {
-        return { cv::getPerspectiveTransform(info.points, PerspectPoints) };
+        try {
+            return { cv::getPerspectiveTransform(info.points, PerspectPoints) };
+        } catch(std::exception& e) {
+            logError("Failed to get perspective transform");
+        }
         return std::nullopt;
     }
 
@@ -75,9 +79,8 @@ public:
                          //}
 
                          if(const auto perspectTransform = solvePerspectTransform(data.value())) {
-                             RadarPerspectTransform::instant().store(perspectTransform.value());
-                             RadarPerspectTransform::instant().setReady();
-                             sendAll(radar_locate_succeed_atom_v);
+                             RadarPerspectiveTransform::instant().store(perspectTransform.value());
+                             RadarPerspectiveTransform::instant().setReady();
                          }
                      }
                  } };

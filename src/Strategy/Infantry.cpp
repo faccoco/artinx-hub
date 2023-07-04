@@ -12,9 +12,7 @@
 
 #include "SuppressWarningEnd.hpp"
 
-struct InfantryStrategySettings final {
-
-};
+struct InfantryStrategySettings final {};
 
 template <class Inspector>
 bool inspect(Inspector& f, InfantryStrategySettings& x) {
@@ -42,15 +40,15 @@ public:
                      selected.tfRobot2Gun = data.tfRobot2Gun;
                      selected.targets = data.targets;
 
-                    double minDisToImgCenter = std::numeric_limits<double>::max();
-                    for(const auto& target : selected.targets) {
-                        if(target.distToImgCenter < minDisToImgCenter) {
-                            selected.selected = target;
-                            minDisToImgCenter = target.distToImgCenter;
-                        }
-                    }
+                     double minDisToImgCenter = std::numeric_limits<double>::max();
+                     for(const auto& target : selected.targets) {
+                         if(target.distToImgCenter < minDisToImgCenter) {
+                             selected.selected = target;
+                             minDisToImgCenter = target.distToImgCenter;
+                         }
+                     }
 
-                    sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
                  } };
     }
 };

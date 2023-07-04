@@ -141,7 +141,7 @@ void AsyncSerial::write(const std::vector<char>& data) {
     pimpl->io.post(boost::bind(&AsyncSerial::doWrite, this));
 }
 
-void AsyncSerial::writeString(const std::string& s) {
+void AsyncSerial::writeString(std::string_view s) {
     {
         lock_guard<mutex> l(pimpl->writeQueueMutex);
         pimpl->writeQueue.insert(pimpl->writeQueue.end(), s.begin(), s.end());
@@ -273,14 +273,14 @@ public:
 
 AsyncSerial::AsyncSerial() : pimpl(new AsyncSerialImpl) {}
 
-AsyncSerial::AsyncSerial(const std::string& devname, unsigned int baud_rate, asio::serial_port_base::parity opt_parity,
+AsyncSerial::AsyncSerial(std::string_view devname, unsigned int baud_rate, asio::serial_port_base::parity opt_parity,
                          asio::serial_port_base::character_size opt_csize, asio::serial_port_base::flow_control opt_flow,
                          asio::serial_port_base::stop_bits opt_stop)
     : pimpl(new AsyncSerialImpl) {
     open(devname, baud_rate, opt_parity, opt_csize, opt_flow, opt_stop);
 }
 
-void AsyncSerial::open(const std::string& devname, unsigned int baud_rate, asio::serial_port_base::parity opt_parity,
+void AsyncSerial::open(std::string_view devname, unsigned int baud_rate, asio::serial_port_base::parity opt_parity,
                        asio::serial_port_base::character_size opt_csize, asio::serial_port_base::flow_control opt_flow,
                        asio::serial_port_base::stop_bits opt_stop) {
     if(isOpen())
@@ -432,7 +432,7 @@ void AsyncSerial::write(const std::vector<char>& data) {
         setErrorStatus(true);
 }
 
-void AsyncSerial::writeString(const std::string& s) {
+void AsyncSerial::writeString(std::string_view s) {
     if(::write(pimpl->fd, &s[0], s.size()) != s.size())
         setErrorStatus(true);
 }
