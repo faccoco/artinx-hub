@@ -111,7 +111,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(4) = 0;
             mTrackedArmor.state(5) = 0;
             mTrackedArmor.state(6) = 0;
-            logInfo("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF");
+            // logInfo(fmt::format("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF. Dist is {:.5f}", dist));
             HubLogger::VisualLog(
                 fmt::format("ArmorPredictor: The same Armor match distance {} too far. State wrong, reset EKF", dist));
         }
@@ -204,6 +204,9 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             }
 
             double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
+            HubLogger::watch("deltaYaw_pre", deltaYaw);
+            HubLogger::watch("mTrackedArmorYaw", mTrackedArmor.yaw);
+            HubLogger::watch("minPositionDiff", minPositionDiff);
             if(minPositionDiff < mConfig.maxMatchDist) {
                 // Matching armor found
                 matched = true;
