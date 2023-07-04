@@ -111,7 +111,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(4) = 0;
             mTrackedArmor.state(5) = 0;
             mTrackedArmor.state(6) = 0;
-            // logInfo(fmt::format("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF. Dist is {:.5f}", dist));
+            logInfo(fmt::format("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF. Dist is {:.5f}", dist));
             HubLogger::VisualLog(
                 fmt::format("ArmorPredictor: The same Armor match distance {} too far. State wrong, reset EKF", dist));
         }
@@ -221,6 +221,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                 HubLogger::watch("xPrecited", mTrackedArmor.state[0]);
                 HubLogger::watch("yPrecited", mTrackedArmor.state[1]);
                 HubLogger::watch("zPrecited", mTrackedArmor.state[2]);
+                HubLogger::watch("yawPredicted", mTrackedArmor.state[3]);
 
                 HubLogger::VisualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}, deltaYaw {:.3f}",
                                                  minPositionDiff, deltaYaw));
