@@ -136,6 +136,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             case TrackingState::TRACKING: {
                 if(!matched) {
                     mTrackedArmor.trackingState = TrackingState::TEMP_LOST;
+                    logInfo("Tracker come into TEMP_LOST state");
                     mLostCount++;
                 }
                 break;

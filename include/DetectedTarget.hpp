@@ -10,7 +10,7 @@ enum class ArmorMotion { Unsure, Static, Moving };
 
 struct DetectedTarget final {
     cv::Point2f armorImgCenter;
-    double distToImgCenter;
+    double distToImgCenter;     // 距离图像中心的距离（策略将会优先击打距离图像中心近的装甲板）
     Point<UnitType::Distance, FrameOfRef::Gun> center;
     RobotType id;
     ArmorType type;
