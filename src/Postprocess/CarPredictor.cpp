@@ -21,11 +21,11 @@ struct CarPredictorSettings final {
     int trackingThreshold;
     int lostThreshold;
 
-    double sigma2Qxyz; // Process noise variance of xyz
-    double sigma2Qyaw; // Process noise variance of yaw
-    double sigma2QR;   // Process noise variance of r
-    double Rxyz; // Measurement covariance matrix factor of xyz
-    double Ryaw; // Measurement covariance matrix factor of yaw
+    double sigma2Qxyz;  // Process noise variance of xyz
+    double sigma2Qyaw;  // Process noise variance of yaw
+    double sigma2QR;    // Process noise variance of r
+    double Rxyz;        // Measurement covariance matrix factor of xyz
+    double Ryaw;        // Measurement covariance matrix factor of yaw
     // std::vector<double> Q;  // Process covariance matrix
     // std::vector<double> R;  // Measurement covariance mat
 };
@@ -35,15 +35,12 @@ bool inspect(Inspector& f, CarPredictorSettings& x) {
     return f.object(x).fields(
         f.field("enablePredictor", x.enablePredictor), f.field("maxMatchDist", x.maxMatchDist).fallback(0.4),
         f.field("maxMatchYaw", x.maxMatchYaw).fallback(0.3), f.field("trackingThreshold", x.trackingThreshold).fallback(5),
-        f.field("lostThreshold", x.lostThreshold).fallback(5),
-        f.field("sigma2Qxyz", x.sigma2Qxyz).fallback(20.0),
-        f.field("sigma2Qyaw", x.sigma2Qyaw).fallback(100.0),
-        f.field("sigma2QR", x.sigma2QR).fallback(800.0),
-        f.field("Rxyz", x.Rxyz).fallback(0.05),
-        f.field("Ryaw", x.Ryaw).fallback(0.02));
+        f.field("lostThreshold", x.lostThreshold).fallback(5), f.field("sigma2Qxyz", x.sigma2Qxyz).fallback(20.0),
+        f.field("sigma2Qyaw", x.sigma2Qyaw).fallback(100.0), f.field("sigma2QR", x.sigma2QR).fallback(800.0),
+        f.field("Rxyz", x.Rxyz).fallback(0.05), f.field("Ryaw", x.Ryaw).fallback(0.02));
 
-        // f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 9; }).fallback(std::vector<double>(9, 0)),
-        // f.field("R", x.R).invariant([](auto& c) { return c.size() == 4; }).fallback(std::vector<double>(4, 0)));
+    // f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 9; }).fallback(std::vector<double>(9, 0)),
+    // f.field("R", x.R).invariant([](auto& c) { return c.size() == 4; }).fallback(std::vector<double>(4, 0)));
 }
 
 class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictorSettings, car_predict_atom> {
@@ -178,7 +175,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         logInfo("ArmorPredictor: Init EKF!");
         mTrackedArmor.id = armor.id;
         mTrackedArmor.trackingState = TrackingState::DETECTING;
-        HubLogger::VisualLog(fmt::format("CarPredictor Init EKF, target: {}, armor pos ({:.3f}, {:.3f}, {:.3f} yaw {:.3f})",
+        HubLogger::visualLog(fmt::format("CarPredictor Init EKF, target: {}, armor pos ({:.3f}, {:.3f}, {:.3f} yaw {:.3f})",
                                          magic_enum::enum_name(mTrackedArmor.id), p.x, p.y, p.z, yaw));
     }
 
@@ -227,7 +224,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                                                  minPositionDiff, deltaYaw));
             } else {
                 // Check if there is same id armor in current frame
-                HubLogger::VisualLog(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
+                HubLogger::visualLog(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
                                                  "{:.3f}, check if have another same armor",
                                                  minPositionDiff, deltaYaw));
                 for(const auto& armor : armors) {
@@ -260,7 +257,7 @@ public:
             x_new(3) += x(7) * mDt;
             return x_new;
         };
-        // J_f - Jacobian of process function 
+        // J_f - Jacobian of process function
         auto JF = [this](const Eigen::VectorXd&) {
             Eigen::MatrixXd f(9, 9);
             // clang-format off
@@ -306,7 +303,7 @@ public:
             double Qxx = pow(t, 4) / 4 * x, QxVx = pow(t, 3) / 2 * x, QVxVx = pow(t, 2) * x;
             double Qyy = pow(t, 4) / 4 * y, QyVy = pow(t, 3) / 2 * x, QVyVy = pow(t, 2) * y;
             double QR = pow(t, 4) / 4 * r;
-            
+
             // clang-format off
             //    xc        yc      zc      yaw     vxc     vyc     vzc     vyaw    r
             q <<    Qxx,    0,      0,      0,      QxVx,   0,      0,      0,      0,
@@ -319,7 +316,7 @@ public:
                     0,      0,      0,      QyVy,   0,      0,      0,      QVyVy,  0,
                     0,      0,      0,      0,      0,      0,      0,      0,      QR;
             // clang-format on
-            
+
             return q;
         };
 
@@ -327,7 +324,7 @@ public:
         // q.diagonal() << mConfig.Q[0], mConfig.Q[1], mConfig.Q[2], mConfig.Q[3], mConfig.Q[4], mConfig.Q[5], mConfig.Q[6],
         //     mConfig.Q[7], mConfig.Q[8];
         // R - measurement noise covariance matrix
-        auto UR = [this](const Eigen::VectorXd & z) {
+        auto UR = [this](const Eigen::VectorXd& z) {
             Eigen::DiagonalMatrix<double, 4> r;
             double x = mConfig.Rxyz;
             r.diagonal() << abs(x * z[0]), abs(x * z[1]), abs(x * z[2]), mConfig.Ryaw;
@@ -393,7 +390,7 @@ public:
                     HubLogger::watch("linearVelY", res.linearVel.mVal.y);
                     HubLogger::watch("linearVelZ", res.linearVel.mVal.z);
                     HubLogger::watch("angularVel", res.angularVel.mVal);
-                    HubLogger::VisualLog(fmt::format("ArmorPredictor: Predictor Armor state: pose ({:.3f} {:.3f} {:.3f} {:.3f}), "
+                    HubLogger::visualLog(fmt::format("ArmorPredictor: Predictor Armor state: pose ({:.3f} {:.3f} {:.3f} {:.3f}), "
                                                      " linearVel ({:.3f} {:.3f} {:.3f}) angularVel {:.3f}, r {:.3f}",
                                                      mTrackedArmor.state(0), mTrackedArmor.state(1), mTrackedArmor.state(2),
                                                      mTrackedArmor.state(3), mTrackedArmor.state(4), mTrackedArmor.state(5),
@@ -401,7 +398,7 @@ public:
                 } else {  // 如果不使用预测功能的话，将目标看作为静止状态，目标相对机器人的速度即为机器人自身速度取反
                     const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                     // logInfo("ArmorPredictor receive");
-                    HubLogger::VisualLog("ArmorPredictor receive");
+                    HubLogger::visualLog("ArmorPredictor receive");
                     if(!dataPosture.has_value() || !data->selected.has_value())
                         return;
                     res.center = getArmorPos(data->selected.value());
@@ -411,7 +408,8 @@ public:
                     res.radius = { 0, 0 };
                     res.y = { res.center.mVal.y, res.center.mVal.y };
                     // logInfo("ArmorPredictor send");
-                    HubLogger::VisualLog(fmt::format("ArmorPredictor do not use predict func, position : ({:.3f} {:.3f} {:.3f}), linearVel: ({:.3f} {:.3f} {:.3f})",
+                    HubLogger::visualLog(fmt::format("ArmorPredictor do not use predict func, position : ({:.3f} {:.3f} {:.3f}), "
+                                                     "linearVel: ({:.3f} {:.3f} {:.3f})",
                                                      res.center.mVal.x, res.center.mVal.y, res.center.mVal.z,
                                                      res.linearVel.mVal.x, res.linearVel.mVal.y, res.linearVel.mVal.z));
                     sendAll(car_predict_atom_v, BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));

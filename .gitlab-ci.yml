@@ -1,4 +1,5 @@
 stages:
+  - format
   - build
   - test
   - deploy
@@ -6,6 +7,12 @@ stages:
 cache:
   key: "$CI_RUNNER_ID"
   untracked: true
+format-check:
+  stage: format
+  tags:
+    - linux-server
+  script:
+    - clang-format --dry-run --Werror **/*.cpp **/*.hpp
 
 build:
   stage: build

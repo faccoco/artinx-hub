@@ -9,7 +9,7 @@ static std::ostream& getTestResult() {
     return out;
 }
 
-void appendTestResult(const std::string& message) {
+void appendTestResult(std::string_view message) {
     static std::mutex mutex;
     std::lock_guard guard{ mutex };
     getTestResult() << "========== " << globalConfigName << " ==========" << std::endl << message << std::endl;

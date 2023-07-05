@@ -17,7 +17,7 @@ struct RadarCameraPoints final {
 };
 
 struct RadarTransform final {
-    glm::dmat4 trans;
+    glm::dmat4 trans{};
     std::shared_mutex mutex;
     std::atomic<bool> flag;
 
@@ -30,18 +30,18 @@ struct RadarTransform final {
     static RadarTransform& instant();
 };
 
-struct RadarPerspectTransform final {
+struct RadarPerspectiveTransform final {
     cv::Mat trans;
     std::shared_mutex mutex;
     std::atomic<bool> flag;
 
-    RadarPerspectTransform() : flag(false) {}
+    RadarPerspectiveTransform() : flag(false) {}
 
     void setReady();
     bool isReady();
     cv::Mat load();
     void store(const cv::Mat& rhs);
-    static RadarPerspectTransform& instant();
+    static RadarPerspectiveTransform& instant();
 };
 
 struct DetectedBotPosition final {
@@ -56,7 +56,7 @@ struct BotsPosition final {
 
 struct DetectedBots {
     CameraFrame frame;
-    std::vector<yolo::Box> botBoxs;
+    std::vector<yolo::Box> botBoxes;
 };
 
 struct ReadableBotTag {
@@ -66,7 +66,6 @@ struct ReadableBotTag {
 
 ACTOR_PROTOCOL_DEFINE(update_radar_atom);
 ACTOR_PROTOCOL_DEFINE(radar_locate_request_atom, TypedIdentifier<RadarCameraPoints>);
-ACTOR_PROTOCOL_DEFINE(radar_locate_succeed_atom);
 ACTOR_PROTOCOL_DEFINE(bots_locate_request_atom, TypedIdentifier<DetectedBots>);
 ACTOR_PROTOCOL_DEFINE(sync_position_atom, TypedIdentifier<BotsPosition>);
 #endif

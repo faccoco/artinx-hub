@@ -176,8 +176,8 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
         if(mConfig.writeExtrinsics && !rvecs.empty() && !tvecs.empty()) {
             CV_Assert(rvecs[0].type() == tvecs[0].type());
             cv::Mat bigMat(static_cast<int>(rvecs.size()), 6, CV_MAKETYPE(rvecs[0].type(), 1));
-            bool needReshapeR = rvecs[0].depth() != 1 ? true : false;
-            bool needReshapeT = tvecs[0].depth() != 1 ? true : false;
+            bool needReshapeR = rvecs[0].depth() != 1;
+            bool needReshapeT = tvecs[0].depth() != 1;
 
             for(size_t i = 0; i < rvecs.size(); i++) {
                 cv::Mat r = bigMat(cv::Range(static_cast<int>(i), static_cast<int>(i + 1)), cv::Range(0, 3));

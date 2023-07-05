@@ -44,8 +44,7 @@ public:
                          }
 
                          // 绘制目标颜色与类别
-                         std::string id(
-                             fmt::format("{} {}", magic_enum::enum_name(armor.robotType), armor.isLargeArmor));
+                         std::string id(fmt::format("{} {}", magic_enum::enum_name(armor.robotType), armor.isLargeArmor));
                          int box_top_x = static_cast<int>(armor.light4Point[0].x);
                          int box_top_y = static_cast<int>(armor.light4Point[0].y);
 

@@ -6,9 +6,9 @@
 #include "Utility.hpp"
 #include <cctype>
 #include <condition_variable>
-#include <fstream>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #ifdef ARTINXHUB_LINUX
@@ -29,14 +29,6 @@
 #include "SuppressWarningEnd.hpp"
 
 using namespace std::literals;
-
-static std::string loadConfig(const char* path) {
-    std::ifstream in{ path, std::ios::in | std::ios::binary };
-    const auto size = in.seekg(0, std::ios::end).tellg();
-    std::string res(static_cast<size_t>(size), '\0');
-    in.seekg(0, std::ios::beg).read(res.data(), size);
-    return res;
-}
 
 template <typename String>
 static void demangle(String& typeName) {
@@ -96,7 +88,7 @@ namespace detail {
         NodeFactory::get().addNodeType(std::string{ name }, std::move(spawnFunction));
     }
 
-    std::vector<std::string> parseSucceed(const HubConfig& config, const std::string& name) {
+    std::vector<std::string> parseSucceed(const HubConfig& config, std::string_view name) {
         std::string_view nameNormalized = name;
         demangle(nameNormalized);
         const auto attr = config.to_dictionary().value();
@@ -134,9 +126,6 @@ namespace detail {
 
 std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system& system, const HubConfig& config) {
     const auto nodes = config.to_dictionary().value();
-    std::unordered_map<std::string, uint32_t> idMap;
-    std::vector<std::tuple<uint32_t, std::string, std::vector<uint32_t>>> reference;
-    reference.reserve(nodes.size());
 
     auto&& factory = NodeFactory::get();
 
@@ -218,10 +207,8 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
     globalConfigName = fs::path{ argv[1] }.filename().string();
     if(const auto pos = globalConfigName.find('.'); pos != std::string::npos)
         globalConfigName = globalConfigName.substr(0, pos);
-
-    const auto configData = loadConfig(argv[1]);
-    logInfo("Load config file bots successfully!");
-    const auto pipelineConfig = caf::config_value::parse(configData).value();
+    auto& gConfig = ConfigHelper::instance();
+    const auto pipelineConfig = gConfig.updateConfig(argv[1]);
     GlobalSettings::get() = caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value();
 
     {
@@ -241,7 +228,7 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
 
         logInfo("ArtinxHub Finished");
 
-        for(auto& [name, actor] : actors) {
+        for(const auto& [name, actor] : actors) {
             system.registry().erase(name);
             caller->send_exit(actor, caf::exit_reason::user_shutdown);
         }
@@ -257,10 +244,9 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
 
 std::mutex HubLogger::mutex;
 std::unordered_map<std::string, TimePoint> HubLogger::logs;
-std::unordered_map<std::string, std::string> HubLogger::watches;
+std::unordered_map<std::string_view, std::string> HubLogger::watches;
 ReadableTimePoint nowReadableTimePoint(std::chrono::system_clock::now());
-std::string HubLogger::prefix(fmt::format("{}_{}_{}_{}", nowReadableTimePoint.tm.tm_mon,
-                                          nowReadableTimePoint.tm.tm_mday, nowReadableTimePoint.tm.tm_hour,
-                                          nowReadableTimePoint.tm.tm_min));
+std::string HubLogger::prefix(fmt::format("{}_{}_{}_{}", nowReadableTimePoint.tm.tm_mon, nowReadableTimePoint.tm.tm_mday,
+                                          nowReadableTimePoint.tm.tm_hour, nowReadableTimePoint.tm.tm_min));
 
 CAF_MAIN(caf::id_block::ArtinxHub)

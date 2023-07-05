@@ -6,6 +6,7 @@
 #include <caf/allowed_unsafe_message_type.hpp>
 #include <caf/is_error_code_enum.hpp>
 #include <caf/type_id.hpp>
+#include <cstddef>
 #include <magic_enum.hpp>
 
 #include "SuppressWarningEnd.hpp"
@@ -43,7 +44,7 @@ struct GlobalSettings final {
     }
 
     void setColor(Color color) noexcept {
-        isRed = (color == Color::Blue ? false : true);
+        isRed = (color != Color::Blue);
     }
 
     static GlobalSettings& get() {
@@ -109,14 +110,12 @@ CAF_ADD_ATOM(ArtinxHub, energy_detect_available_atom);
 CAF_ADD_ATOM(ArtinxHub, predict_success_atom);
 CAF_ADD_ATOM(ArtinxHub, car_predict_atom);
 CAF_ADD_ATOM(ArtinxHub, period_predict_success_atom);
-CAF_ADD_ATOM(ArtinxHub, radar_locate_succeed_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_request_atom);
 CAF_ADD_ATOM(ArtinxHub, bots_locate_request_atom);
 CAF_ADD_ATOM(ArtinxHub, num_classify_request_atom);
 CAF_ADD_ATOM(ArtinxHub, monitor_request_atom);
 CAF_ADD_ATOM(ArtinxHub, monitor_response_atom);
 CAF_ADD_ATOM(ArtinxHub, payload_atom);
-CAF_ADD_ATOM(ArtinxHub, ore_alignment_available_atom);
 CAF_ADD_ATOM(ArtinxHub, energy_detector_control_atom);
 CAF_ADD_ATOM(ArtinxHub, hero_strategy_control_atom);
 

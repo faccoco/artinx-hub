@@ -18,7 +18,7 @@ struct ArmorLocatorSettings final {};
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLocatorSettings& x) {
-    return  f.object(x).fields();
+    return f.object(x).fields();
 }
 
 class ArmorLocator final
@@ -94,7 +94,7 @@ public:
                     auto armorImgCenter = clcArmorImgCenter();
                     res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefGun, armor.robotType,
                                             armorType, ArmorMotion::Unsure, rmatRefGun });
-                    HubLogger::VisualLog(fmt::format("ArmorLocator locate target: RobotType:{}, ArmorImgCenter:({:.2f}, "
+                    HubLogger::visualLog(fmt::format("ArmorLocator locate target: RobotType:{}, ArmorImgCenter:({:.2f}, "
                                                      "{:.2f}), PositionRefGun:({:.2f}, {:.2f}, {:.2f})",
                                                      magic_enum::enum_name(armor.robotType), armorImgCenter.x, armorImgCenter.y,
                                                      pointRefGun.mVal.x, pointRefGun.mVal.y, pointRefGun.mVal.z));

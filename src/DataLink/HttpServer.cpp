@@ -7,14 +7,13 @@
 #include "SuppressWarningBegin.hpp"
 #include "Utility.hpp"
 
-#include <array>
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
 #include <fmt/core.h>
 #include <functional>
 #include <httplib.h>
+#include <mutex>
 #include <nlohmann/json.hpp>
-#include <opencv2/core/types.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/opencv.hpp>
 #include <optional>
@@ -67,7 +66,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
     CameraInfo radarCameraInfo;
 #endif
 
-    Identifier mKey;
+    [[maybe_unused]] Identifier mKey;
 
 #if defined(ARTINXHUB_LINUX)
     std::string getHostIpAddress() {
@@ -120,186 +119,137 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
     }
 
 public:
-#ifdef ARTINX_RADAR
     HttpServer(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mClogBuffer{ std::clog.rdbuf() }, mKey{ generateKey(this) } {
-#else
-    HttpServer(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mClogBuffer{ std::clog.rdbuf() }, mKey{ generateKey(this) } {
-#endif
-              using json = nlohmann::json;
+
+        using json = nlohmann::json;
+
 #if defined(ARTINXHUB_WINDOWS)
-    mhostIpAddress = "127.0.0.1";
+        mhostIpAddress = "127.0.0.1";
 #elif defined(ARTINXHUB_LINUX)
         mhostIpAddress = getHostIpAddress();
 #endif
-    // std::clog.rdbuf(mLogStream.rdbuf());
 
-    mServer.set_mount_point("/pages", "./pages");
+        mServer.set_mount_point("/pages", "./pages");
 
-    mServer.Get("/status", [](const httplib::Request&, httplib::Response& res) {
-        res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
-    });
-    //        mServer.Get("/profile", [this](const httplib::Request&, httplib::Response& res) {
-    //            res.set_content("hello world!    clock " + std::to_string(::clock());, "text/plain");
-    //        });
-    //        mServer.Get("/parameters", [this](const httplib::Request& req, httplib::Response& res) {
-    //            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
-    //        });
-    // std::thread([this]() {
-    //     while(true) {
-    //         double nowSec = Clock::now().time_since_epoch().count() / 1e9;
-    //         double _;
-    //         HubLogger::watch("Sample A", std::sin(nowSec * 5));
-    //         HubLogger::watch("Sample B", std::sin(nowSec * 5) * std::sin(nowSec * 13.2));
-    //         HubLogger::watch("Sample C", 10. * std::sin(std::sin(nowSec) * 20));
-    //         HubLogger::watch("Sample D", 0.01 * std::sin(nowSec * 5));
-    //         HubLogger::watch("Sample E", std::modf(nowSec, &_) < .5 ? "false" : "true");
-    //         std::this_thread::sleep_for(10ms);
-    //     }
-    // }).detach();
-    mServer.Get(R"(/img/.*?(\d+).*)", [this](const httplib::Request& req, httplib::Response& res) {
-        if(req.matches.empty())
-            return;
-        const auto&& path = req.matches[1].str();
-        res.set_content_provider(
-            "multipart/x-mixed-replace;boundary=MJP",
-            [this, path](size_t, httplib::DataSink& sink) {
-                if(const auto&& img = generateImageData(path)) {
-                    auto& vec = img.value();
-                    sink.os << "--MJP\r\n"
-                               "Content-Type: image/jpeg\r\n"
-                               "Content-Length: "
-                            << vec.size() << "\r\n\r\n";
-                    sink.os.write(reinterpret_cast<const char*>(vec.data()), static_cast<long>(vec.size()));
+        mServer.Get("/status", [](const httplib::Request&, httplib::Response& res) {
+            res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
+        });
+        mServer.Get(R"(/img/.*?(\d+).*)", [this](const httplib::Request& req, httplib::Response& res) {
+            if(req.matches.empty())
+                return;
+            const auto&& path = req.matches[1].str();
+            res.set_content_provider(
+                "multipart/x-mixed-replace;boundary=MJP",
+                [this, path](size_t, httplib::DataSink& sink) {
+                    if(const auto&& img = generateImageData(path)) {
+                        auto& vec = img.value();
+                        sink.os << "--MJP\r\n"
+                                   "Content-Type: image/jpeg\r\n"
+                                   "Content-Length: "
+                                << vec.size() << "\r\n\r\n";
+                        sink.os.write(reinterpret_cast<const char*>(vec.data()), static_cast<long>(vec.size()));
+                    }
+                    return true;
+                },
+                [](bool) {});
+        });
+
+        mServer.Get("/watch", [](const httplib::Request&, httplib::Response& res) {
+            res.set_content(nlohmann::json(HubLogger::getwatches()).dump(), "application/json");
+        });
+
+        static bool filterInit = false;
+        mServer.Post("/filter", [this](const httplib::Request& req, httplib::Response& res) {
+            if(!filterInit && req.body.empty()) {
+                res.set_content(generateFilterJson(), "text/plain");
+                filterInit = true;
+                return;
+            } else if(req.body.empty()) {
+                res.set_content("{}", "text/plain");
+            } else {
+                auto reqJson = json::parse(req.body);
+                std::lock_guard guard{ mMutex };
+                for(const auto& [str, val] : reqJson.items()) {
+                    uint64_t key = std::stoull(str.substr(str.find('-') + 1));
+                    mImage[key].isEnable = val;
                 }
-                return true;
-            },
-            [](bool) {});
-    });
-
-    mServer.Get("/watch", [](const httplib::Request&, httplib::Response& res) {
-        res.set_content(nlohmann::json(HubLogger::watches).dump(), "application/json");
-    });
-
-    static bool filterInit = false;
-    mServer.Post("/filter", [this](const httplib::Request& req, httplib::Response& res) {
-        if(!filterInit && req.body.empty()) {
-            res.set_content(generateFilterJson(), "text/plain");
-            filterInit = true;
-            return;
-        } else if(req.body.empty()) {
-            res.set_content("{}", "text/plain");
-        } else {
-            auto reqJson = json::parse(req.body);
-            std::lock_guard guard{ mMutex };
-            for(const auto& [str, val] : reqJson.items()) {
-                uint64_t key = std::stoull(str.substr(str.find('-') + 1));
-                mImage[key].isEnable = val;
+                res.set_content("{}", "text/plain");
             }
-            res.set_content("{}", "text/plain");
-        }
-    });
-
+        });
 #ifdef ARTINX_RADAR
-    mServer.Get(R"(/img/RadarCenter)", [this](const httplib::Request& req, httplib::Response& res) {
-        res.set_content_provider("multipart/x-mixed-replace;boundary=MJP",
-                                 [this](size_t, httplib::DataSink& sink) {
-                                     if(const auto&& img = generateImageData(std::to_string(radarKey))) {
-                                         auto& vec = img.value();
-                                         sink.os << "--MJP\r\n"
-                                                    "Content-Type: image/jpeg\r\n"
-                                                    "Content-Length: "
-                                                 << vec.size() << "\r\n\r\n";
-                                         sink.os.write(reinterpret_cast<const char*>(vec.data()), static_cast<long>(vec.size()));
-                                     }
-                                     return true;
-                                 },
-                                 [](bool){});
-    });
-    if(mConfig.enableRadar) {
-        mServer.Get("/radar", [](const httplib::Request&, httplib::Response& res) {
-            res.set_content(json("true").dump(), "application/json");
+        mServer.Get(R"(/img/RadarCenter)", [this](const httplib::Request& req, httplib::Response& res) {
+            res.set_content_provider("multipart/x-mixed-replace;boundary=MJP",
+                                     [this](size_t, httplib::DataSink& sink) {
+                                         if(const auto&& img = generateImageData(std::to_string(radarKey))) {
+                                             auto& vec = img.value();
+                                             sink.os << "--MJP\r\n"
+                                                        "Content-Type: image/jpeg\r\n"
+                                                        "Content-Length: "
+                                                     << vec.size() << "\r\n\r\n";
+                                             sink.os.write(reinterpret_cast<const char*>(vec.data()),
+                                                           static_cast<long>(vec.size()));
+                                         }
+                                         return true;
+                                     },
+                                     [](bool){});
         });
+        if(mConfig.enableRadar) {
+            mServer.Get("/radar", [](const httplib::Request&, httplib::Response& res) {
+                res.set_content(json("true").dump(), "application/json");
+            });
 
-        //            mServer.Get("/log", [this](const httplib::Request&, httplib::Response& res) {
-        //                std::string send("trans mat:\n");
-        //                for(int i = 0; i < 4; ++i) {
-        //                    for(int j = 0; j < 4; ++j)c
-        //                        send += std::to_string(radarSuccessTransform.trans[i][j]) + " ";
-        //                    send += "\n";
-        //                }
-        //                send += "rotate mat:\n";
-        //                for(int i = 0; i < 3; ++i) {
-        //                    for(int j = 0; j < 3; ++j)
-        //                        send += std::to_string(radarSuccessTransform.rotate[i][j]) + " ";
-        //                    send += "\n";
-        //                }
-        //                res.set_content(json(send).dump(), "text/plain");
-        //            });t(json(send).dump(), "text/plain");
-        //            });
-
-        mServer.Post("/radar_points", [this](const httplib::Request& req, httplib::Response& res) {
-            auto allPoints = json::parse(req.body);
-            RadarCameraPoints data;
-            data.frame = radarCameraInfo;
-            for(uint32_t i = 0; i < mConfig.radarPointsNum; ++i)
-                data.points.emplace_back(static_cast<float>(allPoints[i]["x"]), static_cast<float>(allPoints[i]["y"]));
-            sendAll(radar_locate_request_atom_v, BlackBoard::instance().updateSync(mKey, std::move(data)));
-            res.set_content(json(json("success")).dump(), "text/plain");
-        });
-    }
+            mServer.Post("/radar_points", [this](const httplib::Request& req, httplib::Response& res) {
+                auto allPoints = json::parse(req.body);
+                RadarCameraPoints data;
+                data.frame = radarCameraInfo;
+                for(uint32_t i = 0; i < mConfig.radarPointsNum; ++i)
+                    data.points.emplace_back(static_cast<float>(allPoints[i]["x"]), static_cast<float>(allPoints[i]["y"]));
+                sendAll(radar_locate_request_atom_v, BlackBoard::instance().updateSync(mKey, std::move(data)));
+                res.set_content(json(json("success")).dump(), "text/plain");
+            });
+        }
 #endif
 
-    mServer.Get("/exit", [this](const httplib::Request&, httplib::Response&) {
-        mServer.stop();
-        terminateSystem(*this, true);
-    });
+        mServer.Get("/exit", [this](const httplib::Request&, httplib::Response&) {
+            mServer.stop();
+            terminateSystem(*this, true);
+        });
 
-    mListener = std::thread{ [this] { mServer.listen(mhostIpAddress.c_str(), 5630); } };
-} ~HttpServer() override {
-    std::clog.rdbuf(mClogBuffer);
-    mListener.detach();
-}
-caf::behavior make_behavior() override {
-    return { [this](start_atom) {
-                ACTOR_PROTOCOL_CHECK(start_atom);
-                [[maybe_unused]] const auto res =
+        mListener = std::thread{ [this] { mServer.listen(mhostIpAddress.c_str(), 5630); } };
+    }
+
+    ~HttpServer() override {
+        std::clog.rdbuf(mClogBuffer);
+        mListener.detach();
+    }
+
+    caf::behavior make_behavior() override {
+        return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
+                    [[maybe_unused]] const auto res =
 #if defined(ARTINXHUB_WINDOWS)
-                    ShellExecuteA(nullptr, "open", "http://localhost:5630/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
+                        ShellExecuteA(nullptr, "open", "http://localhost:5630/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
 #elif defined(ARTINXHUB_LINUX)
                         std::system(fmt::format("xdg-open http://{}:5630/pages/index.html", mhostIpAddress).c_str());
 #else
-                    0;
+                        0;
 #endif
-            },
-             [this](image_frame_atom, Identifier key) {
-                 ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
-                 std::lock_guard<std::mutex> guard{ mMutex };
-                 auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key);
-                 auto [cameraFrame, name] = data.value();
+                },
+                 [this](image_frame_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
+                     std::lock_guard<std::mutex> guard{ mMutex };
+                     auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key);
+                     auto [cameraFrame, name] = data.value();
 #ifdef ARTINX_RADAR
-                 if(name == std::string_view("RadarCenter")) {
-                     radarKey = key.val;
-                     radarCameraInfo = cameraFrame.info;
-                 }
+                     if(name == std::string_view("RadarCenter")) {
+                         radarKey = key.val;
+                         radarCameraInfo = cameraFrame.info;
+                     }
 #endif
-                 mImage[key.val] = { name, cameraFrame.frame, true };
-             }
-#ifdef ARTINX_RADAR
-             ,
-             [](radar_locate_succeed_atom) {
-                 auto transformRes = RadarTransform::instant().load();
-                 logInfo(fmt::format("Transformer:{"));
-                 for(int i = 0; i < 4; ++i)
-                     logInfo(fmt::format("{}\t{}\t{}\t{}", transformRes[i][0], transformRes[i][1], transformRes[i][2],
-                                         transformRes[i][3]));
-                 logInfo("}");
-             }
-#endif
-    };
-}
-}
-;
+                     mImage[key.val] = { name, cameraFrame.frame, true };
+                 } };
+    }
+};
 
 HUB_REGISTER_CLASS(HttpServer);

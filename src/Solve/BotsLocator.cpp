@@ -1,5 +1,3 @@
-#include <opencv2/core/types.hpp>
-#include <string>
 #ifdef ARTINX_RADAR
 #include "BlackBoard.hpp"
 #include "CameraFrame.hpp"
@@ -10,6 +8,7 @@
 #include "Hub.hpp"
 #include "RadarInfo.hpp"
 #include "Utility.hpp"
+#include "yolo.hpp"
 
 #include "SuppressWarningBegin.hpp"
 
@@ -24,7 +23,6 @@
 #include <vector>
 
 #include "SuppressWarningEnd.hpp"
-#include "yolo.hpp"
 
 struct BotsLocatorSettings final {
     std::string mapPath;
@@ -81,7 +79,7 @@ private:
     void showPerspectiveResult(const cv::Mat& frame) {
         cv::Mat perspectedView;
         if(mStart) {
-            cv::warpPerspective(frame, perspectedView, RadarPerspectTransform::instant().load(), cv::Size{ 1500, 2800 });
+            cv::warpPerspective(frame, perspectedView, RadarPerspectiveTransform::instant().load(), cv::Size{ 1500, 2800 });
         } else {
             perspectedView = mMap;
         }
@@ -128,12 +126,12 @@ private:
         std::vector<cv::Point2f> dstResult;
         std::vector<Color> colorInfo;
 
-        for(const auto& bot : botsInfo.botBoxs) {
+        for(const auto& bot : botsInfo.botBoxes) {
             botCenters.emplace_back((bot.right + bot.left) / 2, bot.bottom);
             colorInfo.push_back(getCarColor(botsInfo.frame.frame, bot));
         }
 
-        cv::perspectiveTransform(botCenters, dstResult, RadarPerspectTransform::instant().load());
+        cv::perspectiveTransform(botCenters, dstResult, RadarPerspectiveTransform::instant().load());
 
         std::fill_n(redUsed.begin(), 12, false);
         std::fill_n(blueUsed.begin(), 12, false);
@@ -154,15 +152,16 @@ public:
                      ACTOR_PROTOCOL_CHECK(bots_locate_request_atom, TypedIdentifier<DetectedBots>);
                      if(const auto data = BlackBoard::instance().get<DetectedBots>(key)) {
                          if(!mStart)
-                             mStart = RadarPerspectTransform::instant().isReady();
+                             mStart = RadarPerspectiveTransform::instant().isReady();
 
                          showPerspectiveResult(data.value().frame.frame);
                          auto res = locate(data.value());
                          showLocateResult(res);
-                         logInfo("-----------------------------------");
-                         for(const auto& bot : res.data) {
-                             logInfo(fmt::format("Bot index: {}, x: {} y: {}", bot.id, bot.x, bot.y));
-                         }
+                         HubLogger::watch("Count", res.data.size());
+                         // logInfo("-----------------------------------");
+                         // for(const auto& bot : res.data) {
+                         // logInfo(fmt::format("Bot index: {}, x: {} y: {}", bot.id, bot.x, bot.y));
+                         //}
                          sendAll(sync_position_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                      }
                  } };
