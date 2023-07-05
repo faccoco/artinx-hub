@@ -99,7 +99,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(3) = yaw;
             std::swap(mTrackedArmor.state(8), mLastR);
             logInfo(fmt::format("ArmorPredictor: Armor may experience a jump. Change Yaw and Y, delta yaw is {:.5f}", deltayaw));
-            HubLogger::VisualLog(fmt::format("EKF Armor may experience a jump. Change Yaw and Y"));
+            HubLogger::visualLog(fmt::format("EKF Armor may experience a jump. Change Yaw and Y"));
         }
         auto dist = glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state));
         if(dist > mConfig.maxMatchDist) {
@@ -110,7 +110,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(6) = 0;
             logInfo(fmt::format("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF. Dist is {:.5f}",
                                 dist));
-            HubLogger::VisualLog(
+            HubLogger::visualLog(
                 fmt::format("ArmorPredictor: The same Armor match distance {} too far. State wrong, reset EKF", dist));
         }
         mEKF.setState(mTrackedArmor.state);
@@ -156,7 +156,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         }
         // logInfo(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}",
         //                     magic_enum::enum_name(mTrackedArmor.trackingState), mDetectCount, mLostCount));
-        HubLogger::VisualLog(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}",
+        HubLogger::visualLog(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}",
                                          magic_enum::enum_name(mTrackedArmor.trackingState), mDetectCount, mLostCount));
     }
 
@@ -200,11 +200,23 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                     candidate = { p, getArmorYaw(armor) };
                 }
             }
-
-            double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
             HubLogger::watch("deltaYaw_pre", deltaYaw);
             HubLogger::watch("mTrackedArmorYaw", mTrackedArmor.yaw);
             HubLogger::watch("minPositionDiff", minPositionDiff);
+
+            HubLogger::watch("xRefRobot", candidate.first.x);
+            HubLogger::watch("yRefRobot", candidate.first.y);
+            HubLogger::watch("zRefRobot", candidate.first.z);
+            HubLogger::watch("yawRefRobot", candidate.second);
+            HubLogger::watch("xPrecited", predictedPosition.x);
+            HubLogger::watch("yPrecited", predictedPosition.y);
+            HubLogger::watch("zPrecited", predictedPosition.z);
+            HubLogger::watch("yawPredicted", predictedPosition.yaw);
+            // HubLogger::watch("zPrecited", mTrackedArmor.state[2]);
+            // HubLogger::watch("yawPredicted", mTrackedArmor.state[3]);
+
+            double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
+
             if(minPositionDiff < mConfig.maxMatchDist) {
                 // Matching armor found
                 matched = true;
@@ -212,16 +224,16 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                 setArmorYaw(candidate.second);
                 Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, mTrackedArmor.yaw);
                 mTrackedArmor.state = mEKF.update(z);
-                HubLogger::watch("xRefRobot", z(0));
-                HubLogger::watch("yRefRobot", z(1));
-                HubLogger::watch("zRefRobot", z(2));
-                HubLogger::watch("yawRefRobot", z(3));
-                HubLogger::watch("xPrecited", mTrackedArmor.state[0]);
-                HubLogger::watch("yPrecited", mTrackedArmor.state[1]);
-                HubLogger::watch("zPrecited", mTrackedArmor.state[2]);
-                HubLogger::watch("yawPredicted", mTrackedArmor.state[3]);
+                // HubLogger::watch("xRefRobot", z(0));
+                // HubLogger::watch("yRefRobot", z(1));
+                // HubLogger::watch("zRefRobot", z(2));
+                // HubLogger::watch("yawRefRobot", z(3));
+                // HubLogger::watch("xPrecited", mTrackedArmor.state[0]);
+                // HubLogger::watch("yPrecited", mTrackedArmor.state[1]);
+                // HubLogger::watch("zPrecited", mTrackedArmor.state[2]);
+                // HubLogger::watch("yawPredicted", mTrackedArmor.state[3]);
 
-                HubLogger::VisualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}, deltaYaw {:.3f}",
+                HubLogger::visualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}, deltaYaw {:.3f}",
                                                  minPositionDiff, deltaYaw));
             } else {
                 // Check if there is same id armor in current frame
