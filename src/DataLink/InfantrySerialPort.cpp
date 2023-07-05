@@ -89,21 +89,23 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
 
         auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
         auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
+        // HubLogger::watch("yaw1", fdb.yaw);
+        // HubLogger::watch("pitch1", fdb.pitch);
         HubLogger::watch("deltaYaw1", deltaYaw1);
         HubLogger::watch("deltaPitch1", deltaPitch1);
 
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
-        float yaw = (fdb.yaw < 0.0f) ? fdb.yaw + glm::two_pi<float>() : fdb.yaw;
-
+        const double yaw = -fdb.yaw - glm::half_pi<double>();
+        const double pitch = fdb.pitch;
+        const double roll = 0.0;
         const HeadInfo infoHead{ SynchronizedClock::instance().now(),
-                                 decltype(HeadInfo::tfRobot2Gun){ glm::lookAtRH(
-                                     glm::dvec3{ 0.0, 0.0, 0.0 },
-                                     glm::dvec3{ -std::sin(static_cast<double>(yaw)) * std::cos(static_cast<double>(fdb.pitch)),
-                                                 std::sin(static_cast<double>(fdb.pitch)),
-                                                 std::cos(static_cast<double>(yaw)) * std::cos(static_cast<double>(fdb.pitch)) },
-                                     glm::dvec3{ 0.0, 1.0, 0.0 }) } };
+                               decltype(HeadInfo::tfRobot2Gun){
+                                   glm::lookAtRH(glm::dvec3{ 0.0, 0.0, 0.0 },
+                                                 glm::dvec3{ std::cos(pitch) * std::cos(yaw), 0.0 + std::sin(pitch),
+                                                             0.0 + std::cos(pitch) * std::sin(yaw) },
+                                                 glm::dvec3{ sin(roll), cos(roll), 0.0 }) } };
 
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();
