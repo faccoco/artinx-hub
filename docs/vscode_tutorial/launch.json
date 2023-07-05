@@ -1,0 +1,63 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "debug",                                                    // 任务名，只是方便你分辨的名字，随便改
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/cmake-build-debug/src/ArtinxHub",    // 选择你要运行的目标程序，windows上可能要加.exe，一般在编译目标文件夹/src/ArtinxHub，建议与前置任务的目标目录相同，除非你知道自己在干什么
+            "args": [
+                "${workspaceFolder}/config_templates/pnp_test.conf"             // 配置文件
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",                                        // 运行时目录
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "将反汇编风格设置为 Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "CMake: build debug"                               // 对应tasks.json中的前置和任务lable
+        },
+        {
+            "name": "release",                                                  // 任务名，只是方便你分辨的名字，随便改
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/cmake-build-release/src/ArtinxHub",  // 选择你要运行的目标程序，windows上可能要加.exe，一般在编译目标文件夹/src/ArtinxHub，建议与前置任务的目标目录相同，除非你知道自己在干什么
+            "args": [
+                "${workspaceFolder}/config_templates/pnp_test.conf"             // 配置文件
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",                                        // 运行时目录
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "将反汇编风格设置为 Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "CMake: build release"                           // 对应tasks.json中的前置和任务lable
+        }
+        // 你要喜欢可以在下面加一堆类似上面两个的启动任务然后在左边运行调试里选，这样你就不用总是复制配置文件名了
+    ]
+}
