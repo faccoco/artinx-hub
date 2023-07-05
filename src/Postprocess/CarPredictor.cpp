@@ -108,8 +108,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(4) = 0;
             mTrackedArmor.state(5) = 0;
             mTrackedArmor.state(6) = 0;
-            logInfo(fmt::format("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF. Dist is {:.5f}",
-                                dist));
+            // logInfo(fmt::format("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF. Dist is {:.5f}",
+            //                     dist));
             HubLogger::visualLog(
                 fmt::format("ArmorPredictor: The same Armor match distance {} too far. State wrong, reset EKF", dist));
         }
@@ -191,6 +191,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             // pair[pos,yaw]
             std::pair<glm::dvec3, double> candidate;
             auto predictedPosition = getArmorPosFromState(ekfPrediction);
+            // logInfo(fmt::format("predictor output z with value {:.3f}", ekfPrediction(2)));
             // Difference of the current armor position and tracked armor's predicted position
             double minPositionDiff = std::numeric_limits<double>::max();
             for(const auto& armor : armors) {

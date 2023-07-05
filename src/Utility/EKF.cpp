@@ -1,6 +1,7 @@
 // Copyright 2022 Chen Jun
 
 #include "EKF.hpp"
+#include <iostream>
 
 ExtendedKalmanFilter::ExtendedKalmanFilter(const NonlinearFunc& f, const NonlinearFunc& h, const JacobianFunc& Jf,
                                            const JacobianFunc& Jh, const VoidMatFunc& UQ, const VecMatFunc& UR,
@@ -13,8 +14,9 @@ void ExtendedKalmanFilter::setState(const Eigen::VectorXd& x0) {
 }
 
 Eigen::MatrixXd ExtendedKalmanFilter::predict() {
-    xPri = f(xPost);
     F = Jf(xPost), Q = updateQ();
+    std::cout << "Q:  " << Q(0, 0) << "\t" << Q(1, 1) << "\t" << Q(2, 2) << "\t" << std::endl;
+    xPri = f(xPost);
     PPri = F * PPost * F.transpose() + Q;
 
     // handle the case when there will be no measurement before the next predict
@@ -26,6 +28,9 @@ Eigen::MatrixXd ExtendedKalmanFilter::predict() {
 
 Eigen::MatrixXd ExtendedKalmanFilter::update(const Eigen::VectorXd& z) {
     H = Jh(xPri), R = updateR(z);
+    std::cout << "R:  " << R(0, 0) << "\t" << R(1, 1) << "\t" << R(2, 2) << "\t" << std::endl;
+
+
     K = PPri * H.transpose() * (H * PPri * H.transpose() + R).inverse();
     xPost = xPri + K * (z - h(xPri));
     PPost = (I - K * H) * PPri;

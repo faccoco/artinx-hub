@@ -66,7 +66,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
     CameraInfo radarCameraInfo;
 #endif
 
-    [[maybe_unused]] Identifier mKey;
+    Identifier mKey;
 
 #if defined(ARTINXHUB_LINUX)
     std::string getHostIpAddress() {
