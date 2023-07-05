@@ -211,9 +211,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             HubLogger::watch("xPrecited", predictedPosition.x);
             HubLogger::watch("yPrecited", predictedPosition.y);
             HubLogger::watch("zPrecited", predictedPosition.z);
-            HubLogger::watch("yawPredicted", predictedPosition.yaw);
-            // HubLogger::watch("zPrecited", mTrackedArmor.state[2]);
-            // HubLogger::watch("yawPredicted", mTrackedArmor.state[3]);
+            HubLogger::watch("yawPrecited", ekfPrediction(3));
 
             double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
 
@@ -224,14 +222,6 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                 setArmorYaw(candidate.second);
                 Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, mTrackedArmor.yaw);
                 mTrackedArmor.state = mEKF.update(z);
-                // HubLogger::watch("xRefRobot", z(0));
-                // HubLogger::watch("yRefRobot", z(1));
-                // HubLogger::watch("zRefRobot", z(2));
-                // HubLogger::watch("yawRefRobot", z(3));
-                // HubLogger::watch("xPrecited", mTrackedArmor.state[0]);
-                // HubLogger::watch("yPrecited", mTrackedArmor.state[1]);
-                // HubLogger::watch("zPrecited", mTrackedArmor.state[2]);
-                // HubLogger::watch("yawPredicted", mTrackedArmor.state[3]);
 
                 HubLogger::visualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}, deltaYaw {:.3f}",
                                                  minPositionDiff, deltaYaw));
