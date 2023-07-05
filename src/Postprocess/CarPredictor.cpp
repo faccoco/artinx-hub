@@ -200,6 +200,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                     candidate = { p, getArmorYaw(armor) };
                 }
             }
+            double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
+
             HubLogger::watch("deltaYaw_pre", deltaYaw);
             HubLogger::watch("mTrackedArmorYaw", mTrackedArmor.yaw);
             HubLogger::watch("minPositionDiff", minPositionDiff);
@@ -213,7 +215,6 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             HubLogger::watch("zPrecited", predictedPosition.z);
             HubLogger::watch("yawPrecited", ekfPrediction(3));
 
-            double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
 
             if(minPositionDiff < mConfig.maxMatchDist) {
                 // Matching armor found
