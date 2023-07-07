@@ -2,8 +2,15 @@
 #include "Timer.hpp"
 #include "Transform.hpp"
 
+struct Pose{
+    double roll;
+    double  pitch;
+    double yaw;
+};
+
 struct HeadInfo final {
     TimePoint lastUpdate;
+    Pose pose; //roll yaw pitch;
     Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
 };
 

@@ -43,7 +43,7 @@ public:
 
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
-                     selected.tfRobot2Gun = data.tfRobot2Gun;
+                     selected.tfRobot2Camera = data.tfRobot2Camera;
 
                      std::optional<DetectedTarget> heroTarget, sameTarget, minDistTarget;
                      auto minDistance = 10000.0;

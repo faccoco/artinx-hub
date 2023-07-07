@@ -4,6 +4,7 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
+#include "Utility.hpp"
 #include "SuppressWarningBegin.hpp"
 
 #include <GxIAPI.h>
@@ -49,6 +50,7 @@ struct DahengDriverSettings final {
     bool disableUndistort;
     bool enableAutoWhiteBalance;
     double gain;
+    bool isAtGun;
     glm::dvec3 offset;  // based on gun
     double yaw;         // in degree
     double pitch;       // in degree
@@ -65,8 +67,9 @@ bool inspect(Inspector& f, DahengDriverSettings& x) {
         f.field("fov", x.fov), f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
         f.field("disableUndistort", x.disableUndistort).fallback(false),
         f.field("enableAutoWhiteBalance", x.enableAutoWhiteBalance).fallback(false), f.field("gain", x.gain).fallback(0.0),
-        f.field("dx", x.offset.x).fallback(0.0), f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0),
-        f.field("yaw", x.yaw).fallback(0.0), f.field("pitch", x.pitch).fallback(0.0));
+        f.field("isAtGun", x.isAtGun).fallback(true), f.field("dx", x.offset.x).fallback(0.0),
+        f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0), f.field("yaw", x.yaw).fallback(0.0),
+        f.field("pitch", x.pitch).fallback(0.0));
 }
 
 static void checkGXStatus(const GX_STATUS status) {
@@ -108,12 +111,6 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
     std::string mCameraSerialNumber;
     bool mDoUndistort;
 
-    // first rotate yaw, counterclockwise is positive, second rotate pitch, up is positive
-    glm::dmat4 rotateMat =
-        glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 }),
-                    -glm::radians<double>(mConfig.yaw), glm::dvec3{ 0, 1, 0 });
-    const Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> mTfGun2Camera = glm::translate(rotateMat, -mConfig.offset);
-
     void reportFrameRate(const Clock::time_point timeStamp) {
         const auto current = timeStamp.time_since_epoch().count();
         mLastFrames.push_back(current);
@@ -138,6 +135,16 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
 
         reportFrameRate(timeStamp);
 
+        double yaw;
+        Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun{};
+        if(mHeadKey.has_value()) {
+            yaw = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->pose.yaw;
+            tfRobot2Gun = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->tfRobot2Gun;
+        } else {
+            yaw = glm::half_pi<double>();
+            tfRobot2Gun = glm::identity<glm::dmat4>();
+        }
+
         CameraFrame frameData;
         frameData.lastUpdate = timeStamp;
         frameData.info.cameraMatrix = mCameraMatrix;
@@ -145,24 +152,33 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         frameData.info.identifier = mCameraSerialNumber;
         frameData.info.width = width;
         frameData.info.height = height;
-        frameData.info.tfGun2Camera = mTfGun2Camera;
-        if(mHeadKey.has_value()) {
-            frameData.info.tfRobot2Gun = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->tfRobot2Gun;
-        } else {
-            frameData.info.tfRobot2Gun = glm::identity<glm::dmat4>();
+        // first rotate yaw, counterclockwise is positive, second rotate pitch, up is positive
+        if (mConfig.isAtGun){
+            glm::dmat4 rotateMat =
+                glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 }),
+                            -glm::radians<double>(mConfig.yaw), glm::dvec3{ 0, 1, 0 });
+            const Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> tfGun2Camera = glm::translate(rotateMat, -mConfig.offset);
+            frameData.info.tfRobot2Camera = combine(tfRobot2Gun, tfGun2Camera);
+        }else{
+            double cameraYaw = normalizeAngle(mConfig.yaw + yaw);
+            glm::dmat4 rotateMat =
+                glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 }),
+                            -glm::radians<double>(cameraYaw), glm::dvec3{ 0, 1, 0 });
+            frameData.info.tfRobot2Camera = glm::translate(rotateMat, -mConfig.offset);
         }
 
-        // if (mDoUndistort) {
-        //     auto src = bgr.clone();
-        //     cv::undistort(src, bgr, mCameraMatrix, mDistCoefficients, frameData.info.cameraMatrix);
-        // }
+         if (mDoUndistort) {
+             auto src = bgr.clone();
+             cv::undistort(src, bgr, mCameraMatrix, mDistCoefficients, frameData.info.cameraMatrix);
+         }
 
         frameData.frame = std::move(bgr);
 #ifdef ARTINX_RADAR
         sendAll(image_frame_atom_v,
                 BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
 #else
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
+        sendAll(image_frame_atom_v,
+                BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
 #endif
     }
 

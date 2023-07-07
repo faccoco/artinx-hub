@@ -63,7 +63,7 @@ public:
 
                 SelectedTarget selected;
                 selected.lastUpdate = data.lastUpdate;
-                selected.tfRobot2Gun = data.tfRobot2Gun;
+                selected.tfRobot2Camera = data.tfRobot2Camera;
                 selected.targets = data.targets;
 
                 // exclude invalid data in mTrackedArmors

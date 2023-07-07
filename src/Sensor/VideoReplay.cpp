@@ -116,8 +116,7 @@ private:
             res.info.distCoefficients = distCoefficients;
         }
 
-        res.info.tfGun2Camera = glm::identity<glm::dmat4>();
-        res.info.tfRobot2Gun = glm::identity<glm::dmat4>();
+        res.info.tfRobot2Camera = glm::identity<glm::dmat4>();
         res.lastUpdate = SynchronizedClock::instance().now();
 
 #ifdef ARTINX_RADAR

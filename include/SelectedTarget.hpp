@@ -5,7 +5,7 @@
 
 struct SelectedTarget final {
     TimePoint lastUpdate;
-    Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
+    Transform<FrameOfRef::Robot, FrameOfRef::Camera, true> tfRobot2Camera;
     std::vector<DetectedTarget> targets;
     std::optional<DetectedTarget> selected;
 };

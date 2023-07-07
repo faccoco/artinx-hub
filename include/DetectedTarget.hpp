@@ -11,16 +11,16 @@ enum class ArmorMotion { Unsure, Static, Moving };
 struct DetectedTarget final {
     cv::Point2f armorImgCenter;
     double distToImgCenter;
-    Point<UnitType::Distance, FrameOfRef::Gun> center;
+    Point<UnitType::Distance, FrameOfRef::Camera> center;
     RobotType id;
     ArmorType type;
     ArmorMotion motion;  // get from strategy
-    Transform<FrameOfRef::Armor, FrameOfRef::Gun> rmat;
+    Transform<FrameOfRef::Armor, FrameOfRef::Camera> rmat;
 };
 
 struct DetectedTargetArray final {
     TimePoint lastUpdate;
-    Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
+    Transform<FrameOfRef::Robot, FrameOfRef::Camera, true> tfRobot2Camera;
     std::vector<DetectedTarget> targets;
 };
 
