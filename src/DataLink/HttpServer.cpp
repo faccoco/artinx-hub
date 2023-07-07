@@ -66,7 +66,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
     CameraInfo radarCameraInfo;
 #endif
 
-    [[maybe_unused]] Identifier mKey;
+    Identifier mKey;
 
 #if defined(ARTINXHUB_LINUX)
     std::string getHostIpAddress() {
@@ -78,7 +78,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
         if(sockFd != -1) {
             strncpy(ifReq.ifr_name, mConfig.ethName.data(), IFNAMSIZ);  // Interface name
             ifReq.ifr_name[IFNAMSIZ - 1] = 0;
-            if(ioctl(sockFd, SIOCGIFADDR, &ifReq) == 0) {  // SIOCGIFADDR obtain interface address
+            if(ioctl(sockFd, SIOCGIFADDR, &ifReq) == 0) {               // SIOCGIFADDR obtain interface address
                 memcpy(&sockIn, &ifReq.ifr_addr, sizeof(ifReq.ifr_addr));
                 return inet_ntoa(sockIn.sin_addr);
             }

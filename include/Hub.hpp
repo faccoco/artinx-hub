@@ -217,7 +217,7 @@ namespace TypeHelper {
         size_t begPos = FunName.find("T = ");
         size_t endPos = FunName.find(']', begPos);
         begPos += 4;
-#elif define(__GNUC__)
+#elif defined(__GNUC__)
         std::string FunName = __PRETTY_FUNCTION__;
         size_t begPos = FunName.find("T = ");
         size_t endPos = FunName.find(';', begPos);
