@@ -98,8 +98,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(1) = targetPos.y;
             mTrackedArmor.state(3) = yaw;
             std::swap(mTrackedArmor.state(8), mLastR);
-            logInfo(fmt::format("ArmorPredictor: Armor may experience a jump. Change Yaw and Y, delta yaw is {:.5f}", deltayaw));
-            HubLogger::visualLog(fmt::format("EKF Armor may experience a jump. Change Yaw and Y"));
+            // logInfo(fmt::format("ArmorPredictor: Armor may experience a jump. Change Yaw, Y and R, delta yaw is {:.5f}", deltayaw));
+            HubLogger::visualLog(fmt::format("EKF Armor may experience a jump. Change Yaw, Y and R."));
         }
         auto dist = glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state));
         if(dist > mConfig.maxMatchDist) {
@@ -109,7 +109,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(5) = 0;
             mTrackedArmor.state(6) = 0;
             // logInfo(fmt::format("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF. Dist is {:.5f}",
-            //                     dist));
+                                // dist));
             HubLogger::visualLog(
                 fmt::format("ArmorPredictor: The same Armor match distance {} too far. State wrong, reset EKF", dist));
         }
@@ -191,7 +191,6 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             // pair[pos,yaw]
             std::pair<glm::dvec3, double> candidate;
             auto predictedPosition = getArmorPosFromState(ekfPrediction);
-            // logInfo(fmt::format("predictor output z with value {:.3f}", ekfPrediction(2)));
             // Difference of the current armor position and tracked armor's predicted position
             double minPositionDiff = std::numeric_limits<double>::max();
             for(const auto& armor : armors) {
@@ -206,15 +205,6 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             HubLogger::watch("deltaYaw_pre", deltaYaw);
             HubLogger::watch("mTrackedArmorYaw", mTrackedArmor.yaw);
             HubLogger::watch("minPositionDiff", minPositionDiff);
-
-            HubLogger::watch("xRefRobot", candidate.first.x);
-            HubLogger::watch("yRefRobot", candidate.first.y);
-            HubLogger::watch("zRefRobot", candidate.first.z);
-            HubLogger::watch("yawRefRobot", candidate.second);
-            HubLogger::watch("xPrecited", predictedPosition.x);
-            HubLogger::watch("yPrecited", predictedPosition.y);
-            HubLogger::watch("zPrecited", predictedPosition.z);
-            HubLogger::watch("yawPrecited", ekfPrediction(3));
 
 
             if(minPositionDiff < mConfig.maxMatchDist) {
@@ -241,6 +231,15 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                     }
                 }
             }
+            HubLogger::watch("xRefRobot", mTrackedArmor.state(0));
+            HubLogger::watch("yRefRobot", mTrackedArmor.state(1));
+            HubLogger::watch("zRefRobot", mTrackedArmor.state(2));
+            HubLogger::watch("yawRefRobot", mTrackedArmor.state(3));
+            HubLogger::watch("R", mTrackedArmor.state(8));
+            HubLogger::watch("xDetected", candidate.first.x);
+            HubLogger::watch("yDetected", candidate.first.y);
+            HubLogger::watch("zDetected", candidate.first.z);
+            HubLogger::watch("yawDetected", candidate.second);
         }
         return matched;
     }
