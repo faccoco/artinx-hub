@@ -13,5 +13,5 @@ struct HeadInfo final {
     Pose pose; //roll yaw pitch;
     Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
 };
-
+ACTOR_PROTOCOL_DEFINE(update_head_atom, TypedIdentifier<HeadInfo>);
 ACTOR_PROTOCOL_DEFINE(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);

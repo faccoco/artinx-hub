@@ -12,6 +12,7 @@ set(SOURCE
     "DataLink/HttpServer.cpp"
     "DataLink/InfantrySerialPort.cpp"
     "DataLink/HeroSerialPort.cpp"
+    "DataLink/SentrySerialPort.cpp"
     "DataLink/PosSynchronization.cpp"
     "Detect/CarDetector.cpp"
     "Detect/NumClassifier.cpp"

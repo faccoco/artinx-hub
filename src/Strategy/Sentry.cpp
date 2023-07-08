@@ -12,6 +12,8 @@
 
 #include "SuppressWarningEnd.hpp"
 
+constexpr auto recordTime = 0.3s;
+
 struct SentryStrategySettings final {
     std::vector<int> ignoredId;
     float maxDistance;
@@ -53,7 +55,7 @@ public:
                          selected.targets.emplace_back(target);
                          auto pos = target.center.mVal;
                          auto dist = pos.x * pos.x + pos.y * pos.y + pos.z * pos.z;
-                         if(dist > mConfig.maxDistance * mConfig.maxDistance || pos.y > 1.5)  // 距离太远或者高度超过1.2m不打弹
+                         if(dist > mConfig.maxDistance * mConfig.maxDistance || pos.y > 1.5)  // 距离太远或者高度超过1.5m不打弹
                              continue;
                          if(dist < minDistance) {
                              minDistance = dist;
@@ -73,22 +75,32 @@ public:
                      } else if(sameTarget.has_value()) {
                          selected.selected = sameTarget;
                      } else {
-                         if(mask == 1U) {
-                             if(selected.targets.empty() && !mLastTarget2.targets.empty()) {
+                         selected.selected = minDistTarget;
+                     }
+
+                     if(mask == 1U) {
+                         if(selected.selected.has_value()) {
+                             mLastTarget1 = selected;
+                             if(mLastTarget2.selected.has_value() && mLastTarget2.lastUpdate - Clock::now() < recordTime &&
+                                mLastTarget2.selected->id == RobotType::Hero) {
                                  return;
                              }
                          } else {
-                             if((mLastTarget1.selected.has_value() && mLastTarget1.lastUpdate - Clock::now() < 0.5s)||
-                                (selected.targets.empty() && !mLastTarget1.targets.empty())) {
+                             if(mLastTarget2.selected.has_value() && mLastTarget2.lastUpdate - Clock::now() < recordTime) {
                                  return;
                              }
                          }
-                         selected.selected = minDistTarget;
-                     }
-                     if(mask == 1U) {
-                         mLastTarget1 = selected;
                      } else {
-                         mLastTarget2 = selected;
+                         if(selected.selected.has_value()) {
+                             mLastTarget2 = selected;
+                             if(mLastTarget1.selected.has_value() && mLastTarget1.lastUpdate - Clock::now() < recordTime) {
+                                 return;
+                             }
+                         } else {
+                             if(mLastTarget1.selected.has_value() && mLastTarget2.lastUpdate - Clock::now() < recordTime) {
+                                 return;
+                             }
+                         }
                      }
 
                      if(selected.selected.has_value()) {
