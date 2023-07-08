@@ -92,7 +92,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
     void handleArmorJump(const glm::dvec3& targetPos, double targetYaw) {
         setArmorYaw(targetYaw);
         double yaw = mTrackedArmor.yaw;
-        auto deltayaw = std::fabs(yaw - mTrackedArmor.state(3));
+        //auto deltayaw = std::fabs(yaw - mTrackedArmor.state(3));
         if(std::fabs(yaw - mTrackedArmor.state(3)) > mConfig.maxMatchYaw) {
             mLastY = mTrackedArmor.state(1);
             mTrackedArmor.state(1) = targetPos.y;
