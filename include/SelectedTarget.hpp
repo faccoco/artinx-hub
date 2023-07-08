@@ -18,6 +18,7 @@ struct PredictedTarget final {
     Scalar<UnitType::AngularVelocity> angularVel;
     std::pair<double, double> radius;
     std::pair<double, double> y;
+    RobotType id;
 };
 
 struct PredictedPeriodTarget final {

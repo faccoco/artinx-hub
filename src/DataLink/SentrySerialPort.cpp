@@ -5,15 +5,11 @@
 #include "Hub.hpp"
 #include "PostureData.hpp"
 #include "SelectedTarget.hpp"
-#include "SerialPort/Crc.hpp"
 #include "SerialPort/PacketHelper.hpp"
 #include "SerialPort/SerialPort.hpp"
 #include "Utility.hpp"
 
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
 #include <iterator>
 
 #include <caf/event_based_actor.hpp>
@@ -25,7 +21,7 @@ public:
     static constexpr uint16_t id = 0x0A;
 
     float yaw, pitch, bulletSpeed, speedX, speedY;
-    uint8_t color, energyMode;
+    uint8_t color;
     float capEnergy, chasisPower;
     explicit SentryRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
@@ -35,7 +31,6 @@ public:
         speedY = reader.readCompressedFloat(-20.0f, 0.01f);
         const auto mask = reader.read();
         color = mask & 1;
-        energyMode = (mask >> 1) & 1;
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
         capEnergy = reader.readCompressedFloat(-1.0f, 0.1f);
         chasisPower = reader.readCompressedFloat(-1.0f, 0.01f);
@@ -85,27 +80,25 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
         GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
         HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
 
-        sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
-
         auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
         auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
-        // HubLogger::watch("yaw1", fdb.yaw);
-        // HubLogger::watch("pitch1", fdb.pitch);
         HubLogger::watch("deltaYaw1", deltaYaw1);
         HubLogger::watch("deltaPitch1", deltaPitch1);
 
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
-        const double yaw = -fdb.yaw - glm::half_pi<double>();
+        const double yaw = normalizeAngle(fdb.yaw + glm::half_pi<double>());
         const double pitch = fdb.pitch;
         const double roll = 0.0;
+        HubLogger::watch("yaw", yaw);
+        HubLogger::watch("pitch", pitch);
         const HeadInfo infoHead{ SynchronizedClock::instance().now(),
                                  { roll, pitch, yaw },
-                                 decltype(HeadInfo::tfRobot2Gun){
+                                     decltype(HeadInfo::tfRobot2Gun){
                                      glm::lookAtRH(glm::dvec3{ 0.0, 0.0, 0.0 },
-                                                   glm::dvec3{ std::cos(pitch) * std::cos(yaw), 0.0 + std::sin(pitch),
-                                                               0.0 + std::cos(pitch) * std::sin(yaw) },
+                                                   glm::dvec3{ std::cos(pitch) * std::cos(yaw), std::sin(pitch),
+                                                               -std::cos(pitch) * std::sin(yaw) },
                                                    glm::dvec3{ sin(roll), cos(roll), 0.0 }) } };
 
         PostureData posture;
@@ -114,7 +107,7 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
         posture.linearVelocityOfRobot = Vector<UnitType::LinearVelocity, FrameOfRef::Ground>{ { fdb.speedX, 0, -fdb.speedY } };
 
         sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
-        sendAll(update_head_atom_v, BlackBoard::instance().updateSync(mKey, infoHead));
+        sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoHead));
     }
 
     void sentrySetPacket() {
@@ -142,6 +135,8 @@ public:
                    SolverType solverType) {
                 ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
 
+                HubLogger::watch("targetYaw1", yawAngle);
+                HubLogger::watch("targetPitch1", pitchAngle);
                 yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
 
                 {
@@ -161,8 +156,6 @@ public:
                 mLatency.push_back(latency);
                 GlobalSettings::get().latency = avg(mLatency);
                 HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
-                HubLogger::watch("targetYaw1", yawAngle);
-                HubLogger::watch("targetPitch1", pitchAngle);
                 HubLogger::visualLog(
                     fmt::format("SentrySerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
                                 yawAngle, pitchAngle, static_cast<int>(mLatency.back() * 1000),

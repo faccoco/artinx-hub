@@ -24,13 +24,15 @@ class InfantryRecvPacket final {
 public:
     static constexpr uint16_t id = 0x0A;
 
-    float yaw, pitch, bulletSpeed, speedX, speedY;
+    float yaw, pitch, yaw1, pitch1, bulletSpeed, speedX, speedY;
     uint8_t color, energyMode;
     float capEnergy, chasisPower;
     explicit InfantryRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
+        yaw1 = reader.readCompressedFloat(-4.0f, 0.0005f);
+        pitch1 = reader.readCompressedFloat(-4.0f, 0.0005f);
         speedX = reader.readCompressedFloat(-20.0f, 0.01f);
         speedY = reader.readCompressedFloat(-20.0f, 0.01f);
         const auto mask = reader.read();
@@ -97,7 +99,7 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
-        const double yaw = -fdb.yaw - glm::half_pi<double>();
+        const double yaw = fdb.yaw + glm::half_pi<double>();
         const double pitch = fdb.pitch;
         const double roll = 0.0;
         const HeadInfo infoHead{ SynchronizedClock::instance().now(),

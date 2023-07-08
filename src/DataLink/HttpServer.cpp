@@ -49,7 +49,7 @@ template <typename Inspector>
 bool inspect(Inspector& f, HttpServerSettings& x) {
     return f.object(x).fields(f.field("enableRadar", x.enableRadar).fallback(false),
                               f.field("radarPointsNum", x.radarPointsNum).fallback(4),
-                              f.field("ethName", x.ethName).fallback("wlp0s20f3"));
+                              f.field("ethName", x.ethName).fallback("eno1"));
 }
 
 class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSettings, radar_locate_request_atom> {
@@ -78,7 +78,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
         if(sockFd != -1) {
             strncpy(ifReq.ifr_name, mConfig.ethName.data(), IFNAMSIZ);  // Interface name
             ifReq.ifr_name[IFNAMSIZ - 1] = 0;
-            if(ioctl(sockFd, SIOCGIFADDR, &ifReq) == 0) {  // SIOCGIFADDR obtain interface address
+            if(ioctl(sockFd, SIOCGIFADDR, &ifReq) == 0) {               // SIOCGIFADDR obtain interface address
                 memcpy(&sockIn, &ifReq.ifr_addr, sizeof(ifReq.ifr_addr));
                 return inet_ntoa(sockIn.sin_addr);
             }

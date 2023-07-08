@@ -75,7 +75,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         return normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
     }
 
-    void setArmorYaw(double yaw) {
+    void setArmorYaw(double yaw) { 
         // Make yaw change continuous
         mTrackedArmor.yaw = mTrackedArmor.yaw + normalizeAngle(yaw - mTrackedArmor.yaw);
     }
@@ -92,13 +92,14 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
     void handleArmorJump(const glm::dvec3& targetPos, double targetYaw) {
         setArmorYaw(targetYaw);
         double yaw = mTrackedArmor.yaw;
+        auto deltayaw = std::fabs(yaw - mTrackedArmor.state(3));
         if(std::fabs(yaw - mTrackedArmor.state(3)) > mConfig.maxMatchYaw) {
             mLastY = mTrackedArmor.state(1);
             mTrackedArmor.state(1) = targetPos.y;
             mTrackedArmor.state(3) = yaw;
             std::swap(mTrackedArmor.state(8), mLastR);
-            logInfo("ArmorPredictor: Armor  jump to another armor!");
-            HubLogger::visualLog(fmt::format("EKF Armor jump to another armor"));
+            logInfo(fmt::format("ArmorPredictor: Armor may experience a jump. Change Yaw, Y and R, delta yaw is {:.5f}", deltayaw));
+            HubLogger::visualLog(fmt::format("EKF Armor may experience a jump. Change Yaw, Y and R."));
         }
         auto dist = glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state));
         if(dist > mConfig.maxMatchDist) {
@@ -107,7 +108,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(4) = 0;
             mTrackedArmor.state(5) = 0;
             mTrackedArmor.state(6) = 0;
-            logInfo("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF");
+            // logInfo(fmt::format("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF. Dist is {:.5f}",
+                                // dist));
             HubLogger::visualLog(
                 fmt::format("ArmorPredictor: The same Armor match distance {} too far. State wrong, reset EKF", dist));
         }
@@ -152,8 +154,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             default:
                 break;
         }
-        logInfo(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}",
-                            magic_enum::enum_name(mTrackedArmor.trackingState), mDetectCount, mLostCount));
+        // logInfo(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}",
+        //                     magic_enum::enum_name(mTrackedArmor.trackingState), mDetectCount, mLostCount));
         HubLogger::visualLog(fmt::format("ArmorPredictor: tracking state: {}, detectCount: {}, lostCount: {}",
                                          magic_enum::enum_name(mTrackedArmor.trackingState), mDetectCount, mLostCount));
     }
@@ -198,8 +200,11 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                     candidate = { p, getArmorYaw(armor) };
                 }
             }
-
             double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
+
+            HubLogger::watch("diffYaw", deltaYaw);
+            HubLogger::watch("minPositionDiff", minPositionDiff);
+
             if(minPositionDiff < mConfig.maxMatchDist) {
                 // Matching armor found
                 matched = true;
@@ -207,10 +212,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                 setArmorYaw(candidate.second);
                 Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, mTrackedArmor.yaw);
                 mTrackedArmor.state = mEKF.update(z);
-                HubLogger::watch("xRefRobot", z(0));
-                HubLogger::watch("yRefRobot", z(1));
-                HubLogger::watch("zRefRobot", z(2));
-                HubLogger::watch("yawRefRobot", z(3));
+
                 HubLogger::visualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}, deltaYaw {:.3f}",
                                                  minPositionDiff, deltaYaw));
             } else {
@@ -227,14 +229,23 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                     }
                 }
             }
+//            HubLogger::watch("xRefRobot", mTrackedArmor.state(0));
+//            HubLogger::watch("yRefRobot", mTrackedArmor.state(1));
+//            HubLogger::watch("zRefRobot", mTrackedArmor.state(2));
+//            HubLogger::watch("yawRefRobot", mTrackedArmor.state(3));
+//            HubLogger::watch("R", mTrackedArmor.state(8));
+            HubLogger::watch("xDetected", candidate.first.x);
+            HubLogger::watch("yDetected", candidate.first.y);
+            HubLogger::watch("zDetected", candidate.first.z);
+            HubLogger::watch("yawDetected", mTrackedArmor.yaw);
         }
         return matched;
     }
 
 public:
     CarPredictor(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ generateKey(this) }, mTrackedArmor{ TimePoint(), Eigen::VectorXd::Zero(9), 0,
-                                                                               RobotType::Negative, TrackingState::LOST } {
+        : HubHelper{ base, config }, mKey{ generateKey(this) },
+          mTrackedArmor{ TimePoint(), Eigen::VectorXd::Zero(9), 0, RobotType::Negative, TrackingState::LOST } {
         // EKF
         // xa = x_armor, xc = x_robot_center
         // state: xc, yc, zc, yaw, v_xc, v_yc, v_zc, v_yaw, r
@@ -297,14 +308,14 @@ public:
 
             // clang-format off
             //    xc        yc      zc      yaw     vxc     vyc     vzc     vyaw    r
-            q <<  Qxx,    0,      0,      0,      QxVx, 0,      0,      0,      0,
-                    0,      Qxx,  0,      0,      0,      QxVx, 0,      0,      0,
-                    0,      0,      Qxx,  0,      0,      0,      QxVx, 0,      0,
-                    0,      0,      0,      Qyy,  0,      0,      0,      QyVy, 0,
-                    QxVx, 0,      0,      0,      QVxVx,0,      0,      0,      0,
-                    0,      QxVx, 0,      0,      0,      QVxVx,0,      0,      0,
-                    0,      0,      QxVx, 0,      0,      0,      Qyy,  0,      0,
-                    0,      0,      0,      QyVy, 0,      0,      0,      QVyVy,0,
+            q <<    Qxx,    0,      0,      0,      QxVx,   0,      0,      0,      0,
+                    0,      Qxx,    0,      0,      0,      QxVx,   0,      0,      0,
+                    0,      0,      Qxx,    0,      0,      0,      QxVx,   0,      0,
+                    0,      0,      0,      Qyy,    0,      0,      0,      QyVy,   0,
+                    QxVx,   0,      0,      0,      QVxVx,  0,      0,      0,      0,
+                    0,      QxVx,   0,      0,      0,      QVxVx,  0,      0,      0,
+                    0,      0,      QxVx,   0,      0,      0,      Qyy,    0,      0,
+                    0,      0,      0,      QyVy,   0,      0,      0,      QVyVy,  0,
                     0,      0,      0,      0,      0,      0,      0,      0,      QR;
             // clang-format on
 
@@ -339,7 +350,6 @@ public:
 
                 PredictedTarget res;
                 res.lastUpdate = data->lastUpdate;
-
                 mTfCamera2Robot = data->tfRobot2Camera.invTransformObj();
 
                 if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
@@ -372,6 +382,7 @@ public:
                             res.angularVel = mTrackedArmor.state(7);
                             res.radius = { mTrackedArmor.state(8), mLastR };
                             res.y = { mTrackedArmor.state(1), mLastY };
+                            res.id = mTrackedArmor.id;
                             sendAll(car_predict_atom_v,
                                     BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
                         }

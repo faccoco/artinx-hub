@@ -18,16 +18,14 @@
 
 #include "SuppressWarningEnd.hpp"
 
-static void loadCalibration(const bool disableUndistort, const std::string& identifier, const uint32_t width,
-                            const uint32_t height, const double fallbackFov, cv::Mat& cameraMatrix, cv::Mat& distCoefficients,
-                            bool& undistort) {
+static void loadCalibration(const std::string& identifier, const uint32_t width,
+                            const uint32_t height, const double fallbackFov, cv::Mat& cameraMatrix, cv::Mat& distCoefficients) {
     const auto inputFileName = "./data/camera_calibration/" + identifier + ".xml";
 
     const cv::FileStorage fs(inputFileName, cv::FileStorage::READ);
-    if(!disableUndistort && std::filesystem::exists(inputFileName) && fs.isOpened()) {
+    if(std::filesystem::exists(inputFileName) && fs.isOpened()) {
         fs["camera_matrix"] >> cameraMatrix;
         fs["distortion_coefficients"] >> distCoefficients;
-        undistort = true;
     } else {
         logWarning(
             fmt::format("Failed to get calibration info for S/N {}. Use fallback fov {} instead.", identifier, fallbackFov));
@@ -35,7 +33,6 @@ static void loadCalibration(const bool disableUndistort, const std::string& iden
                         static_cast<double>(width) / 2.0, 0, height / 2.0 / std::tan(glm::radians(fallbackFov) / 2.0),
                         static_cast<double>(height) / 2.0, 0, 0, 1);
         distCoefficients = cv::Mat{};
-        undistort = false;
     }
 }
 
@@ -47,7 +44,6 @@ struct DahengDriverSettings final {
     double fov;
     double exposureTime;
     bool flip;
-    bool disableUndistort;
     bool enableAutoWhiteBalance;
     double gain;
     bool isAtGun;
@@ -65,7 +61,6 @@ bool inspect(Inspector& f, DahengDriverSettings& x) {
         f.field("identifier", x.identifier), f.field("cameraName", x.cameraName).fallback("origin"),
         f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 500.0; }),
         f.field("fov", x.fov), f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
-        f.field("disableUndistort", x.disableUndistort).fallback(false),
         f.field("enableAutoWhiteBalance", x.enableAutoWhiteBalance).fallback(false), f.field("gain", x.gain).fallback(0.0),
         f.field("isAtGun", x.isAtGun).fallback(true), f.field("dx", x.offset.x).fallback(0.0),
         f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0), f.field("yaw", x.yaw).fallback(0.0),
@@ -160,17 +155,13 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
             const Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> tfGun2Camera = glm::translate(rotateMat, -mConfig.offset);
             frameData.info.tfRobot2Camera = combine(tfRobot2Gun, tfGun2Camera);
         }else{
-            double cameraYaw = normalizeAngle(mConfig.yaw + yaw);
+            double cameraYaw = normalizeAngle(glm::radians(mConfig.yaw) + yaw);
+            HubLogger::watch("cameraYaw", cameraYaw);
             glm::dmat4 rotateMat =
                 glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 }),
-                            -glm::radians<double>(cameraYaw), glm::dvec3{ 0, 1, 0 });
+                            -cameraYaw, glm::dvec3{ 0, 1, 0 });
             frameData.info.tfRobot2Camera = glm::translate(rotateMat, -mConfig.offset);
         }
-
-         if (mDoUndistort) {
-             auto src = bgr.clone();
-             cv::undistort(src, bgr, mCameraMatrix, mDistCoefficients, frameData.info.cameraMatrix);
-         }
 
         frameData.frame = std::move(bgr);
 #ifdef ARTINX_RADAR
@@ -281,8 +272,8 @@ public:
             checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_GAIN, mConfig.gain));
         }
 
-        loadCalibration(mConfig.disableUndistort, mCameraSerialNumber, static_cast<uint32_t>(width),
-                        static_cast<uint32_t>(height), mConfig.fov, mCameraMatrix, mDistCoefficients, mDoUndistort);
+        loadCalibration( mCameraSerialNumber, static_cast<uint32_t>(width),
+                        static_cast<uint32_t>(height), mConfig.fov, mCameraMatrix, mDistCoefficients);
 
 #ifdef ARTINXHUB_WINDOWS
         auto bImplementPacketSize = false;
