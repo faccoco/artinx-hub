@@ -49,7 +49,7 @@ template <typename Inspector>
 bool inspect(Inspector& f, HttpServerSettings& x) {
     return f.object(x).fields(f.field("enableRadar", x.enableRadar).fallback(false),
                               f.field("radarPointsNum", x.radarPointsNum).fallback(4),
-                              f.field("ethName", x.ethName).fallback("wlp0s20f3"));
+                              f.field("ethName", x.ethName).fallback("eno1"));
 }
 
 class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSettings, radar_locate_request_atom> {
