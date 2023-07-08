@@ -385,6 +385,7 @@ public:
                             res.angularVel = mTrackedArmor.state(7);
                             res.radius = { mTrackedArmor.state(8), mLastR };
                             res.y = { mTrackedArmor.state(1), mLastY };
+                            res.id = mTrackedArmor.id;
                             sendAll(car_predict_atom_v,
                                     BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
                         }
