@@ -75,7 +75,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         return normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
     }
 
-    void setArmorYaw(double yaw) {
+    void setArmorYaw(double yaw) { 
         // Make yaw change continuous
         mTrackedArmor.yaw = mTrackedArmor.yaw + normalizeAngle(yaw - mTrackedArmor.yaw);
     }
@@ -239,7 +239,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             HubLogger::watch("xDetected", candidate.first.x);
             HubLogger::watch("yDetected", candidate.first.y);
             HubLogger::watch("zDetected", candidate.first.z);
-            HubLogger::watch("yawDetected", candidate.second);
+            HubLogger::watch("yawDetected", mTrackedArmor.yaw);
         }
         return matched;
     }
