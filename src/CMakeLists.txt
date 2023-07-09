@@ -31,6 +31,7 @@ set(SOURCE
     # "Sensor/LivoxDriver.cpp"
     "Sensor/VideoReplay.cpp"
     "Sensor/HikDriver.cpp"
+    "Sensor/CameraBase.cpp"
     "Solve/BotsLocator.cpp"
     "Solve/AngleSolver.cpp"
     "Solve/PeriodSolver.cpp"
@@ -76,7 +77,7 @@ elseif(${ARTINX_HUB_CAMERA} STREQUAL "USB2")
 else()
   message(FATAL "Invalid camera type")
 endif()
-message(${ARTINX_HUB_CAMERA} ":" ${DAHENG_SDK_PATH})
+message(${ARTINX_HUB_CAMERA} ": DaHeng SDK found at " ${DAHENG_SDK_PATH})
 
 # find_package(Bullet CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
@@ -110,14 +111,20 @@ else()
   target_link_directories(ArtinxHub PRIVATE ${DAHENG_SDK_PATH}/lib/x64)
 endif()
 
+if(DEFINED ENV{HIK_SDK})
+  target_include_directories(ArtinxHub PRIVATE $ENV{HIK_SDK}/include)
+  target_link_directories(ArtinxHub PRIVATE $ENV{HIK_SDK}/lib/64)
+  target_link_libraries(
+    ArtinxHub PRIVATE MVGigEVisionSDK FormatConversion MvCameraControl
+                      MediaProcess MVRender MvUsb3vTL)
+  message("USB3: Hik SDK found at $ENV{HIK_SDK}")
+endif()
+
 target_link_libraries(ArtinxHub PRIVATE gxiapi)
 # target_link_libraries(ArtinxHub PRIVATE LinearMath Bullet3Common
 # BulletDynamics BulletCollision)
 target_link_libraries(ArtinxHub PRIVATE magic_enum::magic_enum)
 target_link_libraries(ArtinxHub PRIVATE fmt::fmt)
-#target_link_directories(ArtinxHub PRIVATE hikSDK/lib/amd64)
-#target_link_libraries(ArtinxHub PRIVATE FormatConversion MediaProcess
-#                                        MvCameraControl MVRender MvUsb3vTL)
 
 if(DEFINED ENV{ARTINX_RADAR})
   set(CUDA_TOOLKIT_ROOT_DIR $ENV{CUDA_PATH})
@@ -182,11 +189,13 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   file(
     GLOB NGRAPH_DLLS
     $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/ngraph/lib/*.dll)
-  list(REMOVE_ITEM
+  list(
+    REMOVE_ITEM
     NGRAPH_DLLS
     $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/ngraph/lib/libprotobuf.dll
   )
-  list(REMOVE_ITEM
+  list(
+    REMOVE_ITEM
     NGRAPH_DLLS
     $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/ngraph/lib/libprotobufd.dll
   )
@@ -203,11 +212,3 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
       ${INFERENCE_ENGINE_ROOT}/bin/intel64/${CMAKE_BUILD_TYPE}/plugins.xml
       $<TARGET_FILE_DIR:ArtinxHub>)
 endif()
-
-add_custom_command(
-  TARGET ArtinxHub
-  PRE_BUILD
-  COMMAND
-    ${CMAKE_COMMAND} -E copy
-    ${CMAKE_SOURCE_DIR}/config_templates/caf-application.conf
-    $<TARGET_FILE_DIR:ArtinxHub>)
