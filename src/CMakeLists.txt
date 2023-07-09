@@ -117,6 +117,7 @@ if(DEFINED ENV{HIK_SDK})
   target_link_libraries(
     ArtinxHub PRIVATE MVGigEVisionSDK FormatConversion MvCameraControl
                       MediaProcess MVRender MvUsb3vTL)
+  add_compile_definitions("ARTINX_HIK")
   message("USB3: Hik SDK found at $ENV{HIK_SDK}")
 endif()
 
