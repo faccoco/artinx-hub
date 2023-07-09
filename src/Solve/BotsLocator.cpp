@@ -1,10 +1,7 @@
 #ifdef ARTINX_RADAR
 #include "BlackBoard.hpp"
 #include "CameraFrame.hpp"
-#include "Common.hpp"
 #include "DataDesc.hpp"
-#include "DetectedArmor.hpp"
-#include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "RadarInfo.hpp"
 #include "Utility.hpp"
@@ -15,8 +12,6 @@
 #include <algorithm>
 #include <caf/event_based_actor.hpp>
 #include <fmt/core.h>
-#include <fmt/format.h>
-#include <glm/glm.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <utility>
