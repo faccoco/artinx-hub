@@ -87,6 +87,23 @@ private:
 
     void sendFrame(CameraFrame&& frame) {
         reportFrameRate(SynchronizedClock::instance().now());
+
+        Pose gunPose{};
+        if(mHeadKey.has_value()) {
+            gunPose = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->pose;
+        } else {
+            gunPose.yaw = glm::half_pi<double>();
+        }
+
+        CameraFrame frameData;
+        frameData.lastUpdate = timeStamp;
+        frameData.info.cameraMatrix = mCameraMatrix;
+        frameData.info.distCoefficients = mDistCoefficients;
+        frameData.info.identifier = mCameraSerialNumber;
+        frameData.info.width = width;
+        frameData.info.height = height;
+        frameData.info.cameraMatrix = clcTfRobot2Camera(gunPose)
+
         sendAll(image_frame_atom_v,
                 BlackBoard::instance().updateSync(mKey, std::move(frame), std::string_view(mConfig.cameraName)));
     }

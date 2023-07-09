@@ -103,12 +103,7 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         const double pitch = fdb.pitch;
         const double roll = 0.0;
         const HeadInfo infoHead{ SynchronizedClock::instance().now(),
-                                 {roll, pitch, yaw},
-                               decltype(HeadInfo::tfRobot2Gun){
-                                   glm::lookAtRH(glm::dvec3{ 0.0, 0.0, 0.0 },
-                                                 glm::dvec3{ std::cos(pitch) * std::cos(yaw), 0.0 + std::sin(pitch),
-                                                             0.0 + std::cos(pitch) * std::sin(yaw) },
-                                                 glm::dvec3{ sin(roll), cos(roll), 0.0 }) } };
+                                 {roll, pitch, yaw}};
 
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();
