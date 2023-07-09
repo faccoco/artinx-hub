@@ -156,11 +156,10 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
             frameData.info.tfRobot2Camera = combine(tfRobot2Gun, tfGun2Camera);
         }else{
             double cameraYaw = normalizeAngle(glm::radians(mConfig.yaw) + yaw);
-            HubLogger::watch("cameraYaw", cameraYaw);
-            glm::dmat4 rotateMat =
-                glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 }),
-                            -cameraYaw, glm::dvec3{ 0, 1, 0 });
-            frameData.info.tfRobot2Camera = glm::translate(rotateMat, -mConfig.offset);
+            frameData.info.tfRobot2Camera =   glm::lookAtRH(glm::dvec3{ 0.0, 0.0, 0.0 },
+                                                   glm::dvec3{ mConfig.offset.x + std::cos(mConfig.pitch) * std::cos(cameraYaw), mConfig.offset.y + std::sin(mConfig.pitch),
+                                                               mConfig.offset.z -std::cos(mConfig.pitch) * std::sin(cameraYaw) },
+                                                   glm::dvec3{ sin(0.0), cos(0.0), 0.0 }) } };
         }
 
         frameData.frame = std::move(bgr);
