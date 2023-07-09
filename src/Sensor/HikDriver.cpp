@@ -1,3 +1,4 @@
+#ifdef ARTINX_HIK
 #include "BlackBoard.hpp"
 #include "CameraBase.hpp"
 #include "CameraFrame.hpp"
@@ -46,19 +47,19 @@ private:
     MV_CC_DEVICE_INFO* mDeviceInfo;
     MV_IMAGE_BASIC_INFO mImageInfo;
     void* mCameraHandle;
-    std::atomic<TimePoint> mLastSend{ SynchronizedClock::instance().now() };
+    TimePoint mLastSend = SynchronizedClock::instance().now();
+    std::atomic<bool> mStartFlag{ false };
 
     static void newFrame(unsigned char* pData, MV_FRAME_OUT_INFO_EX* pFrameInfo, void* pUser) {
         auto instance = static_cast<HikDriver*>(pUser);
         auto timeStamp = SynchronizedClock::instance().now();
 
-        if(std::chrono::duration_cast<std::chrono::nanoseconds>(timeStamp - instance->mLastSend.load(std::memory_order_acquire))
-                   .count() /
-               1000000.0 <
-           1e3 / instance->mConfig.fps) {
+        if(std::chrono::duration_cast<std::chrono::nanoseconds>(timeStamp - instance->mLastSend).count() / 1000000.0 <
+               1e3 / instance->mConfig.fps ||
+           !instance->mStartFlag.load(std::memory_order_acquire)) {
             return;
         } else {
-            instance->mLastSend.store(timeStamp, std::memory_order_release);
+            instance->mLastSend = timeStamp;
         }
         cv::Mat bgr{ pFrameInfo->nHeight, pFrameInfo->nWidth, CV_8UC3, static_cast<void*>(pData) };
         CameraFrame frame{
@@ -129,7 +130,15 @@ public:
     }
 
     caf::behavior make_behavior() override {
-        return { [](start_atom) {} };
+        return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
+                    mStartFlag.store(true, std::memory_order_release);
+                },
+                 [this](update_head_atom, GroupMask, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
+                     mHeadKey = key;
+                 } };
     }
 };
 HUB_REGISTER_CLASS(HikDriver);
+#endif
