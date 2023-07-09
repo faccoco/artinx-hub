@@ -1,71 +1,22 @@
 #include "BlackBoard.hpp"
+#include "CameraBase.hpp"
 #include "CameraFrame.hpp"
 #include "Common.hpp"
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
-#include "Utility.hpp"
 #include "SuppressWarningBegin.hpp"
 
 #include <GxIAPI.h>
+#include <atomic>
 #include <caf/event_based_actor.hpp>
 #include <fmt/core.h>
-#include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <magic_enum.hpp>
 #include <opencv2/opencv.hpp>
 #include <tuple>
 
 #include "SuppressWarningEnd.hpp"
-
-static void loadCalibration(const std::string& identifier, const uint32_t width,
-                            const uint32_t height, const double fallbackFov, cv::Mat& cameraMatrix, cv::Mat& distCoefficients) {
-    const auto inputFileName = "./data/camera_calibration/" + identifier + ".xml";
-
-    const cv::FileStorage fs(inputFileName, cv::FileStorage::READ);
-    if(std::filesystem::exists(inputFileName) && fs.isOpened()) {
-        fs["camera_matrix"] >> cameraMatrix;
-        fs["distortion_coefficients"] >> distCoefficients;
-    } else {
-        logWarning(
-            fmt::format("Failed to get calibration info for S/N {}. Use fallback fov {} instead.", identifier, fallbackFov));
-        cameraMatrix = (cv::Mat_<double>(3, 3) << width / 2.0 / std::tan(glm::radians(fallbackFov) / 2.0), 0,
-                        static_cast<double>(width) / 2.0, 0, height / 2.0 / std::tan(glm::radians(fallbackFov) / 2.0),
-                        static_cast<double>(height) / 2.0, 0, 0, 1);
-        distCoefficients = cv::Mat{};
-    }
-}
-
-struct DahengDriverSettings final {
-    std::string openMode;
-    std::string identifier;
-    std::string cameraName;
-    double fps;
-    double fov;
-    double exposureTime;
-    bool flip;
-    bool enableAutoWhiteBalance;
-    double gain;
-    bool isAtGun;
-    glm::dvec3 offset;  // based on gun
-    double yaw;         // in degree
-    double pitch;       // in degree
-};
-
-enum class OpenMode { Index, SerialNumber };
-
-template <class Inspector>
-bool inspect(Inspector& f, DahengDriverSettings& x) {
-    return f.object(x).fields(
-        f.field("openMode", x.openMode).invariant([](std::string_view v) { return v == "Index" || v == "SerialNumber"; }),
-        f.field("identifier", x.identifier), f.field("cameraName", x.cameraName).fallback("origin"),
-        f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 500.0; }),
-        f.field("fov", x.fov), f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
-        f.field("enableAutoWhiteBalance", x.enableAutoWhiteBalance).fallback(false), f.field("gain", x.gain).fallback(0.0),
-        f.field("isAtGun", x.isAtGun).fallback(true), f.field("dx", x.offset.x).fallback(0.0),
-        f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0), f.field("yaw", x.yaw).fallback(0.0),
-        f.field("pitch", x.pitch).fallback(0.0));
-}
 
 static void checkGXStatus(const GX_STATUS status) {
     if(status != GX_STATUS_SUCCESS) {
@@ -89,34 +40,16 @@ static void initLib() {
     static DahengLibGuard guard;
 }
 
-class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriverSettings, image_frame_atom> {
-    Identifier mKey;
-    std::optional<Identifier> mHeadKey;
+class DahengDriver final : public CameraBase {
     GX_DEV_HANDLE mDevice;
     bool mStartFlag = false;
+    Identifier mKey;
 
     static constexpr auto pixelFormat = GX_PIXEL_FORMAT_BAYER_RG8;
     static constexpr auto pixelCast = cv::COLOR_BayerRG2RGB_EA;
     static constexpr auto pixelStorageFormat = CV_8UC1;
 
-    std::deque<Clock::rep> mLastFrames;
-
-    cv::Mat mCameraMatrix;
-    cv::Mat mDistCoefficients;
-    std::string mCameraSerialNumber;
-    bool mDoUndistort;
-
-    void reportFrameRate(const Clock::time_point timeStamp) {
-        const auto current = timeStamp.time_since_epoch().count();
-        mLastFrames.push_back(current);
-
-        while(current - mLastFrames.front() > 1'000'000'000)
-            mLastFrames.pop_front();
-
-        const auto delta = std::max(static_cast<Clock::rep>(1), current - mLastFrames.front());
-        const auto fps = (static_cast<double>(mLastFrames.size()) - 1.0) * 1e9 / static_cast<double>(delta);
-        HubLogger::watch("fps", static_cast<uint32_t>(fps));
-    }
+    // first rotate yaw, counterclockwise is positive, second rotate pitch, up is positive
 
     void newFrameImpl(Clock::time_point timeStamp, const cv::Mat& frame, uint32_t width, uint32_t height) {
         cv::Mat bgr;
@@ -130,16 +63,6 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
 
         reportFrameRate(timeStamp);
 
-        double yaw;
-        Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun{};
-        if(mHeadKey.has_value()) {
-            yaw = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->pose.yaw;
-            tfRobot2Gun = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->tfRobot2Gun;
-        } else {
-            yaw = glm::half_pi<double>();
-            tfRobot2Gun = glm::identity<glm::dmat4>();
-        }
-
         CameraFrame frameData;
         frameData.lastUpdate = timeStamp;
         frameData.info.cameraMatrix = mCameraMatrix;
@@ -147,36 +70,26 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
         frameData.info.identifier = mCameraSerialNumber;
         frameData.info.width = width;
         frameData.info.height = height;
-        // first rotate yaw, counterclockwise is positive, second rotate pitch, up is positive
-        if (mConfig.isAtGun){
-            glm::dmat4 rotateMat =
-                glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians<double>(mConfig.pitch), glm::dvec3{ 1, 0, 0 }),
-                            -glm::radians<double>(mConfig.yaw), glm::dvec3{ 0, 1, 0 });
-            const Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> tfGun2Camera = glm::translate(rotateMat, -mConfig.offset);
-            frameData.info.tfRobot2Camera = combine(tfRobot2Gun, tfGun2Camera);
-        }else{
-            double cameraYaw = normalizeAngle(glm::radians(mConfig.yaw) + yaw);
-            double cameraPitch = glm::radians(mConfig.pitch);
-            double cameraRoll = 0.0;
-            frameData.info.tfRobot2Camera =   glm::lookAtRH(glm::dvec3{ 0.0, 0.0, 0.0 },
-                                                   glm::dvec3{ mConfig.offset.x + std::cos(mConfig.pitch) * std::cos(cameraYaw), mConfig.offset.y + std::sin(cameraPitch),
-                                                               mConfig.offset.z - std::cos(cameraPitch) * std::sin(cameraYaw) },
-                                                   glm::dvec3{ sin(cameraRoll), cos(cameraRoll), 0.0 });
+        frameData.info.tfGun2Camera = mTfGun2Camera;
+        if(mHeadKey.has_value()) {
+            frameData.info.tfRobot2Gun = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->tfRobot2Gun;
+        } else {
+            frameData.info.tfRobot2Gun = glm::identity<glm::dmat4>();
         }
 
+        // if (mDoUndistort) {
+        //     auto src = bgr.clone();
+        //     cv::undistort(src, bgr, mCameraMatrix, mDistCoefficients, frameData.info.cameraMatrix);
+        // }
+
         frameData.frame = std::move(bgr);
-#ifdef ARTINX_RADAR
         sendAll(image_frame_atom_v,
                 BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
-#else
-        sendAll(image_frame_atom_v,
-                BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
-#endif
     }
 
 #ifdef ARTINX_DAHENG_USB2
     std::thread mCaptureThread;
-    bool mRunning = true;
+    std::atomic<bool> mRunning = true;
 
     void acquireOneFrame() {}
 #else
@@ -187,17 +100,16 @@ class DahengDriver final : public HubHelper<caf::event_based_actor, DahengDriver
 
         const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer
 
-        // TODO: reduce reallocation(correctness need to be test)
         cv::Mat frame(cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, pixelStorageFormat,
                       const_cast<void*>(pFrameData->pImgBuf));
-        //        memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
+        memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
         newFrameImpl(timeStamp, frame, pFrameData->nWidth, pFrameData->nHeight);
     }
 
 #endif
 
 public:
-    DahengDriver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
+    DahengDriver(caf::actor_config& base, const HubConfig& config) : CameraBase{ base, config }, mKey{ generateKey(this) } {
         initLib();
 
         GX_OPEN_PARAM deviceDesc;
@@ -273,8 +185,8 @@ public:
             checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_GAIN, mConfig.gain));
         }
 
-        loadCalibration( mCameraSerialNumber, static_cast<uint32_t>(width),
-                        static_cast<uint32_t>(height), mConfig.fov, mCameraMatrix, mDistCoefficients);
+        loadCalibration(mConfig.disableUndistort, mCameraSerialNumber, static_cast<uint32_t>(width),
+                        static_cast<uint32_t>(height), mConfig.fov, mCameraMatrix, mDistCoefficients, mDoUndistort);
 
 #ifdef ARTINXHUB_WINDOWS
         auto bImplementPacketSize = false;
@@ -293,7 +205,6 @@ public:
 #endif
 
         checkGXStatus(GXSendCommand(mDevice, GX_COMMAND_ACQUISITION_START));
-
 #ifdef ARTINX_DAHENG_USB2
         mCaptureThread = std::thread([this] {
             auto current = Clock::now();
@@ -306,7 +217,7 @@ public:
             std::vector<uint8_t> payload(payloadSize);
             data.pImgBuf = payload.data();
 
-            while(mRunning) {
+            while(mRunning.load(std::memory_order_acquire)) {
                 std::this_thread::sleep_until(current);
                 GXGetImage(mDevice, &data, 100);
                 if(data.nStatus == GX_FRAME_STATUS_SUCCESS && mStartFlag) {
@@ -325,7 +236,7 @@ public:
 
     ~DahengDriver() override {
 #ifdef ARTINX_DAHENG_USB2
-        mRunning = false;
+        mRunning.store(false, std::memory_order_release);
         mCaptureThread.join();
 #endif
         checkGXStatus(GXSendCommand(mDevice, GX_COMMAND_ACQUISITION_STOP));

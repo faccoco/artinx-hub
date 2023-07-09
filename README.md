@@ -232,7 +232,7 @@ source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference en
   - 也要安装在OneAPI文件夹下
 
 - 根据需求(USB2/USB3)安装大恒相机驱动[Daheng Imaging](https://daheng-imaging.com/list-58-1.html), 对应CMake参数的ARTINX_HUB_CAMERA=USB2/USB3
-
+- 安装 Hik Robot 驱动 [hik robotics](https://www.hikrobotics.com/cn/machinevision/service/download?module=0), 设置环境变量 `HIK_SDK=/opt/MVS`
 ### LLVM-Clang
 
 >在ubuntu上配置最新 clang(stable) 编译环境
