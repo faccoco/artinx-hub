@@ -2,15 +2,15 @@
 #include "Timer.hpp"
 #include "Transform.hpp"
 
-struct Pose{
+struct Pose {
     double roll;
-    double  pitch;
+    double pitch;
     double yaw;
 };
 
 struct HeadInfo final {
     TimePoint lastUpdate;
-    Pose pose; //roll yaw pitch;
+    Pose pose;
     Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun;
 };
 ACTOR_PROTOCOL_DEFINE(update_head_atom, TypedIdentifier<HeadInfo>);

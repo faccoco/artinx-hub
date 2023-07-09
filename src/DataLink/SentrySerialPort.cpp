@@ -84,6 +84,8 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
         auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
         HubLogger::watch("deltaYaw1", deltaYaw1);
         HubLogger::watch("deltaPitch1", deltaPitch1);
+        HubLogger::watch("yaw", fdb.yaw);
+        HubLogger::watch("pitch", fdb.pitch);
 
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
@@ -91,8 +93,6 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
         const double yaw = normalizeAngle(fdb.yaw + glm::half_pi<double>());
         const double pitch = fdb.pitch;
         const double roll = 0.0;
-        HubLogger::watch("yaw", yaw);
-        HubLogger::watch("pitch", pitch);
         const HeadInfo infoHead{ SynchronizedClock::instance().now(),
                                  { roll, pitch, yaw },
                                      decltype(HeadInfo::tfRobot2Gun){
@@ -135,9 +135,9 @@ public:
                    SolverType solverType) {
                 ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
 
-                HubLogger::watch("targetYaw1", yawAngle);
-                HubLogger::watch("targetPitch1", pitchAngle);
                 yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
+                HubLogger::watch("targetYaw", yawAngle);
+                HubLogger::watch("targetPitch", pitchAngle);
 
                 {
                     std::lock_guard lock{ mPacketMutex };
