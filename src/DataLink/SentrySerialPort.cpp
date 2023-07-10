@@ -5,46 +5,39 @@
 #include "Hub.hpp"
 #include "PostureData.hpp"
 #include "SelectedTarget.hpp"
-#include "SerialPort/Crc.hpp"
 #include "SerialPort/PacketHelper.hpp"
 #include "SerialPort/SerialPort.hpp"
 #include "Utility.hpp"
 
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
 #include <iterator>
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 
-class InfantryRecvPacket final {
+class SentryRecvPacket final {
 public:
     static constexpr uint16_t id = 0x0A;
 
-    float yaw, pitch, yaw1, pitch1, bulletSpeed, speedX, speedY;
-    uint8_t color, energyMode;
+    float yaw, pitch, bulletSpeed, speedX, speedY;
+    uint8_t color;
     float capEnergy, chasisPower;
-    explicit InfantryRecvPacket(std::array<uint8_t, 1024>& buffer) {
+    explicit SentryRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
-        yaw1 = reader.readCompressedFloat(-4.0f, 0.0005f);
-        pitch1 = reader.readCompressedFloat(-4.0f, 0.0005f);
         speedX = reader.readCompressedFloat(-20.0f, 0.01f);
         speedY = reader.readCompressedFloat(-20.0f, 0.01f);
         const auto mask = reader.read();
         color = mask & 1;
-        energyMode = (mask >> 1) & 1;
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
         capEnergy = reader.readCompressedFloat(-1.0f, 0.1f);
         chasisPower = reader.readCompressedFloat(-1.0f, 0.01f);
     }
 };
 
-class InfantrySendPacket final {
+class SentrySendPacket final {
 public:
     static constexpr uint16_t id = 0x0F;
 
@@ -63,19 +56,19 @@ public:
     }
 };
 
-struct InfantrySerialPortSettings final {
+struct SentrySerialPortSettings final {
     std::string devPath;
     uint32_t baudRate;
 };
 
 template <class Inspector>
-bool inspect(Inspector& f, InfantrySerialPortSettings& x) {
+bool inspect(Inspector& f, SentrySerialPortSettings& x) {
     return f.object(x).fields(f.field("devPath", x.devPath), f.field("baudRate", x.baudRate));
 }
 
-class InfantrySerialPort final : public HubHelper<caf::event_based_actor, InfantrySerialPortSettings, update_head_atom,
-                                                  update_posture_atom, energy_detector_control_atom>,
-                                 public SerialPort<InfantryRecvPacket, InfantrySendPacket> {
+class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySerialPortSettings, update_head_atom,
+                                                update_posture_atom, energy_detector_control_atom>,
+                               public SerialPort<SentryRecvPacket, SentrySendPacket> {
     Identifier mKey;
 
     constexpr static size_t latencyLen = 100;
@@ -83,27 +76,25 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
 
     TimePoint mLastReceivedTime, mLastTargetTime;
 
-    void infantryRecvCB(const InfantryRecvPacket& fdb) {
+    void infantryRecvCB(const SentryRecvPacket& fdb) {
         GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
         HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
 
-        sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
-
         auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
         auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
-        // HubLogger::watch("yaw1", fdb.yaw);
-        // HubLogger::watch("pitch1", fdb.pitch);
         HubLogger::watch("deltaYaw1", deltaYaw1);
         HubLogger::watch("deltaPitch1", deltaPitch1);
+        HubLogger::watch("yaw", fdb.yaw);
+        HubLogger::watch("pitch", fdb.pitch);
 
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
-        const double yaw = fdb.yaw + glm::half_pi<double>();
+        const double yaw = normalizeAngle(fdb.yaw + glm::half_pi<double>());
         const double pitch = fdb.pitch;
         const double roll = 0.0;
         const HeadInfo infoHead{ SynchronizedClock::instance().now(),
-                                 {roll, pitch, yaw}};
+                                 { roll, pitch, yaw }};
 
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();
@@ -114,7 +105,7 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoHead));
     }
 
-    void infantrySetPacket() {
+    void sentrySetPacket() {
         mSendPacket.hasTargets = 0;
         if(Clock::now() - mLastTargetTime < 500ms)
             mSendPacket.hasTargets |= 1;
@@ -122,11 +113,11 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
     }
 
 public:
-    InfantrySerialPort(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, SerialPort<InfantryRecvPacket, InfantrySendPacket>(
+    SentrySerialPort(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, SerialPort<SentryRecvPacket, SentrySendPacket>(
                                          mConfig.devPath, mConfig.baudRate,
-                                         std::bind(&InfantrySerialPort::infantryRecvCB, this, std::placeholders::_1),
-                                         std::bind(&InfantrySerialPort::infantrySetPacket, this)),
+                                         std::bind(&SentrySerialPort::infantryRecvCB, this, std::placeholders::_1),
+                                         std::bind(&SentrySerialPort::sentrySetPacket, this)),
           mKey{ generateKey(this) } {}
 
     caf::behavior make_behavior() override {
@@ -140,6 +131,8 @@ public:
                 ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
 
                 yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
+                HubLogger::watch("targetYaw", yawAngle);
+                HubLogger::watch("targetPitch", pitchAngle);
 
                 {
                     std::lock_guard lock{ mPacketMutex };
@@ -158,10 +151,8 @@ public:
                 mLatency.push_back(latency);
                 GlobalSettings::get().latency = avg(mLatency);
                 HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
-                HubLogger::watch("targetYaw1", yawAngle);
-                HubLogger::watch("targetPitch1", pitchAngle);
                 HubLogger::visualLog(
-                    fmt::format("InfantrySerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
+                    fmt::format("SentrySerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
                                 yawAngle, pitchAngle, static_cast<int>(mLatency.back() * 1000),
                                 static_cast<int>(GlobalSettings::get().latency * 1000)));
             },
@@ -169,4 +160,4 @@ public:
     }
 };
 
-HUB_REGISTER_CLASS(InfantrySerialPort);
+HUB_REGISTER_CLASS(SentrySerialPort);

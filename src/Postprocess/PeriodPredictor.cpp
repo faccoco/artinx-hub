@@ -39,8 +39,8 @@ class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, per
         DPeriod,
     } mState;
 
-    glm::dvec3 getArmorPos(const DetectedTarget& armor, const Transform<FrameOfRef::Gun, FrameOfRef::Robot, true>& tfGun2Robot) {
-        return tfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(armor.center.mVal)).mVal;
+    glm::dvec3 getArmorPos(const DetectedTarget& armor, const Transform<FrameOfRef::Camera, FrameOfRef::Robot, true>& tfCamera2Robot) {
+        return tfCamera2Robot(Vector<UnitType::Distance, FrameOfRef::Camera>(armor.center.mVal)).mVal;
     }
 
     inline static void step(State& a) {
@@ -108,12 +108,12 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
-                auto tfGun2Robot = data->tfRobot2Gun.invTransformObj();
+                auto tfCamera2Robot = data->tfRobot2Camera.invTransformObj();
 
                 // init
                 if(init) {
                     clear();
-                    mTargetTheta = getTheta(tfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(0, 0, -1)).mVal);
+                    mTargetTheta = getTheta(tfCamera2Robot(Vector<UnitType::Distance, FrameOfRef::Camera>(0, 0, -1)).mVal);
                     logInfo(fmt::format("PeriodPredictor: inited yaw {} degree", glm::degrees(mTargetTheta)));
                 }
 
@@ -126,7 +126,7 @@ public:
                        (target.id == RobotType::Negative && target.type == ArmorType::Large))
                         continue;
 
-                    auto posRefRobot = getArmorPos(target, tfGun2Robot);
+                    auto posRefRobot = getArmorPos(target, tfCamera2Robot);
                     double thetaDelta = std::abs(getTheta(posRefRobot) - mTargetTheta);
                     if(thetaDelta > glm::pi<double>())
                         thetaDelta = glm::two_pi<double>() - thetaDelta;

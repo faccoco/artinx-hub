@@ -64,14 +64,14 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
     int mDetectCount = 0, mLostCount = 0;
     double mDt = 0.01;
 
-    Transform<FrameOfRef::Gun, FrameOfRef::Robot, true> mTfGun2Robot;
+    Transform<FrameOfRef::Camera, FrameOfRef::Robot, true> mTfCamera2Robot;
 
     glm::dvec3 getArmorPos(const DetectedTarget& armor) {
-        return mTfGun2Robot(Vector<UnitType::Distance, FrameOfRef::Gun>(armor.center.mVal)).mVal;
+        return mTfCamera2Robot(Vector<UnitType::Distance, FrameOfRef::Camera>(armor.center.mVal)).mVal;
     }
 
     double getArmorYaw(const DetectedTarget& armor) {
-        auto rmat = combine(mTfGun2Robot, armor.rmat);
+        auto rmat = combine(mTfCamera2Robot, armor.rmat);
         return normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
     }
 
@@ -202,10 +202,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             }
             double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
 
-            HubLogger::watch("deltaYaw_pre", deltaYaw);
-            HubLogger::watch("mTrackedArmorYaw", mTrackedArmor.yaw);
+            HubLogger::watch("diffYaw", deltaYaw);
             HubLogger::watch("minPositionDiff", minPositionDiff);
-
 
             if(minPositionDiff < mConfig.maxMatchDist) {
                 // Matching armor found
@@ -231,11 +229,11 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                     }
                 }
             }
-            HubLogger::watch("xRefRobot", mTrackedArmor.state(0));
-            HubLogger::watch("yRefRobot", mTrackedArmor.state(1));
-            HubLogger::watch("zRefRobot", mTrackedArmor.state(2));
-            HubLogger::watch("yawRefRobot", mTrackedArmor.state(3));
-            HubLogger::watch("R", mTrackedArmor.state(8));
+//            HubLogger::watch("xRefRobot", mTrackedArmor.state(0));
+//            HubLogger::watch("yRefRobot", mTrackedArmor.state(1));
+//            HubLogger::watch("zRefRobot", mTrackedArmor.state(2));
+//            HubLogger::watch("yawRefRobot", mTrackedArmor.state(3));
+//            HubLogger::watch("R", mTrackedArmor.state(8));
             HubLogger::watch("xDetected", candidate.first.x);
             HubLogger::watch("yDetected", candidate.first.y);
             HubLogger::watch("zDetected", candidate.first.z);
@@ -352,8 +350,7 @@ public:
 
                 PredictedTarget res;
                 res.lastUpdate = data->lastUpdate;
-
-                mTfGun2Robot = data->tfRobot2Gun.invTransformObj();
+                mTfCamera2Robot = data->tfRobot2Camera.invTransformObj();
 
                 if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
                     if(mTrackedArmor.trackingState == TrackingState::LOST) {

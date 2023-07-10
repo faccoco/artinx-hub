@@ -71,7 +71,6 @@ public:
                     DetectedTargetArray data;
 
                     data.lastUpdate = cur->lastUpdate;
-                    data.tfRobot2Gun = head.tfRobot2Gun;
 
                     const auto tfGround2Gun = combine(info.tfGround2Robot, head.tfRobot2Gun);
 
