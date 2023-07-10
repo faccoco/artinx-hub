@@ -36,20 +36,11 @@ void CameraBase::reportFrameRate(const Clock::time_point timeStamp) {
 }
 
 Transform<FrameOfRef::Robot, FrameOfRef::Camera, true> CameraBase::clcTfRobot2Camera(const Pose& gunPose) {
-    double gunRoll = gunPose.roll, gunPitch = gunPose.pitch, gunYaw = gunPose.yaw;
-    if (mConfig.isAtGun){
-        const Transform<FrameOfRef::Robot, FrameOfRef::Gun, true> tfRobot2Gun = glm::lookAtRH(glm::dvec3{ 0.0, 0.0, 0.0 },
-                                                                                        glm::dvec3{ std::cos(gunPitch) * std::cos(gunYaw), mConfig.offset.y + std::sin(gunPitch),
-                                                                                                    mConfig.offset.z - std::cos(gunPitch) * std::sin(gunYaw) },
-                                                                                        glm::dvec3{ sin(gunRoll), cos(gunRoll), 0.0 });
-        return combine(tfRobot2Gun, mTfGun2Camera);
-    }else{
-        double cameraYaw = normalizeAngle(glm::radians(mConfig.yaw) + gunYaw);
-        double cameraPitch = glm::radians(mConfig.pitch);
-        double cameraRoll = 0.0;
-        return glm::lookAtRH(glm::dvec3{ 0.0, 0.0, 0.0 },
-                                                      glm::dvec3{ mConfig.offset.x + std::cos(mConfig.pitch) * std::cos(cameraYaw), mConfig.offset.y + std::sin(cameraPitch),
-                                                                  mConfig.offset.z - std::cos(cameraPitch) * std::sin(cameraYaw) },
-                                                      glm::dvec3{ sin(cameraRoll), cos(cameraRoll), 0.0 });
-    }
+    double yaw = gunPose.yaw + mYaw;
+    double pitch = mConfig.isAtGun ? gunPose.pitch + mPitch : mPitch;
+    double roll = gunPose.roll;
+    return glm::lookAtRH(glm::dvec3{ 0.0, 0.0, 0.0 },
+                         glm::dvec3{ mConfig.offset.x + std::cos(pitch) * std::cos(yaw), mConfig.offset.y + std::sin(pitch),
+                                     mConfig.offset.z - std::cos(pitch) * std::sin(yaw) },
+                         glm::dvec3{ sin(roll), cos(roll), 0.0 });
 }

@@ -40,6 +40,7 @@ protected:
     std::string mCameraSerialNumber;
 
     std::optional<Identifier> mHeadKey;
+    double mYaw = glm::radians(mConfig.yaw), mPitch = glm::radians(mConfig.pitch);
     cv::Mat mCameraMatrix;
     cv::Mat mDistCoefficients;
     // first rotate yaw, counterclockwise is positive, second rotate pitch, up is positive

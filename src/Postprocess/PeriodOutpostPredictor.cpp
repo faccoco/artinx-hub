@@ -75,12 +75,12 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
-                auto tfRobot2Camera = data->tfRobot2Camera.invTransformObj();
+                auto tfCamera2Robot = data->tfRobot2Camera.invTransformObj();
 
                 // init
                 if(init) {
                     mLastTime = std::nullopt;
-                    mTargetTheta = getTheta(tfRobot2Camera(Vector<UnitType::Distance, FrameOfRef::Camera>(0, 0, -1)).mVal);
+                    mTargetTheta = getTheta(tfCamera2Robot(Vector<UnitType::Distance, FrameOfRef::Camera>(0, 0, -1)).mVal);
                     logInfo(fmt::format("PeriodOutpostPredictor: inited yaw {} degree", glm::degrees(mTargetTheta)));
                 }
 
@@ -95,7 +95,7 @@ public:
                        (target.id != RobotType::Negative && target.id != RobotType::Outpost))
                         continue;
 
-                    auto posRefRobot = getArmorPos(target, tfRobot2Camera);
+                    auto posRefRobot = getArmorPos(target, tfCamera2Robot);
                     double thetaDelta = std::abs(getTheta(posRefRobot) - mTargetTheta);
                     if(thetaDelta > glm::pi<double>())
                         thetaDelta = glm::two_pi<double>() - thetaDelta;
