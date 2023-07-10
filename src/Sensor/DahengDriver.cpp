@@ -5,8 +5,8 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
-#include "Utility.hpp"
 #include "SuppressWarningBegin.hpp"
+#include "Utility.hpp"
 
 #include <GxIAPI.h>
 #include <atomic>
@@ -183,8 +183,8 @@ public:
             checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_GAIN, mConfig.gain));
         }
 
-        loadCalibration(mCameraSerialNumber, static_cast<uint32_t>(width),
-                        static_cast<uint32_t>(height), mConfig.fov, mCameraMatrix, mDistCoefficients);
+        loadCalibration(mCameraSerialNumber, static_cast<uint32_t>(width), static_cast<uint32_t>(height), mConfig.fov,
+                        mCameraMatrix, mDistCoefficients);
 
 #ifdef ARTINXHUB_WINDOWS
         auto bImplementPacketSize = false;

@@ -45,7 +45,8 @@ class PeriodOutpostPredictor final
     std::deque<double> mPeriodTimes;
     std::optional<TimePoint> mLastTime;
 
-    glm::dvec3 getArmorPos(const DetectedTarget& armor, const Transform<FrameOfRef::Camera, FrameOfRef::Robot, true>& tfRobot2Camera) {
+    glm::dvec3 getArmorPos(const DetectedTarget& armor,
+                           const Transform<FrameOfRef::Camera, FrameOfRef::Robot, true>& tfRobot2Camera) {
         return tfRobot2Camera(Vector<UnitType::Distance, FrameOfRef::Camera>(armor.center.mVal)).mVal;
     }
 

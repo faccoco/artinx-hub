@@ -1,12 +1,10 @@
-#include "Utility.hpp"
 #include "CameraBase.hpp"
-
+#include "Utility.hpp"
 
 CameraBase::CameraBase(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
 
-void CameraBase::loadCalibration(const std::string& identifier, const uint32_t width,
-                                 const uint32_t height, const double fallbackFov, cv::Mat& cameraMatrix,
-                                 cv::Mat& distCoefficients) {
+void CameraBase::loadCalibration(const std::string& identifier, const uint32_t width, const uint32_t height,
+                                 const double fallbackFov, cv::Mat& cameraMatrix, cv::Mat& distCoefficients) {
     const auto inputFileName = "./data/camera_calibration/" + identifier + ".xml";
 
     const cv::FileStorage fs(inputFileName, cv::FileStorage::READ);

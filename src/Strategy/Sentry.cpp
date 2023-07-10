@@ -38,77 +38,79 @@ public:
         }
     }
     caf::behavior make_behavior() override {
-        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [&](detect_available_atom, GroupMask mask, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
-                     const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
+        return {
+            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [&](detect_available_atom, GroupMask mask, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
+                const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
 
-                     SelectedTarget selected;
-                     selected.lastUpdate = data.lastUpdate;
-                     selected.tfRobot2Camera = data.tfRobot2Camera;
+                SelectedTarget selected;
+                selected.lastUpdate = data.lastUpdate;
+                selected.tfRobot2Camera = data.tfRobot2Camera;
 
-                     std::optional<DetectedTarget> heroTarget, sameTarget, minDistTarget;
-                     auto minDistance = 10000.0;
-                     for(auto& target : data.targets) {
-                         if(mIgnoreId.count(static_cast<int>(target.id)))
-                             continue;
-                         selected.targets.emplace_back(target);
-                         auto pos = target.center.mVal;
-                         auto dist = pos.x * pos.x + pos.y * pos.y + pos.z * pos.z;
-                         if(dist > mConfig.maxDistance * mConfig.maxDistance || pos.y > 1.5)  // 距离太远或者高度超过1.5m不打弹
-                             continue;
-                         if(dist < minDistance) {
-                             minDistance = dist;
-                             minDistTarget = target;
-                         }
-                         if((mLastTarget1.selected.has_value() && mLastTarget1.selected->id == target.id) ||
-                            (mLastTarget2.selected.has_value() && mLastTarget2.selected->id == target.id)) {
-                             sameTarget = target;
-                         }
-                         if(target.id == RobotType::Hero) {
-                             heroTarget = target;
-                         }
-                     }
+                std::optional<DetectedTarget> heroTarget, sameTarget, minDistTarget;
+                auto minDistance = 10000.0;
+                for(auto& target : data.targets) {
+                    if(mIgnoreId.count(static_cast<int>(target.id)))
+                        continue;
+                    selected.targets.emplace_back(target);
+                    auto pos = target.center.mVal;
+                    auto dist = pos.x * pos.x + pos.y * pos.y + pos.z * pos.z;
+                    if(dist > mConfig.maxDistance * mConfig.maxDistance || pos.y > 1.5)  // 距离太远或者高度超过1.5m不打弹
+                        continue;
+                    if(dist < minDistance) {
+                        minDistance = dist;
+                        minDistTarget = target;
+                    }
+                    if((mLastTarget1.selected.has_value() && mLastTarget1.selected->id == target.id) ||
+                       (mLastTarget2.selected.has_value() && mLastTarget2.selected->id == target.id)) {
+                        sameTarget = target;
+                    }
+                    if(target.id == RobotType::Hero) {
+                        heroTarget = target;
+                    }
+                }
 
-                     if(heroTarget.has_value()) {
-                         selected.selected = heroTarget;
-                     } else if(sameTarget.has_value()) {
-                         selected.selected = sameTarget;
-                     } else {
-                         selected.selected = minDistTarget;
-                     }
+                if(heroTarget.has_value()) {
+                    selected.selected = heroTarget;
+                } else if(sameTarget.has_value()) {
+                    selected.selected = sameTarget;
+                } else {
+                    selected.selected = minDistTarget;
+                }
 
-                     if(mask == 1U) {
-                         if(selected.selected.has_value()) {
-                             mLastTarget1 = selected;
-                             if(mLastTarget2.selected.has_value() && Clock::now() - mLastTarget2.lastUpdate < recordTime &&
-                                mLastTarget2.selected->id == RobotType::Hero) {
-                                 return;
-                             }
-                         } else {
-                             if(mLastTarget2.selected.has_value() && Clock::now() - mLastTarget2.lastUpdate < recordTime) {
-                                 return;
-                             }
-                         }
-                     } else {
-                         if(selected.selected.has_value()) {
-                             mLastTarget2 = selected;
-                             if(mLastTarget1.selected.has_value() && Clock::now() - mLastTarget1.lastUpdate < recordTime) {
-                                 return;
-                             }
-                         } else {
-                             if(mLastTarget1.selected.has_value() && Clock::now() - mLastTarget1.lastUpdate < recordTime) {
-                                 return;
-                             }
-                         }
-                     }
+                if(mask == 1U) {
+                    if(selected.selected.has_value()) {
+                        mLastTarget1 = selected;
+                        if(mLastTarget2.selected.has_value() && Clock::now() - mLastTarget2.lastUpdate < recordTime &&
+                           mLastTarget2.selected->id == RobotType::Hero) {
+                            return;
+                        }
+                    } else {
+                        if(mLastTarget2.selected.has_value() && Clock::now() - mLastTarget2.lastUpdate < recordTime) {
+                            return;
+                        }
+                    }
+                } else {
+                    if(selected.selected.has_value()) {
+                        mLastTarget2 = selected;
+                        if(mLastTarget1.selected.has_value() && Clock::now() - mLastTarget1.lastUpdate < recordTime) {
+                            return;
+                        }
+                    } else {
+                        if(mLastTarget1.selected.has_value() && Clock::now() - mLastTarget1.lastUpdate < recordTime) {
+                            return;
+                        }
+                    }
+                }
 
-                     if(selected.selected.has_value()) {
-                         HubLogger::visualLog(fmt::format("SentryStrategy Receive {} targets, choose target: {}",
-                                                          selected.targets.size(), magic_enum::enum_name(selected.selected->id)));
-                     }
-                     sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
-                 } };
+                if(selected.selected.has_value()) {
+                    HubLogger::visualLog(fmt::format("SentryStrategy Receive {} targets, choose target: {}",
+                                                     selected.targets.size(), magic_enum::enum_name(selected.selected->id)));
+                }
+                sendAll(set_target_atom_v, BlackBoard::instance().updateSync<SelectedTarget>(mKey, selected));
+            },
+        };
     }
 };
 

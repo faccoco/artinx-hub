@@ -97,8 +97,7 @@ public:
                 }
 
                 sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
-            }
-
+            },
         };
     }
 };

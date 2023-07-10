@@ -1,8 +1,8 @@
 #pragma once
 #include "CameraFrame.hpp"
 #include "DataDesc.hpp"
-#include "Hub.hpp"
 #include "HeadInfo.hpp"
+#include "Hub.hpp"
 #include <caf/event_based_actor.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
