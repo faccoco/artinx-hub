@@ -62,16 +62,7 @@ private:
             instance->mLastSend = timeStamp;
         }
         cv::Mat bgr{ pFrameInfo->nHeight, pFrameInfo->nWidth, CV_8UC3, static_cast<void*>(pData) };
-        CameraFrame frame{
-            SynchronizedClock::instance().now(),
-            { instance->mTfGun2Camera,
-              instance->mHeadKey.has_value() ? BlackBoard::instance().get<HeadInfo>(instance->mHeadKey.value())->tfRobot2Gun :
-                                               glm::identity<glm::dmat4>(),
-              instance->mCameraSerialNumber, instance->mCameraMatrix, instance->mDistCoefficients, pFrameInfo->nWidth,
-              pFrameInfo->nHeight },
-        };
-        bgr.copyTo(frame.frame);
-        instance->sendFrame(std::move(frame));
+        instance->sendFrame(bgr);
     }
 
     MV_CC_DEVICE_INFO* getDeviceInfo() {
@@ -85,10 +76,28 @@ private:
         return nullptr;
     }
 
-    void sendFrame(CameraFrame&& frame) {
+    void sendFrame(const cv::Mat& frame) {
         reportFrameRate(SynchronizedClock::instance().now());
+
+        Pose gunPose{};
+        if(mHeadKey.has_value()) {
+            gunPose = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->pose;
+        } else {
+            gunPose.yaw = glm::half_pi<double>();
+        }
+
+        CameraFrame frameData;
+        frameData.lastUpdate = SynchronizedClock::instance().now();
+        frameData.info.cameraMatrix = mCameraMatrix;
+        frameData.info.distCoefficients = mDistCoefficients;
+        frameData.info.identifier = mCameraSerialNumber;
+        frameData.info.width = frame.cols;
+        frameData.info.height = frame.rows;
+        frameData.info.tfRobot2Camera = clcTfRobot2Camera(gunPose);
+        frame.copyTo(frameData.frame);
+
         sendAll(image_frame_atom_v,
-                BlackBoard::instance().updateSync(mKey, std::move(frame), std::string_view(mConfig.cameraName)));
+                BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
     }
 
 public:
@@ -108,9 +117,8 @@ public:
         checkErrorCode(MV_CC_OpenDevice(mCameraHandle, MV_ACCESS_ControlSwitchEnableWithKey));
         checkErrorCode(MV_CC_GetImageInfo(mCameraHandle, &mImageInfo));
         logInfo(fmt::format("Resolution for {}: {} x {}", mCameraSerialNumber, mImageInfo.nWidthMax, mImageInfo.nHeightMax));
-        loadCalibration(mConfig.disableUndistort, mCameraSerialNumber, static_cast<uint32_t>(mImageInfo.nWidthMax),
-                        static_cast<uint32_t>(mImageInfo.nHeightMax), mConfig.fov, mCameraMatrix, mDistCoefficients,
-                        mDoUndistort);
+        loadCalibration(mCameraSerialNumber, static_cast<uint32_t>(mImageInfo.nWidthMax),
+                        static_cast<uint32_t>(mImageInfo.nHeightMax), mConfig.fov, mCameraMatrix, mDistCoefficients);
         checkErrorCode(MV_CC_SetEnumValue(mCameraHandle, "ExposureAuto", MV_EXPOSURE_AUTO_MODE_OFF));
         checkErrorCode(MV_CC_SetEnumValue(mCameraHandle, "ExposureMode", MV_EXPOSURE_MODE_TIMED));
         checkErrorCode(MV_CC_SetFloatValue(mCameraHandle, "ExposureTime", mConfig.exposureTime * 1.0e6));

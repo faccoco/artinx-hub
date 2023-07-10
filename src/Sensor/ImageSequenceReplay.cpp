@@ -34,7 +34,6 @@ bool inspect(Inspector& f, ImageSequenceReplaySettings& x) {
 
 class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, ImageSequenceReplaySettings, image_frame_atom> {
     Identifier mKey;
-    std::optional<Identifier> mHeadKey;
     std::vector<std::string> mImages;
     uint32_t mCount = 0;
 
@@ -60,12 +59,8 @@ class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, Image
             (cv::Mat_<double>(3, 3) << mConfig.width / 2 / tan(glm::radians(mConfig.fov) / 2), 0, mConfig.width / 2, 0,
              mConfig.height / 2 / tan(glm::radians(mConfig.fov) / 2), mConfig.height / 2, 0, 0, 1);
         res.info.distCoefficients = cv::Mat_<double>{};
-        res.info.tfGun2Camera = Transform<FrameOfRef::Gun, FrameOfRef::Camera, true>(glm::identity<glm::dmat4>());
+        res.info.tfRobot2Camera = Transform<FrameOfRef::Robot, FrameOfRef::Camera, true>(glm::identity<glm::dmat4>());
         res.lastUpdate = SynchronizedClock::instance().now();
-
-        if(mHeadKey.has_value()) {
-            res.info.tfRobot2Gun = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->tfRobot2Gun;
-        }
 
         sendAll(image_frame_atom_v,
                 BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("ImageSequenceReply")));
@@ -99,11 +94,7 @@ public:
             [this](timer_atom) {
                 ACTOR_PROTOCOL_CHECK(timer_atom);
                 next();
-            },
-            [this](update_head_atom, GroupMask, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
-                mHeadKey = key;
-            },
+            }
         };
     }
 };

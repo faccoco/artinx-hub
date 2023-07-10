@@ -6,6 +6,7 @@
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "SuppressWarningBegin.hpp"
+#include "Utility.hpp"
 
 #include <GxIAPI.h>
 #include <atomic>
@@ -63,6 +64,13 @@ class DahengDriver final : public CameraBase {
 
         reportFrameRate(timeStamp);
 
+        Pose gunPose{};
+        if(mHeadKey.has_value()) {
+            gunPose = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->pose;
+        } else {
+            gunPose.yaw = glm::half_pi<double>();
+        }
+
         CameraFrame frameData;
         frameData.lastUpdate = timeStamp;
         frameData.info.cameraMatrix = mCameraMatrix;
@@ -70,17 +78,7 @@ class DahengDriver final : public CameraBase {
         frameData.info.identifier = mCameraSerialNumber;
         frameData.info.width = width;
         frameData.info.height = height;
-        frameData.info.tfGun2Camera = mTfGun2Camera;
-        if(mHeadKey.has_value()) {
-            frameData.info.tfRobot2Gun = BlackBoard::instance().get<HeadInfo>(mHeadKey.value())->tfRobot2Gun;
-        } else {
-            frameData.info.tfRobot2Gun = glm::identity<glm::dmat4>();
-        }
-
-        // if (mDoUndistort) {
-        //     auto src = bgr.clone();
-        //     cv::undistort(src, bgr, mCameraMatrix, mDistCoefficients, frameData.info.cameraMatrix);
-        // }
+        frameData.info.tfRobot2Camera = clcTfRobot2Camera(gunPose);
 
         frameData.frame = std::move(bgr);
         sendAll(image_frame_atom_v,
@@ -185,8 +183,8 @@ public:
             checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_GAIN, mConfig.gain));
         }
 
-        loadCalibration(mConfig.disableUndistort, mCameraSerialNumber, static_cast<uint32_t>(width),
-                        static_cast<uint32_t>(height), mConfig.fov, mCameraMatrix, mDistCoefficients, mDoUndistort);
+        loadCalibration(mCameraSerialNumber, static_cast<uint32_t>(width), static_cast<uint32_t>(height), mConfig.fov,
+                        mCameraMatrix, mDistCoefficients);
 
 #ifdef ARTINXHUB_WINDOWS
         auto bImplementPacketSize = false;
