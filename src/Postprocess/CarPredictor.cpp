@@ -314,7 +314,7 @@ public:
                     0,      0,      0,      Qyy,    0,      0,      0,      QyVy,   0,
                     QxVx,   0,      0,      0,      QVxVx,  0,      0,      0,      0,
                     0,      QxVx,   0,      0,      0,      QVxVx,  0,      0,      0,
-                    0,      0,      QxVx,   0,      0,      0,      Qyy,    0,      0,
+                    0,      0,      QxVx,   0,      0,      0,      QVxVx,  0,      0,
                     0,      0,      0,      QyVy,   0,      0,      0,      QVyVy,  0,
                     0,      0,      0,      0,      0,      0,      0,      0,      QR;
             // clang-format on
