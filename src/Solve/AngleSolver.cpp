@@ -74,9 +74,12 @@ public:
                      //  HubLogger::visualLog(fmt::format(
                      //      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
                      //      posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
-                     if(accessible)
+                     if(accessible){
                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
                                             yawAngle, pitchAngle, true, normalSolver);
+                    }else{
+                        HubLogger::visualLog("AngleSolver: armor inaccessable (single armor)");
+                    }
                  },
                  [this](car_predict_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(predict_success_atom, TypedIdentifier<PredictedTarget>);
