@@ -8,6 +8,7 @@
 
 #include <utility>
 #include <vector>
+#include <optional>
 
 struct PIDParameters final {
     double kp, ki, kd;
