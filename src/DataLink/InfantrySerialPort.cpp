@@ -24,15 +24,15 @@ class InfantryRecvPacket final {
 public:
     static constexpr uint16_t id = 0x0A;
 
-    float yaw, pitch, yaw1, pitch1, bulletSpeed, speedX, speedY;
+    float yaw, pitch,  bulletSpeed, speedX, speedY;
     uint8_t color, energyMode;
     float capEnergy, chasisPower;
     explicit InfantryRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
-        yaw1 = reader.readCompressedFloat(-4.0f, 0.0005f);
-        pitch1 = reader.readCompressedFloat(-4.0f, 0.0005f);
+        // yaw1 = reader.readCompressedFloat(-4.0f, 0.0005f);
+        // pitch1 = reader.readCompressedFloat(-4.0f, 0.0005f);
         speedX = reader.readCompressedFloat(-20.0f, 0.01f);
         speedY = reader.readCompressedFloat(-20.0f, 0.01f);
         const auto mask = reader.read();
