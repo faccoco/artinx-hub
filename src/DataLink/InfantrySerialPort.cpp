@@ -31,8 +31,6 @@ public:
         PacketReader<1024> reader(buffer);
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
-        yaw1 = reader.readCompressedFloat(-4.0f, 0.0005f);
-        pitch1 = reader.readCompressedFloat(-4.0f, 0.0005f);
         speedX = reader.readCompressedFloat(-20.0f, 0.01f);
         speedY = reader.readCompressedFloat(-20.0f, 0.01f);
         const auto mask = reader.read();
