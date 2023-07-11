@@ -75,7 +75,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         return normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
     }
 
-    void setArmorYaw(double yaw) { 
+    void setArmorYaw(double yaw) {
         // Make yaw change continuous
         mTrackedArmor.yaw = mTrackedArmor.yaw + normalizeAngle(yaw - mTrackedArmor.yaw);
     }
@@ -98,7 +98,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(1) = targetPos.y;
             mTrackedArmor.state(3) = yaw;
             std::swap(mTrackedArmor.state(8), mLastR);
-            logInfo(fmt::format("ArmorPredictor: Armor may experience a jump. Change Yaw, Y and R, delta yaw is {:.5f}", deltayaw));
+            logInfo(
+                fmt::format("ArmorPredictor: Armor may experience a jump. Change Yaw, Y and R, delta yaw is {:.5f}", deltayaw));
             HubLogger::visualLog(fmt::format("EKF Armor may experience a jump. Change Yaw, Y and R."));
         }
         auto dist = glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state));
@@ -108,8 +109,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.state(4) = 0;
             mTrackedArmor.state(5) = 0;
             mTrackedArmor.state(6) = 0;
-            // logInfo(fmt::format("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF. Dist is {:.5f}",
-                                // dist));
+            logInfo(fmt::format("ArmorPredictor: The same Armor match distance too far. State wrong, reset EKF. Dist is {:.5f}",
+                                dist));
             HubLogger::visualLog(
                 fmt::format("ArmorPredictor: The same Armor match distance {} too far. State wrong, reset EKF", dist));
         }
@@ -229,11 +230,11 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                     }
                 }
             }
-//            HubLogger::watch("xRefRobot", mTrackedArmor.state(0));
-//            HubLogger::watch("yRefRobot", mTrackedArmor.state(1));
-//            HubLogger::watch("zRefRobot", mTrackedArmor.state(2));
-//            HubLogger::watch("yawRefRobot", mTrackedArmor.state(3));
-//            HubLogger::watch("R", mTrackedArmor.state(8));
+            HubLogger::watch("xRefRobot", mTrackedArmor.state(0));
+            HubLogger::watch("yRefRobot", mTrackedArmor.state(1));
+            HubLogger::watch("zRefRobot", mTrackedArmor.state(2));
+            HubLogger::watch("yawRefRobot", mTrackedArmor.state(3));
+            HubLogger::watch("R", mTrackedArmor.state(8));
             HubLogger::watch("xDetected", candidate.first.x);
             HubLogger::watch("yDetected", candidate.first.y);
             HubLogger::watch("zDetected", candidate.first.z);
