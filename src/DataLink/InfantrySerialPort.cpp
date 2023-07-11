@@ -24,7 +24,7 @@ class InfantryRecvPacket final {
 public:
     static constexpr uint16_t id = 0x0A;
 
-    float yaw, pitch, yaw1, pitch1, bulletSpeed, speedX, speedY;
+    float yaw, pitch,  bulletSpeed, speedX, speedY;
     uint8_t color, energyMode;
     float capEnergy, chasisPower;
     explicit InfantryRecvPacket(std::array<uint8_t, 1024>& buffer) {
