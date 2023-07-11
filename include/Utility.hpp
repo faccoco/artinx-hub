@@ -100,11 +100,11 @@ typename Seq::value_type Std(const Seq& array, T avg) {
 
 std::complex<double> sqrtN(const std::complex<double>& x, double n);
 
-double ferrari(std::complex<double> a, std::complex<double> b, std::complex<double> c, std::complex<double> d,
+std::optional<double> ferrari(std::complex<double> a, std::complex<double> b, std::complex<double> c, std::complex<double> d,
                std::complex<double> e);
 
 // tuple[time,yawAngle,pitchAngle]
-std::tuple<double, double, double> solveWithoutAirDrag(glm::dvec3 targetPos, glm::dvec3 targetVel);
+std::tuple<bool, double, double, double> solveWithoutAirDrag(glm::dvec3 targetPos, glm::dvec3 targetVel);
 
 // -pi < res <= pi
 [[nodiscard]] double normalizeAngle(double a);
