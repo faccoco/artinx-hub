@@ -100,7 +100,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             std::swap(mTrackedArmor.state(8), mLastR);
             logInfo(
                 fmt::format("ArmorPredictor: Armor may experience a jump. Change Yaw, Y and R, delta yaw is {:.5f}", deltayaw));
-            HubLogger::visualLog(fmt::format("EKF Armor may experience a jump. Change Yaw, Y and R."));
+            HubLogger::visualLog(fmt::format("EKF Armor may experience a jump. Change Yaw, Y and R. delta yaw is {:.5f}", deltayaw));
         }
         auto dist = glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state));
         if(dist > mConfig.maxMatchDist) {
@@ -183,6 +183,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
 
     bool update(const double dt, const std::vector<DetectedTarget>& armors) {
         mDt = dt;
+        HubLogger::watch("dt", dt);
         Eigen::VectorXd ekfPrediction = mEKF.predict();
         bool matched = false;
         // Use KF prediction as default target state if no matched armor is found
