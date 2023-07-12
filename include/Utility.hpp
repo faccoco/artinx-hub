@@ -5,10 +5,9 @@
 #include <opencv2/opencv.hpp>
 
 #include "SuppressWarningEnd.hpp"
-
+#include <optional>
 #include <utility>
 #include <vector>
-#include <optional>
 
 struct PIDParameters final {
     double kp, ki, kd;
@@ -102,7 +101,7 @@ typename Seq::value_type Std(const Seq& array, T avg) {
 std::complex<double> sqrtN(const std::complex<double>& x, double n);
 
 std::optional<double> ferrari(std::complex<double> a, std::complex<double> b, std::complex<double> c, std::complex<double> d,
-               std::complex<double> e);
+                              std::complex<double> e);
 
 // tuple[time,yawAngle,pitchAngle]
 std::tuple<bool, double, double, double> solveWithoutAirDrag(glm::dvec3 targetPos, glm::dvec3 targetVel);
