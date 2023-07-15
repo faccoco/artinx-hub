@@ -121,7 +121,7 @@ public:
                                      yaw = yawAngle;
                                      pitch = pitchAngle;
                                  } else {
-                                    //  logInfo(fmt::format("AngleSolver: {}th armor do not satisfy maxShootDeltaYaw", i));
+                                     //  logInfo(fmt::format("AngleSolver: {}th armor do not satisfy maxShootDeltaYaw", i));
                                      HubLogger::visualLog(
                                          fmt::format("AngleSolver: {}th armor do not satisfy maxShootDelatYaw", i));
                                  }
@@ -138,12 +138,12 @@ public:
                                                  yaw.value(), pitch.value(), true, normalSolver);
                              break;
                          } else {
-                            //  logInfo(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfy "
-                            //                      "maxShootDeltaYaw, exceed max iter times"));
+                             //  logInfo(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfy "
+                             //                      "maxShootDeltaYaw, exceed max iter times"));
                              HubLogger::visualLog(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfy "
                                                               "maxShootDeltaYaw, exceed max iter times"));
                          }
-                         theta += (aVel < 0 ? glm::half_pi<double>() : -glm::half_pi<double>());
+                         theta += (aVel < 0 ? glm::two_pi<double>() / data.armorNum : -glm::two_pi<double>() / data.armorNum);
                      }
                  } };
     }

@@ -59,6 +59,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         double yaw;
         RobotType id;
         TrackingState trackingState;
+        int armorNum;
     } mTrackedArmor;
     double mLastY = 0.0, mLastR = 0.2;
     int mDetectCount = 0, mLostCount = 0;
@@ -100,7 +101,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             std::swap(mTrackedArmor.state(8), mLastR);
             logInfo(
                 fmt::format("ArmorPredictor: Armor may experience a jump. Change Yaw, Y and R, delta yaw is {:.5f}", deltayaw));
-            HubLogger::visualLog(fmt::format("EKF Armor may experience a jump. Change Yaw, Y and R. delta yaw is {:.5f}", deltayaw));
+            HubLogger::visualLog(
+                fmt::format("EKF Armor may experience a jump. Change Yaw, Y and R. delta yaw is {:.5f}", deltayaw));
         }
         auto dist = glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state));
         if(dist > mConfig.maxMatchDist) {
@@ -173,6 +175,13 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         mLastY = y, mLastR = r;
         mTrackedArmor.state << x, y, z, yaw, 0, 0, 0, 0, r;
 
+        if(armor.type == ArmorType::Large && (armor.id == 3 || armor.id == 4))
+            mTrackedArmor.armorNum = 2;
+        else if(armor.id == 6)
+            mTrackedArmor.armorNum = 3;
+        else
+            mTrackedArmor.armorNum = 4;
+
         mEKF.setState(mTrackedArmor.state);
         logInfo("ArmorPredictor: Init EKF!");
         mTrackedArmor.id = armor.id;
@@ -196,6 +205,9 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             // Difference of the current armor position and tracked armor's predicted position
             double minPositionDiff = std::numeric_limits<double>::max();
             for(const auto& armor : armors) {
+                if(armor.id != mTrackedArmor.id) {
+                    continue;
+                }
                 auto p = getArmorPos(armor);
                 if(auto positionDiff = glm::distance(predictedPosition, p); positionDiff < minPositionDiff) {
                     minPositionDiff = positionDiff;
@@ -384,7 +396,7 @@ public:
                             res.angularVel = mTrackedArmor.state(7);
                             res.radius = { mTrackedArmor.state(8), mLastR };
                             res.y = { mTrackedArmor.state(1), mLastY };
-                            res.id = mTrackedArmor.id;
+                            res.armorNum = mTrackedArmor.armorNum;
                             sendAll(car_predict_atom_v,
                                     BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
                         }
