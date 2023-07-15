@@ -67,15 +67,19 @@ public:
                      tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
                                tfPos.z + delayTime * tfLinearVel.z };
 
-                     auto [time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
+                     auto [accessible, time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
                      //                     logInfo(fmt::format("x:{}, y:{}, z:{}, xVel:{}, yVel:{}, zVel:{}", tfPos.x, tfPos.y,
                      //                     tfPos.z, tfLinearVel.x, tfLinearVel.y, tfLinearVel.z)); logInfo(fmt::format("time:{},
                      //                     yawAngle:{}, pitch:{}", time, yawAngle, pitchAngle));
                      //  HubLogger::visualLog(fmt::format(
                      //      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
                      //      posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
-                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
-                                         yawAngle, pitchAngle, true, normalSolver);
+                     if(accessible){
+                        sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
+                                            yawAngle, pitchAngle, true, normalSolver);
+                    }else{
+                        HubLogger::visualLog("AngleSolver: armor inaccessable (single armor)");
+                    }
                  },
                  [this](car_predict_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(predict_success_atom, TypedIdentifier<PredictedTarget>);
@@ -109,8 +113,12 @@ public:
                              double predictTheta = theta + aVel * predictTime;
                              glm::dvec3 predictPos = getPos(predictCenter, r, predictTheta);
 
-                             auto [airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(predictPos, lVel);
-
+                             auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(predictPos, lVel);
+                            if(!accessible){
+                                HubLogger::visualLog(
+                                         fmt::format("AngleSolver: {}th armor gets inaccessable", i));
+                                break;
+                            }
                              double requiredTime = airTime + mConfig.delay + GlobalSettings::get().latency;
                              double requiredTheta = theta + aVel * requiredTime;
 
