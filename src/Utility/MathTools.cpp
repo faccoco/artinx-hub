@@ -137,7 +137,7 @@ std::complex<double> sqrtN(const std::complex<double>& x, double n) {
     return {};
 }
 
-double ferrari(std::complex<double> a, std::complex<double> b, std::complex<double> c, std::complex<double> d,
+std::optional<double> ferrari(std::complex<double> a, std::complex<double> b, std::complex<double> c, std::complex<double> d,
                std::complex<double> e) {
     std::complex<double> x[4];
     a = 1.0 / a;
@@ -192,21 +192,24 @@ double ferrari(std::complex<double> a, std::complex<double> b, std::complex<doub
         x[0] = x[1] = (-b + a) / 4.0;
         x[2] = x[3] = (-b - a) / 4.0;
     }
-    double ans = 1000;
+    std::optional<double> ans;
     for(auto& i : x) {
-        if(i.real() > 0 && std::fabs(i.imag()) < 1e7 && i.real() < ans)
+        if(i.real() > 0 && std::fabs(i.imag()) < 1e-7 && (!ans.has_value() || i.real() < ans))
             ans = i.real();
     }
     return ans;
 }
 
-std::tuple<double, double, double> solveWithoutAirDrag(glm::dvec3 targetPos, glm::dvec3 targetVel) {
+std::tuple<bool, double, double, double> solveWithoutAirDrag(glm::dvec3 targetPos, glm::dvec3 targetVel) {
     static const double g = GlobalSettings::get().gForce;
     const double bulletSpeed = GlobalSettings::get().bulletSpeed;
-    double airDuration = ferrari(
+    std::optional<double> airDurationOpt = ferrari(
         1, 0, -(4 * g * targetPos.z + 4 * square(bulletSpeed) - 4 * square(targetVel.x) - 4 * square(targetVel.y)) / square(g),
         (8 * targetPos.x * targetVel.x + 8 * targetPos.y * targetVel.y) / square(g),
         (4 * square(targetPos.x) + 4 * square(targetPos.y) + 4 * square(targetPos.z)) / square(g));
+    if(!airDurationOpt || airDurationOpt.value() < 0)
+        return {false, 0, 0, 0};
+    double airDuration = airDurationOpt.value();
     double verticalSpeed = targetPos.z / airDuration - 0.5 * g * airDuration;
     double horizontalSpeedX = (targetPos.x + targetVel.x * airDuration) / airDuration;
     double horizontalSpeedY = (targetPos.y + targetVel.y * airDuration) / airDuration;
@@ -214,7 +217,7 @@ std::tuple<double, double, double> solveWithoutAirDrag(glm::dvec3 targetPos, glm
     double pitchAngle = std::asin(verticalSpeed / bulletSpeed);
     double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX);
 
-    return std::make_tuple(airDuration, yawAngle, pitchAngle);
+    return {true, airDuration, yawAngle, pitchAngle};
 }
 
 double normalizeAngle(double a) {

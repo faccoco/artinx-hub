@@ -63,7 +63,11 @@ public:
                     HubLogger::watch("horizontalDistance",
                                      std::sqrt(square(data->position->mVal.z) + square(data->position->mVal.x)));
                     glm::dvec3 tfPos = tf(data->position->mVal);
-                    auto [airTime, yaw, pitch] = solveWithoutAirDrag(tfPos, glm::dvec3{ 0, 0, 0 });
+                    auto [accessible, airTime, yaw, pitch] = solveWithoutAirDrag(tfPos, glm::dvec3{ 0, 0, 0 });
+                    if(!accessible) {
+                        logInfo("PeriodSolver: not accessible");
+                        // TODO: handle inaccessible cases
+                    }
                     if(!data->period.has_value()) {
                         sendAllHighPriority(set_target_info_atom_v, mGroupMask,
                                             data.value().lastUpdate.time_since_epoch().count(), yaw, pitch, false, waitSolver);
