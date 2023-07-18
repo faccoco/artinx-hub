@@ -151,7 +151,7 @@ public:
                              HubLogger::visualLog(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfy "
                                                               "maxShootDeltaYaw, exceed max iter times"));
                          }
-                         theta += (aVel < 0 ? glm::two_pi<double>() / data.armorNum : -glm::two_pi<double>() / data.armorNum);
+                         theta += (aVel < 0 ? glm::two_pi<double>() / data->armorNum : -glm::two_pi<double>() / data->armorNum);
                      }
                  } };
     }
