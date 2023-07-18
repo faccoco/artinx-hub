@@ -174,17 +174,19 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         double z = p.z - r * sin(yaw);
         mLastY = y, mLastR = r;
         mTrackedArmor.state << x, y, z, yaw, 0, 0, 0, 0, r;
+        mTrackedArmor.id = armor.id;
 
-        if(armor.type == ArmorType::Large && (armor.id == 3 || armor.id == 4))
+        int armorId = static_cast<int>(armor.id);
+        if(armor.type == ArmorType::Large && armorId >= 3 && armorId <= 5)
             mTrackedArmor.armorNum = 2;
-        else if(armor.id == 6)
+        else if(armor.id == RobotType::Outpost)
             mTrackedArmor.armorNum = 3;
         else
             mTrackedArmor.armorNum = 4;
 
         mEKF.setState(mTrackedArmor.state);
         logInfo("ArmorPredictor: Init EKF!");
-        mTrackedArmor.id = armor.id;
+
         mTrackedArmor.trackingState = TrackingState::DETECTING;
         HubLogger::visualLog(fmt::format("CarPredictor Init EKF, target: {}, armor pos ({:.3f}, {:.3f}, {:.3f} yaw {:.3f})",
                                          magic_enum::enum_name(mTrackedArmor.id), p.x, p.y, p.z, yaw));

@@ -104,7 +104,8 @@ public:
 
                      // solve and determine possible armor
                      std::optional<double> yaw, pitch;
-                     for(int i = 0; i < 4; i++) {
+                     int armorNum = data->armorNum;
+                     for(int i = 0; i < armorNum; i++) {
                          double r = R[i & 1];
                          center.z = Z[i & 1];
                          double predictTime = 0;
@@ -151,7 +152,7 @@ public:
                              HubLogger::visualLog(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfy "
                                                               "maxShootDeltaYaw, exceed max iter times"));
                          }
-                         theta += (aVel < 0 ? glm::two_pi<double>() / data->armorNum : -glm::two_pi<double>() / data->armorNum);
+                         theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
                      }
                  } };
     }
