@@ -37,7 +37,7 @@ Transform<FrameOfRef::Robot, FrameOfRef::Camera, true> CameraBase::clcTfRobot2Ca
     double yaw = gunPose.yaw + mYaw;
     double pitch = mConfig.isAtGun ? gunPose.pitch + mPitch : mPitch;
     double roll = gunPose.roll;
-    return glm::lookAtRH(glm::dvec3{ 0.0, 0.0, 0.0 },
+    return glm::lookAtRH(glm::dvec3{ mConfig.offset.x, mConfig.offset.y, mConfig.offset.z },
                          glm::dvec3{ mConfig.offset.x + std::cos(pitch) * std::cos(yaw), mConfig.offset.y + std::sin(pitch),
                                      mConfig.offset.z - std::cos(pitch) * std::sin(yaw) },
                          glm::dvec3{ sin(roll), cos(roll), 0.0 });
