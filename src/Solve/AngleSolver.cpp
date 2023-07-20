@@ -132,7 +132,7 @@ public:
                                 pitch = pitchAngle;
                             } else {
                                 logInfo(fmt::format(
-                                    "AngleSolver: {}th iteration for {}th armor for {}th armor do not satisfy maxShootDelatYaw",
+                                    "AngleSolver: {}th iteration for {}th armor do not satisfy maxShootDelatYaw",
                                     iterTimes, i));
                                 HubLogger::visualLog(fmt::format(
                                     "AngleSolver: {}th iteration for {}th armor for {}th armor do not satisfy maxShootDelatYaw",
@@ -143,8 +143,8 @@ public:
                         predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
                     }
                     if(yaw.has_value()) {
-                        logInfo(fmt::format("AngleSolver: choose {}th armor, yaw: {:.3f} pitch: {:.3f}", i, yaw.value(),
-                                            pitch.value()));
+                        // logInfo(fmt::format("AngleSolver: choose {}th armor, yaw: {:.3f} pitch: {:.3f}", i, yaw.value(),
+                        //                     pitch.value()));
                         HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
                                                          yaw.value(), pitch.value()));
                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
