@@ -135,7 +135,7 @@ public:
                                     "AngleSolver: {}th iteration for {}th armor do not satisfy maxShootDelatYaw",
                                     iterTimes, i));
                                 HubLogger::visualLog(fmt::format(
-                                    "AngleSolver: {}th iteration for {}th armor for {}th armor do not satisfy maxShootDelatYaw",
+                                    "AngleSolver: {}th iteration for {}th armor do not satisfy maxShootDelatYaw",
                                     iterTimes, i));
                             }
                             break;
