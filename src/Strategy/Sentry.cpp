@@ -94,7 +94,8 @@ public:
                 } else {
                     if(selected.selected.has_value()) {
                         mLastTarget2 = selected;
-                        if(mLastTarget1.selected.has_value() && Clock::now() - mLastTarget1.lastUpdate < recordTime) {
+                        if(mLastTarget1.selected.has_value() && Clock::now() - mLastTarget1.lastUpdate < recordTime &&
+                           mLastTarget2.selected->id != RobotType::Hero) {
                             return;
                         }
                     } else {
