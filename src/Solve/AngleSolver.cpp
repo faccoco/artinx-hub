@@ -44,117 +44,120 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
 public:
     AngleSolver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
     caf::behavior make_behavior() override {
-        return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [this](predict_success_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(predict_success_atom, TypedIdentifier<PredictedTarget>);
-                     ACTOR_EXCEPTION_PROBE();
+        return {
+            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [this](predict_success_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(predict_success_atom, TypedIdentifier<PredictedTarget>);
+                ACTOR_EXCEPTION_PROBE();
 
-                     auto data = BlackBoard::instance().get<PredictedTarget>(key);
-                     if(!(data.has_value()))
-                         return;
+                auto data = BlackBoard::instance().get<PredictedTarget>(key);
+                if(!(data.has_value()))
+                    return;
 
-                     Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->center;
-                     Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->linearVel;
-                     auto horizontalDist = std::sqrt(square(posRefRobot.mVal.z) + square(posRefRobot.mVal.x));
-                     HubLogger::watch("verticalDistance", posRefRobot.mVal.y);
-                     HubLogger::watch("horizontalDistance", horizontalDist);
+                Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->center;
+                Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->linearVel;
+                auto horizontalDist = std::sqrt(square(posRefRobot.mVal.z) + square(posRefRobot.mVal.x));
+                HubLogger::watch("verticalDistance", posRefRobot.mVal.y);
+                HubLogger::watch("horizontalDistance", horizontalDist);
 
-                     //(forward:+y,right:+x)
-                     glm::dvec3 tfPos = tf(posRefRobot.mVal);
-                     glm::dvec3 tfLinearVel = tf(linearVel.mVal);
+                //(forward:+y,right:+x)
+                glm::dvec3 tfPos = tf(posRefRobot.mVal);
+                glm::dvec3 tfLinearVel = tf(linearVel.mVal);
 
-                     const auto delayTime = mConfig.delay + GlobalSettings::get().latency;
-                     tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
-                               tfPos.z + delayTime * tfLinearVel.z };
+                const auto delayTime = mConfig.delay + GlobalSettings::get().latency;
+                tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
+                          tfPos.z + delayTime * tfLinearVel.z };
 
-                     auto [accessible, time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
-                     //                     logInfo(fmt::format("x:{}, y:{}, z:{}, xVel:{}, yVel:{}, zVel:{}", tfPos.x, tfPos.y,
-                     //                     tfPos.z, tfLinearVel.x, tfLinearVel.y, tfLinearVel.z)); logInfo(fmt::format("time:{},
-                     //                     yawAngle:{}, pitch:{}", time, yawAngle, pitchAngle));
-                     //  HubLogger::visualLog(fmt::format(
-                     //      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
-                     //      posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
-                     if(accessible){
-                        sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
-                                            yawAngle, pitchAngle, true, normalSolver);
-                    }else{
-                        HubLogger::visualLog("AngleSolver: armor inaccessable (single armor)");
-                    }
-                 },
-                 [this](car_predict_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(predict_success_atom, TypedIdentifier<PredictedTarget>);
-                     ACTOR_EXCEPTION_PROBE();
+                auto [accessible, time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
+                //                     logInfo(fmt::format("x:{}, y:{}, z:{}, xVel:{}, yVel:{}, zVel:{}", tfPos.x, tfPos.y,
+                //                     tfPos.z, tfLinearVel.x, tfLinearVel.y, tfLinearVel.z)); logInfo(fmt::format("time:{},
+                //                     yawAngle:{}, pitch:{}", time, yawAngle, pitchAngle));
+                //  HubLogger::visualLog(fmt::format(
+                //      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
+                //      posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
+                if(accessible) {
+                    sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
+                                        yawAngle, pitchAngle, true, normalSolver);
+                } else {
+                    HubLogger::visualLog("AngleSolver: armor inaccessable (single armor)");
+                }
+            },
+            [this](car_predict_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(predict_success_atom, TypedIdentifier<PredictedTarget>);
+                ACTOR_EXCEPTION_PROBE();
 
-                     auto data = BlackBoard::instance().get<PredictedTarget>(key);
-                     if(!(data.has_value()))
-                         return;
+                auto data = BlackBoard::instance().get<PredictedTarget>(key);
+                if(!(data.has_value()))
+                    return;
 
-                     glm::dvec3 center = tf(data->center.mVal);
-                     double theta = -data->yaw.mVal;
-                     glm::dvec3 lVel = tf(data->linearVel.mVal);
-                     double aVel = -data->angularVel.mVal;
-                     double R[2] = { data->radius.first, data->radius.second };
-                     double Z[2] = { data->y.first, data->y.second };
+                glm::dvec3 center = tf(data->center.mVal);
+                double theta = -data->yaw.mVal;
+                glm::dvec3 lVel = tf(data->linearVel.mVal);
+                double aVel = -data->angularVel.mVal;
+                double R[2] = { data->radius.first, data->radius.second };
+                double Z[2] = { data->y.first, data->y.second };
 
-                     {
-                         glm::dvec3 pos = getPos(center, R[0], theta);
-                         HubLogger::watch("verticalDistance", pos.z);
-                         HubLogger::watch("horizontalDistance", std::sqrt(square(pos.x) + square(pos.y)));
-                     }
+                {
+                    glm::dvec3 pos = getPos(center, R[0], theta);
+                    HubLogger::watch("verticalDistance", pos.z);
+                    HubLogger::watch("horizontalDistance", std::sqrt(square(pos.x) + square(pos.y)));
+                }
 
-                     // solve and determine possible armor
-                     std::optional<double> yaw, pitch;
-                     int armorNum = data->armorNum;
-                     for(int i = 0; i < armorNum; i++) {
-                         double r = R[i & 1];
-                         center.z = Z[i & 1];
-                         double predictTime = 0;
-                         for(int iterTimes = 1; iterTimes <= 5; iterTimes++) {
-                             glm::dvec3 predictCenter = center + lVel * predictTime;
-                             double predictTheta = theta + aVel * predictTime;
-                             glm::dvec3 predictPos = getPos(predictCenter, r, predictTheta);
+                // solve and determine possible armor
+                std::optional<double> yaw, pitch;
+                int armorNum = data->armorNum;
+                for(int i = 0; i < armorNum; i++) {
+                    double r = R[i & 1];
+                    center.z = Z[i & 1];
+                    double predictTime = 0;
+                    for(int iterTimes = 1; iterTimes <= 5; iterTimes++) {
+                        glm::dvec3 predictCenter = center + lVel * predictTime;
+                        double predictTheta = theta + aVel * predictTime;
+                        glm::dvec3 predictPos = getPos(predictCenter, r, predictTheta);
 
-                             auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(predictPos, lVel);
-                            if(!accessible){
-                                HubLogger::visualLog(
-                                         fmt::format("AngleSolver: {}th armor gets inaccessable", i));
-                                break;
+                        auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(predictPos, lVel);
+                        if(!accessible) {
+                            HubLogger::visualLog(
+                                fmt::format("AngleSolver: {}th iteration for {}th armor gets inaccessible", iterTimes, i));
+                            continue;
+                        }
+                        double requiredTime = airTime + mConfig.delay + GlobalSettings::get().latency;
+                        double requiredTheta = theta + aVel * requiredTime;
+
+                        if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {
+                            if(r == 0 ||
+                               abs(normalizeAngle(requiredTheta - yawAngle - glm::pi<double>())) <=
+                                   glm::radians(mConfig.maxShootDeltaTheta)) {
+                                yaw = yawAngle;
+                                pitch = pitchAngle;
+                            } else {
+                                logInfo(fmt::format(
+                                    "AngleSolver: {}th iteration for {}th armor do not satisfy maxShootDelatYaw",
+                                    iterTimes, i));
+                                HubLogger::visualLog(fmt::format(
+                                    "AngleSolver: {}th iteration for {}th armor do not satisfy maxShootDelatYaw",
+                                    iterTimes, i));
                             }
-                             double requiredTime = airTime + mConfig.delay + GlobalSettings::get().latency;
-                             double requiredTheta = theta + aVel * requiredTime;
-
-                             if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {
-                                 if(r == 0 ||
-                                    abs(normalizeAngle(requiredTheta - yawAngle - glm::pi<double>())) <=
-                                        glm::radians(mConfig.maxShootDeltaTheta)) {
-                                     yaw = yawAngle;
-                                     pitch = pitchAngle;
-                                 } else {
-                                     //  logInfo(fmt::format("AngleSolver: {}th armor do not satisfy maxShootDeltaYaw", i));
-                                     HubLogger::visualLog(
-                                         fmt::format("AngleSolver: {}th armor do not satisfy maxShootDelatYaw", i));
-                                 }
-                                 break;
-                             }
-                             predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
-                         }
-                         if(yaw.has_value()) {
-                             //  logInfo(fmt::format("AngleSolver: choose {}th armor, yaw: {:.3f} pitch: {:.3f}", i, yaw.value(),
-                             //                      pitch.value()));
-                             //  HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
-                             //                                   yaw.value(), pitch.value()));
-                             sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
-                                                 yaw.value(), pitch.value(), true, normalSolver);
-                             break;
-                         } else {
-                             //  logInfo(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfy "
-                             //                      "maxShootDeltaYaw, exceed max iter times"));
-                             HubLogger::visualLog(fmt::format("AngleSolver: solved error occurred! Four Armor do not satisfy "
-                                                              "maxShootDeltaYaw, exceed max iter times"));
-                         }
-                         theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
-                     }
-                 } };
+                            break;
+                        }
+                        predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
+                    }
+                    if(yaw.has_value()) {
+                        // logInfo(fmt::format("AngleSolver: choose {}th armor, yaw: {:.3f} pitch: {:.3f}", i, yaw.value(),
+                        //                     pitch.value()));
+                        HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
+                                                         yaw.value(), pitch.value()));
+                        sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
+                                            yaw.value(), pitch.value(), true, normalSolver);
+                        break;
+                    } else {
+                        logInfo(fmt::format("AngleSolver: {}th Armor do not satisfy maxShootDeltaYaw", i));
+                        HubLogger::visualLog(fmt::format("AngleSolver: {}th Armor do not satisfy maxShootDeltaYaw", i));
+                    }
+                    theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
+                }
+            }
+        };
     }
 };
 
