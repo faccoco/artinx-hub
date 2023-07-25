@@ -207,9 +207,6 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             // Difference of the current armor position and tracked armor's predicted position
             double minPositionDiff = std::numeric_limits<double>::max();
             for(const auto& armor : armors) {
-                if(armor.id != mTrackedArmor.id) {
-                    continue;
-                }
                 auto p = getArmorPos(armor);
                 if(auto positionDiff = glm::distance(predictedPosition, p); positionDiff < minPositionDiff) {
                     minPositionDiff = positionDiff;
@@ -425,6 +422,7 @@ public:
                     res.angularVel = 0;
                     res.radius = { 0, 0 };
                     res.y = { res.center.mVal.y, res.center.mVal.y };
+                    res.armorNum = 1;
                     // logInfo("ArmorPredictor send");
                     HubLogger::visualLog(fmt::format("ArmorPredictor do not use predict func, position : ({:.3f} {:.3f} {:.3f}), "
                                                      "linearVel: ({:.3f} {:.3f} {:.3f})",
