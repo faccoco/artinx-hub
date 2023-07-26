@@ -1,5 +1,6 @@
 # 关于git仓库清理
 - 由于此前不小心上传了大模型到git仓库导致现在克隆极慢，现在需要执行以下操作来清理你当前所有工作的分支:
+首先删除 `./data/weights/radar_detect` 文件夹
 - 方法一：参见该[链接](https://stackoverflow.com/a/17890278),比下面的好处是能保留每个commit
 - 方法二:
 1. 在你放代码的文件夹执行`git clone https://mirrors.sustech.edu.cn/git/artinx/artinx-hub.git --branch develop --single-branch <folder>`, folder 为你要保存的文件夹名
