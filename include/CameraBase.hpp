@@ -40,13 +40,12 @@ protected:
     std::string mCameraSerialNumber;
 
     std::optional<Identifier> mHeadKey;
-    double mYaw = glm::radians(mConfig.yaw), mPitch = glm::radians(mConfig.pitch);
     cv::Mat mCameraMatrix;
     cv::Mat mDistCoefficients;
     // first rotate yaw, counterclockwise is positive, second rotate pitch, up is positive
     glm::dmat4 mFixedTransform =
-        glm::translate(glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -mConfig.pitch, glm::dvec3{ 1, 0, 0 }), -mConfig.yaw,
-                                   glm::dvec3{ 0, 1, 0 }),
+        glm::translate(glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -glm::radians(mConfig.pitch), glm::dvec3{ 1, 0, 0 }),
+                                   -glm::radians(mConfig.yaw), glm::dvec3{ 0, 1, 0 }),
                        -mConfig.offset);
     std::deque<Clock::rep> mLastFrames;
 

@@ -34,7 +34,7 @@ void CameraBase::reportFrameRate(const Clock::time_point timeStamp) {
 
 Transform<FrameOfRef::Robot, FrameOfRef::Camera, true> CameraBase::clcTfRobot2Camera(const Pose& gunPose) {
     double yaw = gunPose.yaw;
-    double pitch = mConfig.isAtGun ? gunPose.pitch + mPitch : mPitch;
+    double pitch = mConfig.isAtGun ? gunPose.pitch : 0;
     double roll = gunPose.roll;
     return mFixedTransform *
         glm::rotate(
