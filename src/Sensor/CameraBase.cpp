@@ -1,5 +1,4 @@
 #include "CameraBase.hpp"
-#include "Utility.hpp"
 
 CameraBase::CameraBase(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
 
@@ -34,11 +33,11 @@ void CameraBase::reportFrameRate(const Clock::time_point timeStamp) {
 }
 
 Transform<FrameOfRef::Robot, FrameOfRef::Camera, true> CameraBase::clcTfRobot2Camera(const Pose& gunPose) {
-    double yaw = gunPose.yaw + mYaw;
-    double pitch = mConfig.isAtGun ? gunPose.pitch + mPitch : mPitch;
+    double yaw = gunPose.yaw;
+    double pitch = mConfig.isAtGun ? gunPose.pitch : 0;
     double roll = gunPose.roll;
-    return glm::lookAtRH(glm::dvec3{ mConfig.offset.x, mConfig.offset.y, mConfig.offset.z },
-                         glm::dvec3{ mConfig.offset.x + std::cos(pitch) * std::cos(yaw), mConfig.offset.y + std::sin(pitch),
-                                     mConfig.offset.z - std::cos(pitch) * std::sin(yaw) },
-                         glm::dvec3{ sin(roll), cos(roll), 0.0 });
+    return mFixedTransform *
+        glm::rotate(
+               glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -roll, glm::dvec3{ 0, 0, 1 }), -pitch, glm::dvec3{ 1, 0, 0 }),
+               -yaw, glm::dvec3{ 0, 1, 0 });
 }
