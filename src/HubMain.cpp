@@ -44,44 +44,40 @@ static void demangle(String& typeName) {
 #endif  // ARTINXHUB_WINDOWS
 }
 
-class NodeFactory final : Unmovable {
-    std::unordered_map<std::string, std::function<caf::actor(caf::actor_system&, const HubConfig&)>> mClasses{};
+void NodeFactory::addNodeType(std::string name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction) {
+    demangle(name);
+    if(!mClasses.emplace(std::move(name), std::move(spawnFunction)).second) {
+        logError("Multiple definition of node type " + name);
+    }
+}
 
-public:
-    void addNodeType(std::string name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction) {
-        demangle(name);
-        if(!mClasses.emplace(std::move(name), std::move(spawnFunction)).second) {
-            logError("Multiple definition of node type " + name);
-        }
+caf::actor NodeFactory::buildNode(caf::actor_system& system, const std::string& name, const HubConfig& config) {
+    logInfo("Build node " + name);
+    const auto attr = config.to_dictionary().value();
+    const auto typeAttr = attr.find("type"sv);
+    if(typeAttr == attr.cend()) {
+        raiseError("Node " + name + " is lack of 'type' field.");
     }
-    caf::actor buildNode(caf::actor_system& system, const std::string& name, const HubConfig& config) {
-        logInfo("Build node " + name);
-        const auto attr = config.to_dictionary().value();
-        const auto typeAttr = attr.find("type"sv);
-        if(typeAttr == attr.cend()) {
-            raiseError("Node " + name + " is lack of 'type' field.");
-        }
-        const auto nodeTypeName = caf::to_string(typeAttr->second);
-        const auto iter = mClasses.find(nodeTypeName);
-        if(iter == mClasses.cend()) {
-            raiseError("Undefined Node Type " + nodeTypeName);
-        }
+    const auto nodeTypeName = caf::to_string(typeAttr->second);
+    const auto iter = mClasses.find(nodeTypeName);
+    if(iter == mClasses.cend()) {
+        raiseError("Undefined Node Type " + nodeTypeName);
+    }
 
-        try {
-            auto actor = iter->second(system, config);
-            system.registry().put(name, actor);
-            return actor;
-        } catch(const std::exception& e) {
-            logError(fmt::format("Build Node {} error occurred! Check the corresponding config file", name));
-            logError(e.what());
-            throw;
-        }
+    try {
+        auto actor = iter->second(system, config);
+        system.registry().put(name, actor);
+        return actor;
+    } catch(const std::exception& e) {
+        logError(fmt::format("Build Node {} error occurred! Check the corresponding config file", name));
+        logError(e.what());
+        throw;
     }
-    static NodeFactory& get() {
-        static NodeFactory instance;
-        return instance;
-    }
-};
+}
+NodeFactory& NodeFactory::get() {
+    static NodeFactory instance;
+    return instance;
+}
 
 namespace detail {
     void registerComponent(const char* name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction) {
@@ -114,15 +110,24 @@ namespace detail {
         std::vector<std::pair<caf::actor_addr, GroupMask>> res;
         res.reserve(succeed.size());
         for(const auto& id : succeed) {
-            if(const auto addr = registry.get<caf::actor_addr>(id))
+            if(const auto addr = registry.get<caf::actor_addr>(id)) {
                 res.emplace_back(addr, maskLUT[id]);
-            else {
+            } else {
                 logError("Undefined actor " + id + " (call sendAll before start_atom?)");
             }
         }
         return res;
     }
 }  // namespace detail
+
+void rebindPipeline(caf::actor_system& system, caf::dictionary<caf::config_value>& nodesConfig,
+                    std::vector<std::pair<std::string, caf::actor>> actors, const std::string& actorName, caf::actor&& newActor) {
+    for(auto&& [name, config] : nodesConfig) {
+        if(name == "global")
+            continue;
+        const auto& configDictionary = config.to_dictionary();
+    }
+}
 
 std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system& system, const HubConfig& config) {
     const auto nodes = config.to_dictionary().value();
@@ -151,7 +156,7 @@ std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system&
     return actors;
 }
 
-caf::actor createDaemonActor(caf::actor_system& sys, const std::vector<std::pair<std::string, caf::actor>>& actors);
+caf::actor createDaemonActor(caf::actor_system& sys, std::vector<std::pair<std::string, caf::actor>>& actors);
 
 RunStatus globalStatus = RunStatus::running;
 static std::mutex globalMutex;
@@ -212,13 +217,14 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
     GlobalSettings::get() = caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value();
 
     {
-        const auto actors = buildPipeline(system, pipelineConfig);
+        auto actors = buildPipeline(system, pipelineConfig);
         const auto daemon = createDaemonActor(system, actors);
 
         const caf::scoped_actor caller{ system };
         for(auto&& [name, actor] : actors) {
             caller->send(actor, start_atom_v);
         }
+        caller->send(daemon, start_atom_v);
         logInfo("ArtinxHub Started");
 
         {

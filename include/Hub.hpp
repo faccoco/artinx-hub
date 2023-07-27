@@ -1,6 +1,7 @@
 #pragma once
 #include "Common.hpp"
 #include "Config.hpp"
+#include "DataDesc.hpp"
 #include "Timer.hpp"
 
 #include "SuppressWarningBegin.hpp"
@@ -9,20 +10,36 @@
 #include "spdlog/sinks/rotating_file_sink.h"
 #include "spdlog/spdlog.h"
 
+#include <atomic>
+#include <caf/actor_addr.hpp>
 #include <caf/actor_system.hpp>
 #include <caf/config_value.hpp>
 
 #include "SuppressWarningEnd.hpp"
 
+#include <caf/event_based_actor.hpp>
+#include <caf/fwd.hpp>
+#include <caf/result.hpp>
+#include <caf/scheduled_actor.hpp>
 #include <cassert>
 #include <chrono>
 #include <functional>
 #include <mutex>
 #include <shared_mutex>
+#include <string>
 #include <string_view>
 #include <type_traits>
 
 using namespace std::literals;
+
+class NodeFactory final : Unmovable {
+    std::unordered_map<std::string, std::function<caf::actor(caf::actor_system&, const HubConfig&)>> mClasses{};
+
+public:
+    void addNodeType(std::string name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction);
+    caf::actor buildNode(caf::actor_system& system, const std::string& name, const HubConfig& config);
+    static NodeFactory& get();
+};
 
 namespace detail {
     void registerComponent(const char* name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction);
@@ -36,12 +53,16 @@ namespace detail {
             });
         }
     };
-#define HUB_REGISTER_CLASS(CLASS_NAME) static detail::HubClassRegister<CLASS_NAME> hubClassRegister##CLASS_NAME
 
     std::vector<std::string> parseSucceed(const HubConfig& config, std::string_view name);
+
     std::vector<std::pair<caf::actor_addr, GroupMask>> parseSucceed(caf::actor_system& system,
                                                                     const std::vector<std::string>& succeed);
 }  // namespace detail
+#define HUB_REGISTER_CLASS(CLASS_NAME) static detail::HubClassRegister<CLASS_NAME> HubClassRegister##CLASS_NAME
+
+void rebindPipeline(caf::actor_system& system, caf::dictionary<caf::config_value>& nodesConfig,
+                    std::vector<std::pair<std::string, caf::actor>> actors, const std::string& actorName, caf::actor&& newActor);
 
 template <typename T, typename Config, typename... Succeed>
 class HubHelper : public T {
@@ -49,7 +70,11 @@ class HubHelper : public T {
 
     template <typename Label>
     struct SucceedAddress final {
-        std::variant<std::vector<std::string>, std::vector<std::pair<caf::actor_addr, GroupMask>>> val;
+        std::vector<std::string> destName;
+        std::vector<std::pair<caf::actor_addr, GroupMask>> addrVal;
+        std::atomic_bool needReload{ true };
+        SucceedAddress() = default;
+        SucceedAddress(std::vector<std::string>&& names) : destName(names) {}
     };
 
     template <typename Arg>
@@ -64,43 +89,30 @@ class HubHelper : public T {
 
     std::tuple<SucceedAddress<Succeed>...> mDest;
     std::shared_mutex sMutex;
+    static constexpr size_t mDestSize = sizeof...(Succeed);
 
     template <typename Atom>
     const auto& getDest() {
-        auto& dest = std::get<SucceedAddress<Atom>>(mDest).val;
-        if(dest.index() == 0)
-            dest = detail::parseSucceed(this->system(), std::get<0>(dest));
-        return std::get<1>(dest);
+        auto& destInfo = std::get<SucceedAddress<Atom>>(mDest);
+        if(destInfo.needReload.load(std::memory_order_acquire)) {
+            destInfo.addrVal = detail::parseSucceed(this->system(), destInfo.destName);
+            destInfo.needReload.store(false, std::memory_order_release);
+        }
+        return destInfo.addrVal;
     }
 
-protected:
-    std::conditional_t<std::is_void_v<Config>, char, Config> mConfig;
-    GroupMask mGroupMask;
-
-    template <typename Self>
-    static Identifier generateKey(Self* thisPointer) {
-        return { typeid(Self).hash_code() ^ reinterpret_cast<uintptr_t>(thisPointer) };
+    template <typename Dst, typename... Dsts>
+    void buildDest(const HubConfig& config) {
+        std::get<SucceedAddress<Dst>>(mDest).destName = std::move(detail::parseSucceed(config, typeid(Dst).name()));
+        if constexpr(sizeof...(Dsts) > 0)
+            buildDest<Dsts...>(config);
     }
 
-public:
-    HubHelper(caf::actor_config& base, const HubConfig& config)
-        : T{ base }, mDest{ SucceedAddress<Succeed>{ detail::parseSucceed(config, typeid(Succeed).name()) }... } {
-        if constexpr(!std::is_void_v<Config>) {
-            if(auto configValue = caf::get_as<Config>(config)) {
-                mConfig = std::move(configValue.value());
-            } else {
-                logError("Parse node config file failed!");
-            }
-        }
-
-        const auto& dict = config.to_dictionary();
-        if(const auto iter1 = dict->find("group_mask"); iter1 != dict->cend()) {
-            mGroupMask = static_cast<uint32_t>(iter1->second.to_integer().value());
-        } else if(const auto iter2 = dict->find("group_id"); iter2 != dict->cend()) {
-            mGroupMask = 1U << static_cast<uint32_t>(iter2->second.to_integer().value());
-        } else {
-            mGroupMask = 1U;
-        }
+    template <typename Dst, typename... Dsts>
+    void setAddressReload(bool flag) {
+        std::get<SucceedAddress<Dst>>(mDest).needReload.store(flag, std::memory_order_release);
+        if constexpr(sizeof...(Dsts) > 0)
+            setAddressReload<Dsts...>(flag);
     }
 
     void reloadConfig() {
@@ -118,6 +130,53 @@ public:
     HubConfig getConfig() {
         std::shared_lock lock(sMutex);
         return mConfig;
+    }
+
+protected:
+    std::conditional_t<std::is_void_v<Config>, char, Config> mConfig;
+    GroupMask mGroupMask;
+
+    template <typename Self>
+    static Identifier generateKey(Self* thisPointer) {
+        return { typeid(Self).hash_code() ^ reinterpret_cast<uintptr_t>(thisPointer) };
+    }
+
+public:
+    HubHelper(caf::actor_config& base, const HubConfig& config) : T{ base }, mDest{} {
+        if constexpr(mDestSize != 0)
+            buildDest<Succeed...>(config);
+        if constexpr(!std::is_void_v<Config>) {
+            if(auto configValue = caf::get_as<Config>(config)) {
+                mConfig = std::move(configValue.value());
+            } else {
+                logError("Parse node config file failed!");
+            }
+        }
+
+        const auto& dict = config.to_dictionary();
+        if(const auto iter1 = dict->find("group_mask"); iter1 != dict->cend()) {
+            mGroupMask = static_cast<uint32_t>(iter1->second.to_integer().value());
+        } else if(const auto iter2 = dict->find("group_id"); iter2 != dict->cend()) {
+            mGroupMask = 1U << static_cast<uint32_t>(iter2->second.to_integer().value());
+        } else {
+            mGroupMask = 1U;
+        }
+        this->set_default_handler([&](caf::scheduled_actor* actor, caf::message& msg) {
+            if(msg.size() != 1)
+                return caf::print_and_drop(actor, msg);
+            switch(msg.type_at(0)) {
+                case caf::type_id<reload_address_atom>::value:
+                    if constexpr(mDestSize != 0)
+                        setAddressReload<Succeed...>(true);
+                    break;
+                case caf::type_id<reload_config_atom>::value:
+                    // TODO: config reload
+                    break;
+                default:
+                    return caf::print_and_drop(actor, msg);
+            }
+            return caf::skippable_result{};
+        });
     }
 
     template <typename Atom, typename... Args>
