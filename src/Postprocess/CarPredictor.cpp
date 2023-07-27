@@ -68,7 +68,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
     Transform<FrameOfRef::Camera, FrameOfRef::Robot, true> mTfCamera2Robot;
 
     glm::dvec3 getArmorPos(const DetectedTarget& armor) {
-        return mTfCamera2Robot(Vector<UnitType::Distance, FrameOfRef::Camera>(armor.center.mVal)).mVal;
+        return mTfCamera2Robot(armor.center).mVal;
     }
 
     double getArmorYaw(const DetectedTarget& armor) {
@@ -185,9 +185,10 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             mTrackedArmor.armorNum = 4;
 
         mEKF.setState(mTrackedArmor.state);
-        logInfo("ArmorPredictor: Init EKF!");
-
         mTrackedArmor.trackingState = TrackingState::DETECTING;
+
+        logInfo(fmt::format("CarPredictor Init EKF, target: {}, armor pos ({:.3f}, {:.3f}, {:.3f} yaw {:.3f})",
+                                         magic_enum::enum_name(mTrackedArmor.id), p.x, p.y, p.z, yaw));
         HubLogger::visualLog(fmt::format("CarPredictor Init EKF, target: {}, armor pos ({:.3f}, {:.3f}, {:.3f} yaw {:.3f})",
                                          magic_enum::enum_name(mTrackedArmor.id), p.x, p.y, p.z, yaw));
     }
@@ -205,7 +206,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             std::pair<glm::dvec3, double> candidate;
             auto predictedPosition = getArmorPosFromState(ekfPrediction);
             // Difference of the current armor position and tracked armor's predicted position
-            double minPositionDiff = std::numeric_limits<double>::max();
+            double minPositionDiff = 1000.0;
             for(const auto& armor : armors) {
                 auto p = getArmorPos(armor);
                 if(auto positionDiff = glm::distance(predictedPosition, p); positionDiff < minPositionDiff) {
@@ -213,10 +214,12 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                     candidate = { p, getArmorYaw(armor) };
                 }
             }
-            double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
+            if(minPositionDiff > 999.0){
+                HubLogger::logInfoBoth("ArmorPredictor: not found same id");
+                return false;
+            }
 
-            HubLogger::watch("diffYaw", deltaYaw);
-            HubLogger::watch("minPositionDiff", minPositionDiff);
+            double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
 
             if(minPositionDiff < mConfig.maxMatchDist) {
                 // Matching armor found
@@ -225,12 +228,14 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                 setArmorYaw(candidate.second);
                 Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, mTrackedArmor.yaw);
                 mTrackedArmor.state = mEKF.update(z);
-
                 HubLogger::visualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}, deltaYaw {:.3f}",
                                                  minPositionDiff, deltaYaw));
             } else {
                 // Check if there is same id armor in current frame
                 HubLogger::visualLog(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
+                                                 "{:.3f}, check if have another same armor",
+                                                 minPositionDiff, deltaYaw));
+                logInfo(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
                                                  "{:.3f}, check if have another same armor",
                                                  minPositionDiff, deltaYaw));
                 for(const auto& armor : armors) {
@@ -366,7 +371,7 @@ public:
                 mTfCamera2Robot = data->tfRobot2Camera.invTransformObj();
 
                 if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
-                    if(mTrackedArmor.trackingState == TrackingState::LOST) {
+                    if(mTrackedArmor.trackingState == TrackingState::LOST || (data->selected.has_value() && mTrackedArmor.id != data->selected->id)) {
                         // init
                         if(!data->selected.has_value())
                             return;
@@ -393,6 +398,8 @@ public:
                             res.yaw = mTrackedArmor.state(3);
                             res.linearVel = glm::dvec3{ mTrackedArmor.state(4), mTrackedArmor.state(5), mTrackedArmor.state(6) };
                             res.angularVel = mTrackedArmor.state(7);
+                            if(res.angularVel < glm::pi<double>())
+                                res.linearVel.mVal *= 0.75;
                             res.radius = { mTrackedArmor.state(8), mLastR };
                             res.y = { mTrackedArmor.state(1), mLastY };
                             res.armorNum = mTrackedArmor.armorNum;

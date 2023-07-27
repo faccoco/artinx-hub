@@ -18,40 +18,46 @@
 
 class SentryRecvPacket final {
 public:
-    static constexpr uint16_t id = 0x0A;
+    static constexpr uint16_t id = 0x0E;
 
     float yaw, pitch, bulletSpeed, speedX, speedY;
     uint8_t color;
     float capEnergy, chasisPower;
     explicit SentryRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
-        yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
-        pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
-        speedX = reader.readCompressedFloat(-20.0f, 0.01f);
-        speedY = reader.readCompressedFloat(-20.0f, 0.01f);
         const auto mask = reader.read();
         color = mask & 1;
+        yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
+        pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
-        capEnergy = reader.readCompressedFloat(-1.0f, 0.1f);
-        chasisPower = reader.readCompressedFloat(-1.0f, 0.01f);
+        reader.readCompressedFloat(-1.0f, 0.001f);
+        reader.readCompressedFloat(-1.0f, 0.001f);
     }
 };
 
 class SentrySendPacket final {
 public:
-    static constexpr uint16_t id = 0x0F;
+    static constexpr uint16_t id = 0x0B;
 
     float yaw, pitch;
     bool isFire;
     uint8_t hasTargets{};
 
-    PacketBuffer<5, id> buffer{};
+    PacketBuffer<15, id> buffer{};
 
     void serialize() {
         buffer = {};
+        buffer.serialize(hasTargets);
+
+        buffer.serialize(0, -20.0f, 0.01f);
+        buffer.serialize(0, -20.0f, 0.01f);
+        buffer.serialize(0, -20.0f, 0.01f);
+
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
-        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | (hasTargets << 1)));
+
+        buffer.serialize(0, -1.0f, 0.001f);
+        buffer.serialize(0, -1.0f, 0.001f);
         buffer.serializeCrc16();
     }
 };
@@ -77,7 +83,8 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
     TimePoint mLastReceivedTime, mLastTargetTime;
 
     void infantryRecvCB(const SentryRecvPacket& fdb) {
-        GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
+        if(fdb.bulletSpeed > 15)
+            GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
         HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
 
         auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
@@ -110,10 +117,10 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
 
 public:
     SentrySerialPort(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, SerialPort<SentryRecvPacket, SentrySendPacket>(
-                                         mConfig.devPath, mConfig.baudRate,
-                                         std::bind(&SentrySerialPort::infantryRecvCB, this, std::placeholders::_1),
-                                         std::bind(&SentrySerialPort::sentrySetPacket, this)),
+        : HubHelper{ base, config },
+          SerialPort<SentryRecvPacket, SentrySendPacket>(
+              mConfig.devPath, mConfig.baudRate, std::bind(&SentrySerialPort::infantryRecvCB, this, std::placeholders::_1),
+              std::bind(&SentrySerialPort::sentrySetPacket, this)),
           mKey{ generateKey(this) } {}
 
     caf::behavior make_behavior() override {
@@ -133,7 +140,7 @@ public:
                 {
                     std::lock_guard lock{ mPacketMutex };
                     mSendPacket.yaw = static_cast<float>(yawAngle);
-                    mSendPacket.pitch = static_cast<float>(pitchAngle);
+                    mSendPacket.pitch = static_cast<float>(-pitchAngle);
                     mSendPacket.isFire = isFire;
                     mLastTargetTime = Clock::now();
                 }
