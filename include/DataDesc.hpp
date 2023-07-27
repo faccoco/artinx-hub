@@ -102,6 +102,8 @@ CAF_ADD_ATOM(ArtinxHub, update_head_atom);
 CAF_ADD_ATOM(ArtinxHub, update_radar_atom);
 CAF_ADD_ATOM(ArtinxHub, simulator_step_atom);
 CAF_ADD_ATOM(ArtinxHub, timer_atom);
+CAF_ADD_ATOM(ArtinxHub, reload_address_atom);
+CAF_ADD_ATOM(ArtinxHub, reload_config_atom);
 CAF_ADD_ATOM(ArtinxHub, image_frame_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_points_atom);
 CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);

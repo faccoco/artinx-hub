@@ -38,7 +38,7 @@ test-job:
   tags:
     - linux-server
   script:
-    - cd ./build-llvm
+    - cd ./build-gnu
     - source /opt/intel/openvino_2021/bin/setupvars.sh
     - find -name "*.log" | xargs rm -v
     - make && ctest --build-config Release -j 4
