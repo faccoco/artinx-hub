@@ -53,7 +53,7 @@ public:
               mSerialPort->open(mConfig.devPath, mConfig.baudRate);
               while(globalStatus == RunStatus::running) {
                   sendPacket();
-                  std::this_thread::sleep_for(25ms);
+                  std::this_thread::sleep_for(5ms);
               }
           }) {}
 
