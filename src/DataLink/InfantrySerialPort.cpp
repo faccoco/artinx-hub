@@ -1,6 +1,5 @@
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
-#include "EnergyDetect.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "PostureData.hpp"
@@ -9,6 +8,7 @@
 #include "SerialPort/PacketHelper.hpp"
 #include "SerialPort/SerialPort.hpp"
 #include "Utility.hpp"
+#include "DetectedEnergyFan.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -85,12 +85,10 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
         HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
 
-        sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
-
         auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
         auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
-        // HubLogger::watch("yaw1", fdb.yaw);
-        // HubLogger::watch("pitch1", fdb.pitch);
+        HubLogger::watch("yaw1", fdb.yaw);
+        HubLogger::watch("pitch1", fdb.pitch);
         HubLogger::watch("deltaYaw1", deltaYaw1);
         HubLogger::watch("deltaPitch1", deltaPitch1);
 

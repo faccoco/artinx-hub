@@ -38,8 +38,8 @@ struct EnergyPredictorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, EnergyPredictorSettings& x) {
     return f.object(x).fields(f.field("fanQueueLength", x.fanQueueLength),
-                              f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 5; }),
-                              f.field("R", x.R).invariant([](auto& c) { return c.size() == 4; }));
+                              f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 6; }),
+                              f.field("R", x.R).invariant([](auto& c) { return c.size() == 5; }));
 }
 
 struct CurveFittingCost {
@@ -67,28 +67,32 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     int mLostCount = 0;
     std::deque<std::tuple<TimePoint, double, double, double>> mThetaInfos;  //(time, theta, dt, dTheta)
     ExtendedKalmanFilter mFilter;
+
+    enum class FanTrackingState { LOST, TRACKING };
+
     struct TrackedFan {
         TimePoint lastUpdate;
-        Eigen::VectorXd state;  // w, theta, xr, yr zr
-        TrackingState trackSate;
+        Eigen::VectorXd state;  // w, theta, xr, yr, zr, yaw
+        FanTrackingState trackSate;
     } mTrackFan;
     Transform<FrameOfRef::Camera, FrameOfRef::Robot, true> mTfCamera2Robot;
 
     void reset() {
         mThetaInfos.clear();
-        mTrackFan.trackSate = TrackingState::LOST;
+        mTrackFan.trackSate = FanTrackingState ::LOST;
         mDirSum = 0;
     }
 
     void init(const Eigen::VectorXd& fanPos, double theta, double yaw) {
-        double xr = fanPos(0) - fanLen * std::cos(theta), yr = fanPos(1) - fanLen * std::sin(theta);
+        double xr = fanPos(1) - fanLen * std::cos(theta), yr = fanPos(2) - fanLen * std::sin(theta),
+               zr = fanPos(3) + fanLen * std::sin(yaw);
         double w = 12;
         if(2 == mMode) {
             w = 12.5;  // TODO
         }
-        mTrackFan.state << w, theta, xr, yr, fanPos(2);
+        mTrackFan.state << w, theta, xr, yr, zr, fanPos(4);
         mFilter.setState(mTrackFan.state);
-        mTrackFan.trackSate = TrackingState::TRACKING;
+        mTrackFan.trackSate = FanTrackingState::TRACKING;
         logInfo("EnergyPredictor: Init EKF!");
     }
 
@@ -126,6 +130,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         cv::Mat rvec, tvec;
         const auto pnpRes = cv::solvePnP(mFanObjectPoints, imagePoints, cameraInfo.cameraMatrix, cameraInfo.distCoefficients,
                                          rvec, tvec, false, cv::SOLVEPNP_IPPE);
+        if(!pnpRes)
+            return std::tuple<bool, glm::dvec3, double, glm::dmat4>{ false, 0, 0, 0 };
 
         glm::dvec3 fanCenter = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
         glm::dvec3 rvecRefCam = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
@@ -206,7 +212,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     void changeTrackingState() {
         mLostCount++;
         if(mLostCount >= mLostCountThresh) {
-            mTrackFan.trackSate = TrackingState::LOST;
+            mTrackFan.trackSate = FanTrackingState ::LOST;
             mLostCount = 0;
         }
     }
@@ -233,18 +239,20 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     }
 
 public:
-    EnergyPredictor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-        int nX = 6;  // state: w theta x y z yaw
-        int nZ = 5;  // measure: theta x y z yaw
+    EnergyPredictor(caf::actor_config& base, const HubConfig& config)
+        : HubHelper{ base, config }, mKey{ generateKey(this) },
+          mTrackFan{ TimePoint(), Eigen::VectorXd::Zero(6), FanTrackingState::LOST } {
+        int nX = 6;  // state: w theta xr yr zr yaw
+        int nZ = 5;  // measure: theta xf yf zf yaw
         auto f = [this](const Eigen::VectorXd& X) {
             Eigen::VectorXd xNew = X;
             double a = mParameters[0], w = mParameters[1], p = mParameters[2];
             if(1 == mMode) {
-                xNew(0) = X(1);                                      // w = w
+                xNew(0) = X(0);  // w = w
             } else {
-                xNew(0) = a * std::sin(w * X(0) + p) + (2.090 - a);  // w = a * sin(wt + p) + (2.090 - a);
+                xNew(0) = a * std::sin(w * mDt + p) + (2.090 - a);  // w = a * sin(wt + p) + (2.090 - a);
             }
-            xNew(1) += xNew(0) * mDt;
+            xNew(1) += xNew(0) * mDt;  // theta += w * dt
             return xNew;
         };
         auto JF = [this, nX](const Eigen::VectorXd& X) {
@@ -252,22 +260,22 @@ public:
             double a = mParameters[0], w = mParameters[1], p = mParameters[2];
             if(1 == mMode) {
                 // clang-format off
-                F << 1,  0, 0, 0, 0, 0,
-                    mDt, 0, 0, 0, 0, 0,
-                      0, 0, 1, 0, 0, 0,
-                      0, 0, 0, 1, 0, 0,
-                      0, 0, 0, 0, 1, 0,
-                      0, 0, 0, 0, 0, 1;
+                F << 1,   0, 0, 0, 0, 0,
+                     mDt, 1, 0, 0, 0, 0,
+                     0,   0, 1, 0, 0, 0,
+                     0,   0, 0, 1, 0, 0,
+                     0,   0, 0, 0, 1, 0,
+                     0,   0, 0, 0, 0, 1;
                 // clang-format on
                 return F;
             } else {
                 // clang-format off
-                F << w * a * std::cos(w * X(0) + p), 0, 0, 0, 1,
-                    mDt, 0, 0, 0, 0, 0,
-                      0, 0, 1, 0, 0, 0,
-                      0, 0, 0, 1, 0, 0,
-                      0, 0, 0, 0, 1, 0,
-                      0, 0, 0, 0, 0, 1;
+                F << w * a * std::cos(w * X(0) + p), 0, 0, 0, 0, 0,
+                     mDt,                            1, 0, 0, 0, 0,
+                     0,                              0, 1, 0, 0, 0,
+                     0,                              0, 0, 1, 0, 0,
+                     0,                              0, 0, 0, 1, 0,
+                     0,                              0, 0, 0, 0, 1;
                 // clang-format on
                 return F;
             }
@@ -287,57 +295,58 @@ public:
             Eigen::MatrixXd h(nZ, nX);
             // clang-format off
             double theta = X(0), yaw = X(5); 
-            h << 0, 1, 0, 0, 0, 0,
-                 0, -fanLen * std::sin(theta), 1, 0, 0, -fanLen * std::sin(yaw),
-                 0, fanLen * std::cos(theta),  0, 1, 0, 0,
-                 0, fanLen * std::sin(theta), 0, 0, 1, fanLen * std::cos(yaw),
-                 0, 0, 0, 0, 1;
+            h << 0, 1,                                         0, 0, 0, 0,
+                 0, -fanLen * std::sin(theta) * std::cos(yaw), 1, 0, 0, -fanLen * std::cos(theta) * std::sin(yaw),
+                 0, fanLen * std::cos(theta),                  0, 1, 0, 0,
+                 0, fanLen * std::sin(theta) * std::sin(yaw),  0, 0, 1, fanLen * std::cos(theta)* std::cos(yaw),
+                 0, 0,                                         0, 0, 0, 1;
             // clang-format on
             return h;
         };
         auto Q = [this, nX]() {
             Eigen::MatrixXd Q(nX, nX);
             // clang-format off
-            Q << mConfig.Q[0], 0, 0, 0, 0, 0,
-                 0, mConfig.Q[1], 0, 0, 0, 0,
-                 0, 0, mConfig.Q[2], 0, 0, 0,
-                 0, 0, 0, mConfig.Q[3], 0, 0,
-                 0, 0, 0, 0, mConfig.Q[4], 0, 
-                 0, 0, 0, 0, 0, mConfig.Q[5];
+            Q << mConfig.Q[0], 0,            0,            0,            0,            0,
+                 0,            mConfig.Q[1], 0,            0,            0,            0,
+                 0,            0,            mConfig.Q[2], 0,            0,            0,
+                 0,            0,            0,            mConfig.Q[3], 0,            0,
+                 0,            0,            0,            0,            mConfig.Q[4], 0, 
+                 0,            0,            0,            0,            0,            mConfig.Q[5];
             // clang-format on
             return Q;
         };
         auto R = [this, nZ](const Eigen::VectorXd&) {
             Eigen::MatrixXd R(nZ, nZ);
             // clang-format off
-            R << mConfig.R[0], 0, 0, 0, 0,
-                 0, mConfig.R[1], 0, 0, 0,
-                 0, 0, mConfig.R[2], 0, 0,
-                 0, 0, 0, mConfig.R[3], 0,
-                 0, 0, 0, 0, mConfig.R[4];
+            R << mConfig.R[0], 0,            0,            0,            0,
+                 0,            mConfig.R[1], 0,            0,            0,
+                 0,            0,            mConfig.R[2], 0,            0,
+                 0,            0,            0,            mConfig.R[3], 0,
+                 0,            0,            0,            0,            mConfig.R[4];
             // clang-format on
             return R;
         };
 
         Eigen::MatrixXd p0(nX, nX);
-        p0.setIdentity();
+        // clang-format off
+        p0 << 1, 0, 0, 0, 0, 0,
+              0, 1, 0, 0, 0, 0,
+              0, 0, 1, 0, 0, 0,
+              0, 0, 0, 1, 0, 0,
+              0, 0, 0, 0, 1, 0, 
+              0, 0, 0, 0, 0, 1;
+        // clang-format on
         mFilter = ExtendedKalmanFilter{ f, h, JF, JH, Q, R, p0 };
+        mTrackFan.trackSate = FanTrackingState::LOST;
     }
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-            [&](energy_detector_control_atom, uint8_t mode, double dt) {
-                ACTOR_PROTOCOL_CHECK(energy_detector_control_atom, uint8_t, double);
-                mMode = mode;
-                if(dt > 0.5) {
-                    reset();
-                }
-            },
             [&](energy_detect_available_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(energy_detect_available_atom, TypedIdentifier<EnergyFan>);
-                mMode = 2;
+                mMode = 1;
                 auto srcFan = BlackBoard::instance().get<EnergyFan>(key).value();
-                if(!srcFan.keyPoints.empty()) {
+                if(srcFan.keyPoints.empty()) {
                     changeTrackingState();
                 } else {
                     mTfCamera2Robot = srcFan.cameraInfo.tfRobot2Camera.invTransformObj();
@@ -349,12 +358,18 @@ public:
                         saveThetaInfo(srcFan.lastUpdate, theta);
                         glm::dvec3 posRefRobot =
                             mTfCamera2Robot(Point<UnitType::Distance, FrameOfRef::Camera>(posRefCamera)).mVal;
+
+                        HubLogger::watch("rune_x", posRefRobot.x);
+                        HubLogger::watch("rune_y", posRefRobot.y);
+                        HubLogger::watch("rune_z", posRefRobot.z);
+
                         auto rmat = combine(mTfCamera2Robot, Transform<FrameOfRef::Armor, FrameOfRef::Camera>(rMatCamera));
                         double fanYaw = normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
                         fanYaw = mTrackFan.state(5) + normalizeAngle(fanYaw - mTrackFan.state(5));
                         Eigen::VectorXd fanPos(5);
+                        std::cout << fanYaw << std::endl;
                         fanPos << theta, posRefRobot.x, posRefRobot.y, posRefRobot.z, fanYaw;
-                        if(mTrackFan.trackSate == TrackingState::LOST) {
+                        if(mTrackFan.trackSate == FanTrackingState::LOST) {
                             init(fanPos, theta, fanYaw);
                         } else {
                             double dt = durationCastDouble(srcFan.lastUpdate - mTrackFan.lastUpdate);
@@ -366,7 +381,7 @@ public:
                     }
                 }
 
-                if(mTrackFan.trackSate != TrackingState::LOST) {
+                if(mTrackFan.trackSate != FanTrackingState::LOST) {
                     auto [yaw, pitch] = solveAngle(mTrackFan.state);
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(), yaw,
                                         pitch, true, normalSolver);

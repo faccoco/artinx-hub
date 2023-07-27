@@ -19,9 +19,7 @@
 #include <cctype>
 #include <cstring>
 #include <fmt/core.h>
-#include <glm/ext/matrix_transform.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/opencv.hpp>
 #include <stdexcept>
 
 #include "SuppressWarningEnd.hpp"
@@ -76,7 +74,12 @@ private:
         return nullptr;
     }
 
-    void sendFrame(const cv::Mat& frame) {
+    void sendFrame(cv::Mat& frame) {
+        if(mConfig.flip) {
+            cv::Mat flipped;
+            cv::flip(frame, flipped, -1);
+            std::swap(frame, flipped);
+        }
         reportFrameRate(SynchronizedClock::instance().now());
 
         Pose gunPose{};

@@ -8,4 +8,3 @@ struct EnergyFan final {
 };
 
 ACTOR_PROTOCOL_DEFINE(energy_detect_available_atom, TypedIdentifier<EnergyFan>);
-ACTOR_PROTOCOL_DEFINE(energy_detector_control_atom, uint8_t, double);

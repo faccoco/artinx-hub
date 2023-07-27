@@ -1,6 +1,6 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
-#include "EnergyDetect.hpp"
+#include "DetectedEnergyFan.hpp"
 #include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
@@ -33,6 +33,8 @@ struct RuneDetecorSettings final {
     double maxConvexHullThresh;
     int minContourArea;          // for contour area filter
     double rRoiSizeScale;
+
+    double rPosScale;
 };
 
 template <class Inspector>
@@ -42,7 +44,7 @@ bool inspect(Inspector& f, RuneDetecorSettings& x) {
                               f.field("lowerBlue", x.lowerBlue), f.field("roiBinThresh", x.roiBinThresh),
                               f.field("dilateKernel", x.dilateKernel), f.field("minConvexHullThresh", x.minConvexHullThresh),
                               f.field("maxConvexHullThresh", x.maxConvexHullThresh), f.field("minContourArea", x.minContourArea),
-                              f.field("rRoiSizeScale", x.rRoiSizeScale).fallback(1.0));
+                              f.field("rRoiSizeScale", x.rRoiSizeScale).fallback(1.0), f.field("rPosScale", x.rPosScale).fallback(6.5));
 }
 
 static double euclideanDistance(const cv::Point2f& p1, const cv::Point2f& p2) {
@@ -59,13 +61,6 @@ class RuneDetector final
 
     Identifier mKey;
     bool mEnable = true;
-
-    const std::vector<cv::Point3d> mRunePoints = { { +longRuneArmorWidth / 2, +runeArmorHeight / 2, 0.0 },
-                                                   { -longRuneArmorWidth / 2, +runeArmorHeight / 2, 0.0 },
-                                                   { +longRuneArmorWidth / 2, -runeArmorHeight / 2, 0.0 },
-                                                   { -longRuneArmorWidth / 2, -runeArmorHeight / 2, 0.0 }};
-
-    std::vector<cv::Point2f> mImagePoint{ 4 };
 
     void debugView(const std::string_view& name, const cv::Mat& src, const std::function<void(cv::Mat&)>& func) {
 #ifndef ARTINXHUB_DEBUG
@@ -157,6 +152,10 @@ class RuneDetector final
 
             // 计算轮廓面积与轮廓凸包面积比
             double hullArea = cv::contourArea(hull);
+            // logInfo(fmt::format("hull area is {:.3f}", hullArea));
+            if (hullArea < 2.0) {
+                continue;
+            }
             double ratio = contourArea / hullArea;
 
             // 筛掉凸包轮廓
@@ -182,7 +181,7 @@ class RuneDetector final
 
     std::optional<cv::Point2f> getRLabel(const cv::Mat& src, const cv::Point2f& smallCenter, const cv::Point2f& largeCenter) {
         double roiSize = euclideanDistance(smallCenter, largeCenter) * mConfig.rRoiSizeScale;
-        cv::Point2f RRoiCenter = smallCenter - (smallCenter - largeCenter) * 8.7;
+        cv::Point2f RRoiCenter = smallCenter - (smallCenter - largeCenter) * mConfig.rPosScale;
         // cv::Point2f RRoiCenter = smallCenter - (smallCenter - largeCenter) * 6.5; // true ratio
 
         cv::Rect2f roiRect = cv::Rect2f(RRoiCenter.x - roiSize, RRoiCenter.y - roiSize, 2 * roiSize, 2 * roiSize);
@@ -355,20 +354,19 @@ public:
                      /**
                       * 执行代码
                       */
-                     cv::Mat src = .frame;
+                     cv::Mat src = frame.frame;
                      std::vector<cv::Point2f> keyPoints;
                      detect(src, keyPoints);
 
                      logInfo(fmt::format("kpt size: {}", keyPoints.size()));
-                     // 没有r标size是4，没识别size是0
-                     if(keyPoints.size() < 5) {
-                         return;
-                     }
-
+                     
                      EnergyFan res;
-                     res.lastUpdate = data.lastUpdate;
-                     res.cameraInfo = frame.frame.cameraInfo;
-                     res.keyPoints = keyPoints;
+                     res.lastUpdate = frame.lastUpdate;
+                     res.cameraInfo = frame.info;
+                     
+                     if(keyPoints.size() == 5) {
+                         res.keyPoints = keyPoints;
+                     }
 
                      sendAll(energy_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
