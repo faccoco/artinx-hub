@@ -66,6 +66,6 @@ struct ReadableBotTag {
 
 ACTOR_PROTOCOL_DEFINE(update_radar_atom);
 ACTOR_PROTOCOL_DEFINE(radar_locate_request_atom, TypedIdentifier<RadarCameraPoints>);
-ACTOR_PROTOCOL_DEFINE(bots_locate_request_atom, TypedIdentifier<DetectedBots>);
+ACTOR_PROTOCOL_DEFINE(bot_locate_request_atom, TypedIdentifier<DetectedBots>);
 ACTOR_PROTOCOL_DEFINE(sync_position_atom, TypedIdentifier<BotsPosition>);
 #endif
