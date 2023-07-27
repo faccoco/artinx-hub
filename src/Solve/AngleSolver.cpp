@@ -117,7 +117,7 @@ public:
 
                         auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(predictPos, lVel);
                         if(!accessible) {
-                            HubLogger::logInfoBoth(fmt::format("AngleSolver: {}th armor gets inaccessible", i));
+                            // HubLogger::logInfoBoth(fmt::format("AngleSolver: {}th armor gets inaccessible", i));
                             break;
                         }
                         double requiredTime = airTime + mConfig.delay + GlobalSettings::get().latency;
@@ -129,8 +129,8 @@ public:
                                 yaw = yawAngle;
                                 pitch = pitchAngle;
                             } else {
-                                logInfo(fmt::format("AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw",
-                                                    i, deltaTheta));
+                                // logInfo(fmt::format("AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw",
+                                //                     i, deltaTheta));
                             }
                             break;
                         }
@@ -143,11 +143,11 @@ public:
                                             yaw.value(), pitch.value(), true, normalSolver);
                         return;
                     } else {
-                        logInfo(fmt::format("AngleSolver: {}th armor exceed max iter times or not satisfy maxShootDeltaYaw", i));
+                        // logInfo(fmt::format("AngleSolver: {}th armor exceed max iter times or not satisfy maxShootDeltaYaw", i));
                     }
                     theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
                 }
-                logInfo("AngleSolver: solve failed! Four Armor do not satisfy maxShootDeltaYaw");
+                // logInfo("AngleSolver: solve failed! Four Armor do not satisfy maxShootDeltaYaw");
             },
         };
     }

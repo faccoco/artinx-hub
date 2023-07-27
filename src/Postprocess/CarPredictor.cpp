@@ -232,12 +232,12 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                                                  minPositionDiff, deltaYaw));
             } else {
                 // Check if there is same id armor in current frame
-                HubLogger::visualLog(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
-                                                 "{:.3f}, check if have another same armor",
+                HubLogger::visualLog(fmt::format("ArmorPred check if have another same armorictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
+                                                 "{:.3f},",
                                                  minPositionDiff, deltaYaw));
-                logInfo(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
-                                    "{:.3f}, check if have another same armor",
-                                    minPositionDiff, deltaYaw));
+                // logInfo(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
+                //                     "{:.3f}, check if have another same armor",
+                //                     minPositionDiff, deltaYaw));
                 for(const auto& armor : armors) {
                     if(armor.id == mTrackedArmor.id) {
                         // Armor jump happens
