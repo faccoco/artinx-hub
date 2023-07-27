@@ -27,13 +27,6 @@ constexpr double heightOfArmorLightBar = 0.055;
 constexpr double widthOfLargeArmor = 0.230;
 constexpr double heightOfLargeArmor = 0.127;
 
-constexpr double longRuneArmorWidth = 0.3524;
-constexpr double shortRuneArmorWidth = 0.338;
-constexpr double runeArmorHeight = 0.3524;
-constexpr double runeRHeight = 0.700;
-
-
-
 constexpr double radiusOfTriangleArmor = 0.130;
 
 constexpr double maxRelativeSpeedOfArmor = 0.5;

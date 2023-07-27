@@ -63,8 +63,7 @@ class RuneDetector final
     const std::vector<cv::Point3d> mRunePoints = { { +longRuneArmorWidth / 2, +runeArmorHeight / 2, 0.0 },
                                                    { -longRuneArmorWidth / 2, +runeArmorHeight / 2, 0.0 },
                                                    { +longRuneArmorWidth / 2, -runeArmorHeight / 2, 0.0 },
-                                                   { -longRuneArmorWidth / 2, -runeArmorHeight / 2, 0.0 },
-                                                   { 0, runeRHeight, 0 } };
+                                                   { -longRuneArmorWidth / 2, -runeArmorHeight / 2, 0.0 }};
 
     std::vector<cv::Point2f> mImagePoint{ 4 };
 
@@ -356,7 +355,7 @@ public:
                      /**
                       * 执行代码
                       */
-                     cv::Mat src = frame.frame;
+                     cv::Mat src = .frame;
                      std::vector<cv::Point2f> keyPoints;
                      detect(src, keyPoints);
 
@@ -367,8 +366,9 @@ public:
                      }
 
                      EnergyFan res;
+                     res.lastUpdate = data.lastUpdate;
+                     res.cameraInfo = frame.frame.cameraInfo;
                      res.keyPoints = keyPoints;
-                     res.frame = frame;
 
                      sendAll(energy_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };

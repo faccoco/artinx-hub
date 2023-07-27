@@ -1,7 +1,7 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
-#include "EKF.hpp"
 #include "DetectedEnergyFan.hpp"
+#include "EKF.hpp"
 #include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
@@ -23,9 +23,11 @@
 #include "SuppressWarningEnd.hpp"
 
 static constexpr double minPositionDiff = 0.2;
-static constexpr double fanLen = 0.675;     // TODO
-static constexpr double fanHeight = 0.112;  // TODO
-static constexpr double fanWidth = 0.335;
+static constexpr double fanLen = 0.675;
+constexpr double longRuneArmorWidth = 0.3524;
+constexpr double shortRuneArmorWidth = 0.338;
+constexpr double runeArmorHeight = 0.3524;
+constexpr double runeRHeight = 0.700;
 
 struct EnergyPredictorSettings final {
     uint8_t fanQueueLength;  // 50
@@ -56,7 +58,7 @@ struct CurveFittingCost {
 class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPredictorSettings, set_target_info_atom> {
 
     Identifier mKey;
-    int mMode = 0,  mDirection = 0;  // mMode energy mode(1 small, 2 big), mDirection (-1 Clockwise, 1 anti-clockwise)
+    int mMode = 0, mDirection = 0;  // mMode energy mode(1 small, 2 big), mDirection (-1 Clockwise, 1 anti-clockwise)
     int mDirSum = 0;
     constexpr static double diffTThresh = 1e-3;
     constexpr static int mLostCountThresh = 10;
@@ -111,12 +113,10 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
 
     std::tuple<bool, glm::dvec3, double, glm::dmat4> pnpSolver(const std::vector<cv::Point2f>& keyPoints,
                                                                const CameraInfo& cameraInfo) {
-        const std::vector<cv::Point3d> mFanObjectPoints = {
-            { -fanWidth / 2, +fanHeight / 2, 0.0 },
-            { -fanWidth / 2, -fanHeight / 2, 0.0 },
-            { +fanWidth / 2, -fanHeight / 2, 0.0 },
-            { +fanWidth / 2, +fanHeight / 2, 0.0 },
-        };
+        const std::vector<cv::Point3d> mFanObjectPoints = { { +longRuneArmorWidth / 2, +runeArmorHeight / 2, 0.0 },
+                                                            { -longRuneArmorWidth / 2, +runeArmorHeight / 2, 0.0 },
+                                                            { +longRuneArmorWidth / 2, -runeArmorHeight / 2, 0.0 },
+                                                            { -longRuneArmorWidth / 2, -runeArmorHeight / 2, 0.0 } };
         std::vector<cv::Point2f> imagePoints(4);
         for(int i = 0; i < 4; ++i) {
             imagePoints[i].x = keyPoints[i].x;
@@ -148,7 +148,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         if(mThetaInfos.size() >= mConfig.fanQueueLength) {
             mThetaInfos.pop_back();
         }
-        mDirSum = dTheta > 0 ? mDirSum + 1 : mDirSum - 1; 
+        mDirSum = dTheta > 0 ? mDirSum + 1 : mDirSum - 1;
         mDirection = mDirSum > 0 ? 1 : -1;
     }
 
@@ -203,12 +203,12 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         }
     }
 
-    void changeTrackingState(){
+    void changeTrackingState() {
         mLostCount++;
-        if(mLostCount >= mLostCountThresh){
+        if(mLostCount >= mLostCountThresh) {
             mTrackFan.trackSate = TrackingState::LOST;
             mLostCount = 0;
-        } 
+        }
     }
 
     std::pair<double, double> solveAngle(const Eigen::VectorXd& X) {
@@ -240,7 +240,7 @@ public:
             Eigen::VectorXd xNew = X;
             double a = mParameters[0], w = mParameters[1], p = mParameters[2];
             if(1 == mMode) {
-                xNew(0) = X(1);  // w = w
+                xNew(0) = X(1);                                      // w = w
             } else {
                 xNew(0) = a * std::sin(w * X(0) + p) + (2.090 - a);  // w = a * sin(wt + p) + (2.090 - a);
             }
@@ -338,16 +338,17 @@ public:
                 mMode = 2;
                 auto srcFan = BlackBoard::instance().get<EnergyFan>(key).value();
                 if(!srcFan.keyPoints.empty()) {
-                   changeTrackingState();
-                }else{
+                    changeTrackingState();
+                } else {
                     mTfCamera2Robot = srcFan.cameraInfo.tfRobot2Camera.invTransformObj();
                     auto [success, posRefCamera, theta, rMatCamera] = pnpSolver(srcFan.keyPoints, srcFan.cameraInfo);
                     if(!success) {
                         logError("Energy detector pnp solve failed!");
                         changeTrackingState();
-                    }else{
+                    } else {
                         saveThetaInfo(srcFan.lastUpdate, theta);
-                        glm::dvec3 posRefRobot = mTfCamera2Robot(Point<UnitType::Distance, FrameOfRef::Camera>(posRefCamera)).mVal;
+                        glm::dvec3 posRefRobot =
+                            mTfCamera2Robot(Point<UnitType::Distance, FrameOfRef::Camera>(posRefCamera)).mVal;
                         auto rmat = combine(mTfCamera2Robot, Transform<FrameOfRef::Armor, FrameOfRef::Camera>(rMatCamera));
                         double fanYaw = normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
                         fanYaw = mTrackFan.state(5) + normalizeAngle(fanYaw - mTrackFan.state(5));
@@ -365,12 +366,11 @@ public:
                     }
                 }
 
-                if (mTrackFan.trackSate != TrackingState::LOST){
+                if(mTrackFan.trackSate != TrackingState::LOST) {
                     auto [yaw, pitch] = solveAngle(mTrackFan.state);
-                    sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(), yaw, pitch,
-                    true, normalSolver);
+                    sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(), yaw,
+                                        pitch, true, normalSolver);
                 }
-
             },
         };
     }
