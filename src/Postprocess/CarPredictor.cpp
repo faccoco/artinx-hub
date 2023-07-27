@@ -68,7 +68,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
     Transform<FrameOfRef::Camera, FrameOfRef::Robot, true> mTfCamera2Robot;
 
     glm::dvec3 getArmorPos(const DetectedTarget& armor) {
-        return mTfCamera2Robot(Vector<UnitType::Distance, FrameOfRef::Camera>(armor.center.mVal)).mVal;
+        return mTfCamera2Robot(armor.center).mVal;
     }
 
     double getArmorYaw(const DetectedTarget& armor) {

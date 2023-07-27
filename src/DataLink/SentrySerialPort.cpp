@@ -90,7 +90,11 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
-        const HeadInfo infoHead{ SynchronizedClock::instance().now(), { 0.0, -fdb.pitch, fdb.yaw } };
+        const double yaw = normalizeAngle(fdb.yaw + glm::half_pi<double>());
+        const double pitch = fdb.pitch;
+        const double roll = 0.0;
+        const HeadInfo infoHead{ SynchronizedClock::instance().now(),
+                                 { roll, pitch, yaw }};
 
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();

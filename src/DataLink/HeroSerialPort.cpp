@@ -175,12 +175,17 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
         mCapEnergy = fdb.capEnergy;
         mChasisPower = fdb.chasisPower;
 
-        const HeadInfo infoUp{ SynchronizedClock::instance().now(), { -fdb.roll, fdb.pitch, fdb.yaw } };
+        const double yaw = fdb.yaw + glm::half_pi<double>();
+        const double pitch = fdb.pitch;
+        const double roll = fdb.roll;
+        const HeadInfo infoUp{ SynchronizedClock::instance().now(),
+                               {roll, pitch, yaw}};
 
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();
         posture.tfGround2Robot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
         posture.linearVelocityOfRobot = Vector<UnitType::LinearVelocity, FrameOfRef::Ground>{ { fdb.speedX, 0, -fdb.speedY } };
+
 
         sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
         sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoUp));
