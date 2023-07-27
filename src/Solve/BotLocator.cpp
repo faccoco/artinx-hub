@@ -89,7 +89,7 @@ private:
         std::vector<uint16_t> result(boxes.size());
         std::fill_n(redUseage.begin(), 10, false);
         std::fill_n(blueUseage.begin(), 10, false);
-        for(int i = 0; i < boxes.size(); ++i) {
+        for(size_t i = 0; i < boxes.size(); ++i) {
             if(boxes[i].class_label == 10 || boxes[i].class_label == 19) {
                 noNumber.push_back(i);
                 continue;
@@ -103,7 +103,7 @@ private:
         }
         for(int index : noNumber) {
             if(boxes[index].class_label == 10) {  // blue
-                for(int i = 0; i < blueUseage.size(); ++i) {
+                for(size_t i = 0; i < blueUseage.size(); ++i) {
                     if(!blueUseage[i]) {
                         blueUseage[i] = true;
                         result[index] = i + 101;
@@ -111,7 +111,7 @@ private:
                     }
                 }
             } else {  // red
-                for(int i = 0; i < redUseage.size(); ++i) {
+                for(size_t i = 0; i < redUseage.size(); ++i) {
                     if(!redUseage[i]) {
                         redUseage[i] = true;
                         result[index] = i + 1;
@@ -181,11 +181,11 @@ private:
 
         auto idArray = generateId(botsInfo.botBoxes);
         if(mConfig.selfRed) {
-            for(int i = 0; i < dstResult.size(); ++i) {
+            for(size_t i = 0; i < dstResult.size(); ++i) {
                 result.data.push_back({ idArray[i], 28 - std::abs(dstResult[i].y / 100), 15 - std::abs(dstResult[i].x / 100) });
             }
         } else {
-            for(int i = 0; i < dstResult.size(); ++i) {
+            for(size_t i = 0; i < dstResult.size(); ++i) {
                 result.data.push_back({ idArray[i], std::abs(dstResult[i].y / 100), std::abs(dstResult[i].x / 100) });
             }
         }

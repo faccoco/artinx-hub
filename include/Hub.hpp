@@ -61,9 +61,6 @@ namespace detail {
 }  // namespace detail
 #define HUB_REGISTER_CLASS(CLASS_NAME) static detail::HubClassRegister<CLASS_NAME> HubClassRegister##CLASS_NAME
 
-void rebindPipeline(caf::actor_system& system, caf::dictionary<caf::config_value>& nodesConfig,
-                    std::vector<std::pair<std::string, caf::actor>> actors, const std::string& actorName, caf::actor&& newActor);
-
 template <typename T, typename Config, typename... Succeed>
 class HubHelper : public T {
     static_assert(std::is_base_of_v<caf::abstract_actor, T>);
