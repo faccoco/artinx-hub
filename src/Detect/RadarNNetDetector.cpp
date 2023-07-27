@@ -75,20 +75,6 @@ class RadarNNetDetector final
         return l->right > r->left || l->bottom > r->top;
     }
 
-    void dealDuplicate() {
-        std::vector<yolo::Box*> tmp;
-        std::sort(mCars.begin(), mCars.end(), comparer);
-        for(int i = 0; i < mCars.size() - 1; ++i) {
-            if(cross(mCars[i], mCars[i + 1])) {
-                if(mCars[i]->confidence > mCars[i + 1]->confidence) {
-                    tmp.push_back(mCars[i]);
-                } else {
-                    tmp.push_back(mCars[i + 1]);
-                }
-            }
-        }
-    }
-
     static bool invalidBox(const yolo::Box& src, const cv::Mat frame) {
         return src.left < 0 || src.right < 0 || src.left > src.right || src.top > src.bottom || src.right > frame.cols ||
             src.bottom > frame.rows;
@@ -117,9 +103,9 @@ class RadarNNetDetector final
     void identifyCars(DetectedBots& res) {
         std::vector<std::pair<yolo::Box*, std::vector<yolo::Box*>>> carsGroup;
         std::sort(mArmors.begin(), mArmors.end(), comparer);
-        for(int i = 0; i < mCars.size(); ++i) {
+        for(size_t i = 0; i < mCars.size(); ++i) {
             carsGroup.emplace_back(mCars[i], std::vector<yolo::Box*>{});
-            for(int j = 0; j < mArmors.size(); ++j) {
+            for(size_t j = 0; j < mArmors.size(); ++j) {
                 if(bound(mArmors[j], mCars[i])) {
                     carsGroup[i].second.push_back(mArmors[j]);
                 }

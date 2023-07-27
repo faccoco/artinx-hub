@@ -120,15 +120,6 @@ namespace detail {
     }
 }  // namespace detail
 
-void rebindPipeline(caf::actor_system& system, caf::dictionary<caf::config_value>& nodesConfig,
-                    std::vector<std::pair<std::string, caf::actor>> actors, const std::string& actorName, caf::actor&& newActor) {
-    for(auto&& [name, config] : nodesConfig) {
-        if(name == "global")
-            continue;
-        const auto& configDictionary = config.to_dictionary();
-    }
-}
-
 std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system& system, const HubConfig& config) {
     const auto nodes = config.to_dictionary().value();
 
