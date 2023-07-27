@@ -37,8 +37,12 @@ static void checkGXStatus(const GX_STATUS status) {
         "There is no call to initialize the interface",
         "Timeout error"
     };
-    if(status != GX_STATUS_SUCCESS)
-        logError(fmt::format("GX Error {}: {}", status, GXStatusList[-status]).c_str());
+    if(status != GX_STATUS_SUCCESS) {
+        if(status >= -14 && status <= 0)
+            logError(fmt::format("GX Error {}: {}", status, GXStatusList[-status]).c_str());
+        else
+            logError(fmt::format("GX Error {}: unknown error code", status).c_str());
+    }
 }
 
 class DahengLibGuard final : Unmovable {
@@ -124,7 +128,7 @@ class DahengDriver final : public CameraBase {
 
 #endif
 
-    void  openCam() {
+    void openCam() {
         GX_OPEN_PARAM deviceDesc;
         deviceDesc.accessMode = GX_ACCESS_CONTROL;
         deviceDesc.openMode = mConfig.openMode == "Index" ? GX_OPEN_MODE::GX_OPEN_INDEX : GX_OPEN_MODE::GX_OPEN_SN;

@@ -188,7 +188,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         mTrackedArmor.trackingState = TrackingState::DETECTING;
 
         logInfo(fmt::format("CarPredictor Init EKF, target: {}, armor pos ({:.3f}, {:.3f}, {:.3f} yaw {:.3f})",
-                                         magic_enum::enum_name(mTrackedArmor.id), p.x, p.y, p.z, yaw));
+                            magic_enum::enum_name(mTrackedArmor.id), p.x, p.y, p.z, yaw));
         HubLogger::visualLog(fmt::format("CarPredictor Init EKF, target: {}, armor pos ({:.3f}, {:.3f}, {:.3f} yaw {:.3f})",
                                          magic_enum::enum_name(mTrackedArmor.id), p.x, p.y, p.z, yaw));
     }
@@ -214,7 +214,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                     candidate = { p, getArmorYaw(armor) };
                 }
             }
-            if(minPositionDiff > 999.0){
+            if(minPositionDiff > 999.0) {
                 HubLogger::logInfoBoth("ArmorPredictor: not found same id");
                 return false;
             }
@@ -236,8 +236,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                                                  "{:.3f}, check if have another same armor",
                                                  minPositionDiff, deltaYaw));
                 logInfo(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
-                                                 "{:.3f}, check if have another same armor",
-                                                 minPositionDiff, deltaYaw));
+                                    "{:.3f}, check if have another same armor",
+                                    minPositionDiff, deltaYaw));
                 for(const auto& armor : armors) {
                     if(armor.id == mTrackedArmor.id) {
                         // Armor jump happens
@@ -371,7 +371,8 @@ public:
                 mTfCamera2Robot = data->tfRobot2Camera.invTransformObj();
 
                 if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
-                    if(mTrackedArmor.trackingState == TrackingState::LOST || (data->selected.has_value() && mTrackedArmor.id != data->selected->id)) {
+                    if(mTrackedArmor.trackingState == TrackingState::LOST ||
+                       (data->selected.has_value() && mTrackedArmor.id != data->selected->id)) {
                         // init
                         if(!data->selected.has_value())
                             return;

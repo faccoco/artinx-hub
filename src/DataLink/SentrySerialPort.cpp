@@ -18,7 +18,7 @@
 
 class SentryRecvPacket final {
 public:
-    static constexpr uint16_t id = 0x0E;
+    static constexpr uint16_t id = 0xE0;
 
     float yaw, pitch, bulletSpeed, speedX, speedY;
     uint8_t color;
@@ -30,34 +30,24 @@ public:
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
-        reader.readCompressedFloat(-1.0f, 0.001f);
-        reader.readCompressedFloat(-1.0f, 0.001f);
     }
 };
 
 class SentrySendPacket final {
 public:
-    static constexpr uint16_t id = 0x0B;
+    static constexpr uint16_t id = 0xB0;
 
     float yaw, pitch;
     bool isFire;
     uint8_t hasTargets{};
 
-    PacketBuffer<15, id> buffer{};
+    PacketBuffer<5, id> buffer{};
 
     void serialize() {
         buffer = {};
         buffer.serialize(hasTargets);
-
-        buffer.serialize(0, -20.0f, 0.01f);
-        buffer.serialize(0, -20.0f, 0.01f);
-        buffer.serialize(0, -20.0f, 0.01f);
-
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
-
-        buffer.serialize(0, -1.0f, 0.001f);
-        buffer.serialize(0, -1.0f, 0.001f);
         buffer.serializeCrc16();
     }
 };
@@ -97,7 +87,7 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
-        const HeadInfo infoHead{ SynchronizedClock::instance().now(), { 0.0, -fdb.pitch, fdb.yaw } };
+        const HeadInfo infoHead{ SynchronizedClock::instance().now(), { 0.0, fdb.pitch, fdb.yaw } };
 
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();
@@ -140,7 +130,7 @@ public:
                 {
                     std::lock_guard lock{ mPacketMutex };
                     mSendPacket.yaw = static_cast<float>(yawAngle);
-                    mSendPacket.pitch = static_cast<float>(-pitchAngle);
+                    mSendPacket.pitch = static_cast<float>(pitchAngle);
                     mSendPacket.isFire = isFire;
                     mLastTargetTime = Clock::now();
                 }
