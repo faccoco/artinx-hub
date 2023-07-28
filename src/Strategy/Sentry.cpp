@@ -33,9 +33,8 @@ class SentryStrategy final : public HubHelper<caf::event_based_actor, SentryStra
 
 public:
     SentryStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
-        for(auto id : mConfig.ignoredId) {
+        for(auto id : mConfig.ignoredId)
             mIgnoreId.insert(id);
-        }
     }
     caf::behavior make_behavior() override {
         return {
@@ -51,9 +50,10 @@ public:
                 std::optional<DetectedTarget> priorTarget, sameTarget, minDistTarget;
                 auto minDistance = 10000.0;
                 for(auto& target : data.targets) {
-                    if(mIgnoreId.count(static_cast<int>(target.id)) ||
-                       (GlobalSettings::get().blockEngineer && target.id == RobotType::Engineer) ||
-                       (GlobalSettings::get().blockSentry && target.id == RobotType::Sentry))
+                    if(target.id != GlobalSettings::get().priorNum &&
+                       (mIgnoreId.count(static_cast<int>(target.id)) ||
+                        (GlobalSettings::get().blockEngineer && target.id == RobotType::Engineer) ||
+                        (GlobalSettings::get().blockSentry && target.id == RobotType::Sentry)))
                         continue;
                     selected.targets.emplace_back(target);
                     auto pos = target.center.mVal;
