@@ -21,12 +21,16 @@ public:
     static constexpr uint16_t id = 0xE0;
 
     float yaw, pitch, bulletSpeed, speedX, speedY;
-    uint8_t color;
+    uint8_t color, priorNum;
     float capEnergy, chasisPower;
+    bool blockSentry, blockEngineer;
     explicit SentryRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
         const auto mask = reader.read();
         color = mask & 1;
+        priorNum = (mask >> 1) & 0x7;
+        blockEngineer = (mask >> 4) & 1;
+        blockSentry = (mask >> 5) & 1;
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
@@ -62,9 +66,9 @@ bool inspect(Inspector& f, SentrySerialPortSettings& x) {
     return f.object(x).fields(f.field("devPath", x.devPath), f.field("baudRate", x.baudRate));
 }
 
-class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySerialPortSettings, update_head_atom,
-                                                update_posture_atom, energy_detector_control_atom>,
-                               public SerialPort<SentryRecvPacket, SentrySendPacket> {
+class SentrySerialPort final
+    : public HubHelper<caf::event_based_actor, SentrySerialPortSettings, update_head_atom, update_posture_atom>,
+      public SerialPort<SentryRecvPacket, SentrySendPacket> {
     Identifier mKey;
 
     constexpr static size_t latencyLen = 100;
@@ -86,6 +90,10 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
 
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
+
+        GlobalSettings::get().priorNum = fdb.priorNum;
+        GlobalSettings::get().blockEngineer = fdb.blockEngineer;
+        GlobalSettings::get().blockSentry = fdb.blockSentry;
 
         const HeadInfo infoHead{ SynchronizedClock::instance().now(), { 0.0, fdb.pitch, fdb.yaw } };
 

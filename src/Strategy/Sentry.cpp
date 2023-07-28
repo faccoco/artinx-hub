@@ -48,10 +48,12 @@ public:
                 selected.lastUpdate = data.lastUpdate;
                 selected.tfRobot2Camera = data.tfRobot2Camera;
 
-                std::optional<DetectedTarget> heroTarget, sameTarget, minDistTarget;
+                std::optional<DetectedTarget> priorTarget, sameTarget, minDistTarget;
                 auto minDistance = 10000.0;
                 for(auto& target : data.targets) {
-                    if(mIgnoreId.count(static_cast<int>(target.id)))
+                    if(mIgnoreId.count(static_cast<int>(target.id)) ||
+                       (GlobalSettings::get().blockEngineer && target.id == RobotType::Engineer) ||
+                       (GlobalSettings::get().blockSentry && target.id == RobotType::Sentry))
                         continue;
                     selected.targets.emplace_back(target);
                     auto pos = target.center.mVal;
@@ -66,13 +68,13 @@ public:
                        (mLastTarget2.selected.has_value() && mLastTarget2.selected->id == target.id)) {
                         sameTarget = target;
                     }
-                    if(target.id == RobotType::Hero) {
-                        heroTarget = target;
+                    if(target.id == GlobalSettings::get().priorNum) {
+                        priorTarget = target;
                     }
                 }
 
-                if(heroTarget.has_value()) {
-                    selected.selected = heroTarget;
+                if(priorTarget.has_value()) {
+                    selected.selected = priorTarget;
                 } else if(sameTarget.has_value()) {
                     selected.selected = sameTarget;
                 } else {
