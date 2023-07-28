@@ -6,7 +6,6 @@
 #include <caf/allowed_unsafe_message_type.hpp>
 #include <caf/is_error_code_enum.hpp>
 #include <caf/type_id.hpp>
-#include <cstddef>
 #include <magic_enum.hpp>
 
 #include "SuppressWarningEnd.hpp"
@@ -113,7 +112,7 @@ CAF_ADD_ATOM(ArtinxHub, predict_success_atom);
 CAF_ADD_ATOM(ArtinxHub, car_predict_atom);
 CAF_ADD_ATOM(ArtinxHub, period_predict_success_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_locate_request_atom);
-CAF_ADD_ATOM(ArtinxHub, bots_locate_request_atom);
+CAF_ADD_ATOM(ArtinxHub, bot_locate_request_atom);
 CAF_ADD_ATOM(ArtinxHub, num_classify_request_atom);
 CAF_ADD_ATOM(ArtinxHub, monitor_request_atom);
 CAF_ADD_ATOM(ArtinxHub, monitor_response_atom);

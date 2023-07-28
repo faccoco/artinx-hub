@@ -32,8 +32,7 @@ set(SOURCE
     "Sensor/VideoReplay.cpp"
     "Sensor/HikDriver.cpp"
     "Sensor/CameraBase.cpp"
-    "Solve/BotsLocator.cpp"
-    "Solve/AngleSolver.cpp"
+        "Solve/AngleSolver.cpp"
     "Solve/PeriodSolver.cpp"
     "Solve/ArmorLocator.cpp"
     "Solve/RadarLocator.cpp"
@@ -61,7 +60,7 @@ set(SOURCE
     "Utility/Timer.cpp"
     "Utility/VideoRecorder.cpp"
     "Utility/MathTools.cpp"
-    "Utility/RadarInfo.cpp")
+    "Utility/RadarInfo.cpp" Solve/BotLocator.cpp)
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
@@ -213,3 +212,5 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
       ${INFERENCE_ENGINE_ROOT}/bin/intel64/${CMAKE_BUILD_TYPE}/plugins.xml
       $<TARGET_FILE_DIR:ArtinxHub>)
 endif()
+
+add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/config_templates/caf-application.conf $<TARGET_FILE_DIR:ArtinxHub>)
