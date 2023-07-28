@@ -110,53 +110,45 @@ public:
                     double r = R[i & 1];
                     center.z = Z[i & 1];
                     double predictTime = 0;
-                    for(int iterTimes = 1; iterTimes <= 5; iterTimes++) {
+                    for(int iterTimes = 0; iterTimes < 5; iterTimes++) {
                         glm::dvec3 predictCenter = center + lVel * predictTime;
                         double predictTheta = theta + aVel * predictTime;
                         glm::dvec3 predictPos = getPos(predictCenter, r, predictTheta);
 
                         auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(predictPos, lVel);
                         if(!accessible) {
-                            HubLogger::visualLog(
-                                fmt::format("AngleSolver: {}th iteration for {}th armor gets inaccessible", iterTimes, i));
-                            continue;
+                            // HubLogger::logInfoBoth(fmt::format("AngleSolver: {}th armor gets inaccessible", i));
+                            break;
                         }
                         double requiredTime = airTime + mConfig.delay + GlobalSettings::get().latency;
                         double requiredTheta = theta + aVel * requiredTime;
 
                         if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {
-                            if(r == 0 ||
-                               abs(normalizeAngle(requiredTheta - yawAngle - glm::pi<double>())) <=
-                                   glm::radians(mConfig.maxShootDeltaTheta)) {
+                            double deltaTheta = normalizeAngle(requiredTheta - yawAngle - glm::pi<double>());
+                            if(r == 0 || std::abs(deltaTheta) <= glm::radians(mConfig.maxShootDeltaTheta)) {
                                 yaw = yawAngle;
                                 pitch = pitchAngle;
                             } else {
-                                logInfo(fmt::format(
-                                    "AngleSolver: {}th iteration for {}th armor do not satisfy maxShootDelatYaw",
-                                    iterTimes, i));
-                                HubLogger::visualLog(fmt::format(
-                                    "AngleSolver: {}th iteration for {}th armor do not satisfy maxShootDelatYaw",
-                                    iterTimes, i));
+                                // logInfo(fmt::format("AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw",
+                                //                     i, deltaTheta));
                             }
                             break;
                         }
                         predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
                     }
                     if(yaw.has_value()) {
-                        // logInfo(fmt::format("AngleSolver: choose {}th armor, yaw: {:.3f} pitch: {:.3f}", i, yaw.value(),
-                        //                     pitch.value()));
                         HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
                                                          yaw.value(), pitch.value()));
                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
                                             yaw.value(), pitch.value(), true, normalSolver);
-                        break;
+                        return;
                     } else {
-                        logInfo(fmt::format("AngleSolver: {}th Armor do not satisfy maxShootDeltaYaw", i));
-                        HubLogger::visualLog(fmt::format("AngleSolver: {}th Armor do not satisfy maxShootDeltaYaw", i));
+                        // logInfo(fmt::format("AngleSolver: {}th armor exceed max iter times or not satisfy maxShootDeltaYaw", i));
                     }
                     theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
                 }
-            }
+                // logInfo("AngleSolver: solve failed! Four Armor do not satisfy maxShootDeltaYaw");
+            },
         };
     }
 };

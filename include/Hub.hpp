@@ -261,6 +261,11 @@ public:
             "VisualLogger", fmt::format("data/logs/visual_log_{}.txt", prefix), 1024 * 1024 * 5, 200000);
         visualLogger->info(msg);
     }
+
+    static void logInfoBoth(const std::string_view& msg) {
+        logInfo(msg);
+        visualLog(msg);
+    }
 };
 namespace TypeHelper {
     enum ConfigType { INT = 0, FLOAT = 1, DOUBLE = 2, STRING = 3, VECTOR = 4 };

@@ -20,9 +20,28 @@
 #include "SuppressWarningEnd.hpp"
 
 static void checkGXStatus(const GX_STATUS status) {
+    static std::string GXStatusList[] = {
+        "Success",
+        "There is an unspecified internal error that is not expected to occur",
+        "The TL library cannot be found",
+        "The device is not found",
+        "The current device is in an offline status",
+        "Invalid parameter. Generally, the pointer is NULL or the input IP and other parameter formats are invalid",
+        "Invalid handle",
+        "The interface is invalid, which refers to software interface logic error",
+        "The function is currently inaccessible or the device access mode is incorrect",
+        "The user request buffer is insufficient: the user input buffer size during the read operation is less than the actual need",
+        "The type of FeatureID used by the user is incorrect, such as an integer interface using a floating-point function code",
+        "The value written by the user is crossed",
+        "This function is not currently supported",
+        "There is no call to initialize the interface",
+        "Timeout error"
+    };
     if(status != GX_STATUS_SUCCESS) {
-        const auto error = "GX Error: " + std::to_string(status);
-        logError(error.c_str());
+        if(status >= -14 && status <= 0)
+            logError(fmt::format("GX Error {}: {}", status, GXStatusList[-status]).c_str());
+        else
+            logError(fmt::format("GX Error {}: unknown error code", status).c_str());
     }
 }
 
@@ -49,8 +68,6 @@ class DahengDriver final : public CameraBase {
     static constexpr auto pixelFormat = GX_PIXEL_FORMAT_BAYER_RG8;
     static constexpr auto pixelCast = cv::COLOR_BayerRG2RGB_EA;
     static constexpr auto pixelStorageFormat = CV_8UC1;
-
-    // first rotate yaw, counterclockwise is positive, second rotate pitch, up is positive
 
     void newFrameImpl(Clock::time_point timeStamp, const cv::Mat& frame, uint32_t width, uint32_t height) {
         cv::Mat bgr;
@@ -81,6 +98,7 @@ class DahengDriver final : public CameraBase {
         frameData.info.tfRobot2Camera = clcTfRobot2Camera(gunPose);
 
         frameData.frame = std::move(bgr);
+        // published = true;
         sendAll(image_frame_atom_v,
                 BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
     }
@@ -106,15 +124,11 @@ class DahengDriver final : public CameraBase {
 
 #endif
 
-public:
-    DahengDriver(caf::actor_config& base, const HubConfig& config) : CameraBase{ base, config }, mKey{ generateKey(this) } {
-        initLib();
-
+    void openCam() {
         GX_OPEN_PARAM deviceDesc;
         deviceDesc.accessMode = GX_ACCESS_CONTROL;
         deviceDesc.openMode = mConfig.openMode == "Index" ? GX_OPEN_MODE::GX_OPEN_INDEX : GX_OPEN_MODE::GX_OPEN_SN;
         deviceDesc.pszContent = mConfig.identifier.data();
-
         checkGXStatus(GXOpenDevice(&deviceDesc, &mDevice));
         char strSN[256];
         size_t size = 256;
@@ -232,7 +246,7 @@ public:
 #endif
     }
 
-    ~DahengDriver() override {
+    void closeCam() {
 #ifdef ARTINX_DAHENG_USB2
         mRunning.store(false, std::memory_order_release);
         mCaptureThread.join();
@@ -242,6 +256,17 @@ public:
         checkGXStatus(GXUnregisterCaptureCallback(mDevice));
 #endif
         checkGXStatus(GXCloseDevice(mDevice));
+        mDevice = NULL;
+    }
+
+public:
+    DahengDriver(caf::actor_config& base, const HubConfig& config) : CameraBase{ base, config }, mKey{ generateKey(this) } {
+        initLib();
+        openCam();
+    }
+
+    ~DahengDriver() override {
+        closeCam();
     }
 
     caf::behavior make_behavior() override {
