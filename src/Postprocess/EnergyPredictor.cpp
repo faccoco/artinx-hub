@@ -65,6 +65,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     double mParameters[4]{ 0.780, 1.884, 0.0, 0.0 };
     double mDt;
     int mLostCount = 0;
+    TimePoint mStartFitTp, mCurTp;
     std::deque<std::tuple<TimePoint, double, double, double>> mThetaInfos;  //(time, theta, dt, dTheta)
     ExtendedKalmanFilter mFilter;
 
@@ -84,9 +85,9 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     }
 
     void init(const Eigen::VectorXd& fanPos, double theta, double yaw) {
-        double xr = fanPos(1) - fanLen * std::cos(theta), yr = fanPos(2) - fanLen * std::sin(theta),
-               zr = fanPos(3) + fanLen * std::sin(yaw);
-        double w = 12;
+        double xr = fanPos(1) - fanLen * std::cos(theta) * std::cos(yaw), yr = fanPos(2) - fanLen * std::sin(theta),
+               zr = fanPos(3) + fanLen * std::cos(theta) * std::sin(yaw);
+        double w = 0;
         if(2 == mMode) {
             w = 12.5;  // TODO
         }
@@ -102,15 +103,11 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     }
 
     double clcTheta(const cv::Point2f& rCenter, const cv::Point2f& fanCenter) {
-        double dy = rCenter.y - fanCenter.y, dx = rCenter.x - fanCenter.x;
+        double dy = rCenter.y - fanCenter.y, dx = fanCenter.x - rCenter.x;
         return std::atan2(dy, dx);
     }
 
     cv::Point2f clcFanImgCenter(const std::vector<cv::Point2f>& imagePoints) {
-        if(imagePoints.size() != 4) {
-            logError("EnergyDetector image point size != 4!");
-            return {};
-        }
         return { (imagePoints[0].x + imagePoints[1].x + imagePoints[2].x + imagePoints[3].x) / 4,
                  (imagePoints[0].y + imagePoints[1].y + imagePoints[2].y + imagePoints[3].y) / 4 };
     }
@@ -140,7 +137,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         auto axis = rvecRefCam / angle;
         auto rmat = glm::mat4_cast(glm::angleAxis(-angle, axis));
 
-        double theta = clcTheta(clcFanImgCenter(keyPoints), keyPoints[4]);
+        double theta = clcTheta(clcFanImgCenter(imagePoints), keyPoints[4]);
         return std::make_tuple(pnpRes, fanCenter, theta, rmat);
     }
 
@@ -241,18 +238,19 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
 public:
     EnergyPredictor(caf::actor_config& base, const HubConfig& config)
         : HubHelper{ base, config }, mKey{ generateKey(this) },
-          mTrackFan{ TimePoint(), Eigen::VectorXd::Zero(6), FanTrackingState::LOST } {
-        int nX = 6;  // state: w theta xr yr zr yaw
+          mTrackFan{ TimePoint(), Eigen::VectorXd::Zero(7), FanTrackingState::LOST } {
+        int nX = 7;  // state:t w theta xr yr zr yaw
         int nZ = 5;  // measure: theta xf yf zf yaw
         auto f = [this](const Eigen::VectorXd& X) {
             Eigen::VectorXd xNew = X;
             double a = mParameters[0], w = mParameters[1], p = mParameters[2];
+            xNew(0) = X(0) + mDt; // t += dt
             if(1 == mMode) {
-                xNew(0) = X(0);  // w = w
+                xNew(1) = X(1);  // w = w
             } else {
-                xNew(0) = a * std::sin(w * mDt + p) + (2.090 - a);  // w = a * sin(wt + p) + (2.090 - a);
+                xNew(1) = a * std::sin(w * X(0) + p) + (2.090 - a);  // w = a * sin(wt + p) + (2.090 - a);
             }
-            xNew(1) += xNew(0) * mDt;  // theta += w * dt
+            xNew(2) += xNew(1) * mDt;  // theta += w * dt
             return xNew;
         };
         auto JF = [this, nX](const Eigen::VectorXd& X) {
@@ -260,22 +258,24 @@ public:
             double a = mParameters[0], w = mParameters[1], p = mParameters[2];
             if(1 == mMode) {
                 // clang-format off
-                F << 1,   0, 0, 0, 0, 0,
-                     mDt, 1, 0, 0, 0, 0,
-                     0,   0, 1, 0, 0, 0,
-                     0,   0, 0, 1, 0, 0,
-                     0,   0, 0, 0, 1, 0,
-                     0,   0, 0, 0, 0, 1;
+                F << 1,   0, 0, 0, 0, 0, 0,
+                     0,   1, 0, 0, 0, 0, 0,
+                     0, mDt, 1, 0, 0, 0, 0,
+                     0,   0, 0, 1, 0, 0, 0,
+                     0,   0, 0, 0, 1, 0, 0,
+                     0,   0, 0, 0, 0, 1, 0,
+                     0,   0, 0, 0, 0, 0, 1;
                 // clang-format on
                 return F;
             } else {
                 // clang-format off
-                F << w * a * std::cos(w * X(0) + p), 0, 0, 0, 0, 0,
-                     mDt,                            1, 0, 0, 0, 0,
-                     0,                              0, 1, 0, 0, 0,
-                     0,                              0, 0, 1, 0, 0,
-                     0,                              0, 0, 0, 1, 0,
-                     0,                              0, 0, 0, 0, 1;
+                F << 1,   0, 0, 0, 0, 0, 0,
+                     0,   1, 0, 0, 0, 0, 0,
+                     0, mDt, 1, 0, 0, 0, 0,
+                     0,   0, 0, 1, 0, 0, 0,
+                     0,   0, 0, 0, 1, 0, 0,
+                     0,   0, 0, 0, 0, 1, 0,
+                     0,   0, 0, 0, 0, 0, 1;
                 // clang-format on
                 return F;
             }
@@ -328,14 +328,14 @@ public:
         };
 
         Eigen::MatrixXd p0(nX, nX);
-        // clang-format off
+        // clang-format off 
         p0 << 1, 0, 0, 0, 0, 0,
               0, 1, 0, 0, 0, 0,
               0, 0, 1, 0, 0, 0,
               0, 0, 0, 1, 0, 0,
-              0, 0, 0, 0, 1, 0, 
+              0, 0, 0, 0, 1, 0,
               0, 0, 0, 0, 0, 1;
-        // clang-format on
+         // clang-format on  
         mFilter = ExtendedKalmanFilter{ f, h, JF, JH, Q, R, p0 };
         mTrackFan.trackSate = FanTrackingState::LOST;
     }
@@ -359,15 +359,15 @@ public:
                         glm::dvec3 posRefRobot =
                             mTfCamera2Robot(Point<UnitType::Distance, FrameOfRef::Camera>(posRefCamera)).mVal;
 
-                        HubLogger::watch("rune_x", posRefRobot.x);
-                        HubLogger::watch("rune_y", posRefRobot.y);
-                        HubLogger::watch("rune_z", posRefRobot.z);
-
                         auto rmat = combine(mTfCamera2Robot, Transform<FrameOfRef::Armor, FrameOfRef::Camera>(rMatCamera));
                         double fanYaw = normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
                         fanYaw = mTrackFan.state(5) + normalizeAngle(fanYaw - mTrackFan.state(5));
+                        HubLogger::watch("rune_x", posRefRobot.x);
+                        HubLogger::watch("rune_y", posRefRobot.y);
+                        HubLogger::watch("rune_z", posRefRobot.z);
+                        HubLogger::watch("yaw", fanYaw);
+
                         Eigen::VectorXd fanPos(5);
-                        std::cout << fanYaw << std::endl;
                         fanPos << theta, posRefRobot.x, posRefRobot.y, posRefRobot.z, fanYaw;
                         if(mTrackFan.trackSate == FanTrackingState::LOST) {
                             init(fanPos, theta, fanYaw);
