@@ -256,7 +256,6 @@ class DahengDriver final : public CameraBase {
         checkGXStatus(GXUnregisterCaptureCallback(mDevice));
 #endif
         checkGXStatus(GXCloseDevice(mDevice));
-        std::cout << "close" << std::endl;
         mDevice = NULL;
     }
 
