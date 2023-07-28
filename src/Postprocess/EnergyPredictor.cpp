@@ -65,7 +65,6 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     double mParameters[4]{ 0.780, 1.884, 0.0, 0.0 };
     double mDt;
     int mLostCount = 0;
-    TimePoint mStartFitTp, mCurTp;
     std::deque<std::tuple<TimePoint, double, double, double>> mThetaInfos;  //(time, theta, dt, dTheta)
     ExtendedKalmanFilter mFilter;
 
@@ -91,7 +90,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         if(2 == mMode) {
             w = 12.5;  // TODO
         }
-        mTrackFan.state << w, theta, xr, yr, zr, fanPos(4);
+        mTrackFan.state << 0, w, theta, xr, yr, zr, fanPos(4);
         mFilter.setState(mTrackFan.state);
         mTrackFan.trackSate = FanTrackingState::TRACKING;
         logInfo("EnergyPredictor: Init EKF!");
@@ -184,8 +183,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
 
     Eigen::VectorXd getFanPosFromState(const Eigen::VectorXd& X) {
         Eigen::VectorXd fanPos(5);
-        double rLabelX = X(2), rLabelY = X(3), rLabeZ = X(4);
-        double theta = X(1), yaw = X(5);
+        double rLabelX = X(3), rLabelY = X(4), rLabeZ = X(5);
+        double theta = X(2), yaw = X(6);
         fanPos(0) = theta;
         fanPos(1) = rLabelX + fanLen * std::cos(theta) * std::cos(yaw);
         fanPos(2) = rLabelY + fanLen * std::sin(theta);
@@ -269,13 +268,13 @@ public:
                 return F;
             } else {
                 // clang-format off
-                F << 1,   0, 0, 0, 0, 0, 0,
-                     0,   1, 0, 0, 0, 0, 0,
-                     0, mDt, 1, 0, 0, 0, 0,
-                     0,   0, 0, 1, 0, 0, 0,
-                     0,   0, 0, 0, 1, 0, 0,
-                     0,   0, 0, 0, 0, 1, 0,
-                     0,   0, 0, 0, 0, 0, 1;
+                F << 1,                                             0,   0, 0, 0, 0, 0,
+                     -a * w * std::cos(w * X(0) + p) + (2.090 - a), 1,   0, 0, 0, 0, 0,
+                     0, 0,                                          mDt, 1, 0, 0, 0, 0,
+                     0, 0,                                          0,   1, 0, 0, 0, 0,
+                     0, 0,                                          0,   0, 1, 0, 0, 0,
+                     0, 0,                                          0,   0, 0, 0, 1, 0,
+                     0, 0,                                          0,   0, 0, 0, 0, 1;
                 // clang-format on
                 return F;
             }
@@ -283,35 +282,36 @@ public:
 
         auto h = [nZ](const Eigen::VectorXd& X) {
             Eigen::VectorXd Z(nZ);
-            double theta = X(1), yaw = X(5);
+            double theta = X(2), yaw = X(6);
             Z(0) = theta;  // theta
-            Z(1) = X(2) + fanLen * std::cos(theta) * std::cos(yaw);
-            Z(2) = X(3) + fanLen * std::sin(theta);
-            Z(3) = X(4) - fanLen * std::cos(theta) * std::sin(yaw);
+            Z(1) = X(3) + fanLen * std::cos(theta) * std::cos(yaw);
+            Z(2) = X(4) + fanLen * std::sin(theta);
+            Z(3) = X(5) - fanLen * std::cos(theta) * std::sin(yaw);
             Z(4) = yaw;
             return Z;
         };
         auto JH = [nX, nZ](const Eigen::VectorXd& X) {
             Eigen::MatrixXd h(nZ, nX);
             // clang-format off
-            double theta = X(0), yaw = X(5); 
-            h << 0, 1,                                         0, 0, 0, 0,
-                 0, -fanLen * std::sin(theta) * std::cos(yaw), 1, 0, 0, -fanLen * std::cos(theta) * std::sin(yaw),
-                 0, fanLen * std::cos(theta),                  0, 1, 0, 0,
-                 0, fanLen * std::sin(theta) * std::sin(yaw),  0, 0, 1, fanLen * std::cos(theta)* std::cos(yaw),
-                 0, 0,                                         0, 0, 0, 1;
+            double theta = X(1), yaw = X(6); 
+            h << 0, 0, 1,                                         0, 0, 0, 0,
+                 0, 0, -fanLen * std::sin(theta) * std::cos(yaw), 1, 0, 0, -fanLen * std::cos(theta) * std::sin(yaw),
+                 0, 0, fanLen * std::cos(theta),                  0, 1, 0, 0,
+                 0, 0, fanLen * std::sin(theta) * std::sin(yaw),  0, 0, 1, fanLen * std::cos(theta)* std::cos(yaw),
+                 0, 0, 0,                                         0, 0, 0, 1;
             // clang-format on
             return h;
         };
         auto Q = [this, nX]() {
             Eigen::MatrixXd Q(nX, nX);
             // clang-format off
-            Q << mConfig.Q[0], 0,            0,            0,            0,            0,
-                 0,            mConfig.Q[1], 0,            0,            0,            0,
-                 0,            0,            mConfig.Q[2], 0,            0,            0,
-                 0,            0,            0,            mConfig.Q[3], 0,            0,
-                 0,            0,            0,            0,            mConfig.Q[4], 0, 
-                 0,            0,            0,            0,            0,            mConfig.Q[5];
+            Q << 0, 0,            0,            0,            0,            0,            0,             
+                 0, mConfig.Q[0], 0,            0,            0,            0,            0,
+                 0, 0,            mConfig.Q[1], 0,            0,            0,            0,
+                 0, 0,            0,            mConfig.Q[2], 0,            0,            0,
+                 0, 0,            0,            0,            mConfig.Q[3], 0,            0,
+                 0, 0,            0,            0,            0,            mConfig.Q[4], 0, 
+                 0, 0,            0,            0,            0,            0,            mConfig.Q[5];
             // clang-format on
             return Q;
         };
@@ -329,12 +329,13 @@ public:
 
         Eigen::MatrixXd p0(nX, nX);
         // clang-format off 
-        p0 << 1, 0, 0, 0, 0, 0,
-              0, 1, 0, 0, 0, 0,
-              0, 0, 1, 0, 0, 0,
-              0, 0, 0, 1, 0, 0,
-              0, 0, 0, 0, 1, 0,
-              0, 0, 0, 0, 0, 1;
+        p0 << 1, 0, 0, 0, 0, 0, 0,
+              0, 1, 0, 0, 0, 0, 0,
+              0, 0, 1, 0, 0, 0, 0,
+              0, 0, 0, 1, 0, 0, 0,
+              0, 0, 0, 0, 1, 0, 0,
+              0, 0, 0, 0, 0, 1, 0,
+              0, 0, 0, 0, 0, 0, 1;
          // clang-format on  
         mFilter = ExtendedKalmanFilter{ f, h, JF, JH, Q, R, p0 };
         mTrackFan.trackSate = FanTrackingState::LOST;
