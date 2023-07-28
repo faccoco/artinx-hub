@@ -203,21 +203,23 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
 
         if(!armors.empty()) {
             // pair[pos,yaw]
-            std::pair<glm::dvec3, double> candidate;
+            bool isInitCand = false;
+            std::pair<glm::dvec3, double> candidate{};
             auto predictedPosition = getArmorPosFromState(ekfPrediction);
             // Difference of the current armor position and tracked armor's predicted position
             double minPositionDiff = 1000.0;
             for(const auto& armor : armors) {
+                if(std::isnan(armor.center.mVal.x) || std::isnan(armor.center.mVal.y) || std::isnan(armor.center.mVal.z))
+                    continue;
                 auto p = getArmorPos(armor);
                 if(auto positionDiff = glm::distance(predictedPosition, p); positionDiff < minPositionDiff) {
                     minPositionDiff = positionDiff;
                     candidate = { p, getArmorYaw(armor) };
+                    isInitCand = true;
                 }
             }
-            if(minPositionDiff > 999.0) {
-                HubLogger::logInfoBoth("ArmorPredictor: not found same id");
+            if(!isInitCand)
                 return false;
-            }
 
             double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
 
@@ -232,7 +234,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                                                  minPositionDiff, deltaYaw));
             } else {
                 // Check if there is same id armor in current frame
-                HubLogger::visualLog(fmt::format("ArmorPred check if have another same armorictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
+                HubLogger::visualLog(fmt::format("ArmorPred check if have another same armorictor: EKF update did not matched, "
+                                                 "minPositionDiff {:.3f}, deltaYaw "
                                                  "{:.3f},",
                                                  minPositionDiff, deltaYaw));
                 // logInfo(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
@@ -252,10 +255,10 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             HubLogger::watch("zRefRobot", mTrackedArmor.state(2));
             HubLogger::watch("yawRefRobot", mTrackedArmor.state(3));
             HubLogger::watch("R", mTrackedArmor.state(8));
-            HubLogger::watch("xDetected", candidate.first.x);
-            HubLogger::watch("yDetected", candidate.first.y);
-            HubLogger::watch("zDetected", candidate.first.z);
-            HubLogger::watch("yawDetected", mTrackedArmor.yaw);
+            // HubLogger::watch("xDetected", candidate.first.x);
+            // HubLogger::watch("yDetected", candidate.first.y);
+            // HubLogger::watch("zDetected", candidate.first.z);
+            // HubLogger::watch("yawDetected", mTrackedArmor.yaw);
         }
         return matched;
     }
@@ -399,8 +402,6 @@ public:
                             res.yaw = mTrackedArmor.state(3);
                             res.linearVel = glm::dvec3{ mTrackedArmor.state(4), mTrackedArmor.state(5), mTrackedArmor.state(6) };
                             res.angularVel = mTrackedArmor.state(7);
-                            if(res.angularVel < glm::pi<double>())
-                                res.linearVel.mVal *= 0.75;
                             res.radius = { mTrackedArmor.state(8), mLastR };
                             res.y = { mTrackedArmor.state(1), mLastY };
                             res.armorNum = mTrackedArmor.armorNum;
