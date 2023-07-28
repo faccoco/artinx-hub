@@ -119,14 +119,9 @@ class HubHelper : public T {
             if(auto configValue = caf::get_as<Config>(gConfig.getConfig())) {
                 mConfig = std::move(configValue.value());
             } else {
-                logError("Parse node config file failed!");
+                throw std::runtime_error("Parse node config file failed!");
             }
         }
-    }
-
-    HubConfig getConfig() {
-        std::shared_lock lock(sMutex);
-        return mConfig;
     }
 
 protected:
@@ -167,7 +162,7 @@ public:
                         setAddressReload<Succeed...>(true);
                     break;
                 case caf::type_id<reload_config_atom>::value:
-                    // TODO: config reload
+                    reloadConfig();
                     break;
                 default:
                     return caf::print_and_drop(actor, msg);
@@ -267,25 +262,25 @@ public:
         visualLog(msg);
     }
 };
-namespace TypeHelper {
-    enum ConfigType { INT = 0, FLOAT = 1, DOUBLE = 2, STRING = 3, VECTOR = 4 };
-    std::string parseTypeInfo(std::type_info info);
+// namespace TypeHelper {
+// enum ConfigType { INT = 0, FLOAT = 1, DOUBLE = 2, STRING = 3, VECTOR = 4 };
+// std::string parseTypeInfo(std::type_info info);
 
-    template <typename T>
-    std::string typeName() {
-#if defined(__clang__)
-        std::string FunName = __PRETTY_FUNCTION__;
-        size_t begPos = FunName.find("T = ");
-        size_t endPos = FunName.find(']', begPos);
-        begPos += 4;
-#elif defined(__GNUC__)
-        std::string FunName = __PRETTY_FUNCTION__;
-        size_t begPos = FunName.find("T = ");
-        size_t endPos = FunName.find(';', begPos);
-        begPos += 4;
-#elif defined(_MSC_VER)
-        static_assert(false, "I don't want to use MSVC anymore. Please complete this by yourself if you want to use MSVC.");
-#endif
-        return FunName.substr(begPos, endPos - begPos);
-    }
-}  // namespace TypeHelper
+// template <typename T>
+// std::string typeName() {
+// #if defined(__clang__)
+// std::string FunName = __PRETTY_FUNCTION__;
+// size_t begPos = FunName.find("T = ");
+// size_t endPos = FunName.find(']', begPos);
+// begPos += 4;
+// #elif defined(__GNUC__)
+// std::string FunName = __PRETTY_FUNCTION__;
+// size_t begPos = FunName.find("T = ");
+// size_t endPos = FunName.find(';', begPos);
+// begPos += 4;
+// #elif defined(_MSC_VER)
+// static_assert(false, "I don't want to use MSVC anymore. Please complete this by yourself if you want to use MSVC.");
+// #endif
+// return FunName.substr(begPos, endPos - begPos);
+//}
+//}  // namespace TypeHelper

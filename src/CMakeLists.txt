@@ -148,18 +148,17 @@ target_link_libraries(ArtinxHub PRIVATE spdlog::spdlog
 add_custom_command(
   TARGET ArtinxHub
   PRE_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/pages
+  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/pages
           $<TARGET_FILE_DIR:ArtinxHub>/pages)
 add_custom_command(
   TARGET ArtinxHub
   PRE_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/scripts
+  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/scripts
           $<TARGET_FILE_DIR:ArtinxHub>/scripts)
 add_custom_command(
   TARGET ArtinxHub
   PRE_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data
-          $<TARGET_FILE_DIR:ArtinxHub>/data)
+  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:ArtinxHub>/data)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   target_compile_options(ArtinxHub PRIVATE /W4 /WX-)
