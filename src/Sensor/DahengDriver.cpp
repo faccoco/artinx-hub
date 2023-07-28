@@ -64,14 +64,10 @@ class DahengDriver final : public CameraBase {
     GX_DEV_HANDLE mDevice;
     bool mStartFlag = false;
     Identifier mKey;
-    // volatile bool published;
 
     static constexpr auto pixelFormat = GX_PIXEL_FORMAT_BAYER_RG8;
     static constexpr auto pixelCast = cv::COLOR_BayerRG2RGB_EA;
     static constexpr auto pixelStorageFormat = CV_8UC1;
-    // static constexpr auto publishCheckInterval = 100ms;
-
-    // first rotate yaw, counterclockwise is positive, second rotate pitch, up is positive
 
     void newFrameImpl(Clock::time_point timeStamp, const cv::Mat& frame, uint32_t width, uint32_t height) {
         cv::Mat bgr;
@@ -133,9 +129,7 @@ class DahengDriver final : public CameraBase {
         deviceDesc.accessMode = GX_ACCESS_CONTROL;
         deviceDesc.openMode = mConfig.openMode == "Index" ? GX_OPEN_MODE::GX_OPEN_INDEX : GX_OPEN_MODE::GX_OPEN_SN;
         deviceDesc.pszContent = mConfig.identifier.data();
-        // do {
         checkGXStatus(GXOpenDevice(&deviceDesc, &mDevice));
-        // } while(!mDevice);
         char strSN[256];
         size_t size = 256;
         checkGXStatus(GXGetString(mDevice, GX_STRING_DEVICE_SERIAL_NUMBER, strSN, &size));
@@ -270,19 +264,6 @@ public:
     DahengDriver(caf::actor_config& base, const HubConfig& config) : CameraBase{ base, config }, mKey{ generateKey(this) } {
         initLib();
         openCam();
-        // std::this_thread::sleep_for(5s);
-        // std::thread([this]() {
-        //     while(globalStatus == RunStatus::running) {
-        //         std::this_thread::sleep_for(publishCheckInterval);
-        //         if(!published) {
-        //             std::cout << "reload" << std::endl;
-        //             closeCam();
-        //             openCam();
-        //             std::this_thread::sleep_for(5s);
-        //         }
-        //         published = false;
-        //     }
-        // }).detach();
     }
 
     ~DahengDriver() override {
