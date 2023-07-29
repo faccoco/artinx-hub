@@ -1,3 +1,4 @@
+#ifdef ARTINX_OPENVINO2022
 #include "NetInference.hpp"
 
 YoloNet::YoloNet(std::string& modelPath, float nmsThreshold, float confThreshold, int imgSize, int kptNum, int classNum,
@@ -158,3 +159,4 @@ std::vector<YoloNet::Object> YoloNet::work(cv::Mat srcImg) {
     }
     return objectResult;
 }
+#endif

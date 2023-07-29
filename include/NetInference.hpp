@@ -1,3 +1,4 @@
+#ifdef ARTINX_OPENVINO2022
 #include <vector>
 #include <string>
 #include <cmath>
@@ -50,3 +51,4 @@ private:
     ov::InferRequest inferRequest;
     ov::Tensor inputTensor1;
 };
+#endif

@@ -1,4 +1,4 @@
-#ifndef ARTINX_RADAR
+#ifdef ARTINX_OPENVINO2021
 #include "BlackBoard.hpp"
 #include "ClassifiedNum.hpp"
 #include "DataDesc.hpp"
