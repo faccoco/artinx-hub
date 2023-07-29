@@ -1,7 +1,7 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedTarget.hpp"
-#include "EnergyDetect.hpp"
+#include "DetectedEnergyFan.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
 
@@ -21,16 +21,11 @@ bool inspect(Inspector& f, InfantryStrategySettings& x) {
 
 class InfantryStrategy final : public HubHelper<caf::event_based_actor, InfantryStrategySettings, set_target_atom> {
     Identifier mKey;
-    bool mEnergyMode = false;
 
 public:
     InfantryStrategy(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [&](energy_detector_control_atom, bool enable) {
-                     ACTOR_PROTOCOL_CHECK(energy_detector_control_atom, bool);
-                     mEnergyMode = enable;
-                 },
                  [&](detect_available_atom, GroupMask, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
                      const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();

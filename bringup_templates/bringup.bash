@@ -13,4 +13,3 @@ while [ true ]; do
   /home/artinx-7/Desktop/workspaces/codes/artinx-hub/cmake-build-release/src/ArtinxHub /home/artinx-7/Desktop/workspaces/codes/artinx-hub/deploy_config/radar_recorder.conf 2>/home/artinx-7/Desktop/workspaces/codes/artinx-hub/radar.log
   sleep 1
 done
-
