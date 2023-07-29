@@ -255,10 +255,10 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             HubLogger::watch("zRefRobot", mTrackedArmor.state(2));
             HubLogger::watch("yawRefRobot", mTrackedArmor.state(3));
             HubLogger::watch("R", mTrackedArmor.state(8));
-            // HubLogger::watch("xDetected", candidate.first.x);
-            // HubLogger::watch("yDetected", candidate.first.y);
-            // HubLogger::watch("zDetected", candidate.first.z);
-            // HubLogger::watch("yawDetected", mTrackedArmor.yaw);
+            HubLogger::watch("xDetected", candidate.first.x);
+            HubLogger::watch("yDetected", candidate.first.y);
+            HubLogger::watch("zDetected", candidate.first.z);
+            HubLogger::watch("yawDetected", mTrackedArmor.yaw);
         }
         return matched;
     }

@@ -279,39 +279,37 @@ class ArmorDetector final
             }
         }
 
-        std::vector<Armor> armors;
-        std::sort(condArmors.begin(), condArmors.end(),
-                  [](const auto& armor1, const auto& armor2) { return armor1.angle < armor2.angle; });
-        std::vector<bool> used(condArmors.size());
-        //         int cnt = 0;
         for(auto& condArmor : condArmors) {
-            if(used[condArmor.rightLightIdx] || used[condArmor.leftLightIdx]) {
-                continue;
-            }
             const auto img = NumberClassifier::extractNumbers(bgrImg, condArmor.points.data(), condArmor.isLargeArmor);
-            //                        if (cnt++ % 20 == 0){
-            //                            cv::imwrite(fmt::format("record/{}.jpg",std::time(0)), img);
-            //                        }
-
-            if(mConfig.debugView) {
-                debugView("n", img, [](auto& src) {});
-            }
-
             const auto [id, prob] = mNumClassifierPtr->classify(img);
 
             condArmor.id = id;
             condArmor.prob = prob;
-            if(mConfig.excludeNegative && (id == 8 || prob < mConfig.numProbThresh))  // id 8 -> negative
+        }
+        std::sort(condArmors.begin(), condArmors.end(), [](const CondidateArmor& armor1, const CondidateArmor& armor2){
+            return armor1.prob > armor2.prob;
+        });
+        std::vector<Armor> armors;
+        std::unordered_set<int> usedLightIdx;
+        for (const auto& condArmor : condArmors){
+            if(mConfig.excludeNegative && (condArmor.id == 8 || condArmor.prob < mConfig.numProbThresh))  // id 8 -> negative
                 continue;
-            Armor armor = {};
+
+            if (usedLightIdx.count(condArmor.leftLightIdx) || usedLightIdx.count(condArmor.rightLightIdx)){
+                continue;
+            }
+            Armor armor;
             armor.light4Point = condArmor.points;
-            armor.robotType = static_cast<RobotType>(id);
+            armor.robotType = static_cast<RobotType>(condArmor.id);
             armor.isLargeArmor = condArmor.isLargeArmor;
-            armor.prob = prob;
-            used[condArmor.leftLightIdx] = true;
-            used[condArmor.rightLightIdx] = true;
+            armor.prob = condArmor.prob;
+            usedLightIdx.insert(condArmor.leftLightIdx);
+            usedLightIdx.insert(condArmor.rightLightIdx);
             armors.push_back(armor);
         }
+
+        
+            
 
         if(mConfig.debugView) {
             if(!condArmors.empty()) {
