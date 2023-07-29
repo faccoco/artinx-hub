@@ -1,57 +1,54 @@
 stages:
-  - format
-  - build-clang
-  - build-gnu
-  - test
+  - format-check
+  - clang-test
+  - gnu-test
   - deploy
 
 cache:
   key: "$CI_RUNNER_ID"
   untracked: true
 format-check:
-  stage: format
+  stage: format-check
   tags:
     - linux-server
   script:
     - clang-format --dry-run --Werror **/*.cpp **/*.hpp
 
 llvm-check:
-  stage: build-clang
+  stage: clang-test
   tags:
     - linux-server
   script:
     - source /opt/intel/openvino_2021/bin/setupvars.sh
-    - prefix=./build-llvm/src rm -rf "$prefix/data $prefix/pages $prefix/scripts"
+    - cd build-llvm/src && rm -rvf ./data ./pages ./scripts && cd ../../
     - cmake -B build-llvm -DARTINX_HUB_CAMERA=USB3 -DCMAKE_MAKE_PROGRAM=make -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/home/artinx/visual_SDK/vcpkg/scripts/buildsystems/vcpkg.cmake
     - cmake --build ./build-llvm --config Release -j 8
-
-gnu-check:
-  stage: build-gnu
-  tags:
-    - linux-server
-  script:
-    - source /opt/intel/openvino_2021/bin/setupvars.sh
-    - prefix=./build-gnu/src rm -rf "$prefix/data $prefix/pages $prefix/scripts "
-    - cmake -B build-gnu -DARTINX_HUB_CAMERA=USB3 -DCMAKE_MAKE_PROGRAM=make -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/home/artinx/visual_SDK/vcpkg/scripts/buildsystems/vcpkg.cmake
-    - cmake --build ./build-gnu --config Release -j 8
-
-test-job:
-  stage: test
-  tags:
-    - linux-server
-  script:
-    - prefix=./build-gnu/src rm -rf "$prefix/data $prefix/pages $prefix/scripts"
-    - cd ./build-gnu
-    - source /opt/intel/openvino_2021/bin/setupvars.sh
-    - find -name "*.log" | xargs rm -v
-    - make && ctest --build-config Release -j 4
+    - cd ./build-llvm && ctest --build-config Release -j 4
   artifacts:
-    name: "report"
+    name: "clang-report"
     when: on_success
     paths:
-      - ./build/testResult.log
+      - "./build-llvm/Testing/Temporary/LastTest.log"
     expire_in: 1 month
-    expose_as: "test report"
+    expose_as: "LLVM test report"
+
+gnu-check:
+  stage: gnu-test
+  tags:
+    - linux-server
+  script:
+    - source /opt/intel/openvino_2021/bin/setupvars.sh
+    - cd build-gnu/src && rm -rvf ./data ./pages ./scripts && cd ../../
+    - cmake -B build-gnu -DARTINX_HUB_CAMERA=USB3 -DCMAKE_MAKE_PROGRAM=make -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/home/artinx/visual_SDK/vcpkg/scripts/buildsystems/vcpkg.cmake
+    - cmake --build ./build-gnu --config Release -j 8
+    - cd ./build-gnu && ctest --build-config Release -j 4
+  artifacts:
+    name: "gcc-report"
+    when: on_success
+    paths:
+      - "./build-gnu/Testing/Temporary/LastTest.log"
+    expire_in: 1 month
+    expose_as: "GNU test report"
 
 deploy-job:
   stage: deploy
