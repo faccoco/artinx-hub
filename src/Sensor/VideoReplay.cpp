@@ -50,7 +50,7 @@ template <class Inspector>
 bool inspect(Inspector& f, VideoReplaySettings& x) {
     return f.object(x).fields(
         f.field("path", x.path), f.field("identifier", x.identifier).fallback(""),
-        f.field("cameraName", x.cameraName).fallback("Video"),
+        f.field("cameraName", x.cameraName).fallback("VideoReplay"),
         f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 120.0; }),
         f.field("fov", x.fov), f.field("width", x.width), f.field("height", x.height));
 }
@@ -119,17 +119,13 @@ private:
         res.info.tfRobot2Camera = glm::identity<glm::dmat4>();
         res.lastUpdate = SynchronizedClock::instance().now();
 
-#ifdef ARTINX_RADAR
         sendAll(image_frame_atom_v,
                 BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view(mConfig.cameraName)));
-#else
-        sendAll(image_frame_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res), std::string_view("VideoReplay")));
-#endif
     }
 
 public:
-    VideoReplay(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ generateKey(this) }, mVideoIndex(0) {
+    VideoReplay(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) }, mVideoIndex(0) {
         isDirectory = fs::is_directory(mConfig.path);
         if(isDirectory) {
             if(fs::is_empty(mConfig.path)) {

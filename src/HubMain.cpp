@@ -6,6 +6,8 @@
 #include "Utility.hpp"
 #include <cctype>
 #include <condition_variable>
+#include <csignal>
+#include <cstdlib>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -44,7 +46,8 @@ static void demangle(String& typeName) {
 #endif  // ARTINXHUB_WINDOWS
 }
 
-void NodeFactory::addNodeType(std::string name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction) {
+void NodeFactory::addNodeType(std::string name,
+                              std::function<caf::actor(caf::actor_system&, const HubConfig&, std::string)> spawnFunction) {
     demangle(name);
     if(!mClasses.emplace(std::move(name), std::move(spawnFunction)).second) {
         logError("Multiple definition of node type " + name);
@@ -65,7 +68,7 @@ caf::actor NodeFactory::buildNode(caf::actor_system& system, const std::string& 
     }
 
     try {
-        auto actor = iter->second(system, config);
+        auto actor = iter->second(system, config, name);
         system.registry().put(name, actor);
         return actor;
     } catch(const std::exception& e) {
@@ -80,7 +83,8 @@ NodeFactory& NodeFactory::get() {
 }
 
 namespace detail {
-    void registerComponent(const char* name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction) {
+    void registerComponent(const char* name,
+                           std::function<caf::actor(caf::actor_system&, const HubConfig&, std::string)> spawnFunction) {
         NodeFactory::get().addNodeType(std::string{ name }, std::move(spawnFunction));
     }
 
@@ -123,7 +127,7 @@ namespace detail {
 std::vector<std::pair<std::string, caf::actor>> buildPipeline(caf::actor_system& system, const HubConfig& config) {
     const auto nodes = config.to_dictionary().value();
 
-    auto&& factory = NodeFactory::get();
+    auto& factory = NodeFactory::get();
 
     std::vector<std::pair<std::string, caf::actor>> actors;
     actors.reserve(nodes.size());
@@ -204,12 +208,17 @@ int caf_main(caf::actor_system& system, const caf::actor_system_config& config) 
     if(const auto pos = globalConfigName.find('.'); pos != std::string::npos)
         globalConfigName = globalConfigName.substr(0, pos);
     auto& gConfig = ConfigHelper::instance();
-    const auto pipelineConfig = gConfig.updateConfig(argv[1]);
+    if(!gConfig.updateConfigPath(argv[1])) {
+        logInfo(fmt::format("Can't load config file {}", argv[1]));
+        raise(SIGEV_NONE);
+    }
+    const auto pipelineConfig = gConfig.getConfig();
     GlobalSettings::get() = caf::get_as<GlobalSettings>(pipelineConfig.to_dictionary().value()["global"]).value();
 
     {
         auto actors = buildPipeline(system, pipelineConfig);
         const auto daemon = createDaemonActor(system, actors);
+        system.registry().put("_DAEMON_", daemon);
 
         const caf::scoped_actor caller{ system };
         for(auto&& [name, actor] : actors) {

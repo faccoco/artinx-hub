@@ -30,7 +30,8 @@ static void checkGXStatus(const GX_STATUS status) {
         "Invalid handle",
         "The interface is invalid, which refers to software interface logic error",
         "The function is currently inaccessible or the device access mode is incorrect",
-        "The user request buffer is insufficient: the user input buffer size during the read operation is less than the actual need",
+        "The user request buffer is insufficient: the user input buffer size during the read operation is less than the actual "
+        "need",
         "The type of FeatureID used by the user is incorrect, such as an integer interface using a floating-point function code",
         "The value written by the user is crossed",
         "This function is not currently supported",
@@ -229,7 +230,7 @@ class DahengDriver final : public CameraBase {
             std::vector<uint8_t> payload(payloadSize);
             data.pImgBuf = payload.data();
 
-            while(mRunning.load(std::memory_order_acquire)) {
+            while(mRunning.load(std::memory_order_consume)) {
                 std::this_thread::sleep_until(current);
                 GXGetImage(mDevice, &data, 100);
                 if(data.nStatus == GX_FRAME_STATUS_SUCCESS && mStartFlag) {
@@ -260,7 +261,8 @@ class DahengDriver final : public CameraBase {
     }
 
 public:
-    DahengDriver(caf::actor_config& base, const HubConfig& config) : CameraBase{ base, config }, mKey{ generateKey(this) } {
+    DahengDriver(caf::actor_config& base, const HubConfig& config, std::string name)
+        : CameraBase{ base, config, std::move(name) }, mKey{ generateKey(this) } {
         initLib();
         openCam();
     }

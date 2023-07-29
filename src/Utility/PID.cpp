@@ -42,7 +42,7 @@ std::pair<double, double> PIDSimulator::step(const double dt, double target, con
 
 class PIDSimulatorTester final : public HubHelper<caf::event_based_actor, void> {
 public:
-    PIDSimulatorTester(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
+    PIDSimulatorTester(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
             // period test

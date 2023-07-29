@@ -32,7 +32,7 @@ class SentryStrategy final : public HubHelper<caf::event_based_actor, SentryStra
     std::set<int> mIgnoreId;
 
 public:
-    SentryStrategy(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
+    SentryStrategy(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
         for(auto id : mConfig.ignoredId) {
             mIgnoreId.insert(id);
         }

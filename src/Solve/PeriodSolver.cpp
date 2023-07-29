@@ -41,8 +41,8 @@ class PeriodSolver final : public HubHelper<caf::event_based_actor, PeriodSolver
     }
 
 public:
-    PeriodSolver(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, delayTime(mConfig.delay), mHeadDelay(doubleCastDuration(mConfig.headDelay)) {}
+    PeriodSolver(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, name }, delayTime(mConfig.delay), mHeadDelay(doubleCastDuration(mConfig.headDelay)) {}
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
