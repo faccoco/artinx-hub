@@ -26,14 +26,13 @@ static constexpr double minPositionDiff = 1.5;
 static constexpr double minThetaDiff = 0.9; // < pi/3
 static constexpr double diffTThresh = 0.005;
 
-static constexpr double fanLen = 0.675;
+static constexpr double fanLen = 0.705;
 static constexpr double longRuneArmorWidth = 0.3524;
 static constexpr double shortRuneArmorWidth = 0.338;
-static constexpr double runeArmorHeight = 0.3524;
-static constexpr double runeRHeight = 0.700;
+static constexpr double runeArmorHeight = 0.095;
 
 struct EnergyPredictorSettings final {
-    uint8_t fanQueueLength;  // 50
+    uint8_t fanQueueLength;  
     std::vector<double> Q;
     std::vector<double> R;
     double delay;
