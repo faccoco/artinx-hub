@@ -10,7 +10,7 @@ cd "$path" || exit # if fails to cd, exits.
 cd ..
 #ArtinxHub
 while [ true ]; do
-  /home/artinx-7/Desktop/workspaces/codes/artinx-hub/cmake-build-release/src/ArtinxHub /home/artinx-7/Desktop/workspaces/codes/artinx-hub/deploy_config/radar_recorder.conf 2>/home/artinx-7/Desktop/workspaces/codes/artinx-hub/radar.log
+  /opt/artinx-hub/build/src/ArtinxHub /opt/artinx-hub/deploy_config/$(cat /opt/deploy_target.conf).conf 2>/opt/artinx-hub.log
   sleep 1
 done
 
