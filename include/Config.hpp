@@ -7,25 +7,26 @@
 
 using HubConfig = caf::config_value;
 
+enum class ConfigControl { ApplyConfig, WriteConfig, RestoreConfig, Nop };
+
 class ConfigHelper : Uncopyable {
-    std::string configPath;
-    std::string configData;
-    HubConfig config;
+    std::string mConfigPath;
+    std::string mConfigData;
+    HubConfig mConfig;
 
     ConfigHelper() = default;
     void loadConfig();
     void parseConfig();
-    void updateConfig();
 
 public:
     std::mutex mutex;
 
     static ConfigHelper& instance();
-    void setPath(std::string_view path);
-    void setConfig(std::string_view src);
     void writeConfig();
-    [[maybe_unused]] caf::config_value updateConfig(std::string_view path);
-    std::string getRaw();
+    bool updateConfigData(std::string&& configData) noexcept;
+    bool updateConfigPath(std::string_view path) noexcept;
+    bool reloadConfig() noexcept;
+    std::string getRaw() noexcept;
     HubConfig getConfig();
 };
 

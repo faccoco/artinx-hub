@@ -103,6 +103,7 @@ CAF_ADD_ATOM(ArtinxHub, simulator_step_atom);
 CAF_ADD_ATOM(ArtinxHub, timer_atom);
 CAF_ADD_ATOM(ArtinxHub, reload_address_atom);
 CAF_ADD_ATOM(ArtinxHub, reload_config_atom);
+CAF_ADD_ATOM(ArtinxHub, reload_all_config_atom);
 CAF_ADD_ATOM(ArtinxHub, image_frame_atom);
 CAF_ADD_ATOM(ArtinxHub, radar_points_atom);
 CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
@@ -153,4 +154,6 @@ constexpr bool __impl_actor_protocol_call() noexcept {
 ACTOR_PROTOCOL_DEFINE(start_atom);
 ACTOR_PROTOCOL_DEFINE(timer_atom);
 ACTOR_PROTOCOL_DEFINE(monitor_response_atom);
+ACTOR_PROTOCOL_DEFINE(reload_config_atom);
+ACTOR_PROTOCOL_DEFINE(reload_all_config_atom);
 ACTOR_PROTOCOL_DEFINE(payload_atom, int32_t, int32_t);

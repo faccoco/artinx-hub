@@ -24,7 +24,7 @@ class AvailabilityTester final : public HubHelper<caf::event_based_actor, Availa
     uint32_t mSuccessCount = 0;
 
 public:
-    AvailabilityTester(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {
+    AvailabilityTester(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {
         Timer::instance().addTimer(address(), 10ms);
     }
     caf::behavior make_behavior() override {
@@ -48,7 +48,7 @@ HUB_REGISTER_CLASS(AvailabilityTester);
 
 class MessageForwarder final : public HubHelper<caf::event_based_actor, void, payload_atom> {
 public:
-    MessageForwarder(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
+    MessageForwarder(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](payload_atom, int32_t, int32_t) { sendAll(payload_atom_v, 0, 0); } };

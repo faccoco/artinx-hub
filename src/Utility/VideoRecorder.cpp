@@ -42,7 +42,7 @@ class VideoRecorder final : public HubHelper<caf::event_based_actor, VideoRecord
     const int mFourCc = cv::VideoWriter::fourcc('D', 'I', 'V', 'X');
 
 public:
-    VideoRecorder(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
+    VideoRecorder(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
     ~VideoRecorder() override {
         mWriter.reset();
     }
