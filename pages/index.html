@@ -17,6 +17,7 @@
   <script src="js/jquery-3.6.0.min.js"></script>
   <!-- <script src="js/echarts/echarts.js"></script> -->
   <script src="js/mdui.min.js"></script>
+  <script src="js/main.js" type="module" ></script>
 
 </head>
 
@@ -37,7 +38,12 @@
     <!-- drawer start -->
     <div class="mdui-drawer">
       <div class="mdui-list" id="filter">
-        <div class="mdui-subheader">Filter</div>
+        <div class="mdui-subheader">
+          Filter
+          <button class="mdui-btn mdui-btn-icon" style="float:right;" onclick="updateFilter()">
+            <i class="mdui-icon material-icons">refresh</i>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -115,7 +121,6 @@
     </div>
     <!-->
   </div>
-  <script src="js/main.js" type="module"></script>
 </body>
 
 </html>
