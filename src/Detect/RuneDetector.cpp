@@ -226,7 +226,7 @@ class RuneDetector final
 
     void detect(const cv::Mat& src, std::vector<cv::Point2f>& keyPoints) {
         auto roiRectOptional = getRuneROI(src);
-        logInfo("roi get");
+        // logInfo("roi get");
         
         if(!roiRectOptional.has_value()) {
             return;
@@ -252,7 +252,7 @@ class RuneDetector final
             return;
         }
         
-        logInfo("contour found in roi");
+        // logInfo("contour found in roi");
 
         std::sort(contours.begin(), contours.end(), [](const std::vector<cv::Point>& a, const std::vector<cv::Point>& b) {
             return cv::contourArea(a) > cv::contourArea(b);
@@ -276,7 +276,7 @@ class RuneDetector final
         rectLarge.points(kptLarge);
         rectSmall.points(kptSmall);
 
-        logInfo("kpt found");
+        // logInfo("kpt found");
 
         std::sort(kptLarge, kptLarge + 4, [&](const cv::Point2f& a, const cv::Point2f& b) {
             return euclideanDistance(a, rectSmall.center) < euclideanDistance(b, rectSmall.center);
@@ -310,7 +310,7 @@ class RuneDetector final
             keyPoints.push_back(kptSmall[0]);
         }
 
-        logInfo("kpt regulized");
+        // logInfo("kpt regulized");
 
         auto RLabelOptional = getRLabel(src, smallRectEdgeCenter, largeRectEdgeCenter);
         if(RLabelOptional.has_value()) {
@@ -342,7 +342,7 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
-                     logInfo("Rune detector start");
+                     // logInfo("Rune detector start");
 
                      //  if(!mEnable) {
                      //      return;
@@ -357,8 +357,6 @@ public:
                      cv::Mat src = frame.frame;
                      std::vector<cv::Point2f> keyPoints;
                      detect(src, keyPoints);
-
-                     logInfo(fmt::format("kpt size: {}", keyPoints.size()));
                      
                      EnergyFan res;
                      res.lastUpdate = frame.lastUpdate;
