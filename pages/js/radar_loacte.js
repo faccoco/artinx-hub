@@ -2,7 +2,7 @@ var cvs, ctx;
 let img, currentRes;
 let allPoints = [];
 const ImageUrl = "/img/RadarCenter";
-const AllPosition = ["标志点1", "标志点2", "...3", "4"];
+const AllPosition = ["1", "2", "3", "4"];
 const TotalPointCounts = AllPosition.length;
 
 $(document).ready(() => {

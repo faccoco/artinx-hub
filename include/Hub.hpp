@@ -19,6 +19,7 @@
 
 #include <caf/event_based_actor.hpp>
 #include <caf/fwd.hpp>
+#include <caf/inspector_access.hpp>
 #include <caf/result.hpp>
 #include <caf/scheduled_actor.hpp>
 #include <cassert>
@@ -33,24 +34,27 @@
 using namespace std::literals;
 
 class NodeFactory final : Unmovable {
-    std::unordered_map<std::string, std::function<caf::actor(caf::actor_system&, const HubConfig&)>> mClasses{};
+    std::unordered_map<std::string, std::function<caf::actor(caf::actor_system&, const HubConfig&, std::string)>> mClasses{};
 
 public:
-    void addNodeType(std::string name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction);
+    void addNodeType(std::string name,
+                     std::function<caf::actor(caf::actor_system&, const HubConfig&, std::string)> spawnFunction);
     caf::actor buildNode(caf::actor_system& system, const std::string& name, const HubConfig& config);
     static NodeFactory& get();
 };
 
 namespace detail {
-    void registerComponent(const char* name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction);
+    void registerComponent(const char* name,
+                           std::function<caf::actor(caf::actor_system&, const HubConfig&, std::string)> spawnFunction);
 
     template <typename NodeType>
     class HubClassRegister final : Unmovable {
     public:
         HubClassRegister() {
-            registerComponent(typeid(NodeType).name(), [](caf::actor_system& system, const HubConfig& config) -> caf::actor {
-                return system.spawn<NodeType>(config);
-            });
+            registerComponent(typeid(NodeType).name(),
+                              [](caf::actor_system& system, const HubConfig& config, std::string name) -> caf::actor {
+                                  return system.spawn<NodeType>(config, name);
+                              });
         }
     };
 
@@ -86,12 +90,13 @@ class HubHelper : public T {
 
     std::tuple<SucceedAddress<Succeed>...> mDest;
     std::shared_mutex sMutex;
+    const std::string mNodeName;
     static constexpr size_t mDestSize = sizeof...(Succeed);
 
     template <typename Atom>
     const auto& getDest() {
         auto& destInfo = std::get<SucceedAddress<Atom>>(mDest);
-        if(destInfo.needReload.load(std::memory_order_acquire)) {
+        if(destInfo.needReload.load(std::memory_order_consume)) {
             destInfo.addrVal = detail::parseSucceed(this->system(), destInfo.destName);
             destInfo.needReload.store(false, std::memory_order_release);
         }
@@ -114,19 +119,20 @@ class HubHelper : public T {
 
     void reloadConfig() {
         if constexpr(!std::is_void_v<Config>) {
-            auto& gConfig = ConfigHelper::instance();
-            std::lock_guard guard(gConfig.mutex);
-            if(auto configValue = caf::get_as<Config>(gConfig.getConfig())) {
-                mConfig = std::move(configValue.value());
+            if(auto allConfig = ConfigHelper::instance().getConfig().to_dictionary()) {
+                if(auto iter = allConfig.value().find(mNodeName); iter != allConfig.value().end()) {
+                    if(auto configOpt = caf::get_as<Config>(iter->second)) {
+                        mConfig = std::move(configOpt.value());
+                    } else {
+                        logError("Parse node config file failed!");
+                    }
+                } else {
+                    logError(fmt::format("Can not find config for exist node {}", mNodeName));
+                }
             } else {
-                logError("Parse node config file failed!");
+                throw std::runtime_error("Parse node config file failed!");
             }
         }
-    }
-
-    HubConfig getConfig() {
-        std::shared_lock lock(sMutex);
-        return mConfig;
     }
 
 protected:
@@ -139,7 +145,8 @@ protected:
     }
 
 public:
-    HubHelper(caf::actor_config& base, const HubConfig& config) : T{ base }, mDest{} {
+    HubHelper(caf::actor_config& base, const HubConfig& config, std::string name)
+        : T{ base }, mDest{}, mNodeName{ std::move(name) } {
         if constexpr(mDestSize != 0)
             buildDest<Succeed...>(config);
         if constexpr(!std::is_void_v<Config>) {
@@ -167,7 +174,7 @@ public:
                         setAddressReload<Succeed...>(true);
                     break;
                 case caf::type_id<reload_config_atom>::value:
-                    // TODO: config reload
+                    reloadConfig();
                     break;
                 default:
                     return caf::print_and_drop(actor, msg);
@@ -267,25 +274,25 @@ public:
         visualLog(msg);
     }
 };
-namespace TypeHelper {
-    enum ConfigType { INT = 0, FLOAT = 1, DOUBLE = 2, STRING = 3, VECTOR = 4 };
-    std::string parseTypeInfo(std::type_info info);
+// namespace TypeHelper {
+// enum ConfigType { INT = 0, FLOAT = 1, DOUBLE = 2, STRING = 3, VECTOR = 4 };
+// std::string parseTypeInfo(std::type_info info);
 
-    template <typename T>
-    std::string typeName() {
-#if defined(__clang__)
-        std::string FunName = __PRETTY_FUNCTION__;
-        size_t begPos = FunName.find("T = ");
-        size_t endPos = FunName.find(']', begPos);
-        begPos += 4;
-#elif defined(__GNUC__)
-        std::string FunName = __PRETTY_FUNCTION__;
-        size_t begPos = FunName.find("T = ");
-        size_t endPos = FunName.find(';', begPos);
-        begPos += 4;
-#elif defined(_MSC_VER)
-        static_assert(false, "I don't want to use MSVC anymore. Please complete this by yourself if you want to use MSVC.");
-#endif
-        return FunName.substr(begPos, endPos - begPos);
-    }
-}  // namespace TypeHelper
+// template <typename T>
+// std::string typeName() {
+// #if defined(__clang__)
+// std::string FunName = __PRETTY_FUNCTION__;
+// size_t begPos = FunName.find("T = ");
+// size_t endPos = FunName.find(']', begPos);
+// begPos += 4;
+// #elif defined(__GNUC__)
+// std::string FunName = __PRETTY_FUNCTION__;
+// size_t begPos = FunName.find("T = ");
+// size_t endPos = FunName.find(';', begPos);
+// begPos += 4;
+// #elif defined(_MSC_VER)
+// static_assert(false, "I don't want to use MSVC anymore. Please complete this by yourself if you want to use MSVC.");
+// #endif
+// return FunName.substr(begPos, endPos - begPos);
+//}
+//}  // namespace TypeHelper

@@ -12,7 +12,7 @@
 
 class Input final : public HubHelper<caf::event_based_actor, void, payload_atom> {
 public:
-    Input(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
+    Input(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
             ACTOR_PROTOCOL_CHECK(start_atom);
@@ -28,7 +28,7 @@ HUB_REGISTER_CLASS(Input);
 
 class Output final : public HubHelper<caf::event_based_actor, void> {
 public:
-    Output(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
+    Output(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](payload_atom, const int32_t a, const int32_t b) {

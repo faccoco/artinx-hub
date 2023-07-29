@@ -264,8 +264,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
     }
 
 public:
-    CarPredictor(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ generateKey(this) },
+    CarPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) },
           mTrackedArmor{ TimePoint(), Eigen::VectorXd::Zero(9), 0, RobotType::Negative, TrackingState::LOST } {
         // EKF
         // xa = x_armor, xc = x_robot_center

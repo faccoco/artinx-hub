@@ -16,7 +16,7 @@ private:
     Identifier mKey;
 
 public:
-    CarDetectorDrawer(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    CarDetectorDrawer(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [this](car_detect_available_atom, Identifier key) {

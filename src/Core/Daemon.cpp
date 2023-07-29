@@ -22,12 +22,13 @@
 #include "SuppressWarningEnd.hpp"
 
 class DaemonActor final : public caf::event_based_actor {
-    mutable std::unordered_map<caf::actor_addr, std::string> mActors;
+    mutable std::unordered_map<caf::actor_addr, std::string> mActorsAddr;
+    mutable std::shared_mutex mLatch;
     const std::reference_wrapper<caf::actor_system> gSystem;
     const std::reference_wrapper<std::vector<std::pair<std::string, caf::actor>>> gActors;
     NodeFactory* gFactory;
     ConfigHelper* gConfigHelper;
-    bool mStarted = false;
+    mutable bool mStarted = false;
 
     void restartActor(const std::string& actorId) {
         auto& registry = gSystem.get().registry();
@@ -40,12 +41,14 @@ class DaemonActor final : public caf::event_based_actor {
             }
         registry.erase(actorId);
         caf::scoped_actor caller{ gSystem.get() };
+
+        std::lock_guard guard{ mLatch };
         std::for_each(gActors.get().begin(), gActors.get().end(), [&, instance = this, this](auto& actorInfo) {
             if(actorInfo.first == actorId) {
                 caller->send_exit(actorInfo.second, caf::exit_reason::unreachable);
                 actorInfo.second = std::move(gFactory->buildNode(gSystem.get(), actorId, actorConfig));
                 instance->monitor(actorInfo.second);
-                mActors.emplace(actorInfo.second.address(), actorId);
+                mActorsAddr.emplace(actorInfo.second.address(), actorId);
             }
         });
         for(const auto& actorInfo : gActors.get()) {
@@ -59,14 +62,15 @@ public:
           gConfigHelper{ &ConfigHelper::instance() } {
         for(auto&& [name, actor] : actors) {
             this->monitor(actor);
-            mActors.emplace(actor.address(), name);
+            mActorsAddr.emplace(actor.address(), name);
         }
         set_down_handler([this](const caf::down_msg& msg) {
             if(globalStatus != RunStatus::running)
                 return;
-
-            const auto actorName = mActors[msg.source];
-            mActors.erase(msg.source);
+            std::unique_lock lock{ mLatch };
+            const auto actorName = mActorsAddr[msg.source];
+            mActorsAddr.erase(msg.source);
+            lock.unlock();
             logError(fmt::format("Actor {} down: {}", actorName, caf::to_string(msg.reason)));
             HubLogger::visualLog(fmt::format("Actor {} down: {}", actorName, caf::to_string(msg.reason)));
             restartActor(actorName);
@@ -84,7 +88,16 @@ public:
                                       if(!mStarted)
                                           return;
                                   },*/
-                 [](monitor_response_atom) { ACTOR_PROTOCOL_CHECK(monitor_response_atom); } };
+                 [](monitor_response_atom) { ACTOR_PROTOCOL_CHECK(monitor_response_atom); },
+                 [this](reload_all_config_atom) {
+                     ACTOR_PROTOCOL_CHECK(reload_config_atom);
+                     logInfo("Start reloading config for all actors");
+                     std::shared_lock lock{ mLatch };
+                     caf::scoped_actor caller{ gSystem.get() };
+                     for(auto& actorInfo : gActors.get()) {
+                         caller->send(actorInfo.second, reload_config_atom_v);
+                     }
+                 } };
     }
 };
 

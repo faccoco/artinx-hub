@@ -226,7 +226,7 @@ public:
    * @param base 		actor基类
    * @param config		配置文件
    */
-    HubHelper(caf::actor_config& base, const HubConfig& config)
+    HubHelper(caf::actor_config& base, const HubConfig& config, std::string name)
         : T{ base }, mDest{ SucceedAddress<Succeed>{ detail::parseSucceed(config, typeid(Succeed).name()) }... } {
         if constexpr(!std::is_void_v<Config>) {
             if(auto configValue = caf::get_as<Config>(config)) {

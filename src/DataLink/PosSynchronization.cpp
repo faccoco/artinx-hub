@@ -48,8 +48,8 @@ class PosSynchronization final : public HubHelper<caf::event_based_actor, PosSyn
     }
 
 public:
-    PosSynchronization(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mMutex(), busy(), mThread([this]() {
+    PosSynchronization(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, name }, mSerialPort(std::make_unique<BufferedAsyncSerial>()), mMutex(), busy(), mThread([this]() {
               mSerialPort->open(mConfig.devPath, mConfig.baudRate);
               while(globalStatus == RunStatus::running) {
                   sendPacket();

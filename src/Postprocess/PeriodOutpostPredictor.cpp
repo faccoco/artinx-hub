@@ -65,8 +65,8 @@ class PeriodOutpostPredictor final
     }
 
 public:
-    PeriodOutpostPredictor(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ generateKey(this) }, mSameThetaThreshold(glm::radians(mConfig.sameThetaThreshold)),
+    PeriodOutpostPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) }, mSameThetaThreshold(glm::radians(mConfig.sameThetaThreshold)),
           mSamePitchThreshold(glm::radians(mConfig.samePitchThreshold)) {}
     caf::behavior make_behavior() override {
         return {

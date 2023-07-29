@@ -106,8 +106,8 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
     }
 
 public:
-    SentrySerialPort(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config },
+    SentrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, name },
           SerialPort<SentryRecvPacket, SentrySendPacket>(
               mConfig.devPath, mConfig.baudRate, std::bind(&SentrySerialPort::infantryRecvCB, this, std::placeholders::_1),
               std::bind(&SentrySerialPort::sentrySetPacket, this)),

@@ -9,7 +9,7 @@ void RadarTransform::setReady() {
 }
 
 bool RadarTransform::isReady() {
-    return flag.load(std::memory_order_acquire);
+    return flag.load(std::memory_order_consume);
 }
 
 glm::dmat4 RadarTransform::load() {
@@ -32,7 +32,7 @@ void RadarPerspectiveTransform::setReady() {
 }
 
 bool RadarPerspectiveTransform::isReady() {
-    return flag.load(std::memory_order_acquire);
+    return flag.load(std::memory_order_consume);
 }
 
 cv::Mat RadarPerspectiveTransform::load() {
