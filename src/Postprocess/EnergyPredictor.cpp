@@ -107,7 +107,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         fanPos(0) = theta;
         fanPos(1) = rLabelX + fanLen * std::cos(theta) * std::cos(yaw);
         fanPos(2) = rLabelY + fanLen * std::sin(theta);
-        fanPos(3) = rLabeZ + fanLen * std::cos(theta) * std::sin(yaw);
+        fanPos(3) = rLabeZ - fanLen * std::cos(theta) * std::sin(yaw);
         fanPos(4) = yaw;
         return fanPos;
     }
@@ -118,7 +118,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         rLabelPos(2) = theta;
         rLabelPos(3) = fanPos(1) - fanLen * std::cos(theta) * std::cos(yaw); // xr
         rLabelPos(4) = fanPos(2) - fanLen * std::sin(theta);
-        rLabelPos(5) = fanPos(3) - fanLen * std::cos(theta) * std::sin(yaw);
+        rLabelPos(5) = fanPos(3) + fanLen * std::cos(theta) * std::sin(yaw);
         rLabelPos(6) = yaw;
         return rLabelPos;
     }
@@ -340,7 +340,7 @@ public:
             h << 0, 0, 1,                                              0, 0, 0, 0,
                  0, 0, -fanLen * std::sin(theta) * std::cos(yaw), 1, 0, 0, -fanLen * std::cos(theta) * std::sin(yaw),
                  0, 0, fanLen * std::cos(theta),                    0, 1, 0, 0,
-                 0, 0, -fanLen * std::sin(theta) * std::sin(yaw),  0, 0, 1, fanLen * std::cos(theta)* std::cos(yaw),
+                 0, 0, fanLen * std::sin(theta) * std::sin(yaw),  0, 0, 1, -fanLen * std::cos(theta)* std::cos(yaw),
                  0, 0, 0,                                              0, 0, 0, 1;
             // clang-format on
             return h;
