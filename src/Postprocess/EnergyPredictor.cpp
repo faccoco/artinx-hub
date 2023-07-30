@@ -22,8 +22,8 @@
 
 #include "SuppressWarningEnd.hpp"
 
-static constexpr double minPositionDiff = 1.5;
-static constexpr double minThetaDiff = 0.9; // < pi/3
+static constexpr double minPositionDiff = 10;
+static constexpr double minThetaDiff = 0.7; // < pi/3
 static constexpr double diffTThresh = 0.005;
 
 static constexpr double fanLen = 0.705;
@@ -93,7 +93,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         mTrackFan.state = getRLabelPosFromFanPos(fanPos);
         double initAVel = 1.0472;
         if(2 == mMode)
-            initAVel = 1.02;  // TODO
+            initAVel = 1.0;  // TODO
         mTrackFan.state(0) = 0.0;
         mTrackFan.state(1) = initAVel;
         mFilter.setState(mTrackFan.state);
@@ -107,7 +107,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         fanPos(0) = theta;
         fanPos(1) = rLabelX + fanLen * std::cos(theta) * std::cos(yaw);
         fanPos(2) = rLabelY + fanLen * std::sin(theta);
-        fanPos(3) = rLabeZ - fanLen * std::cos(theta) * std::sin(yaw);
+        fanPos(3) = rLabeZ + fanLen * std::cos(theta) * std::sin(yaw);
         fanPos(4) = yaw;
         return fanPos;
     }
@@ -118,7 +118,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         rLabelPos(2) = theta;
         rLabelPos(3) = fanPos(1) - fanLen * std::cos(theta) * std::cos(yaw); // xr
         rLabelPos(4) = fanPos(2) - fanLen * std::sin(theta);
-        rLabelPos(5) = fanPos(3) + fanLen * std::cos(theta) * std::sin(yaw);
+        rLabelPos(5) = fanPos(3) - fanLen * std::cos(theta) * std::sin(yaw);
         rLabelPos(6) = yaw;
         return rLabelPos;
     }
@@ -132,19 +132,20 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         double thetaDiff = std::abs(fanPosition(0) - fanPredict(0));
         std::cout << "predictPos t w theta x y z yaw" << std::endl;
         std::cout <<  ekfPredict << std::endl;
+        HubLogger::visualLog(fmt::format("predictedPos: w theta x y z yaw {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}", ekfPredict(1), ekfPredict(2), ekfPredict(3), ekfPredict(4), ekfPredict(5), ekfPredict(6)));
         logInfo(fmt::format("Energy Predictor: positionDiff {:.3f} and thetaDiff {:.3f}", positionDiff, thetaDiff));
         if(positionDiff < minPositionDiff) {
             if(thetaDiff < minThetaDiff) {
                 mTrackFan.state = mFilter.update(fanPosition);
                 logInfo("TrackFan Matched");
             } else {
-                logInfo("Fan Jumped");
                 double t = mTrackFan.state(0), w = mTrackFan.state(1);
                 mTrackFan.state = getRLabelPosFromFanPos(fanPosition);
                 mTrackFan.state(0) = t;
                 mTrackFan.state(1) = w;
                 mFilter.setState(mTrackFan.state);
                 mThetaInfos.clear();
+                HubLogger::visualLog(fmt::format("Fan Jumped positionDiff {:.3f} and thetaDiff {:.3f}", positionDiff, thetaDiff));
             }
             return true;
         } else {
@@ -223,8 +224,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         if(mThetaInfos.size() >= mConfig.fanQueueLength) {
             mThetaInfos.pop_front();
         }
-        mDirSum = dTheta > 0 ? mDirSum + 1 : mDirSum - 1;
-        mDirection = mDirSum > 0 ? 1 : -1;
+        mDirSum = dTheta >= 0 ? mDirSum + 1 : mDirSum - 1;
+        mDirection = mDirSum >= 0 ? 1 : -1;
     }
 
     void fitParameters() {
@@ -259,19 +260,15 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         double predictTime = 0.0;
         double w = X(1), theta = X(2);
         while(cnt <= 10) {
-            theta += w * predictTime * mDirection;
-            HubLogger::watch("direction", mDirection);
+            theta += w * predictTime;
             Eigen::VectorXd statePos = mTrackFan.state;
             statePos(2) = theta;
             Eigen::VectorXd predictPos = getFanPosFromState(statePos); 
-            std::cout << "predictor state pos " << cnt << std::endl;
-            std::cout << predictPos << std::endl;
             auto [acess2, airTime, yaw, pitch] = solveWithoutAirDrag({ predictPos(1), -predictPos(3), predictPos(2) }, { 0, 0, 0 });
-            
             double requiredTime = airTime + mConfig.delay + GlobalSettings::get().latency;
             double diiffTime = requiredTime - predictTime;
-            HubLogger::watch("diffTime", diiffTime);
-            logInfo(fmt::format("diffTime: {:.3f}", diiffTime));
+            // HubLogger::watch("diffTime", diiffTime);
+            // logInfo(fmt::format("diffTime: {:.3f}", diiffTime));
             if(std::fabs(diiffTime) < diffTThresh) {
                 return std::make_tuple(true, yaw, pitch);
                 break;
@@ -298,7 +295,7 @@ public:
             if(1 == mMode) {
                 xNew(1) = X(1);  // w = w
             } else {
-                xNew(1) = a * std::sin(w * X(0) + p) + (2.090 - a);  // w = a * sin(wt + p) + (2.090 - a);
+                xNew(1) = a * std::sin(w * X(0) + p) + (2.090 - a) * mDirection;  // w = a * sin(wt + p) + (2.090 - a);
             }
             xNew(2) += xNew(1) * mDt;  // theta += w * dt
             return xNew;
@@ -343,7 +340,7 @@ public:
             h << 0, 0, 1,                                              0, 0, 0, 0,
                  0, 0, -fanLen * std::sin(theta) * std::cos(yaw), 1, 0, 0, -fanLen * std::cos(theta) * std::sin(yaw),
                  0, 0, fanLen * std::cos(theta),                    0, 1, 0, 0,
-                 0, 0, fanLen * std::sin(theta) * std::sin(yaw),  0, 0, 1, -fanLen * std::cos(theta)* std::cos(yaw),
+                 0, 0, -fanLen * std::sin(theta) * std::sin(yaw),  0, 0, 1, fanLen * std::cos(theta)* std::cos(yaw),
                  0, 0, 0,                                              0, 0, 0, 1;
             // clang-format on
             return h;
@@ -421,6 +418,7 @@ public:
                         fanPos << theta, posRefRobot.x, posRefRobot.y, posRefRobot.z, fanYaw;
                         std::cout << "EnergyPredicotr: mesured fanPos: theta x y z yaw" << std::endl;
                         std::cout << fanPos << std::endl;
+                        HubLogger::visualLog(fmt::format("measrued fanPos: theta x y z yaw {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}", fanPos(0), fanPos(1), fanPos(2), fanPos(3), fanPos(4)));
                         if(mTrackFan.trackSate == FanTrackingState::LOST) {
                             init(fanPos);
                             matched = true;
