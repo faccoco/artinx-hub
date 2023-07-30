@@ -31,7 +31,7 @@ struct ArmorDetectorSettings final {
     float maxArmorAngle;       // angle(degree)
     float minLargeArmorRatio;  // width / height
     std::string numClassifyModelPath;
-    float numProbThresh;  // number classify probability threshold
+    float numProbThresh;       // number classify probability threshold
     float armorRatio;
     bool excludeNegative;
 };
@@ -335,7 +335,8 @@ class ArmorDetector final
     }
 
 public:
-    ArmorDetector(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
+    ArmorDetector(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
         mNumClassifierPtr = std::make_unique<NumberClassifier>(mConfig.numClassifyModelPath);
     }
 

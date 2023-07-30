@@ -3,6 +3,7 @@
 #include "DetectedEnergyFan.hpp"
 #include "ExceptionProbe.hpp"
 #include "Hub.hpp"
+#include "NetInference.hpp"
 #include "Utility.hpp"
 
 #include "SuppressWarningBegin.hpp"
@@ -20,6 +21,14 @@
 struct RuneDetecorSettings final {
 
     bool debugView;
+
+    bool enableNNetFindRoi;
+    std::string modelPath;
+    float nmsThreshold;   // NMS参数
+    float confThreshold;  // 置信度参数
+    int imgSize;          // 推理图像大小
+    int classNum;
+    int anchorNum;
 
     // bound for hsv
     std::vector<int> upperRed;
@@ -39,12 +48,16 @@ struct RuneDetecorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, RuneDetecorSettings& x) {
-    return f.object(x).fields(f.field("debugView", x.debugView).fallback(false), f.field("upperRed", x.upperRed),
-                              f.field("lowerRed", x.lowerRed), f.field("upperBlue", x.upperBlue),
-                              f.field("lowerBlue", x.lowerBlue), f.field("roiBinThresh", x.roiBinThresh),
-                              f.field("dilateKernel", x.dilateKernel), f.field("minConvexHullThresh", x.minConvexHullThresh),
-                              f.field("maxConvexHullThresh", x.maxConvexHullThresh), f.field("minContourArea", x.minContourArea),
-                              f.field("rRoiSizeScale", x.rRoiSizeScale).fallback(1.0), f.field("rPosScale", x.rPosScale).fallback(6.5));
+    return f.object(x).fields(
+        f.field("debugView", x.debugView).fallback(false), f.field("enableNNetFindRoi", x.enableNNetFindRoi).fallback(false),
+        f.field("modelPath", x.modelPath).fallback("data/weights/energy_detect/energy_416_noKpt.onnx"),
+        f.field("nmsThreshold", x.nmsThreshold).fallback(0.4), f.field("confThreshold", x.confThreshold).fallback(0.6),
+        f.field("imgSize", x.imgSize).fallback(416), f.field("classNum", x.classNum).fallback(4),
+        f.field("anchorNum", x.anchorNum).fallback(1), f.field("upperRed", x.upperRed), f.field("lowerRed", x.lowerRed),
+        f.field("upperBlue", x.upperBlue), f.field("lowerBlue", x.lowerBlue), f.field("roiBinThresh", x.roiBinThresh),
+        f.field("dilateKernel", x.dilateKernel), f.field("minConvexHullThresh", x.minConvexHullThresh),
+        f.field("maxConvexHullThresh", x.maxConvexHullThresh), f.field("minContourArea", x.minContourArea),
+        f.field("rRoiSizeScale", x.rRoiSizeScale).fallback(1.0), f.field("rPosScale", x.rPosScale).fallback(6.5));
 }
 
 static double euclideanDistance(const cv::Point2f& p1, const cv::Point2f& p2) {
@@ -60,7 +73,7 @@ class RuneDetector final
     : public HubHelper<caf::event_based_actor, RuneDetecorSettings, energy_detect_available_atom, image_frame_atom> {
 
     Identifier mKey;
-    bool mEnable = true;
+    std::unique_ptr<YoloNet> mInfer;
 
     void debugView(const std::string_view& name, const cv::Mat& src, const std::function<void(cv::Mat&)>& func) {
 #ifndef ARTINXHUB_DEBUG
@@ -153,7 +166,7 @@ class RuneDetector final
             // 计算轮廓面积与轮廓凸包面积比
             double hullArea = cv::contourArea(hull);
             // logInfo(fmt::format("hull area is {:.3f}", hullArea));
-            if (hullArea < 2.0) {
+            if(hullArea < 2.0) {
                 continue;
             }
             double ratio = contourArea / hullArea;
@@ -180,17 +193,40 @@ class RuneDetector final
     }
 
     std::optional<cv::Point2f> getRLabel(const cv::Mat& src, const cv::Point2f& smallCenter, const cv::Point2f& largeCenter) {
-        double roiSize = euclideanDistance(smallCenter, largeCenter) * mConfig.rRoiSizeScale;
-        cv::Point2f RRoiCenter = smallCenter - (smallCenter - largeCenter) * mConfig.rPosScale;
-        // cv::Point2f RRoiCenter = smallCenter - (smallCenter - largeCenter) * 6.5; // true ratio
+        cv::Mat roiSrc;
+        cv::Rect2f roiRect;
+        if(!mConfig.enableNNetFindRoi) {
+            double roiSize = euclideanDistance(smallCenter, largeCenter) * mConfig.rRoiSizeScale;
+            cv::Point2f RRoiCenter = smallCenter - (smallCenter - largeCenter) * mConfig.rPosScale;
+            // cv::Point2f RRoiCenter = smallCenter - (smallCenter - largeCenter) * 6.5; // true ratio
 
-        cv::Rect2f roiRect = cv::Rect2f(RRoiCenter.x - roiSize, RRoiCenter.y - roiSize, 2 * roiSize, 2 * roiSize);
-        roiRect &= cv::Rect2f(cv::Point2f(0, 0), cv::Point2f(static_cast<float>(src.cols), static_cast<float>(src.rows)));
+            roiRect = cv::Rect2f(RRoiCenter.x - roiSize, RRoiCenter.y - roiSize, 2 * roiSize, 2 * roiSize);
+            roiRect &= cv::Rect2f(cv::Point2f(0, 0), cv::Point2f(static_cast<float>(src.cols), static_cast<float>(src.rows)));
 
-        if(roiRect.width <= 10 || roiRect.height <= 10)
-            return {};
+            if(roiRect.width <= 10 || roiRect.height <= 10)
+                return {};
+        } else {
+            auto objects = mInfer->work(src);
+            logInfo(fmt::format("NNetEnergyDetect ROI result size: {}", objects.size()));
+            double prob = 0.0;
+            if(objects.size() == 0) {
+                return {};
+            }
+            if(mConfig.debugView) {
+                debugView("objects", src, [&](cv::Mat& src) {
+                    for(size_t i = 0; i < objects.size(); ++i) {
+                        cv::rectangle(src, objects[i].rect, cv::Scalar(0, 255, 0));
+                    }
+                });
+            }
+            for(const auto& obj : objects) {
+                if(obj.prob > prob && (obj.label == 0 || obj.label == 2)) {
+                    roiRect = expandRect(obj.rect, src.cols, src.rows, 1.2);
+                }
+            }
+        }
+        roiSrc = src(roiRect);
 
-        cv::Mat roiSrc = src(roiRect);
         // cv::Mat roiBin = binarize(roiSrc, mConfig.roiBinThresh);
         cv::Mat roiBin;
         cv::cvtColor(roiSrc, roiBin, cv::COLOR_BGR2GRAY);
@@ -227,7 +263,7 @@ class RuneDetector final
     void detect(const cv::Mat& src, std::vector<cv::Point2f>& keyPoints) {
         auto roiRectOptional = getRuneROI(src);
         logInfo("roi get");
-        
+
         if(!roiRectOptional.has_value()) {
             return;
         }
@@ -251,7 +287,7 @@ class RuneDetector final
             logInfo("no target contour in roiRect");
             return;
         }
-        
+
         logInfo("contour found in roi");
 
         std::sort(contours.begin(), contours.end(), [](const std::vector<cv::Point>& a, const std::vector<cv::Point>& b) {
@@ -322,48 +358,39 @@ class RuneDetector final
             int kpt_index = 0;
             for(auto point : keyPoints) {
                 cv::circle(img, point, 1, cv::Scalar(0, 255, 0), 10);
-                cv::putText(img, std::to_string(kpt_index), point, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255),
-                            1);
+                cv::putText(img, std::to_string(kpt_index), point, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 1);
                 kpt_index++;
             }
         });
-
     }
 
 public:
-    RuneDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    RuneDetector(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
+        mInfer = std::make_unique<YoloNet>(mConfig.modelPath, mConfig.nmsThreshold, mConfig.confThreshold, mConfig.imgSize, 0,
+                                           mConfig.classNum, mConfig.anchorNum);
+    }
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [this](energy_detector_control_atom, uint8_t mode, double dt) {
-                     if(mode)
-                         mEnable = true;
-                 },
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
                      logInfo("Rune detector start");
 
-                     //  if(!mEnable) {
-                     //      return;
-                     //  }
-
                      auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
                      auto frame = std::get<0>(data);
 
-                     /**
-                      * 执行代码
-                      */
                      cv::Mat src = frame.frame;
                      std::vector<cv::Point2f> keyPoints;
                      detect(src, keyPoints);
 
                      logInfo(fmt::format("kpt size: {}", keyPoints.size()));
-                     
+
                      EnergyFan res;
                      res.lastUpdate = frame.lastUpdate;
                      res.cameraInfo = frame.info;
-                     
+
                      if(keyPoints.size() == 5) {
                          res.keyPoints = keyPoints;
                      }

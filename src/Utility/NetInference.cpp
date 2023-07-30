@@ -16,18 +16,15 @@ YoloNet::YoloNet(std::string& modelPath, float nmsThreshold, float confThreshold
     inputTensor1 = inferRequest.get_input_tensor(0);
 }
 
-int argmax(const float* ptr, int len) {
+int argmax(const float* ptr, int len, int stride) {
     int maxArg = 0;
-    for(int i = 0; i < len; i++) {
-        if(std::isnan(ptr[i])) {
-            if(maxArg == i)
-                maxArg++;
-            continue;
-        }
-        if(ptr[i] > ptr[maxArg])
-            maxArg = i;
+    int i, j = 0;
+    for(i = 0; i < len; i++) {
+        if(ptr[j] > ptr[maxArg])
+            maxArg = j;
+        j += stride;
     }
-    return maxArg;
+    return maxArg / stride;
 }
 
 cv::Mat YoloNet::letterBox(const cv::Mat& src, int h, int w, std::vector<float>& padd) {
@@ -103,38 +100,34 @@ std::vector<YoloNet::Object> YoloNet::work(cv::Mat srcImg) {
     for(int i : stride) {
         grid += (imgW / i) * (imgH / i);
     }
-    int paraNum = 5 + classNum + 2 * kptNum;  // 5 means x,y,w,h,prob
     std::vector<int> classIds;
     std::vector<float> confidences;
     std::vector<cv::Rect> boxes;
     std::vector<cv::Point2f> points;
-    for(int i = 0; i < anchorNum * grid; ++i) {
-                bool nanExist = false;
-                for(int j = 0; j < 5; j++) {
-                    if(std::isnan(pred[i * paraNum + j])) {
-                        nanExist = true;
-                        break;
-                    }
-                }
-                if(nanExist)
-                    continue;
-        float x = pred[i * paraNum + 0];
-        float y = pred[i * paraNum + 1];
-        float w = pred[i * paraNum + 2];
-        float h = pred[i * paraNum + 3];
-        float boxProb = pred[i * paraNum + 4];
-        int boxClass = argmax(pred + i * paraNum + 5, classNum);
-        float prob = pred[i * paraNum + 5 + boxClass] * boxProb;
+    int anchorsNum = anchorNum * grid;
+    for(int i = 0; i < anchorsNum; ++i) {
+        float x = pred[0 * anchorsNum + i];
+        float y = pred[1 * anchorsNum + i];
+        float w = pred[2 * anchorsNum + i];
+        float h = pred[3 * anchorsNum + i];
+        int boxClass;
+        float prob;
+        if(classNum != 1) {
+            boxClass = argmax(pred + 4 * anchorsNum + i, classNum, anchorsNum);
+            prob = pred[(4 + boxClass) * anchorsNum + i];
+        } else {
+            prob = pred[4 * anchorsNum + i];
+        }
         if(prob > confThreshold) {
             cv::Rect_<float> rect = { x - w / 2, y - h / 2, w, h };
             classIds.push_back(boxClass);
             confidences.push_back(prob);
             boxes.push_back(rect);
             // kpt behind the x,y,w,h,p in the labelForm
-            for(int j = 0; j < kptNum; j++) {
+            for(int j = 1; j <= kptNum; j++) {
                 cv::Point2f kPoint;
-                kPoint.x = pred[i * paraNum + 5 + j * 2];
-                kPoint.y = pred[i * paraNum + 6 + j * 2];
+                kPoint.x = pred[(3 + classNum + j) * anchorsNum + i];
+                kPoint.y = pred[(3 + classNum + j * 2) * anchorsNum + i];
                 points.push_back(kPoint);
             }
         }

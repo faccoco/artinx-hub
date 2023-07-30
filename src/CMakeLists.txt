@@ -17,6 +17,7 @@ set(SOURCE
     "Detect/NumClassifier.cpp"
     "Detect/ArmorDetector.cpp"
     "Detect/NNetArmorDetector.cpp"
+    "Detect/NNetEnergyDetector.cpp"
     "Detect/RadarNNetDetector.cpp"
     "Detect/RuneDetector.cpp"
     "HubMain.cpp"
@@ -33,7 +34,8 @@ set(SOURCE
     "Sensor/VideoReplay.cpp"
     "Sensor/HikDriver.cpp"
     "Sensor/CameraBase.cpp"
-        "Solve/AngleSolver.cpp"
+    "Solve/AngleSolver.cpp"
+    "Solve/BotLocator.cpp"
     "Solve/PeriodSolver.cpp"
     "Solve/ArmorLocator.cpp"
     "Solve/RadarLocator.cpp"
@@ -52,7 +54,6 @@ set(SOURCE
 #    "Test/Solve/Simulator.cpp"
     "Test/TestHelper.cpp"
     "Utility/ArmorDetectorDrawer.cpp"
-    "Utility/CarDetectorDrawer.cpp"
     "Utility/Crc.cpp"
     "Utility/EKF.cpp"
     "Utility/KM.cpp"
@@ -61,7 +62,8 @@ set(SOURCE
     "Utility/Timer.cpp"
     "Utility/VideoRecorder.cpp"
     "Utility/MathTools.cpp"
-    "Utility/RadarInfo.cpp" Solve/BotLocator.cpp)
+    "Utility/NetInference.cpp"
+    "Utility/RadarInfo.cpp" )
 
 set(OpenCV_DIR "${VCPKG_INSTALLED_DIR}/x64-linux/share/opencv4")
 find_package(CAF REQUIRED COMPONENTS core io)
@@ -148,6 +150,8 @@ endif()
 if (DEFINED ENV{OPENVINO2022_PATH})
   add_compile_definitions("ARTINX_OPENVINO2022")
   set(InferenceEngine_DIR $ENV{OPENVINO2022_PATH}/runtime/cmake)
+  find_package(InferenceEngine CONFIG REQUIRED)
+  target_link_libraries(ArtinxHub PRIVATE ${InferenceEngine_LIBRARIES})
 endif()
 
 target_link_libraries(ArtinxHub PRIVATE nlohmann_json

@@ -1,4 +1,5 @@
 #ifdef ARTINX_OPENVINO2022
+#pragma once
 #include <vector>
 #include <string>
 #include <cmath>

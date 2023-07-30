@@ -141,7 +141,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
 
     double clcTheta(const cv::Point2f& rCenter, const cv::Point2f& fanCenter) {
         double dy = rCenter.y - fanCenter.y, dx = fanCenter.x - rCenter.x;
-        return std::atan2(dy, dx); 
+        return std::atan2(dy, dx);
     }
 
     cv::Point2f clcFanImgCenter(const std::vector<cv::Point2f>& imagePoints) {
@@ -240,7 +240,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
             Eigen::VectorXd statePos = mTrackFan.state;
             statePos(2) = theta;
             Eigen::VectorXd predictPos = getFanPosFromState(statePos);
-            std::cout << "EnergyPredictor: theta x y z yaw " << predictPos << std::endl; 
+            std::cout << "EnergyPredictor: theta x y z yaw " << predictPos << std::endl;
             auto [acess2, t2, yaw, pitch] = solveWithoutAirDrag({ predictPos(1), -predictPos(3), predictPos(2) }, { 0, 0, 0 });
             if(std::fabs(t2 - t1) < diffTThresh) {
                 return std::make_pair(yaw, pitch);
@@ -254,21 +254,21 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     }
 
 public:
-    EnergyPredictor(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ generateKey(this) },
+    EnergyPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) },
           mTrackFan{ TimePoint(), Eigen::VectorXd::Zero(7), FanTrackingState::LOST } {
         int nX = 7;  // state:t w theta xr yr zr yaw
         int nZ = 5;  // measure: theta xf yf zf yaw
         auto f = [this](const Eigen::VectorXd& X) {
             Eigen::VectorXd xNew = X;
             double a = mParameters[0], w = mParameters[1], p = mParameters[2];
-            xNew(0) = X(0) + mDt;  // t += dt
+            xNew(0) = X(0) + mDt;                                    // t += dt
             if(1 == mMode) {
-                xNew(1) = X(1);  // w = w
+                xNew(1) = X(1);                                      // w = w
             } else {
                 xNew(1) = a * std::sin(w * X(0) + p) + (2.090 - a);  // w = a * sin(wt + p) + (2.090 - a);
             }
-            xNew(2) += xNew(1) * mDt;  // theta += w * dt
+            xNew(2) += xNew(1) * mDt;                                // theta += w * dt
             return xNew;
         };
         auto JF = [this, nX](const Eigen::VectorXd& X) {

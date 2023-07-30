@@ -22,7 +22,7 @@
 
 #include <Eigen/Core>
 
-struct NNetArmorDetectorSettings final {
+struct NNetEnergyDetectorSettings final {
     bool debugView;
     std::string modelPath;
     float nmsThreshold;   // NMS参数
@@ -34,7 +34,7 @@ struct NNetArmorDetectorSettings final {
 };
 
 template <class Inspector>
-bool inspect(Inspector& f, NNetArmorDetectorSettings& x) {
+bool inspect(Inspector& f, NNetEnergyDetectorSettings& x) {
     return f.object(x).fields(
         f.field("debugView", x.debugView).fallback(false), f.field("nmsThreshold", x.nmsThreshold).fallback(0.4),
         f.field("confThreshold", x.confThreshold).fallback(0.6), f.field("imgSize", x.imgSize).fallback(640),
@@ -43,8 +43,8 @@ bool inspect(Inspector& f, NNetArmorDetectorSettings& x) {
         f.field("anchorNum", x.anchorNum).fallback(3));
 }
 // 0:hero 1:engineer 2,3,4:infantry 5:outpost 6:sentry
-class NNetArmorDetector final
-    : public HubHelper<caf::event_based_actor, NNetArmorDetectorSettings, armor_detect_available_atom, image_frame_atom> {
+class NNetEnergyDetector final
+    : public HubHelper<caf::event_based_actor, NNetEnergyDetectorSettings, armor_detect_available_atom, image_frame_atom> {
     Identifier mKey;
 
     std::unique_ptr<YoloNet> mInfer;
@@ -74,7 +74,7 @@ class NNetArmorDetector final
     }
 
 public:
-    NNetArmorDetector(caf::actor_config& base, const HubConfig& config, std::string name)
+    NNetEnergyDetector(caf::actor_config& base, const HubConfig& config, std::string name)
         : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
         mInfer = std::make_unique<YoloNet>(mConfig.modelPath, mConfig.nmsThreshold, mConfig.confThreshold, mConfig.imgSize,
                                            mConfig.kptNum, mConfig.classNum, mConfig.anchorNum);
@@ -88,11 +88,13 @@ public:
 
                      const auto t1 = Clock::now();
                      const auto frame = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
+
                      DetectedArmorArray res;
                      res.frame = frame;
 
                      auto result = mInfer->work(res.frame.frame);
-                     logInfo(fmt::format("NNetArmorDetect result size: {}", result.size()));
+                     logInfo(fmt::format("net cost time: {:.4f} ms", (durationCastDouble(Clock::now() - t1) * 1000)));
+                     logInfo(fmt::format("NNetEnergyDetect result size: {}", result.size()));
                      if(mConfig.debugView) {
                          debugView("result", res.frame.frame, [&](cv::Mat& src) {
                              for(size_t i = 0; i < result.size(); ++i) {
@@ -102,7 +104,7 @@ public:
                      }
 
                      if(res.armors.size() > 0) {
-                         HubLogger::visualLog(fmt::format("ArmorDetector detected {} targets, cost time {:.3f}ms",
+                         HubLogger::visualLog(fmt::format("EnergyDetector detected {} targets, cost time {:.3f}ms",
                                                           res.armors.size(), durationCastDouble(Clock::now() - t1) * 1000));
                      }
                      sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
@@ -110,5 +112,5 @@ public:
     }
 };
 
-HUB_REGISTER_CLASS(NNetArmorDetector);
+HUB_REGISTER_CLASS(NNetEnergyDetector);
 #endif

@@ -25,3 +25,15 @@ void boxRect(std::vector<cv::Point2f>& res, const cv::RotatedRect& rect) {
     if(selectedIdx)
         std::rotate(res.begin(), res.begin() + selectedIdx, res.begin() + 4);
 }
+
+cv::Rect2i expandRect(const cv::Rect2f& rect, int oriWidth, int oriHeight, float expandRatio) {
+    float fx = rect.x + rect.width * (1 - expandRatio) / 2;
+    float fy = rect.y + rect.height * (1 - expandRatio) / 2;
+    int x = fx > 0 ? static_cast<int>(fx) : 0;
+    int y = fy > 0 ? static_cast<int>(fy) : 0;
+    int w = static_cast<int>(rect.width * expandRatio);
+    int h = static_cast<int>(rect.height * expandRatio);
+    w = x + w <= oriWidth ? w : oriWidth - x;
+    h = y + h <= oriHeight ? h : oriHeight - y;
+    return cv::Rect2i{ x, y, w, h };
+}
