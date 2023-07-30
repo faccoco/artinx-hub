@@ -210,14 +210,9 @@ public:
             res.set_content(nlohmann::json(HubLogger::getwatches()).dump(), "application/json");
         });
 
-        static bool filterInit = false;
         mServer.Post("/filter", [this](const httplib::Request& req, httplib::Response& res) {
-            if(!filterInit && req.body.empty()) {
-                res.set_content(generateFilterJson(), "text/plain");
-                filterInit = true;
-                return;
-            } else if(req.body.empty()) {
-                res.set_content("{}", "text/plain");
+            if(req.body.empty()) {
+                res.set_content(generateFilterJson(), "application/json");
             } else {
                 auto reqJson = json::parse(req.body);
                 std::lock_guard guard{ mMutex };
@@ -225,7 +220,7 @@ public:
                     uint64_t key = std::stoull(str.substr(str.find('-') + 1));
                     mImage[key].isEnable = val;
                 }
-                res.set_content("{}", "text/plain");
+                res.set_content("{}", "application/json");
             }
         });
 

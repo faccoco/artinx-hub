@@ -37,10 +37,10 @@ window.settings = new Proxy(
 settings.logLength = 100;
 $(document).ready(function () {
     settings.updateFreq = 20.;   //start updating
+    updateFilter();
 });
 
 function updateAll() {
-    updateFilter();
     updateWatches();
     updateRadar();
 }
@@ -132,7 +132,7 @@ function updateStatus() {
     });
 }
 
-function updateFilter() {
+window.updateFilter = function () {
     fetch("/filter", {
         method: "POST"
     }).then(res => res.json()).then(data => {
@@ -211,7 +211,7 @@ function openConfigEditor() {
     configEditorTab = window.open("editor.html", "Config Editor");
 }
 
-function exitServer() {
+window.exitServer = function () {
     fetch("/exit");
     try {
         radarLocateTab.close();
