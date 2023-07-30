@@ -89,8 +89,7 @@ public:
                      const auto t1 = Clock::now();
                      const auto frame = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
 
-                     DetectedArmorArray res;
-                     res.frame = frame;
+                     EnergyFan res;
 
                      auto result = mInfer->work(res.frame.frame);
                      logInfo(fmt::format("net cost time: {:.4f} ms", (durationCastDouble(Clock::now() - t1) * 1000)));
@@ -102,12 +101,7 @@ public:
                              }
                          });
                      }
-
-                     if(res.armors.size() > 0) {
-                         HubLogger::visualLog(fmt::format("EnergyDetector detected {} targets, cost time {:.3f}ms",
-                                                          res.armors.size(), durationCastDouble(Clock::now() - t1) * 1000));
-                     }
-                     sendAll(armor_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
+                     sendAll(energy_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }
 };
