@@ -23,7 +23,7 @@
 #include "SuppressWarningEnd.hpp"
 
 static constexpr double minPositionDiff = 10;
-static constexpr double minThetaDiff = 0.7; // < pi/3
+static constexpr double minThetaDiff = 0.7;  // < pi/3
 static constexpr double diffTThresh = 0.005;
 
 static constexpr double fanLen = 0.705;
@@ -32,7 +32,7 @@ static constexpr double shortRuneArmorWidth = 0.338;
 static constexpr double runeArmorHeight = 0.095;
 
 struct EnergyPredictorSettings final {
-    uint8_t fanQueueLength;  
+    uint8_t fanQueueLength;
     std::vector<double> Q;
     std::vector<double> R;
     double delay;
@@ -85,8 +85,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         mThetaInfos.clear();
         mTrackFan.trackSate = FanTrackingState ::LOST;
         mDirSum = 0;
-        mTrackFan.state(2) = 0; //theta = 0
-        mTrackFan.state(6) = 0; //yaw = 0
+        mTrackFan.state(2) = 0;  // theta = 0
+        mTrackFan.state(6) = 0;  // yaw = 0
     }
 
     void init(const Eigen::VectorXd& fanPos) {
@@ -112,11 +112,11 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         return fanPos;
     }
 
-    Eigen::VectorXd getRLabelPosFromFanPos(const Eigen::VectorXd& fanPos){
+    Eigen::VectorXd getRLabelPosFromFanPos(const Eigen::VectorXd& fanPos) {
         Eigen::VectorXd rLabelPos(7);
         double theta = fanPos(0), yaw = fanPos(4);
         rLabelPos(2) = theta;
-        rLabelPos(3) = fanPos(1) - fanLen * std::cos(theta) * std::cos(yaw); // xr
+        rLabelPos(3) = fanPos(1) - fanLen * std::cos(theta) * std::cos(yaw);  // xr
         rLabelPos(4) = fanPos(2) - fanLen * std::sin(theta);
         rLabelPos(5) = fanPos(3) - fanLen * std::cos(theta) * std::sin(yaw);
         rLabelPos(6) = yaw;
@@ -130,14 +130,14 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         auto fanPredict = getFanPosFromState(ekfPredict);
         double positionDiff = (fanPosition.tail(4) - fanPredict.tail(4)).norm();
         double thetaDiff = std::abs(fanPosition(0) - fanPredict(0));
-        std::cout << "predictPos t w theta x y z yaw" << std::endl;
-        std::cout <<  ekfPredict << std::endl;
-        HubLogger::visualLog(fmt::format("predictedPos: w theta x y z yaw {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}", ekfPredict(1), ekfPredict(2), ekfPredict(3), ekfPredict(4), ekfPredict(5), ekfPredict(6)));
-        logInfo(fmt::format("Energy Predictor: positionDiff {:.3f} and thetaDiff {:.3f}", positionDiff, thetaDiff));
+        HubLogger::visualLog(fmt::format("predictedPos: w theta x y z yaw {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}",
+                                         ekfPredict(1), ekfPredict(2), ekfPredict(3), ekfPredict(4), ekfPredict(5),
+                                         ekfPredict(6)));
+        // logInfo(fmt::format("Energy Predictor: positionDiff {:.3f} and thetaDiff {:.3f}", positionDiff, thetaDiff));
         if(positionDiff < minPositionDiff) {
             if(thetaDiff < minThetaDiff) {
                 mTrackFan.state = mFilter.update(fanPosition);
-                logInfo("TrackFan Matched");
+                // logInfo("TrackFan Matched");
             } else {
                 double t = mTrackFan.state(0), w = mTrackFan.state(1);
                 mTrackFan.state = getRLabelPosFromFanPos(fanPosition);
@@ -150,7 +150,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
             }
             return true;
         } else {
-            logInfo("TrackFan do not matched!");
+            // logInfo("TrackFan do not matched!");
             return false;
         }
     }
@@ -177,7 +177,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
 
     double clcTheta(const cv::Point2f& rCenter, const cv::Point2f& fanCenter) {
         double dy = rCenter.y - fanCenter.y, dx = fanCenter.x - rCenter.x;
-        return std::atan2(dy, dx); 
+        return std::atan2(dy, dx);
     }
 
     cv::Point2f clcFanImgCenter(const std::vector<cv::Point2f>& imagePoints) {
@@ -200,13 +200,13 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         cv::Mat rvec, tvec;
         const auto pnpRes = cv::solvePnP(mFanObjectPoints, imagePoints, cameraInfo.cameraMatrix, cameraInfo.distCoefficients,
                                          rvec, tvec, false, cv::SOLVEPNP_IPPE);
-        
+
         glm::dvec3 fanCenter = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
         glm::dvec3 rvecRefCam = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
 
         if(!pnpRes || std::isnan(fanCenter.x) || std::isnan(fanCenter.y) || std::isnan(fanCenter.z))
             return std::tuple<bool, glm::dvec3, double, glm::dmat4>{ false, 0, 0, 0 };
-            
+
         double angle = glm::length(rvecRefCam);
         auto axis = rvecRefCam / angle;
         auto rmat = glm::mat4_cast(glm::angleAxis(-angle, axis));
@@ -221,10 +221,9 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
             dt = durationCastDouble(tp - std::get<0>(mThetaInfos.back()));
             dTheta = theta - std::get<1>(mThetaInfos.back());
         }
-        mThetaInfos.emplace_back(tp, theta, dt, dTheta);
-        if(mThetaInfos.size() >= mConfig.fanQueueLength) {
+        if(mThetaInfos.size() >= mConfig.fanQueueLength)
             mThetaInfos.pop_front();
-        }
+        mThetaInfos.emplace_back(tp, theta, dt, dTheta);
         mDirSum = dTheta >= 0 ? mDirSum + 1 : mDirSum - 1;
         mDirection = mDirSum >= 0 ? 1 : -1;
     }
@@ -252,23 +251,25 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         problem.SetParameterUpperBound(mParameters, 2, 4.0);
         ceres::Solve(options, &problem, &summary);
         //        logInfo(summary.FullReport());
-        logInfo(fmt::format("Final Cost: {:.3f} Param: {:.3f} {:.3f} {:.3f} {:.3f}", summary.final_cost, mParameters[0],
-                            mParameters[1], mParameters[2], mParameters[3]));
+        // logInfo(fmt::format("Final Cost: {:.3f} Param: {:.3f} {:.3f} {:.3f} {:.3f}", summary.final_cost, mParameters[0],
+        //                     mParameters[1], mParameters[2], mParameters[3]));
     }
 
     std::tuple<bool, double, double> solveAngle(const Eigen::VectorXd& X) {
         int cnt = 0;
         double predictTime = 0.0;
         double w = X(1), theta = X(2);
-        while(cnt <= 10) {
+        // logInfo(fmt::format("solve theta = {}, w = {}", theta, w));
+        while(cnt < 10) {   
             Eigen::VectorXd statePos = mTrackFan.state;
             statePos(2) = theta + w * predictTime;
-            Eigen::VectorXd predictPos = getFanPosFromState(statePos); 
-            auto [acess2, airTime, yaw, pitch] = solveWithoutAirDrag({ predictPos(1), -predictPos(3), predictPos(2) }, { 0, 0, 0 });
+            Eigen::VectorXd predictPos = getFanPosFromState(statePos);
+            auto [acess2, airTime, yaw, pitch] =
+                solveWithoutAirDrag({ predictPos(1), -predictPos(3), predictPos(2) }, { 0, 0, 0 });
             double requiredTime = airTime + mConfig.delay + GlobalSettings::get().latency;
             double diiffTime = requiredTime - predictTime;
             // HubLogger::watch("diffTime", diiffTime);
-            // logInfo(fmt::format("diffTime: {:.3f}", diiffTime));
+            // logInfo(fmt::format("{}th predictTime: {:.3f} requiredTime: {:.3f}", cnt, predictTime, requiredTime));
             if(std::fabs(diiffTime) < diffTThresh) {
                 return std::make_tuple(true, yaw, pitch);
                 break;
@@ -276,8 +277,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
             ++cnt;
             predictTime = requiredTime;
         }
-        logInfo("Energy Predictor solve angle error occurred!");
-        return {false, 0, 0};
+        logInfo(fmt::format("Energy Predictor solve angle error occurred! iter_cnt={}",cnt));
+        return { false, 0, 0 };
     }
 
 public:
@@ -295,7 +296,7 @@ public:
             if(1 == mMode) {
                 xNew(1) = X(1);  // w = w
             } else {
-                xNew(1) = a * std::sin(w * X(0) + p) + (2.090 - a) * mDirection;  // w = a * sin(wt + p) + (2.090 - a);
+                xNew(1) = (a * std::sin(w * X(0) + p) + (2.090 - a)) * mDirection;  // w = a * sin(wt + p) + (2.090 - a);
             }
             xNew(2) += xNew(1) * mDt;  // theta += w * dt
             return xNew;
@@ -316,13 +317,13 @@ public:
                 return F;
             } else {
                 // clang-format off
-                F << 1,                                            0,   0, 0, 0, 0, 0,
-                     a * w * std::cos(w * X(0) + p) + (2.090 - a), 0,   0, 0, 0, 0, 0,
-                     0,                                            mDt, 1, 0, 0, 0, 0,
-                     0,                                            0,   0, 1, 0, 0, 0,
-                     0,                                            0,   0, 0, 1, 0, 0,
-                     0,                                            0,   0, 0, 0, 1, 0,
-                     0,                                            0,   0, 0, 0, 0, 1;
+                F << 1,                                                           0,   0, 0, 0, 0, 0,
+                     (a * w * std::cos(w * X(0) + p) + (2.090 - a)) * mDirection, 0,   0, 0, 0, 0, 0,
+                     0,                                                           mDt, 1, 0, 0, 0, 0,
+                     0,                                                           0,   0, 1, 0, 0, 0,
+                     0,                                                           0,   0, 0, 1, 0, 0,
+                     0,                                                           0,   0, 0, 0, 1, 0,
+                     0,                                                           0,   0, 0, 0, 0, 1;
                 // clang-format on
                 return F;
             }
@@ -388,7 +389,7 @@ public:
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](energy_detect_available_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(energy_detect_available_atom, TypedIdentifier<EnergyFan>);
-                mMode = 1;
+                mMode = 2;
                 auto srcFan = BlackBoard::instance().get<EnergyFan>(key).value();
                 double dt = durationCastDouble(srcFan.lastUpdate - mTrackFan.lastUpdate);
                 mTrackFan.lastUpdate = srcFan.lastUpdate;
@@ -405,8 +406,8 @@ public:
                             mTfCamera2Robot(Point<UnitType::Distance, FrameOfRef::Camera>(posRefCamera)).mVal;
 
                         auto rmat = combine(mTfCamera2Robot, Transform<FrameOfRef::Armor, FrameOfRef::Camera>(rMatCamera));
-                        double fanYaw = normalizeAngle(atan2(rmat.raw()[2][2], rmat.raw()[2][0]) - glm::half_pi<double>());
-                        fanYaw = mTrackFan.state(6) + normalizeAngle(fanYaw - mTrackFan.state(6));   
+                        double fanYaw = normalizeAngle(atan2(rmat.raw()[2][2], rmat.raw()[2][0]) + glm::half_pi<double>());
+                        fanYaw = mTrackFan.state(6) + normalizeAngle(fanYaw - mTrackFan.state(6));
                         theta = mTrackFan.state(2) + normalizeAngle(theta - mTrackFan.state(2));
                         HubLogger::watch("detectedRuneX", posRefRobot.x);
                         HubLogger::watch("detectedRuneY", posRefRobot.y);
@@ -416,9 +417,10 @@ public:
 
                         Eigen::VectorXd fanPos(5);
                         fanPos << theta, posRefRobot.x, posRefRobot.y, posRefRobot.z, fanYaw;
-                        std::cout << "EnergyPredicotr: mesured fanPos: theta x y z yaw" << std::endl;
-                        std::cout << fanPos << std::endl;
-                        HubLogger::visualLog(fmt::format("measrued fanPos: theta x y z yaw {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}", fanPos(0), fanPos(1), fanPos(2), fanPos(3), fanPos(4)));
+                        // std::cout << "EnergyPredicotr: mesured fanPos: theta x y z yaw" << std::endl;
+                        // std::cout << fanPos << std::endl;
+                        HubLogger::visualLog(fmt::format("measrued fanPos: theta x y z yaw {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}",
+                                                         fanPos(0), fanPos(1), fanPos(2), fanPos(3), fanPos(4)));
                         if(mTrackFan.trackSate == FanTrackingState::LOST) {
                             init(fanPos);
                             matched = true;
@@ -439,9 +441,9 @@ public:
                     HubLogger::watch("rLabelZ", mTrackFan.state(5));
                     HubLogger::watch("runeYaw", mTrackFan.state(6));
                     auto [success, yaw, pitch] = solveAngle(mTrackFan.state);
-                    if (success){
+                    if(success) {
                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(), yaw,
-                                        pitch, true, normalSolver);
+                                            pitch, true, normalSolver);
                     }
                 }
             },
