@@ -107,7 +107,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         fanPos(0) = theta;
         fanPos(1) = rLabelX + fanLen * std::cos(theta) * std::cos(yaw);
         fanPos(2) = rLabelY + fanLen * std::sin(theta);
-        fanPos(3) = rLabeZ - fanLen * std::cos(theta) * std::sin(yaw);
+        fanPos(3) = rLabeZ + fanLen * std::cos(theta) * std::sin(yaw);
         fanPos(4) = yaw;
         return fanPos;
     }
@@ -118,7 +118,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         rLabelPos(2) = theta;
         rLabelPos(3) = fanPos(1) - fanLen * std::cos(theta) * std::cos(yaw); // xr
         rLabelPos(4) = fanPos(2) - fanLen * std::sin(theta);
-        rLabelPos(5) = fanPos(3) + fanLen * std::cos(theta) * std::sin(yaw);
+        rLabelPos(5) = fanPos(3) - fanLen * std::cos(theta) * std::sin(yaw);
         rLabelPos(6) = yaw;
         return rLabelPos;
     }
@@ -143,6 +143,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
                 mTrackFan.state = getRLabelPosFromFanPos(fanPosition);
                 mTrackFan.state(0) = t;
                 mTrackFan.state(1) = w;
+                mTrackFan.state(2) = normalizeAngle(mTrackFan.state(2));
                 mFilter.setState(mTrackFan.state);
                 mThetaInfos.clear();
                 HubLogger::visualLog(fmt::format("Fan Jumped positionDiff {:.3f} and thetaDiff {:.3f}", positionDiff, thetaDiff));
@@ -260,9 +261,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         double predictTime = 0.0;
         double w = X(1), theta = X(2);
         while(cnt <= 10) {
-            theta += w * predictTime;
             Eigen::VectorXd statePos = mTrackFan.state;
-            statePos(2) = theta;
+            statePos(2) = theta + w * predictTime;
             Eigen::VectorXd predictPos = getFanPosFromState(statePos); 
             auto [acess2, airTime, yaw, pitch] = solveWithoutAirDrag({ predictPos(1), -predictPos(3), predictPos(2) }, { 0, 0, 0 });
             double requiredTime = airTime + mConfig.delay + GlobalSettings::get().latency;
@@ -337,11 +337,11 @@ public:
             Eigen::MatrixXd h(nZ, nX);
             double theta = X(2), yaw = X(6);
             // clang-format off
-            h << 0, 0, 1,                                              0, 0, 0, 0,
+            h << 0, 0, 1,                                         0, 0, 0, 0,
                  0, 0, -fanLen * std::sin(theta) * std::cos(yaw), 1, 0, 0, -fanLen * std::cos(theta) * std::sin(yaw),
-                 0, 0, fanLen * std::cos(theta),                    0, 1, 0, 0,
-                 0, 0, fanLen * std::sin(theta) * std::sin(yaw),  0, 0, 1, -fanLen * std::cos(theta)* std::cos(yaw),
-                 0, 0, 0,                                              0, 0, 0, 1;
+                 0, 0, fanLen * std::cos(theta),                  0, 1, 0, 0,
+                 0, 0, -fanLen * std::sin(theta) * std::sin(yaw), 0, 0, 1, fanLen * std::cos(theta)* std::cos(yaw),
+                 0, 0, 0,                                         0, 0, 0, 1;
             // clang-format on
             return h;
         };
@@ -405,7 +405,7 @@ public:
                             mTfCamera2Robot(Point<UnitType::Distance, FrameOfRef::Camera>(posRefCamera)).mVal;
 
                         auto rmat = combine(mTfCamera2Robot, Transform<FrameOfRef::Armor, FrameOfRef::Camera>(rMatCamera));
-                        double fanYaw = normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
+                        double fanYaw = normalizeAngle(atan2(rmat.raw()[2][2], rmat.raw()[2][0]) - glm::half_pi<double>());
                         fanYaw = mTrackFan.state(6) + normalizeAngle(fanYaw - mTrackFan.state(6));   
                         theta = mTrackFan.state(2) + normalizeAngle(theta - mTrackFan.state(2));
                         HubLogger::watch("detectedRuneX", posRefRobot.x);
