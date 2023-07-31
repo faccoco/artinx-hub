@@ -125,7 +125,7 @@ private:
 
 public:
     VideoReplay(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, name }, mKey{ generateKey(this) }, mVideoIndex(0) {
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) }, mVideoIndex(0) {
         isDirectory = fs::is_directory(mConfig.path);
         if(isDirectory) {
             if(fs::is_empty(mConfig.path)) {

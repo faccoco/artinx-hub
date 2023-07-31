@@ -76,7 +76,12 @@ private:
         return nullptr;
     }
 
-    void sendFrame(const cv::Mat& frame) {
+    void sendFrame(cv::Mat& frame) {
+        if(mConfig.flip) {
+            cv::Mat flipped;
+            cv::flip(frame, flipped, -1);
+            std::swap(frame, flipped);
+        }
         reportFrameRate(SynchronizedClock::instance().now());
 
         Pose gunPose{};

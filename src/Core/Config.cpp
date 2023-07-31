@@ -16,7 +16,7 @@ void ConfigHelper::loadConfig() {
 
 void ConfigHelper::parseConfig() {
     mConfig = caf::config_value::parse(mConfigData).value();
-};
+}
 
 void ConfigHelper::writeConfig() {
     std::lock_guard guard(mutex);

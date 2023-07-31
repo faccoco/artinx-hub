@@ -117,10 +117,11 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
 
 public:
     InfantrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, name }, SerialPort<InfantryRecvPacket, InfantrySendPacket>(
-                                         mConfig.devPath, mConfig.baudRate,
-                                         std::bind(&InfantrySerialPort::infantryRecvCB, this, std::placeholders::_1),
-                                         std::bind(&InfantrySerialPort::infantrySetPacket, this)),
+        : HubHelper{ base, config, std::move(name) }, SerialPort<InfantryRecvPacket, InfantrySendPacket>(
+                                                          mConfig.devPath, mConfig.baudRate,
+                                                          std::bind(&InfantrySerialPort::infantryRecvCB, this,
+                                                                    std::placeholders::_1),
+                                                          std::bind(&InfantrySerialPort::infantrySetPacket, this)),
           mKey{ generateKey(this) } {}
 
     caf::behavior make_behavior() override {

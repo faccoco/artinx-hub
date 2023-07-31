@@ -365,7 +365,8 @@ class NNetArmorDetector final
     }
 
 public:
-    NNetArmorDetector(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
+    NNetArmorDetector(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
         // 1. 读取网络
         mNetwork = mIe.ReadNetwork(mConfig.networkPath);
         mNumClassifierPtr = std::make_unique<NumberClassifier>(mConfig.numClassifyModelPath);

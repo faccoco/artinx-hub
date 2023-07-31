@@ -94,8 +94,9 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
 #endif
 
     std::optional<std::vector<uchar>> generateImageData(const std::string& path) {
-        if(path.empty())
+        if(path.empty()) {
             return std::nullopt;
+        }
 
         uint64_t id;
         try {
@@ -105,22 +106,25 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
         }
 
         std::unique_lock guard{ mMutex };
-        if(!mImage.count(id) || !mImage[id].isEnable)
+        if(!mImage.count(id) || !mImage[id].isEnable) {
             return std::nullopt;
+        }
         auto img = mImage[id].image;
         guard.unlock();
 
         std::vector<uchar> data;
-        if(!cv::imencode(".jpg", img, data))
+        if(!cv::imencode(".jpg", img, data)) {
             return std::nullopt;
+        }
         return data;
     }
 
     std::string generateFilterJson() {
         nlohmann::json result = nlohmann::json::array();
         std::lock_guard<std::mutex> guard{ mMutex };
-        for(const auto& v : mImage)
+        for(const auto& v : mImage) {
             result.push_back({ v.second.name.data() + std::string("-") + std::to_string(v.first), v.second.isEnable });
+        }
         return result.dump();
     }
 
@@ -152,12 +156,15 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
                         return "Invalid config, check your spelling";
                     }
                 case ConfigControl::WriteConfig:
-                    gConfigHelper->writeConfig();
-                    return "Succeed";
+                    if(gConfigHelper->updateConfigData(std::move(configData))) {
+                        gConfigHelper->writeConfig();
+                        return "Succeed";
+                    } else {
+                        return "Invalid config, check your spelling";
+                    }
                 case ConfigControl::RestoreConfig:
                     if(gConfigHelper->reloadConfig()) {
                         return gConfigHelper->getRaw();
-                        return convert2HTMLFormat(gConfigHelper->getRaw());
                     } else {
                         return "Failed";
                     }
@@ -170,8 +177,8 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
 
 public:
     HttpServer(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, name }, gConfigHelper{ &ConfigHelper::instance() }, mClogBuffer{ std::clog.rdbuf() },
-          mKey{ generateKey(this) } {
+        : HubHelper{ base, config, std::move(name) }, gConfigHelper{ &ConfigHelper::instance() },
+          mClogBuffer{ std::clog.rdbuf() }, mKey{ generateKey(this) } {
 
         using json = nlohmann::json;
 
@@ -187,8 +194,9 @@ public:
             res.set_content("hello world!    clock " + std::to_string(::clock()), "text/plain");
         });
         mServer.Get(R"(/img/.*?(\d+).*)", [this](const httplib::Request& req, httplib::Response& res) {
-            if(req.matches.empty())
+            if(req.matches.empty()) {
                 return;
+            }
             const auto&& path = req.matches[1].str();
             res.set_content_provider(
                 "multipart/x-mixed-replace;boundary=MJP",
@@ -210,14 +218,9 @@ public:
             res.set_content(nlohmann::json(HubLogger::getwatches()).dump(), "application/json");
         });
 
-        static bool filterInit = false;
         mServer.Post("/filter", [this](const httplib::Request& req, httplib::Response& res) {
-            if(!filterInit && req.body.empty()) {
-                res.set_content(generateFilterJson(), "text/plain");
-                filterInit = true;
-                return;
-            } else if(req.body.empty()) {
-                res.set_content("{}", "text/plain");
+            if(req.body.empty()) {
+                res.set_content(generateFilterJson(), "application/json");
             } else {
                 auto reqJson = json::parse(req.body);
                 std::lock_guard guard{ mMutex };
@@ -225,7 +228,7 @@ public:
                     uint64_t key = std::stoull(str.substr(str.find('-') + 1));
                     mImage[key].isEnable = val;
                 }
-                res.set_content("{}", "text/plain");
+                res.set_content("{}", "application/json");
             }
         });
 

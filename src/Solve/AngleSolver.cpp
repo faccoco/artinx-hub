@@ -69,7 +69,8 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
     }
 
 public:
-    AngleSolver(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
+    AngleSolver(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) } {}
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
@@ -163,10 +164,9 @@ public:
                                 yaw = yawAngle;
                                 pitch = pitchAngle;
                             } else {
-                                // logInfo(fmt::format("AngleSolver: {}th iteration for {}th armor do not satisfy maxShootDelatYaw",
-                                //                     iterTimes, i));
-                                HubLogger::visualLog(fmt::format(
-                                    "AngleSolver: {}th iteration for {}th armor do not satisfy maxShootDelatYaw", iterTimes, i));
+                                // logInfo(fmt::format("AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy
+                                // maxShootDelatYaw",
+                                //                     i, deltaTheta));
                             }
                             break;
                         }
@@ -179,8 +179,8 @@ public:
                                             yaw.value(), pitch.value(), true, normalSolver);
                         return;
                     } else {
-                        // logInfo(fmt::format("AngleSolver: {}th Armor do not satisfy maxShootDeltaYaw", i));
-                        HubLogger::visualLog(fmt::format("AngleSolver: {}th Armor do not satisfy maxShootDeltaYaw", i));
+                        // logInfo(fmt::format("AngleSolver: {}th armor exceed max iter times or not satisfy maxShootDeltaYaw",
+                        // i));
                     }
                     theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
                 }

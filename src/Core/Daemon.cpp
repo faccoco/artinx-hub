@@ -34,11 +34,12 @@ class DaemonActor final : public caf::event_based_actor {
         auto& registry = gSystem.get().registry();
         const auto nodesConfig = gConfigHelper->getConfig().to_dictionary().value();
         caf::config_value actorConfig;
-        for(auto&& [name, subConfig] : nodesConfig)
+        for(auto&& [name, subConfig] : nodesConfig) {
             if(name == actorId) {
                 actorConfig = subConfig;
                 break;
             }
+        }
         registry.erase(actorId);
         caf::scoped_actor caller{ gSystem.get() };
 
@@ -65,8 +66,9 @@ public:
             mActorsAddr.emplace(actor.address(), name);
         }
         set_down_handler([this](const caf::down_msg& msg) {
-            if(globalStatus != RunStatus::running)
+            if(globalStatus != RunStatus::running) {
                 return;
+            }
             std::unique_lock lock{ mLatch };
             const auto actorName = mActorsAddr[msg.source];
             mActorsAddr.erase(msg.source);
@@ -75,7 +77,6 @@ public:
             HubLogger::visualLog(fmt::format("Actor {} down: {}", actorName, caf::to_string(msg.reason)));
             restartActor(actorName);
         });
-        // Timer::instance().addTimer(address(), 500ms);
     }
 
     caf::behavior make_behavior() override {
@@ -83,11 +84,6 @@ public:
                     ACTOR_PROTOCOL_CHECK(start_atom);
                     mStarted = true;
                 },
-                 /*                 [this](timer_atom) {
-                                      ACTOR_PROTOCOL_CHECK(timer_atom);
-                                      if(!mStarted)
-                                          return;
-                                  },*/
                  [](monitor_response_atom) { ACTOR_PROTOCOL_CHECK(monitor_response_atom); },
                  [this](reload_all_config_atom) {
                      ACTOR_PROTOCOL_CHECK(reload_config_atom);

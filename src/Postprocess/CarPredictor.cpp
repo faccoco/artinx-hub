@@ -211,6 +211,9 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             for(const auto& armor : armors) {
                 if(std::isnan(armor.center.mVal.x) || std::isnan(armor.center.mVal.y) || std::isnan(armor.center.mVal.z))
                     continue;
+                if(armor.id != mTrackedArmor.id) {
+                    continue;
+                }
                 auto p = getArmorPos(armor);
                 if(armor.id != mTrackedArmor.id)
                     continue;
@@ -267,8 +270,9 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
 
 public:
     CarPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, name }, mKey{ generateKey(this) },
-          mTrackedArmor{ TimePoint(), Eigen::VectorXd::Zero(9), 0, RobotType::Negative, TrackingState::LOST } {
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) }, mTrackedArmor{
+              TimePoint(), Eigen::VectorXd::Zero(9), 0, RobotType::Negative, TrackingState::LOST
+          } {
         // EKF
         // xa = x_armor, xc = x_robot_center
         // state: xc, yc, zc, yaw, v_xc, v_yc, v_zc, v_yaw, r

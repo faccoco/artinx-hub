@@ -36,7 +36,8 @@ class FakeDetector final : public HubHelper<caf::event_based_actor, FakeDetector
 
 public:
     FakeDetector(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, name }, mKey{ generateKey(this) }, mReceivedTimes(0), mDelay(doubleCastDuration(mConfig.delay)) {}
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) }, mReceivedTimes(0),
+          mDelay(doubleCastDuration(mConfig.delay)) {}
     caf::behavior make_behavior() override {
         return { [&](simulator_step_atom, Identifier key) {
                     ACTOR_PROTOCOL_CHECK(simulator_step_atom, TypedIdentifier<SimulatorWorldInfo>);
