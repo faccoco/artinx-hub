@@ -34,8 +34,7 @@ set(SOURCE
     "Sensor/VideoReplay.cpp"
     "Sensor/HikDriver.cpp"
     "Sensor/CameraBase.cpp"
-    "Solve/BotsLocator.cpp"
-    "Solve/AngleSolver.cpp"
+        "Solve/AngleSolver.cpp"
     "Solve/PeriodSolver.cpp"
     "Solve/ArmorLocator.cpp"
     "Solve/RadarLocator.cpp"
@@ -63,7 +62,7 @@ set(SOURCE
     "Utility/Timer.cpp"
     "Utility/VideoRecorder.cpp"
     "Utility/MathTools.cpp"
-    "Utility/RadarInfo.cpp")
+    "Utility/RadarInfo.cpp" Solve/BotLocator.cpp)
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
@@ -153,18 +152,17 @@ target_link_libraries(ArtinxHub PRIVATE spdlog::spdlog
 add_custom_command(
   TARGET ArtinxHub
   PRE_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/pages
+  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/pages
           $<TARGET_FILE_DIR:ArtinxHub>/pages)
 add_custom_command(
   TARGET ArtinxHub
   PRE_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/scripts
+  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/scripts
           $<TARGET_FILE_DIR:ArtinxHub>/scripts)
 add_custom_command(
   TARGET ArtinxHub
   PRE_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data
-          $<TARGET_FILE_DIR:ArtinxHub>/data)
+  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:ArtinxHub>/data)
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   target_compile_options(ArtinxHub PRIVATE /W4 /WX-)
@@ -217,3 +215,5 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
       ${INFERENCE_ENGINE_ROOT}/bin/intel64/${CMAKE_BUILD_TYPE}/plugins.xml
       $<TARGET_FILE_DIR:ArtinxHub>)
 endif()
+
+add_custom_command(TARGET ArtinxHub PRE_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/config_templates/caf-application.conf $<TARGET_FILE_DIR:ArtinxHub>)

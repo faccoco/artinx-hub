@@ -11,9 +11,10 @@
 
 class BlockedActor final : public HubHelper<caf::event_based_actor, void, payload_atom> {
     inline static bool mFailed = false;
+    static size_t restartCount;
 
 public:
-    BlockedActor(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
+    BlockedActor(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](payload_atom, int32_t, int32_t) {
@@ -33,17 +34,19 @@ HUB_REGISTER_CLASS(BlockedActor);
 
 class ExceptionKilled final : public HubHelper<caf::event_based_actor, void, payload_atom> {
     inline static bool mFailed = false;
+    static size_t restartCount;
 
 public:
-    ExceptionKilled(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
+    ExceptionKilled(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](payload_atom, int32_t, int32_t) {
+                     logError(fmt::format("exception killed node restart count: {}", ++restartCount));
                      if(mFailed)
                          sendAll(payload_atom_v, 0, 0);
                      else {
-                         mFailed = true;
-                         throw std::runtime_error("emulated exception");
+                         //                         mFailed = true;
+                         throw std::runtime_error("Exception Down Test");
                      }
                  } };
     }
@@ -53,17 +56,18 @@ HUB_REGISTER_CLASS(ExceptionKilled);
 
 class SignalKilled final : public HubHelper<caf::event_based_actor, void, payload_atom> {
     inline static bool mFailed = false;
+    static size_t restartCount;
 
 public:
-    SignalKilled(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
+    SignalKilled(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](payload_atom, int32_t, int32_t) {
+                     logInfo(fmt::format("signal killed node restart count: {}", ++restartCount));
                      if(mFailed)
                          sendAll(payload_atom_v, 0, 0);
                      else {
-                         mFailed = true;
-                         raise(SIGSEGV);
+                         raise(SIGEV_SIGNAL);
                      }
                  } };
     }
@@ -72,18 +76,34 @@ public:
 HUB_REGISTER_CLASS(SignalKilled);
 
 class DaemonTester final : public HubHelper<caf::event_based_actor, void, payload_atom> {
+    bool mStarted = false;
+    static size_t restartCount;
+
 public:
-    DaemonTester(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config } {}
+    DaemonTester(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {
+        Timer::instance().addTimer(address(), 5ms);
+    }
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
                     ACTOR_PROTOCOL_CHECK(start_atom);
-                    sendAll(payload_atom_v, 0, 0);
+                    mStarted = true;
                 },
-                 [&](payload_atom, int32_t, int32_t) {
-                     ACTOR_PROTOCOL_CHECK(payload_atom, int32_t, int32_t);
-                     terminateSystem(*this, true);
+                 [this](timer_atom) {
+                     ACTOR_PROTOCOL_CHECK(timer_atom);
+                     if(!mStarted)
+                         return;
+                     if(++restartCount >= 5000)
+                         terminateSystem(*this, true);
+                     else {
+                         //                         logInfo("=== sending message to actor ===\n");
+                         sendAll(payload_atom_v, 0, 0);
+                     }
                  } };
     }
 };
 
+size_t BlockedActor::restartCount = 0;
+size_t ExceptionKilled::restartCount = 0;
+size_t SignalKilled::restartCount = 0;
+size_t DaemonTester::restartCount = 0;
 HUB_REGISTER_CLASS(DaemonTester);

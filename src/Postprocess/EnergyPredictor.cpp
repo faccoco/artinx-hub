@@ -282,8 +282,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     }
 
 public:
-    EnergyPredictor(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mKey{ generateKey(this) },
+    EnergyPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) },
           mTrackFan{ TimePoint(), Eigen::VectorXd::Zero(7), FanTrackingState::LOST } {
         mLostCount = mConfig.lostCnt;
 
@@ -389,7 +389,7 @@ public:
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](energy_detect_available_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(energy_detect_available_atom, TypedIdentifier<EnergyFan>);
-                mMode = 2;
+                mMode = 1;
                 auto srcFan = BlackBoard::instance().get<EnergyFan>(key).value();
                 double dt = durationCastDouble(srcFan.lastUpdate - mTrackFan.lastUpdate);
                 mTrackFan.lastUpdate = srcFan.lastUpdate;

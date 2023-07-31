@@ -48,7 +48,7 @@ class LivoxDriver final : public HubHelper<caf::event_based_actor, LivoxDriverSe
     }
 
 public:
-    LivoxDriver(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    LivoxDriver(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {}
 
     ~LivoxDriver() {}
 

@@ -69,7 +69,7 @@ class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, Image
     }
 
 public:
-    ImageSequenceReplay(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {
+    ImageSequenceReplay(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
         mImages.reserve(1000);
         for(auto const& dir_entry : std::filesystem::directory_iterator{ mConfig.path }) {
             const auto filePath = dir_entry.path().string();

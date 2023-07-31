@@ -17,7 +17,7 @@ class FixedIMU final : public HubHelper<caf::event_based_actor, void, update_pos
     Identifier mKey;
 
 public:
-    FixedIMU(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    FixedIMU(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [&](timer_atom) {
                     ACTOR_PROTOCOL_CHECK(timer_atom);

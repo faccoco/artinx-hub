@@ -4,13 +4,13 @@ let filters = {};
 let images = {};
 let $watchVals = {};
 let checkRadar = false;
-let locateTab;
+let radarLocateTab, configEditorTab;
 
 let watchCharts = {};
 let watchChartOptions = {};
 let startTimePoint = new Date() - 0;
 
-let updateInterval = setInterval(() => { }, 100000);
+let updateInterval = setInterval(() => {}, 100000);
 window.settings = new Proxy(
     {
         updateFreq,
@@ -27,7 +27,7 @@ window.settings = new Proxy(
                     clearInterval(updateInterval);
                     updateInterval = value > 0 ?
                         setInterval(updateAll, 1000. / value) :
-                        setInterval(() => { }, 100000);
+                        setInterval(() => {}, 100000);
                     break;
             }
             return true;
@@ -37,10 +37,10 @@ window.settings = new Proxy(
 settings.logLength = 100;
 $(document).ready(function () {
     settings.updateFreq = 20.;   //start updating
+    updateFilter();
 });
 
 function updateAll() {
-    updateFilter();
     updateWatches();
     updateRadar();
 }
@@ -132,7 +132,7 @@ function updateStatus() {
     });
 }
 
-function updateFilter() {
+window.updateFilter = function () {
     fetch("/filter", {
         method: "POST"
     }).then(res => res.json()).then(data => {
@@ -185,7 +185,7 @@ function updateRadar() {
     if (!checkRadar) {
         checkRadar = true;
         setTimeout(() => {
-            fetch("/radar", { method: "GET" }).then(res => res.json()).then(data => {
+            fetch("/radar", {method: "GET"}).then(res => res.json()).then(data => {
                 if (data) {
                     let checkbox = $("<label class=\"mdui-list-item mdui-ripple\">" +
                         "<div class=\"mdui-list-item-content mdui-text-truncate\">Radar Loc-Cal</div > " +
@@ -198,23 +198,30 @@ function updateRadar() {
                     let inner = $("#filter_radar_cal");
                     inner.change(function () {
                         if (this.checked)
-                            locateTab = window.open("radar_locate.html", "Radar Locate");
+                            radarLocateTab = window.open("radar_locate.html", "Radar Locate");
                         else
-                            locateTab.close();
+                            radarLocateTab.close();
                     });
                 }
             })
         }, 300);
     }
 }
+function openConfigEditor() {
+    configEditorTab = window.open("editor.html", "Config Editor");
+}
 
-function exitServer() {
+window.exitServer = function () {
     fetch("/exit");
     try {
-        locateTab.close();
+        radarLocateTab.close();
+        configEditorTab.close();
     } catch (e) {
     }
     setTimeout(function () {
         window.close();
     }, 514);
 }
+
+window.openConfigEditor = openConfigEditor;
+window.exitServer = exitServer;

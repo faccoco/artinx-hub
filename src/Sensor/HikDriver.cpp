@@ -54,7 +54,7 @@ private:
 
         if(std::chrono::duration_cast<std::chrono::nanoseconds>(timeStamp - instance->mLastSend).count() / 1000000.0 <
                1e3 / instance->mConfig.fps ||
-           !instance->mStartFlag.load(std::memory_order_acquire)) {
+           !instance->mStartFlag.load(std::memory_order_consume)) {
             return;
         } else {
             instance->mLastSend = timeStamp;
@@ -104,7 +104,8 @@ private:
     }
 
 public:
-    HikDriver(caf::actor_config& base, const HubConfig& config) : CameraBase{ base, config }, mKey{ generateKey(this) } {
+    HikDriver(caf::actor_config& base, const HubConfig& config, std::string name)
+        : CameraBase{ base, config, std::move(name) }, mKey{ generateKey(this) } {
         showDriverVersion();
         checkErrorCode(MV_CC_EnumDevices(MV_USB_DEVICE, &mDeviceList));
         if(mDeviceList.nDeviceNum == 0) {

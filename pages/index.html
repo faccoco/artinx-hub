@@ -17,6 +17,7 @@
   <script src="js/jquery-3.6.0.min.js"></script>
   <!-- <script src="js/echarts/echarts.js"></script> -->
   <script src="js/mdui.min.js"></script>
+  <script src="js/main.js" type="module" ></script>
 
 </head>
 
@@ -28,6 +29,8 @@
     <header class="mdui-appbar mdui-appbar-fixed">
       <div class="mdui-toolbar mdui-color-theme">
         <p class="mdui-typo-headline">ARTINX Hub</p>
+        <button class="mdui-btn mdui-btn-raised mdui-ripple mdui-color-theme-accent" onclick="openConfigEditor()">Config
+          Editor</button>
         <div class="mdui-toolbar-spacer"></div>
         <button class="mdui-btn mdui-btn-icon" type="button" onclick="exitServer()">
           <i class="mdui-icon material-icons">exit_to_app</i>
@@ -37,7 +40,12 @@
     <!-- drawer start -->
     <div class="mdui-drawer">
       <div class="mdui-list" id="filter">
-        <div class="mdui-subheader">Filter</div>
+        <div class="mdui-subheader">
+          Filter
+          <button class="mdui-btn mdui-btn-icon" style="float:right;" onclick="updateFilter()">
+            <i class="mdui-icon material-icons">refresh</i>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -73,7 +81,8 @@
                 <div class="mdui-col-xs-3">刷新频率</div>
                 <div class="mdui-col-xs-9">
                   <label class="mdui-slider mdui-slider-discrete">
-                    <input id="updateFreq" type="range" step="1" min="0" max="50" oninput="settings[this.id] = this.value"/>
+                    <input id="updateFreq" type="range" step="1" min="0" max="50"
+                      oninput="settings[this.id] = this.value" />
                   </label>
                 </div>
                 <div class="mdui-col-xs-2 settingsDisplay"></div>
@@ -82,7 +91,8 @@
                 <div class="mdui-col-xs-3">记录长度</div>
                 <div class="mdui-col-xs-9">
                   <label class="mdui-slider mdui-slider-discrete">
-                    <input id="logLength" type="range" step="1" min="0" max="200" oninput="settings[this.id] = this.value"/>
+                    <input id="logLength" type="range" step="1" min="0" max="200"
+                      oninput="settings[this.id] = this.value" />
                   </label>
                 </div>
                 <div class="mdui-col-xs-2 settingsDisplay"></div>
@@ -96,7 +106,8 @@
           <tr>
             <td>
               <label class="mdui-checkbox">
-                <input type="checkbox" onchange="$(document.getElementById('chart-'+$(this).parents('tr').children().eq(1).text())).toggle();">
+                <input type="checkbox"
+                  onchange="$(document.getElementById('chart-'+$(this).parents('tr').children().eq(1).text())).toggle();">
                 <i class="mdui-checkbox-icon"></i>
               </label>
             </td>
@@ -115,7 +126,6 @@
     </div>
     <!-->
   </div>
-  <script src="js/main.js" type="module"></script>
 </body>
 
 </html>

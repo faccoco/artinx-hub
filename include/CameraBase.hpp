@@ -50,7 +50,7 @@ protected:
     const Transform<FrameOfRef::Gun, FrameOfRef::Camera, true> mTfGun2Camera = glm::translate(rotateMat, -mConfig.offset);
     std::deque<Clock::rep> mLastFrames;
 
-    CameraBase(caf::actor_config& base, const HubConfig& config);
+    CameraBase(caf::actor_config& base, const HubConfig& config, std::string name);
 
     static void loadCalibration(const std::string& identifier, uint32_t width, uint32_t height, double fallbackFov,
                                 cv::Mat& cameraMatrix, cv::Mat& distCoefficients);

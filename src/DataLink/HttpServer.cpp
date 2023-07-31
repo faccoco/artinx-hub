@@ -1,17 +1,21 @@
 #include "BlackBoard.hpp"
 #include "CameraFrame.hpp"
 #include "Common.hpp"
+#include "Config.hpp"
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "RadarInfo.hpp"
 #include "SuppressWarningBegin.hpp"
 #include "Utility.hpp"
 
+#include <atomic>
 #include <caf/blocking_actor.hpp>
 #include <caf/event_based_actor.hpp>
+#include <caf/scoped_actor.hpp>
 #include <fmt/core.h>
 #include <functional>
 #include <httplib.h>
+#include <magic_enum.hpp>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <opencv2/imgproc.hpp>
@@ -53,7 +57,9 @@ bool inspect(Inspector& f, HttpServerSettings& x) {
 }
 
 class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSettings, radar_locate_request_atom> {
+
     httplib::Server mServer;
+    ConfigHelper* gConfigHelper;
     std::unordered_map<uint64_t, ImageWithFilter> mImage;
     std::mutex mMutex;
     std::thread mListener;
@@ -118,9 +124,54 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
         return result.dump();
     }
 
+    std::string convert2HTMLFormat(std::string&& src) {
+        std::string res = src;
+        size_t pos = res.find('\n');
+        while(pos != std::string::npos) {
+            res.replace(pos, 1, R"(&NewLine;)");
+            pos = res.find('\n', pos + 8);
+        }
+        pos = res.find('\"');
+        while(pos != std::string::npos) {
+            res.replace(pos, 1, R"(&quot;)");
+            pos = res.find('\"', pos + 5);
+        }
+        return res;
+    }
+
+    std::optional<std::string> dealConfigControl(const std::optional<ConfigControl>& optCMD, std::string&& configData) {
+        if(optCMD) {
+            switch(optCMD.value()) {
+                case ConfigControl::ApplyConfig:
+                    if(gConfigHelper->updateConfigData(std::move(configData))) {
+                        caf::scoped_actor {
+                            system()
+                        } -> send(caf::actor_cast<caf::actor>(system().registry().get("_DAEMON_")), reload_all_config_atom_v);
+                        return "Succeed";
+                    } else {
+                        return "Invalid config, check your spelling";
+                    }
+                case ConfigControl::WriteConfig:
+                    gConfigHelper->writeConfig();
+                    return "Succeed";
+                case ConfigControl::RestoreConfig:
+                    if(gConfigHelper->reloadConfig()) {
+                        return gConfigHelper->getRaw();
+                        return convert2HTMLFormat(gConfigHelper->getRaw());
+                    } else {
+                        return "Failed";
+                    }
+                default:
+                    return std::nullopt;
+            }
+        }
+        return std::nullopt;
+    }
+
 public:
-    HttpServer(caf::actor_config& base, const HubConfig& config)
-        : HubHelper{ base, config }, mClogBuffer{ std::clog.rdbuf() }, mKey{ generateKey(this) } {
+    HttpServer(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, name }, gConfigHelper{ &ConfigHelper::instance() }, mClogBuffer{ std::clog.rdbuf() },
+          mKey{ generateKey(this) } {
 
         using json = nlohmann::json;
 
@@ -159,14 +210,9 @@ public:
             res.set_content(nlohmann::json(HubLogger::getwatches()).dump(), "application/json");
         });
 
-        static bool filterInit = false;
         mServer.Post("/filter", [this](const httplib::Request& req, httplib::Response& res) {
-            if(!filterInit && req.body.empty()) {
-                res.set_content(generateFilterJson(), "text/plain");
-                filterInit = true;
-                return;
-            } else if(req.body.empty()) {
-                res.set_content("{}", "text/plain");
+            if(req.body.empty()) {
+                res.set_content(generateFilterJson(), "application/json");
             } else {
                 auto reqJson = json::parse(req.body);
                 std::lock_guard guard{ mMutex };
@@ -174,11 +220,12 @@ public:
                     uint64_t key = std::stoull(str.substr(str.find('-') + 1));
                     mImage[key].isEnable = val;
                 }
-                res.set_content("{}", "text/plain");
+                res.set_content("{}", "application/json");
             }
         });
+
 #ifdef ARTINX_RADAR
-        mServer.Get(R"(/img/RadarCenter)", [this](const httplib::Request& req, httplib::Response& res) {
+        mServer.Get("/img/RadarCenter", [this](const httplib::Request& req, httplib::Response& res) {
             res.set_content_provider("multipart/x-mixed-replace;boundary=MJP",
                                      [this](size_t, httplib::DataSink& sink) {
                                          if(const auto&& img = generateImageData(std::to_string(radarKey))) {
@@ -211,6 +258,20 @@ public:
         }
 #endif
 
+        mServer.Get("/config/content", [this](const httplib::Request&, httplib::Response& res) {
+            res.set_content(json(convert2HTMLFormat(ConfigHelper::instance().getRaw())).dump(), "text/plain");
+        });
+
+        mServer.Post("/config/control", [this](const httplib::Request& req, httplib::Response& res) {
+            auto data = json::parse(req.body);
+            if(auto response = dealConfigControl(magic_enum::enum_cast<ConfigControl>(data["control"].get<std::string>()),
+                                                 data["content"].get<std::string>())) {
+                res.set_content(json(response.value()).dump(), "text/plain");
+            } else {
+                res.set_content(json("invalid-command").dump(), "text/plain");
+            }
+        });
+
         mServer.Get("/exit", [this](const httplib::Request&, httplib::Response&) {
             mServer.stop();
             terminateSystem(*this, true);
@@ -231,7 +292,7 @@ public:
 #if defined(ARTINXHUB_WINDOWS)
                         ShellExecuteA(nullptr, "open", "http://localhost:5630/pages/index.html", nullptr, nullptr, SW_SHOWNORMAL);
 #elif defined(ARTINXHUB_LINUX)
-                        std::system(fmt::format("xdg-open http://{}:5630/pages/index.html", mhostIpAddress).c_str());
+                        std::system(fmt::format("xdg-open http://{}:5630/pages/index.html 2>/dev/null", mhostIpAddress).c_str());
 #else
                         0;
 #endif

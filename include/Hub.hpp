@@ -1,6 +1,7 @@
 #pragma once
 #include "Common.hpp"
 #include "Config.hpp"
+#include "DataDesc.hpp"
 #include "Timer.hpp"
 
 #include "SuppressWarningBegin.hpp"
@@ -9,39 +10,60 @@
 #include "spdlog/sinks/rotating_file_sink.h"
 #include "spdlog/spdlog.h"
 
+#include <atomic>
+#include <caf/actor_addr.hpp>
 #include <caf/actor_system.hpp>
 #include <caf/config_value.hpp>
 
 #include "SuppressWarningEnd.hpp"
 
+#include <caf/event_based_actor.hpp>
+#include <caf/fwd.hpp>
+#include <caf/inspector_access.hpp>
+#include <caf/result.hpp>
+#include <caf/scheduled_actor.hpp>
 #include <cassert>
 #include <chrono>
 #include <functional>
 #include <mutex>
 #include <shared_mutex>
+#include <string>
 #include <string_view>
 #include <type_traits>
 
 using namespace std::literals;
 
+class NodeFactory final : Unmovable {
+    std::unordered_map<std::string, std::function<caf::actor(caf::actor_system&, const HubConfig&, std::string)>> mClasses{};
+
+public:
+    void addNodeType(std::string name,
+                     std::function<caf::actor(caf::actor_system&, const HubConfig&, std::string)> spawnFunction);
+    caf::actor buildNode(caf::actor_system& system, const std::string& name, const HubConfig& config);
+    static NodeFactory& get();
+};
+
 namespace detail {
-    void registerComponent(const char* name, std::function<caf::actor(caf::actor_system&, const HubConfig&)> spawnFunction);
+    void registerComponent(const char* name,
+                           std::function<caf::actor(caf::actor_system&, const HubConfig&, std::string)> spawnFunction);
 
     template <typename NodeType>
     class HubClassRegister final : Unmovable {
     public:
         HubClassRegister() {
-            registerComponent(typeid(NodeType).name(), [](caf::actor_system& system, const HubConfig& config) -> caf::actor {
-                return system.spawn<NodeType>(config);
-            });
+            registerComponent(typeid(NodeType).name(),
+                              [](caf::actor_system& system, const HubConfig& config, std::string name) -> caf::actor {
+                                  return system.spawn<NodeType>(config, name);
+                              });
         }
     };
-#define HUB_REGISTER_CLASS(CLASS_NAME) static detail::HubClassRegister<CLASS_NAME> hubClassRegister##CLASS_NAME
 
     std::vector<std::string> parseSucceed(const HubConfig& config, std::string_view name);
+
     std::vector<std::pair<caf::actor_addr, GroupMask>> parseSucceed(caf::actor_system& system,
                                                                     const std::vector<std::string>& succeed);
 }  // namespace detail
+#define HUB_REGISTER_CLASS(CLASS_NAME) static detail::HubClassRegister<CLASS_NAME> HubClassRegister##CLASS_NAME
 
 template <typename T, typename Config, typename... Succeed>
 class HubHelper : public T {
@@ -49,7 +71,11 @@ class HubHelper : public T {
 
     template <typename Label>
     struct SucceedAddress final {
-        std::variant<std::vector<std::string>, std::vector<std::pair<caf::actor_addr, GroupMask>>> val;
+        std::vector<std::string> destName;
+        std::vector<std::pair<caf::actor_addr, GroupMask>> addrVal;
+        std::atomic_bool needReload{ true };
+        SucceedAddress() = default;
+        SucceedAddress(std::vector<std::string>&& names) : destName(names) {}
     };
 
     template <typename Arg>
@@ -64,13 +90,49 @@ class HubHelper : public T {
 
     std::tuple<SucceedAddress<Succeed>...> mDest;
     std::shared_mutex sMutex;
+    const std::string mNodeName;
+    static constexpr size_t mDestSize = sizeof...(Succeed);
 
     template <typename Atom>
     const auto& getDest() {
-        auto& dest = std::get<SucceedAddress<Atom>>(mDest).val;
-        if(dest.index() == 0)
-            dest = detail::parseSucceed(this->system(), std::get<0>(dest));
-        return std::get<1>(dest);
+        auto& destInfo = std::get<SucceedAddress<Atom>>(mDest);
+        if(destInfo.needReload.load(std::memory_order_consume)) {
+            destInfo.addrVal = detail::parseSucceed(this->system(), destInfo.destName);
+            destInfo.needReload.store(false, std::memory_order_release);
+        }
+        return destInfo.addrVal;
+    }
+
+    template <typename Dst, typename... Dsts>
+    void buildDest(const HubConfig& config) {
+        std::get<SucceedAddress<Dst>>(mDest).destName = std::move(detail::parseSucceed(config, typeid(Dst).name()));
+        if constexpr(sizeof...(Dsts) > 0)
+            buildDest<Dsts...>(config);
+    }
+
+    template <typename Dst, typename... Dsts>
+    void setAddressReload(bool flag) {
+        std::get<SucceedAddress<Dst>>(mDest).needReload.store(flag, std::memory_order_release);
+        if constexpr(sizeof...(Dsts) > 0)
+            setAddressReload<Dsts...>(flag);
+    }
+
+    void reloadConfig() {
+        if constexpr(!std::is_void_v<Config>) {
+            if(auto allConfig = ConfigHelper::instance().getConfig().to_dictionary()) {
+                if(auto iter = allConfig.value().find(mNodeName); iter != allConfig.value().end()) {
+                    if(auto configOpt = caf::get_as<Config>(iter->second)) {
+                        mConfig = std::move(configOpt.value());
+                    } else {
+                        logError("Parse node config file failed!");
+                    }
+                } else {
+                    logError(fmt::format("Can not find config for exist node {}", mNodeName));
+                }
+            } else {
+                throw std::runtime_error("Parse node config file failed!");
+            }
+        }
     }
 
 protected:
@@ -83,8 +145,10 @@ protected:
     }
 
 public:
-    HubHelper(caf::actor_config& base, const HubConfig& config)
-        : T{ base }, mDest{ SucceedAddress<Succeed>{ detail::parseSucceed(config, typeid(Succeed).name()) }... } {
+    HubHelper(caf::actor_config& base, const HubConfig& config, std::string name)
+        : T{ base }, mDest{}, mNodeName{ std::move(name) } {
+        if constexpr(mDestSize != 0)
+            buildDest<Succeed...>(config);
         if constexpr(!std::is_void_v<Config>) {
             if(auto configValue = caf::get_as<Config>(config)) {
                 mConfig = std::move(configValue.value());
@@ -101,23 +165,22 @@ public:
         } else {
             mGroupMask = 1U;
         }
-    }
-
-    void reloadConfig() {
-        if constexpr(!std::is_void_v<Config>) {
-            auto& gConfig = ConfigHelper::instance();
-            std::lock_guard guard(gConfig.mutex);
-            if(auto configValue = caf::get_as<Config>(gConfig.getConfig())) {
-                mConfig = std::move(configValue.value());
-            } else {
-                logError("Parse node config file failed!");
+        this->set_default_handler([&](caf::scheduled_actor* actor, caf::message& msg) {
+            if(msg.size() != 1)
+                return caf::print_and_drop(actor, msg);
+            switch(msg.type_at(0)) {
+                case caf::type_id<reload_address_atom>::value:
+                    if constexpr(mDestSize != 0)
+                        setAddressReload<Succeed...>(true);
+                    break;
+                case caf::type_id<reload_config_atom>::value:
+                    reloadConfig();
+                    break;
+                default:
+                    return caf::print_and_drop(actor, msg);
             }
-        }
-    }
-
-    HubConfig getConfig() {
-        std::shared_lock lock(sMutex);
-        return mConfig;
+            return caf::skippable_result{};
+        });
     }
 
     template <typename Atom, typename... Args>
@@ -205,26 +268,31 @@ public:
             "VisualLogger", fmt::format("data/logs/visual_log_{}.txt", prefix), 1024 * 1024 * 5, 200000);
         visualLogger->info(msg);
     }
-};
-namespace TypeHelper {
-    enum ConfigType { INT = 0, FLOAT = 1, DOUBLE = 2, STRING = 3, VECTOR = 4 };
-    std::string parseTypeInfo(std::type_info info);
 
-    template <typename T>
-    std::string typeName() {
-#if defined(__clang__)
-        std::string FunName = __PRETTY_FUNCTION__;
-        size_t begPos = FunName.find("T = ");
-        size_t endPos = FunName.find(']', begPos);
-        begPos += 4;
-#elif defined(__GNUC__)
-        std::string FunName = __PRETTY_FUNCTION__;
-        size_t begPos = FunName.find("T = ");
-        size_t endPos = FunName.find(';', begPos);
-        begPos += 4;
-#elif defined(_MSC_VER)
-        static_assert(false, "I don't want to use MSVC anymore. Please complete this by yourself if you want to use MSVC.");
-#endif
-        return FunName.substr(begPos, endPos - begPos);
+    static void logInfoBoth(const std::string_view& msg) {
+        logInfo(msg);
+        visualLog(msg);
     }
-}  // namespace TypeHelper
+};
+// namespace TypeHelper {
+// enum ConfigType { INT = 0, FLOAT = 1, DOUBLE = 2, STRING = 3, VECTOR = 4 };
+// std::string parseTypeInfo(std::type_info info);
+
+// template <typename T>
+// std::string typeName() {
+// #if defined(__clang__)
+// std::string FunName = __PRETTY_FUNCTION__;
+// size_t begPos = FunName.find("T = ");
+// size_t endPos = FunName.find(']', begPos);
+// begPos += 4;
+// #elif defined(__GNUC__)
+// std::string FunName = __PRETTY_FUNCTION__;
+// size_t begPos = FunName.find("T = ");
+// size_t endPos = FunName.find(';', begPos);
+// begPos += 4;
+// #elif defined(_MSC_VER)
+// static_assert(false, "I don't want to use MSVC anymore. Please complete this by yourself if you want to use MSVC.");
+// #endif
+// return FunName.substr(begPos, endPos - begPos);
+//}
+//}  // namespace TypeHelper

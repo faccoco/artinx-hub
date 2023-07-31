@@ -321,13 +321,9 @@ class RuneDetector final
     }
 
 public:
-    RuneDetector(caf::actor_config& base, const HubConfig& config) : HubHelper{ base, config }, mKey{ generateKey(this) } {}
+    RuneDetector(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name}, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [this](energy_detector_control_atom, uint8_t mode, double dt) {
-                     if(mode)
-                         mEnable = true;
-                 },
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
