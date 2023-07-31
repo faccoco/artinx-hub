@@ -328,18 +328,9 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
-                     // logInfo("Rune detector start");
-
-                     //  if(!mEnable) {
-                     //      return;
-                     //  }
-
                      auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
                      auto frame = std::get<0>(data);
 
-                     /**
-                      * 执行代码
-                      */
                      cv::Mat src = frame.frame;
                      std::vector<cv::Point2f> keyPoints;
                      detect(src, keyPoints);

@@ -52,6 +52,7 @@ struct CurveFittingCost {
 
     template <typename T>
     bool operator()(const T* params, T* residual) const {
+        //-a/w * cost(wt + phi) + (2.090 - a) * t + C
         residual[0] = T(theta) -
             (-params[0] / params[1] * ceres::cos(params[1] * T(t) + params[2]) + (2.090 - params[0]) * T(t) + params[3]);
         return true;
@@ -238,7 +239,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         ceres::Solver::Summary summary;
 
         for(auto it = mThetaInfos.begin(); it != mThetaInfos.end(); ++it) {
-            auto dt = std::get<2>(*it), dTheta = std::get<3>(*it);
+            auto dt = std::get<2>(*it), dTheta = std::fabs(std::get<3>(*it));
             problem.AddResidualBlock(new ceres::AutoDiffCostFunction<CurveFittingCost, 1, 4>(new CurveFittingCost(dt, dTheta)),
                                      nullptr, mParameters);
         }
@@ -389,7 +390,7 @@ public:
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](energy_detect_available_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(energy_detect_available_atom, TypedIdentifier<EnergyFan>);
-                mMode = 1;
+                mMode = 2;
                 auto srcFan = BlackBoard::instance().get<EnergyFan>(key).value();
                 double dt = durationCastDouble(srcFan.lastUpdate - mTrackFan.lastUpdate);
                 mTrackFan.lastUpdate = srcFan.lastUpdate;
