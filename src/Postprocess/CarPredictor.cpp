@@ -105,7 +105,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                 fmt::format("EKF Armor may experience a jump. Change Yaw, Y and R. delta yaw is {:.5f}", deltayaw));
         }
         auto dist = glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state));
-        if(dist > mConfig.maxMatchDist) {
+        if(dist > mConfig.maxMatchDist + 0.2) {
             mTrackedArmor.state(0) = targetPos.x - mTrackedArmor.state(8) * cos(yaw);
             mTrackedArmor.state(2) = targetPos.z - mTrackedArmor.state(8) * sin(yaw);
             mTrackedArmor.state(4) = 0;
@@ -211,6 +211,9 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             for(const auto& armor : armors) {
                 if(std::isnan(armor.center.mVal.x) || std::isnan(armor.center.mVal.y) || std::isnan(armor.center.mVal.z))
                     continue;
+                if(armor.id != mTrackedArmor.id) {
+                    continue;
+                }
                 auto p = getArmorPos(armor);
                 if(auto positionDiff = glm::distance(predictedPosition, p); positionDiff < minPositionDiff) {
                     minPositionDiff = positionDiff;
