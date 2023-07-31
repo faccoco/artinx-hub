@@ -39,7 +39,8 @@ class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, per
         DPeriod,
     } mState;
 
-    glm::dvec3 getArmorPos(const DetectedTarget& armor, const Transform<FrameOfRef::Camera, FrameOfRef::Robot, true>& tfCamera2Robot) {
+    glm::dvec3 getArmorPos(const DetectedTarget& armor,
+                           const Transform<FrameOfRef::Camera, FrameOfRef::Robot, true>& tfCamera2Robot) {
         return tfCamera2Robot(Vector<UnitType::Distance, FrameOfRef::Camera>(armor.center.mVal)).mVal;
     }
 
@@ -99,7 +100,8 @@ class PeriodPredictor final : public HubHelper<caf::event_based_actor, void, per
     }
 
 public:
-    PeriodPredictor(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {}
+    PeriodPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },

@@ -32,6 +32,5 @@ Eigen::MatrixXd ExtendedKalmanFilter::update(const Eigen::VectorXd& z) {
     xPost = xPri + K * (z - h(xPri));
     PPost = (I - K * H) * PPri;
 
-
     return xPost;
 }

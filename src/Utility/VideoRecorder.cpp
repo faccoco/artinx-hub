@@ -42,7 +42,8 @@ class VideoRecorder final : public HubHelper<caf::event_based_actor, VideoRecord
     const int mFourCc = cv::VideoWriter::fourcc('D', 'I', 'V', 'X');
 
 public:
-    VideoRecorder(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
+    VideoRecorder(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) } {}
     ~VideoRecorder() override {
         mWriter.reset();
     }
@@ -54,14 +55,16 @@ public:
                  [this](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
 
-                     if(!mStartFlag)
+                     if(!mStartFlag) {
                          return;
+                     }
 
                      const auto current = Clock::now();
                      const auto frameCount =
                          static_cast<uint32_t>(static_cast<double>((current - mStart).count()) / (1e9 / mConfig.fps));
-                     if(mTotal >= frameCount)
+                     if(mTotal >= frameCount) {
                          return;
+                     }
                      ++mTotal;
 
                      const auto frameData = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
@@ -75,7 +78,7 @@ public:
                      if(!mWriter) {
                          if(!fs::exists(mConfig.base) && !fs::create_directories(mConfig.base)) {
                              const auto error = "Failed to create directory " + mConfig.base;
-                             logError(error.c_str());
+                             logError(error);
                          }
                          ReadableTimePoint now(std::chrono::system_clock::now());
                          mWriter = std::make_unique<cv::VideoWriter>(

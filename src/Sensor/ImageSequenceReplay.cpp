@@ -69,7 +69,8 @@ class ImageSequenceReplay final : public HubHelper<caf::event_based_actor, Image
     }
 
 public:
-    ImageSequenceReplay(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
+    ImageSequenceReplay(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
         mImages.reserve(1000);
         for(auto const& dir_entry : std::filesystem::directory_iterator{ mConfig.path }) {
             const auto filePath = dir_entry.path().string();
@@ -86,16 +87,15 @@ public:
         }
     }
     caf::behavior make_behavior() override {
-        return {
-            [this](start_atom) {
-                ACTOR_PROTOCOL_CHECK(start_atom);
-                Timer::instance().addTimer(address(), std::chrono::microseconds{ static_cast<int64_t>(1'000'000 / mConfig.fps) });
-            },
-            [this](timer_atom) {
-                ACTOR_PROTOCOL_CHECK(timer_atom);
-                next();
-            }
-        };
+        return { [this](start_atom) {
+                    ACTOR_PROTOCOL_CHECK(start_atom);
+                    Timer::instance().addTimer(address(),
+                                               std::chrono::microseconds{ static_cast<int64_t>(1'000'000 / mConfig.fps) });
+                },
+                 [this](timer_atom) {
+                     ACTOR_PROTOCOL_CHECK(timer_atom);
+                     next();
+                 } };
     }
 };
 

@@ -39,7 +39,7 @@ class SerialPortTester final : public HubHelper<caf::event_based_actor, void, sy
 
 public:
     SerialPortTester(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, name }, mKey(generateKey(this)), mThread([this] {
+        : HubHelper{ base, config, std::move(name) }, mKey(generateKey(this)), mThread([this] {
               std::unique_lock<std::mutex> lock(mMutex);
               started.wait(lock);
               while(globalStatus == RunStatus::running) {

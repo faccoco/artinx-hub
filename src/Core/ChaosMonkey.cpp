@@ -21,7 +21,7 @@ class ChaosMonkey final : public HubHelper<caf::event_based_actor, void> {
     }
 
 public:
-    ChaosMonkey(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {
+    ChaosMonkey(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, std::move(name) } {
         flushActors();
         Timer::instance().addTimer(address(), 50ms);
     }
