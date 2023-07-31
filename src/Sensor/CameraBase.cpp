@@ -1,6 +1,7 @@
 #include "CameraBase.hpp"
 
-CameraBase::CameraBase(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
+CameraBase::CameraBase(caf::actor_config& base, const HubConfig& config, std::string name)
+    : HubHelper{ base, config, std::move(name) } {}
 
 void CameraBase::loadCalibration(const std::string& identifier, const uint32_t width, const uint32_t height,
                                  const double fallbackFov, cv::Mat& cameraMatrix, cv::Mat& distCoefficients) {

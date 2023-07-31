@@ -3,7 +3,6 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "Utility.hpp"
-#include <cstdint>
 
 #include "SuppressWarningBegin.hpp"
 
@@ -302,7 +301,7 @@ class UndistortCalibrator final : public HubHelper<caf::event_based_actor, Undis
 
 public:
     UndistortCalibrator(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, name }, mKey{ generateKey(this) }, mMode(Status::CAPTURING) {
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) }, mMode(Status::CAPTURING) {
         initFlag();
         mGridWidth = mConfig.squareSize * static_cast<float>(mConfig.boardSize.width - 1);
         if(mConfig.waitKey)

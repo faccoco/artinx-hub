@@ -2,7 +2,6 @@
 #include "DataDesc.hpp"
 #include "Hub.hpp"
 #include "PostureData.hpp"
-#include <cstdint>
 
 #include "SuppressWarningBegin.hpp"
 
@@ -21,7 +20,8 @@ class IMUFilter final : public HubHelper<caf::event_based_actor, IMUFilterSettin
     Identifier mKey;
 
 public:
-    IMUFilter(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {}
+    IMUFilter(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](update_posture_atom, Identifier key) {
@@ -29,7 +29,7 @@ public:
                      auto res = BlackBoard::instance().get<PostureData>(key).value();
                      // Implement here
 
-                     sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
+                     sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, res));
                  } };
     }
 };

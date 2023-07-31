@@ -241,7 +241,8 @@ class Simulator final : public HubHelper<caf::blocking_actor, SimulatorSettings,
     }
 
 public:
-    Simulator(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
+    Simulator(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
         initializeTestCase();
 
         Timer::instance().addTimer(this->address(), 10ms);

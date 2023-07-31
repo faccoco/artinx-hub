@@ -87,41 +87,41 @@ struct TypedIdentifier final : Identifier {
     using Payload = typename StaticIdentify<StaticCompare<sizeof...(TL), 0>::result, T, TL...>::Payload;
 };
 
-CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id);
+CAF_BEGIN_TYPE_ID_BLOCK(ArtinxHub, caf::first_custom_type_id)
 
-CAF_ADD_ATOM(ArtinxHub, start_atom);
-CAF_ADD_ATOM(ArtinxHub, detect_available_atom);
-CAF_ADD_ATOM(ArtinxHub, set_target_atom);
-CAF_ADD_ATOM(ArtinxHub, set_period_target_atom);
-CAF_ADD_ATOM(ArtinxHub, set_period_outpost_atom);
-CAF_ADD_ATOM(ArtinxHub, set_target_info_atom);
-CAF_ADD_ATOM(ArtinxHub, sync_position_atom);
-CAF_ADD_ATOM(ArtinxHub, update_posture_atom);
-CAF_ADD_ATOM(ArtinxHub, update_head_atom);
-CAF_ADD_ATOM(ArtinxHub, update_radar_atom);
-CAF_ADD_ATOM(ArtinxHub, simulator_step_atom);
-CAF_ADD_ATOM(ArtinxHub, timer_atom);
-CAF_ADD_ATOM(ArtinxHub, reload_address_atom);
-CAF_ADD_ATOM(ArtinxHub, reload_config_atom);
-CAF_ADD_ATOM(ArtinxHub, reload_all_config_atom);
-CAF_ADD_ATOM(ArtinxHub, image_frame_atom);
-CAF_ADD_ATOM(ArtinxHub, radar_points_atom);
-CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom);
-CAF_ADD_ATOM(ArtinxHub, car_detect_available_atom);
-CAF_ADD_ATOM(ArtinxHub, energy_detect_available_atom);
-CAF_ADD_ATOM(ArtinxHub, predict_success_atom);
-CAF_ADD_ATOM(ArtinxHub, car_predict_atom);
-CAF_ADD_ATOM(ArtinxHub, period_predict_success_atom);
-CAF_ADD_ATOM(ArtinxHub, radar_locate_request_atom);
-CAF_ADD_ATOM(ArtinxHub, bot_locate_request_atom);
-CAF_ADD_ATOM(ArtinxHub, num_classify_request_atom);
-CAF_ADD_ATOM(ArtinxHub, monitor_request_atom);
-CAF_ADD_ATOM(ArtinxHub, monitor_response_atom);
-CAF_ADD_ATOM(ArtinxHub, payload_atom);
-CAF_ADD_ATOM(ArtinxHub, energy_detector_control_atom);
-CAF_ADD_ATOM(ArtinxHub, hero_strategy_control_atom);
+CAF_ADD_ATOM(ArtinxHub, start_atom)
+CAF_ADD_ATOM(ArtinxHub, detect_available_atom)
+CAF_ADD_ATOM(ArtinxHub, set_target_atom)
+CAF_ADD_ATOM(ArtinxHub, set_period_target_atom)
+CAF_ADD_ATOM(ArtinxHub, set_period_outpost_atom)
+CAF_ADD_ATOM(ArtinxHub, set_target_info_atom)
+CAF_ADD_ATOM(ArtinxHub, sync_position_atom)
+CAF_ADD_ATOM(ArtinxHub, update_posture_atom)
+CAF_ADD_ATOM(ArtinxHub, update_head_atom)
+CAF_ADD_ATOM(ArtinxHub, update_radar_atom)
+CAF_ADD_ATOM(ArtinxHub, simulator_step_atom)
+CAF_ADD_ATOM(ArtinxHub, timer_atom)
+CAF_ADD_ATOM(ArtinxHub, reload_address_atom)
+CAF_ADD_ATOM(ArtinxHub, reload_config_atom)
+CAF_ADD_ATOM(ArtinxHub, reload_all_config_atom)
+CAF_ADD_ATOM(ArtinxHub, image_frame_atom)
+CAF_ADD_ATOM(ArtinxHub, radar_points_atom)
+CAF_ADD_ATOM(ArtinxHub, armor_detect_available_atom)
+CAF_ADD_ATOM(ArtinxHub, car_detect_available_atom)
+CAF_ADD_ATOM(ArtinxHub, energy_detect_available_atom)
+CAF_ADD_ATOM(ArtinxHub, predict_success_atom)
+CAF_ADD_ATOM(ArtinxHub, car_predict_atom)
+CAF_ADD_ATOM(ArtinxHub, period_predict_success_atom)
+CAF_ADD_ATOM(ArtinxHub, radar_locate_request_atom)
+CAF_ADD_ATOM(ArtinxHub, bot_locate_request_atom)
+CAF_ADD_ATOM(ArtinxHub, num_classify_request_atom)
+CAF_ADD_ATOM(ArtinxHub, monitor_request_atom)
+CAF_ADD_ATOM(ArtinxHub, monitor_response_atom)
+CAF_ADD_ATOM(ArtinxHub, payload_atom)
+CAF_ADD_ATOM(ArtinxHub, energy_detector_control_atom)
+CAF_ADD_ATOM(ArtinxHub, hero_strategy_control_atom)
 
-CAF_ADD_TYPE_ID(ArtinxHub, (Identifier));
+CAF_ADD_TYPE_ID(ArtinxHub, (Identifier))
 
 CAF_END_TYPE_ID_BLOCK(ArtinxHub);
 

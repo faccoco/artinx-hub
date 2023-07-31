@@ -45,7 +45,8 @@ class ArmorLocator final
     }
 
 public:
-    ArmorLocator(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name }, mKey{ generateKey(this) } {}
+    ArmorLocator(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },

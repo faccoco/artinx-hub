@@ -195,10 +195,10 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
 
 public:
     HeroSerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, name }, SerialPort<HeroRecvPacket, HeroSendPacket>(
-                                         mConfig.devPath, mConfig.baudRate,
-                                         std::bind(&HeroSerialPort::heroRecvCB, this, std::placeholders::_1),
-                                         std::bind(&HeroSerialPort::heroSetPacket, this)),
+        : HubHelper{ base, config, std::move(name) }, SerialPort<HeroRecvPacket, HeroSendPacket>(
+                                                          mConfig.devPath, mConfig.baudRate,
+                                                          std::bind(&HeroSerialPort::heroRecvCB, this, std::placeholders::_1),
+                                                          std::bind(&HeroSerialPort::heroSetPacket, this)),
           mKey(generateKey(this)) {}
 
     caf::behavior make_behavior() override {

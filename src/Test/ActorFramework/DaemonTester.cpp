@@ -14,7 +14,8 @@ class BlockedActor final : public HubHelper<caf::event_based_actor, void, payloa
     static size_t restartCount;
 
 public:
-    BlockedActor(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
+    BlockedActor(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](payload_atom, int32_t, int32_t) {
@@ -37,7 +38,8 @@ class ExceptionKilled final : public HubHelper<caf::event_based_actor, void, pay
     static size_t restartCount;
 
 public:
-    ExceptionKilled(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
+    ExceptionKilled(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](payload_atom, int32_t, int32_t) {
@@ -59,7 +61,8 @@ class SignalKilled final : public HubHelper<caf::event_based_actor, void, payloa
     static size_t restartCount;
 
 public:
-    SignalKilled(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {}
+    SignalKilled(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](payload_atom, int32_t, int32_t) {
@@ -80,8 +83,9 @@ class DaemonTester final : public HubHelper<caf::event_based_actor, void, payloa
     static size_t restartCount;
 
 public:
-    DaemonTester(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name } {
-        Timer::instance().addTimer(address(), 5ms);
+    DaemonTester(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) } {
+        Timer::instance().addTimer(address(), 1ms);
     }
     caf::behavior make_behavior() override {
         return { [this](start_atom) {
