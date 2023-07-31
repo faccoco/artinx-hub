@@ -212,6 +212,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                 if(std::isnan(armor.center.mVal.x) || std::isnan(armor.center.mVal.y) || std::isnan(armor.center.mVal.z))
                     continue;
                 auto p = getArmorPos(armor);
+                if(armor.id != mTrackedArmor.id)
+                    continue;
                 if(auto positionDiff = glm::distance(predictedPosition, p); positionDiff < minPositionDiff) {
                     minPositionDiff = positionDiff;
                     candidate = { p, getArmorYaw(armor) };
@@ -388,8 +390,8 @@ public:
                         if(mTrackedArmor.state(8) < 0.2) {
                             mTrackedArmor.state(8) = 0.2;
                             mEKF.setState(mTrackedArmor.state);
-                        } else if(mTrackedArmor.state(8) > 0.4) {
-                            mTrackedArmor.state(8) = 0.4;
+                        } else if(mTrackedArmor.state(8) > 0.3) {
+                            mTrackedArmor.state(8) = 0.3;
                             mEKF.setState(mTrackedArmor.state);
                         }
 

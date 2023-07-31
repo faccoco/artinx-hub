@@ -308,9 +308,6 @@ class ArmorDetector final
             armors.push_back(armor);
         }
 
-        
-            
-
         if(mConfig.debugView) {
             if(!condArmors.empty()) {
                 debugView("Armors", bgrImg, [&](cv::Mat& src) {
