@@ -31,6 +31,19 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
                               f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60));
 }
 
+template <class T>
+static std::optional<T> getQueueMax(const std::deque<T>& queue) {
+    if(!queue.empty()) {
+        T maxT = queue.front();
+        for(T t : queue) {
+            if (abs(t) > abs(maxT))
+                maxT = t;
+        }
+        return maxT;
+    }
+    return {};
+}
+
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
 
     std::deque<double> mPastAVel;
@@ -48,7 +61,7 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
         if(mPastAVel.size() > 3) {
             if(mPastAVel.size() > 50)
                 mPastAVel.pop_front();
-            return *std::max_element(mPastAVel.begin(), mPastAVel.end());
+            return getQueueMax<double>(mPastAVel).value();
         } else
             return aVel;
     }
@@ -106,7 +119,7 @@ public:
                 double theta = -data->yaw.mVal;
                 glm::dvec3 lVel = tf(data->linearVel.mVal);
                 double aVel = getMaxAVel(-data->angularVel.mVal);
-                HubLogger::watch("maxAngleVel", aVel);
+                HubLogger::watch("maxAngleVel", -aVel);
 
                 double R[2] = { data->radius.first, data->radius.second };
                 double Z[2] = { data->y.first, data->y.second };
