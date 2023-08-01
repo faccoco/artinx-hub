@@ -391,8 +391,8 @@ public:
                         bool matched = update(durationCastDouble(data->lastUpdate - mTrackedArmor.lastUpdate), data->targets);
 
                         // Prevent radius from spreading
-                        if(mTrackedArmor.state(8) < 0.2) {
-                            mTrackedArmor.state(8) = 0.2;
+                        if(mTrackedArmor.state(8) < 0.12) {
+                            mTrackedArmor.state(8) = 0.12;
                             mEKF.setState(mTrackedArmor.state);
                         } else if(mTrackedArmor.state(8) > 0.3) {
                             mTrackedArmor.state(8) = 0.3;

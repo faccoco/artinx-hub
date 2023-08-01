@@ -32,10 +32,7 @@ public:
                      for(const auto& armor : res.armors) {
                          // 绘制四点
                          for(int i = 0; i < 4; i++) {
-                             cv::circle(
-                                 showImg,
-                                 cv::Point(static_cast<int>(armor.light4Point[i].x), static_cast<int>(armor.light4Point[i].y)), 2,
-                                 cv::Scalar(100, 200, 0), 1);
+                            cv::putText(showImg, std::to_string(i), armor.light4Point[i], cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 1);
                          }
 
                          // 绘制装甲板四点矩形
