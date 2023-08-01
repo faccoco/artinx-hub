@@ -22,7 +22,7 @@
 
 #include "SuppressWarningEnd.hpp"
 
-static constexpr double minPositionDiff = 10;
+static constexpr double minPositionDiff = 1.8;
 static constexpr double minThetaDiff = 0.7;  // < pi/3
 static constexpr double diffTThresh = 0.005;
 
@@ -33,8 +33,13 @@ static constexpr double runeArmorHeight = 0.095;
 
 struct EnergyPredictorSettings final {
     uint8_t fanQueueLength;
-    std::vector<double> Q;
-    std::vector<double> R;
+    double Qw;
+    double Qtheta; 
+    double Qxyz; 
+    double Qyaw;
+    double Rtheta;
+    double Rxyz;
+    double Ryaw;
     double delay;
     int lostCnt;
 };
@@ -42,9 +47,10 @@ struct EnergyPredictorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, EnergyPredictorSettings& x) {
     return f.object(x).fields(f.field("fanQueueLength", x.fanQueueLength),
-                              f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 6; }),
-                              f.field("R", x.R).invariant([](auto& c) { return c.size() == 5; }),
-                              f.field("delay", x.delay).fallback(0.0), f.field("lostCnt", x.lostCnt));
+                              f.field("Qw", x.Qw), x.field("Qtheta", x.Qtheta), x.field("Qxyz", x.Qxyz),
+                              f.field("Qyaw", x.Qyaw), x.field("Rtheta", x.Rtheta), x.field("Rxyz", x.Rxyz), 
+                              f.field("Ryaw", x.Ryaw), 
+                              f.field("delay", x.delay).fallback(0.0), f.field("lostCnt", x.lostCnt).fallback(20));
 }
 
 struct CurveFittingCost {
@@ -360,14 +366,15 @@ public:
             // clang-format on
             return Q;
         };
-        auto R = [this, nZ](const Eigen::VectorXd&) {
+        auto R = [this, nZ](const Eigen::VectorXd& z) {
             Eigen::MatrixXd R(nZ, nZ);
             // clang-format off
-            R << mConfig.R[0], 0,            0,            0,            0,
-                 0,            mConfig.R[1], 0,            0,            0,
-                 0,            0,            mConfig.R[2], 0,            0,
-                 0,            0,            0,            mConfig.R[3], 0,
-                 0,            0,            0,            0,            mConfig.R[4];
+            double r0 = mConfig.Rtheta, r1 = mConfig.Rxyz, r2 = mConfig.Ryaw;
+            R << r0,             0,              0,              0,              0,
+                 0,              r1 * abs(z[0]), 0,              0,              0,
+                 0,              0,              r1 * abs(z[1]), 0,              0,
+                 0,              0,              0,              r1 * abs(z[2]), 0,
+                 0,              0,              0,              0,              r2;
             // clang-format on
             return R;
         };
