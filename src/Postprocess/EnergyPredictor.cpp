@@ -34,8 +34,8 @@ static constexpr double runeArmorHeight = 0.095;
 struct EnergyPredictorSettings final {
     uint8_t fanQueueLength;
     double Qw;
-    double Qtheta; 
-    double Qxyz; 
+    double Qtheta;
+    double Qxyz;
     double Qyaw;
     double Rtheta;
     double Rxyz;
@@ -46,11 +46,10 @@ struct EnergyPredictorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, EnergyPredictorSettings& x) {
-    return f.object(x).fields(f.field("fanQueueLength", x.fanQueueLength),
-                              f.field("Qw", x.Qw), x.field("Qtheta", x.Qtheta), x.field("Qxyz", x.Qxyz),
-                              f.field("Qyaw", x.Qyaw), x.field("Rtheta", x.Rtheta), x.field("Rxyz", x.Rxyz), 
-                              f.field("Ryaw", x.Ryaw), 
-                              f.field("delay", x.delay).fallback(0.0), f.field("lostCnt", x.lostCnt).fallback(20));
+    return f.object(x).fields(f.field("fanQueueLength", x.fanQueueLength), f.field("Qw", x.Qw), x.field("Qtheta", x.Qtheta),
+                              x.field("Qxyz", x.Qxyz), f.field("Qyaw", x.Qyaw), x.field("Rtheta", x.Rtheta),
+                              x.field("Rxyz", x.Rxyz), f.field("Ryaw", x.Ryaw), f.field("delay", x.delay).fallback(0.0),
+                              f.field("lostCnt", x.lostCnt).fallback(20));
 }
 
 struct CurveFittingCost {
@@ -76,6 +75,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     double mParameters[4]{ 0.780, 1.884, 0.0, 0.0 };
     double mDt;
     int mLostCount = 0;
+    TimePoint mLastHit{};
     std::deque<std::tuple<TimePoint, double, double, double>> mThetaInfos;  //(time, theta, dt, dTheta)
     ExtendedKalmanFilter mFilter;
 
@@ -177,9 +177,9 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         }
     }
 
-    double clcThetaVel(double dt) {
-        double a = mParameters[0], w = mParameters[1], p = mParameters[2];
-        return a * std::sin(w * dt + p) + (2.090 - a);
+    double clcBigRuneTheta(double t0, double dt) {
+        double a = mParameters[0], w = mParameters[1], p = mParameters[2], c = mParameters[3];
+        return -a / w * std::cos(w * (t0 + dt) + p) + (2.090 - a) * (t0 + dt) + c;
     }
 
     double clcTheta(const cv::Point2f& rCenter, const cv::Point2f& fanCenter) {
@@ -267,9 +267,14 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         double predictTime = 0.0;
         double w = X(1), theta = X(2);
         // logInfo(fmt::format("solve theta = {}, w = {}", theta, w));
-        while(cnt < 10) {   
+        while(cnt < 10) {
             Eigen::VectorXd statePos = mTrackFan.state;
-            statePos(2) = theta + w * predictTime;
+            if(mMode == 1) {
+                statePos(2) = theta + w * predictTime;
+            } else {
+                statePos(2) = clcBigRuneTheta(X(0), predictTime);
+            }
+
             Eigen::VectorXd predictPos = getFanPosFromState(statePos);
             auto [acess2, airTime, yaw, pitch] =
                 solveWithoutAirDrag({ predictPos(1), -predictPos(3), predictPos(2) }, { 0, 0, 0 });
@@ -284,7 +289,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
             ++cnt;
             predictTime = requiredTime;
         }
-        logInfo(fmt::format("Energy Predictor solve angle error occurred! iter_cnt={}",cnt));
+        logInfo(fmt::format("Energy Predictor solve angle error occurred! iter_cnt={}", cnt));
         return { false, 0, 0 };
     }
 
@@ -299,13 +304,13 @@ public:
         auto f = [this](const Eigen::VectorXd& X) {
             Eigen::VectorXd xNew = X;
             double a = mParameters[0], w = mParameters[1], p = mParameters[2];
-            xNew(0) = X(0) + mDt;  // t += dt
+            xNew(0) = X(0) + mDt;                                                   // t += dt
             if(1 == mMode) {
-                xNew(1) = X(1);  // w = w
+                xNew(1) = X(1);                                                     // w = w
             } else {
                 xNew(1) = (a * std::sin(w * X(0) + p) + (2.090 - a)) * mDirection;  // w = a * sin(wt + p) + (2.090 - a);
             }
-            xNew(2) += xNew(1) * mDt;  // theta += w * dt
+            xNew(2) += xNew(1) * mDt;                                               // theta += w * dt
             return xNew;
         };
         auto JF = [this, nX](const Eigen::VectorXd& X) {
@@ -401,6 +406,10 @@ public:
                 auto srcFan = BlackBoard::instance().get<EnergyFan>(key).value();
                 double dt = durationCastDouble(srcFan.lastUpdate - mTrackFan.lastUpdate);
                 mTrackFan.lastUpdate = srcFan.lastUpdate;
+                if(srcFan.lastUpdate - mLastHit > std::chrono::seconds(10)) {
+                    reset();
+                }
+                mLastHit = srcFan.lastUpdate;
 
                 bool matched = false;
                 if(!srcFan.keyPoints.empty()) {
