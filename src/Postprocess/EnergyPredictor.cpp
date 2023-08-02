@@ -34,8 +34,8 @@ static constexpr double runeArmorHeight = 0.095;
 struct EnergyPredictorSettings final {
     uint8_t fanQueueLength;
     double Qw;
-    double Qtheta; 
-    double Qxyz; 
+    double Qtheta;
+    double Qxyz;
     double Qyaw;
     double Rtheta;
     double Rxyz;
@@ -46,11 +46,10 @@ struct EnergyPredictorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, EnergyPredictorSettings& x) {
-    return f.object(x).fields(f.field("fanQueueLength", x.fanQueueLength),
-                              f.field("Qw", x.Qw), x.field("Qtheta", x.Qtheta), x.field("Qxyz", x.Qxyz),
-                              f.field("Qyaw", x.Qyaw), x.field("Rtheta", x.Rtheta), x.field("Rxyz", x.Rxyz), 
-                              f.field("Ryaw", x.Ryaw), 
-                              f.field("delay", x.delay).fallback(0.0), f.field("lostCnt", x.lostCnt).fallback(20));
+    return f.object(x).fields(f.field("fanQueueLength", x.fanQueueLength), f.field("Qw", x.Qw), f.field("Qtheta", x.Qtheta),
+                              f.field("Qxyz", x.Qxyz), f.field("Qyaw", x.Qyaw), f.field("Rtheta", x.Rtheta),
+                              f.field("Rxyz", x.Rxyz), f.field("Ryaw", x.Ryaw), f.field("delay", x.delay).fallback(0.0),
+                              f.field("lostCnt", x.lostCnt).fallback(20));
 }
 
 struct CurveFittingCost {
@@ -70,8 +69,8 @@ struct CurveFittingCost {
 class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPredictorSettings, set_target_info_atom> {
 
     Identifier mKey;
-    int mMode = 0, mDirection = 0;  // mMode energy mode(1 small, 2 big), mDirection (-1 Clockwise, 1 anti-clockwise)
-    int mDirSum = 0;
+    TaskMode mMode;
+    int mDirSum = 0, mDirection = 0;  // mDirection (-1 Clockwise, 1 anti-clockwise)
     constexpr static int mLostCountThresh = 10;
     double mParameters[4]{ 0.780, 1.884, 0.0, 0.0 };
     double mDt;
@@ -99,8 +98,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     void init(const Eigen::VectorXd& fanPos) {
         mTrackFan.state = getRLabelPosFromFanPos(fanPos);
         double initAVel = 1.0472;
-        if(2 == mMode)
-            initAVel = 1.0;  // TODO
+        if(mMode == TaskMode::BigRune)
+            initAVel = 1.0;  // 
         mTrackFan.state(0) = 0.0;
         mTrackFan.state(1) = initAVel;
         mFilter.setState(mTrackFan.state);
@@ -267,7 +266,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         double predictTime = 0.0;
         double w = X(1), theta = X(2);
         // logInfo(fmt::format("solve theta = {}, w = {}", theta, w));
-        while(cnt < 10) {   
+        while(cnt < 10) {
             Eigen::VectorXd statePos = mTrackFan.state;
             statePos(2) = theta + w * predictTime;
             Eigen::VectorXd predictPos = getFanPosFromState(statePos);
@@ -284,7 +283,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
             ++cnt;
             predictTime = requiredTime;
         }
-        logInfo(fmt::format("Energy Predictor solve angle error occurred! iter_cnt={}",cnt));
+        logInfo(fmt::format("Energy Predictor solve angle error occurred! iter_cnt={}", cnt));
         return { false, 0, 0 };
     }
 
@@ -299,19 +298,19 @@ public:
         auto f = [this](const Eigen::VectorXd& X) {
             Eigen::VectorXd xNew = X;
             double a = mParameters[0], w = mParameters[1], p = mParameters[2];
-            xNew(0) = X(0) + mDt;  // t += dt
-            if(1 == mMode) {
-                xNew(1) = X(1);  // w = w
+            xNew(0) = X(0) + mDt;                                                   // t += dt
+            if(mMode == TaskMode::SmallRune) {
+                xNew(1) = X(1);                                                     // w = w
             } else {
                 xNew(1) = (a * std::sin(w * X(0) + p) + (2.090 - a)) * mDirection;  // w = a * sin(wt + p) + (2.090 - a);
             }
-            xNew(2) += xNew(1) * mDt;  // theta += w * dt
+            xNew(2) += xNew(1) * mDt;                                               // theta += w * dt
             return xNew;
         };
         auto JF = [this, nX](const Eigen::VectorXd& X) {
             Eigen::MatrixXd F(nX, nX);
             double a = mParameters[0], w = mParameters[1], p = mParameters[2];
-            if(1 == mMode) {
+            if(mMode == TaskMode::BigRune) {
                 // clang-format off
                 F << 1,   0, 0, 0, 0, 0, 0,
                      0,   1, 0, 0, 0, 0, 0,
@@ -356,13 +355,13 @@ public:
         auto Q = [this, nX]() {
             Eigen::MatrixXd Q(nX, nX);
             // clang-format off
-            Q << 0, 0,            0,            0,            0,            0,            0,             
-                 0, mConfig.Q[0], 0,            0,            0,            0,            0,
-                 0, 0,            mConfig.Q[1], 0,            0,            0,            0,
-                 0, 0,            0,            mConfig.Q[2], 0,            0,            0,
-                 0, 0,            0,            0,            mConfig.Q[3], 0,            0,
-                 0, 0,            0,            0,            0,            mConfig.Q[4], 0, 
-                 0, 0,            0,            0,            0,            0,            mConfig.Q[5];
+            Q << 0, 0,            0,              0,            0,            0,            0,             
+                 0, mConfig.Qw,   0,              0,            0,            0,            0,
+                 0, 0,            mConfig.Qtheta, 0,            0,            0,            0,
+                 0, 0,            0,              mConfig.Qxyz, 0,            0,            0,
+                 0, 0,            0,              0,            mConfig.Qxyz, 0,            0,
+                 0, 0,            0,              0,            0,            mConfig.Qxyz, 0, 
+                 0, 0,            0,              0,            0,            0,            mConfig.Qyaw;
             // clang-format on
             return Q;
         };
@@ -397,7 +396,7 @@ public:
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](energy_detect_available_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(energy_detect_available_atom, TypedIdentifier<EnergyFan>);
-                mMode = 2;
+                mMode = GlobalSettings::get().getTaskMode();
                 auto srcFan = BlackBoard::instance().get<EnergyFan>(key).value();
                 double dt = durationCastDouble(srcFan.lastUpdate - mTrackFan.lastUpdate);
                 mTrackFan.lastUpdate = srcFan.lastUpdate;
@@ -433,7 +432,7 @@ public:
                             init(fanPos);
                             matched = true;
                         } else {
-                            if(2 == mMode)
+                            if(mMode == TaskMode::BigRune)
                                 fitParameters();
                             matched = update(dt, fanPos);
                         };
@@ -447,7 +446,7 @@ public:
                     HubLogger::watch("rLabelX", mTrackFan.state(3));
                     HubLogger::watch("rLabelY", mTrackFan.state(4));
                     HubLogger::watch("rLabelZ", mTrackFan.state(5));
-                    HubLogger::watch("runeYaw", mTrackFan.state(6));
+                    HubLogger::watch("rLabelYaw", mTrackFan.state(6));
                     auto [success, yaw, pitch] = solveAngle(mTrackFan.state);
                     if(success) {
                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(), yaw,
