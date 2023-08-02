@@ -30,6 +30,9 @@ struct GlobalSettings final {
     double shootDelayTime = 0.f;
     bool started = false;
 
+    uint8_t priorNum = 1;
+    bool blockEngineer = false, blockSentry = false;
+
     [[nodiscard]] double bulletRadius() const noexcept {
         return bullet42mm ? radiusOf42mm : radiusOf17mm;
     }
@@ -138,10 +141,12 @@ struct __ImplActorProtocol final {
     }
 };
 
-#define ACTOR_PROTOCOL_DEFINE(...)                              \
-    template <>                                                 \
-    struct __ImplActorProtocol<__VA_ARGS__> final {             \
-        static constexpr bool check() noexcept { return true; } \
+#define ACTOR_PROTOCOL_DEFINE(...)                  \
+    template <>                                     \
+    struct __ImplActorProtocol<__VA_ARGS__> final { \
+        static constexpr bool check() noexcept {    \
+            return true;                            \
+        }                                           \
     }
 
 template <typename... Args>

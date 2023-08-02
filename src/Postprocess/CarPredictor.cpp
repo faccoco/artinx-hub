@@ -209,14 +209,10 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             // Difference of the current armor position and tracked armor's predicted position
             double minPositionDiff = 1000.0;
             for(const auto& armor : armors) {
-                if(std::isnan(armor.center.mVal.x) || std::isnan(armor.center.mVal.y) || std::isnan(armor.center.mVal.z))
-                    continue;
-                if(armor.id != mTrackedArmor.id) {
+                if(std::isnan(armor.center.mVal.x) || std::isnan(armor.center.mVal.y) || std::isnan(armor.center.mVal.z) || armor.id != mTrackedArmor.id){
                     continue;
                 }
                 auto p = getArmorPos(armor);
-                if(armor.id != mTrackedArmor.id)
-                    continue;
                 if(auto positionDiff = glm::distance(predictedPosition, p); positionDiff < minPositionDiff) {
                     minPositionDiff = positionDiff;
                     candidate = { p, getArmorYaw(armor) };
