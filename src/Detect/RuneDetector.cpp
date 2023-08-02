@@ -31,8 +31,11 @@ struct RuneDetecorSettings final {
     int dilateKernel;
     double minConvexHullThresh;  // for hull area ratio filter
     double maxConvexHullThresh;
-    int minContourArea;  // for contour area filter
+    int minContourArea;          // for contour area filter
     double rRoiSizeScale;
+
+    double minRRectAreaRatio;
+    double maxRRectSizeRatio;
 
     double rPosScale;
 };
@@ -44,7 +47,8 @@ bool inspect(Inspector& f, RuneDetecorSettings& x) {
         f.field("upperBlue", x.upperBlue), f.field("lowerBlue", x.lowerBlue), f.field("roiBinThresh", x.roiBinThresh),
         f.field("dilateKernel", x.dilateKernel), f.field("minConvexHullThresh", x.minConvexHullThresh),
         f.field("maxConvexHullThresh", x.maxConvexHullThresh), f.field("minContourArea", x.minContourArea),
-        f.field("rRoiSizeScale", x.rRoiSizeScale).fallback(1.0), f.field("rPosScale", x.rPosScale).fallback(6.5));
+        f.field("rRoiSizeScale", x.rRoiSizeScale).fallback(1.0), f.field("rPosScale", x.rPosScale).fallback(6.5),
+        f.field("minRRectAreaRatio", x.minRRectAreaRatio), f.field("maxRRectSizeRatio", maxRRectSizeRatio);
 }
 
 static double euclideanDistance(const cv::Point2f& p1, const cv::Point2f& p2) {
@@ -54,6 +58,12 @@ static double euclideanDistance(const cv::Point2f& p1, const cv::Point2f& p2) {
 
 static double crossProduct2D(const cv::Point2d& v1, const cv::Point2d& v2) {
     return v1.x * v2.y - v1.y * v2.x;
+}
+
+static void normalizeRect(cv::RotatedRect& rect) {
+    if(rect.size.height > rect.size.width) {
+        std::swap(rect.size.height, rect.size.width);
+    }
 }
 
 class RuneDetector final
@@ -201,20 +211,40 @@ class RuneDetector final
         }
 
         std::vector<std::vector<cv::Point>> contours;
-        cv::findContours(roiBin, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE, cv::Point2f(roiRect.x, roiRect.y));
+        std::vector<std::vector<cv::Point>> candidateContours;
+        cv::findContours(roiBin, candidateContours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE,
+                         cv::Point2f(roiRect.x, roiRect.y));
 
-        if(contours.empty()) {
+        if(candidateContours.empty()) {
             return {};
         }
 
         double maxArea = 0;
+        bool rectChoose = false;
         cv::RotatedRect rLabelRect;
-        for(auto contour : contours) {
+
+        for(auto contour : candidateContours) {
+
             double contouArea = cv::contourArea(contour);
+            cv::RotatedRect contourRect = cv::minAreaRect(contour);
+            normalizeRect(contourRect);
+            
+            if(contourRect.size.height / contourRect.size.width < mConfig.maxRRectSizeRatio) {
+                continue;
+            }
+
+            if(contouArea / contourRect.size.area < mConfig.minRRectAreaRatio) {
+                continue;
+            }
+
             if(contouArea > maxArea) {
                 rLabelRect = cv::minAreaRect(contour);
+                rectChoose = true;
             }
         }
+
+        if (!rectChoose)
+            return {};
 
         return rLabelRect.center;
     }
@@ -321,7 +351,8 @@ class RuneDetector final
     }
 
 public:
-    RuneDetector(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, name}, mKey{ generateKey(this) } {}
+    RuneDetector(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](rune_image_frame_atom, Identifier key) {
