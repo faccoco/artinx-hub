@@ -3,6 +3,7 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
+#include <atomic>
 #include <caf/event_based_actor.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -40,6 +41,9 @@ protected:
     std::string mCameraSerialNumber;
 
     std::optional<Identifier> mHeadKey;
+    std::thread mDaemonThread;
+    std::atomic_bool mStopDaemon = false;
+    std::atomic_bool mSendFlag = false;
     cv::Mat mCameraMatrix;
     cv::Mat mDistCoefficients;
     // first rotate yaw, counterclockwise is positive, second rotate pitch, up is positive
@@ -51,8 +55,12 @@ protected:
 
     CameraBase(caf::actor_config& base, const HubConfig& config, std::string name);
 
+    ~CameraBase() override;
+
     static void loadCalibration(const std::string& identifier, uint32_t width, uint32_t height, double fallbackFov,
                                 cv::Mat& cameraMatrix, cv::Mat& distCoefficients);
+
+    virtual void restartCamera() noexcept = 0;
 
     void reportFrameRate(Clock::time_point timeStamp);
 

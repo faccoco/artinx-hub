@@ -106,7 +106,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
         }
 
         std::unique_lock guard{ mMutex };
-        if(!mImage.count(id) || !mImage[id].isEnable) {
+        if(mImage.count(id) == 0 || !mImage[id].isEnable) {
             return std::nullopt;
         }
         auto img = mImage[id].image;
