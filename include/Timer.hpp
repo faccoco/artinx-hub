@@ -22,7 +22,7 @@ struct ReadableTimePoint {
     uint16_t ms;
     ReadableTimePoint(const ReadableTimePoint&) = default;
     template <typename Clock, typename Duration>
-    ReadableTimePoint(std::chrono::time_point<Clock, Duration> T) {
+    explicit ReadableTimePoint(std::chrono::time_point<Clock, Duration> T) {
         auto t = std::chrono::duration_cast<std::chrono::milliseconds>(T.time_since_epoch()).count();
         ms = t % 1000;
         t /= 1000;
@@ -35,17 +35,17 @@ struct ReadableTimePoint {
 #endif
         raw = TimePoint(T.time_since_epoch());
     }
-    operator TimePoint() {
+    explicit operator TimePoint() {
         return raw;
     }
 };
 
 constexpr double durationCastDouble(const Duration& d) {
-    return double(d.count()) / Duration::period::den * Duration::period::num;
+    return static_cast<double>(d.count()) / Duration::period::den * Duration::period::num;
 }
 
 constexpr Duration doubleCastDuration(const double d) {
-    return Duration(Duration::rep(d * Duration::period::den / Duration::period::num));
+    return Duration(static_cast<Duration::rep>(d * Duration::period::den / Duration::period::num));
 }
 
 class SynchronizedClock final {
@@ -66,7 +66,7 @@ public:
     void setSimulationTime(TimePoint tp);
     void setSimulationTimeStep(Duration dt);
     [[nodiscard]] TimePoint now() const;
-    void sleep_for(const Duration& d);
+    void sleepFor(const Duration& d);
     static SynchronizedClock& instance();
 };
 

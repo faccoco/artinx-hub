@@ -5,22 +5,25 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
-#include "SuppressWarningBegin.hpp"
+#include "Timer.hpp"
 #include "Utility.hpp"
 
+#include "SuppressWarningBegin.hpp"
+
 #include <GxIAPI.h>
-#include <atomic>
 #include <caf/event_based_actor.hpp>
+#include <csignal>
+#include <exception>
 #include <fmt/core.h>
-#include <glm/gtc/matrix_transform.hpp>
 #include <magic_enum.hpp>
 #include <opencv2/opencv.hpp>
+#include <thread>
 #include <tuple>
 
 #include "SuppressWarningEnd.hpp"
 
 static void checkGXStatus(const GX_STATUS status) {
-    static std::string GXStatusList[] = {
+    static const std::string gxStatusList[] = {
         "Success",
         "There is an unspecified internal error that is not expected to occur",
         "The TL library cannot be found",
@@ -39,10 +42,11 @@ static void checkGXStatus(const GX_STATUS status) {
         "Timeout error"
     };
     if(status != GX_STATUS_SUCCESS) {
-        if(status >= -14 && status <= 0)
-            logError(fmt::format("GX Error {}: {}", status, GXStatusList[-status]).c_str());
-        else
-            logError(fmt::format("GX Error {}: unknown error code", status).c_str());
+        if(status >= -14 && status <= 0) {
+            logError(fmt::format("GX Error {}: {}", status, gxStatusList[-status]));
+        } else {
+            logError(fmt::format("GX Error {}: unknown error code", status));
+        }
     }
 }
 
@@ -66,13 +70,20 @@ class DahengDriver final : public CameraBase {
     bool mStartFlag = false;
     Identifier mKey;
 
-    static constexpr auto pixelFormat = GX_PIXEL_FORMAT_BAYER_RG8;
-    static constexpr auto pixelCast = cv::COLOR_BayerRG2RGB_EA;
-    static constexpr auto pixelStorageFormat = CV_8UC1;
+    static constexpr auto PixelFormat = GX_PIXEL_FORMAT_BAYER_RG8;
+    static constexpr auto PixelCast = cv::COLOR_BayerRG2RGB_EA;
+    static constexpr auto PixelStorageFormat = CV_8UC1;
+
+    void restartCamera() noexcept override {
+        HubLogger::visualLog("Daheng camera down, terminate the whole program");
+        logError("Daheng camera down, terminate the whole program");
+        terminateSystem(*this, false);
+        raise(SIGABRT);
+    }
 
     void newFrameImpl(Clock::time_point timeStamp, const cv::Mat& frame, uint32_t width, uint32_t height) {
         cv::Mat bgr;
-        cv::cvtColor(frame, bgr, pixelCast);
+        cv::cvtColor(frame, bgr, PixelCast);
 
         if(mConfig.flip) {
             cv::Mat flipped;
@@ -99,9 +110,12 @@ class DahengDriver final : public CameraBase {
         frameData.info.tfRobot2Camera = clcTfRobot2Camera(gunPose);
 
         frameData.frame = std::move(bgr);
-        // published = true;
-        sendAll(image_frame_atom_v,
-                BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
+        
+        HubLogger::visualLog("Daheng Camera: Camera send an image");
+        sendAll(
+            image_frame_atom_v,
+            BlackBoard::instance().updateSync(mKey, std::move(frameData), static_cast<std ::string_view>(mConfig.cameraName)));
+        mSendFlag.store(true, std::memory_order_release);
     }
 
 #ifdef ARTINX_DAHENG_USB2
@@ -112,12 +126,13 @@ class DahengDriver final : public CameraBase {
 #else
 
     void newFrame(GX_FRAME_CALLBACK_PARAM* pFrameData) {
-        if(pFrameData->status != GX_FRAME_STATUS_SUCCESS || !mStartFlag)
+        if(pFrameData->status != GX_FRAME_STATUS_SUCCESS || !mStartFlag) {
             return;
+        }
 
         const auto timeStamp = SynchronizedClock::instance().now();  // TODO: propagation time and internal timer
 
-        cv::Mat frame(cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, pixelStorageFormat,
+        cv::Mat frame(cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, PixelStorageFormat,
                       const_cast<void*>(pFrameData->pImgBuf));
         memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
         newFrameImpl(timeStamp, frame, pFrameData->nWidth, pFrameData->nHeight);
@@ -125,7 +140,7 @@ class DahengDriver final : public CameraBase {
 
 #endif
 
-    void openCam() {
+    void openCamera(size_t tryTime = 1, Duration retryInterval = 1ms) {
         GX_OPEN_PARAM deviceDesc;
         deviceDesc.accessMode = GX_ACCESS_CONTROL;
         deviceDesc.openMode = mConfig.openMode == "Index" ? GX_OPEN_MODE::GX_OPEN_INDEX : GX_OPEN_MODE::GX_OPEN_SN;
@@ -159,7 +174,7 @@ class DahengDriver final : public CameraBase {
 
         checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_EXPOSURE_TIME, 1000000.0 * mConfig.exposureTime));
 
-        checkGXStatus(GXSetEnum(mDevice, GX_ENUM_PIXEL_FORMAT, pixelFormat));
+        checkGXStatus(GXSetEnum(mDevice, GX_ENUM_PIXEL_FORMAT, PixelFormat));
 
         /*
         if(mConfig.decimation) {
@@ -183,17 +198,19 @@ class DahengDriver final : public CameraBase {
         checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_X, 0));
         checkGXStatus(GXSetInt(mDevice, GX_INT_OFFSET_Y, 0));
 
-        if(mConfig.enableAutoWhiteBalance)
+        if(mConfig.enableAutoWhiteBalance) {
             checkGXStatus(GXSetEnum(mDevice, GX_ENUM_BALANCE_WHITE_AUTO, GX_BALANCE_WHITE_AUTO_CONTINUOUS));
+        }
 
         if(abs(mConfig.gain - 0.0) > DBL_EPSILON) {
             GX_FLOAT_RANGE gainRange;
             checkGXStatus(GXGetFloatRange(mDevice, GX_FLOAT_GAIN, &gainRange));
             logInfo(fmt::format("Current camera gain range: {} to {}", gainRange.dMin, gainRange.dMax));
-            if(mConfig.gain > gainRange.dMax)
+            if(mConfig.gain > gainRange.dMax) {
                 mConfig.gain = gainRange.dMax;
-            else if(mConfig.gain < gainRange.dMin)
+            } else if(mConfig.gain < gainRange.dMin) {
                 mConfig.gain = gainRange.dMin;
+            }
             checkGXStatus(GXSetEnum(mDevice, GX_ENUM_GAIN_SELECTOR, GX_GAIN_SELECTOR_ALL));
             checkGXStatus(GXSetFloat(mDevice, GX_FLOAT_GAIN, mConfig.gain));
         }
@@ -247,7 +264,7 @@ class DahengDriver final : public CameraBase {
 #endif
     }
 
-    void closeCam() {
+    void closeCamera() {
 #ifdef ARTINX_DAHENG_USB2
         mRunning.store(false, std::memory_order_release);
         mCaptureThread.join();
@@ -257,18 +274,18 @@ class DahengDriver final : public CameraBase {
         checkGXStatus(GXUnregisterCaptureCallback(mDevice));
 #endif
         checkGXStatus(GXCloseDevice(mDevice));
-        mDevice = NULL;
+        // mDevice = nullptr;
     }
 
 public:
     DahengDriver(caf::actor_config& base, const HubConfig& config, std::string name)
         : CameraBase{ base, config, std::move(name) }, mKey{ generateKey(this) } {
         initLib();
-        openCam();
+        openCamera();
     }
 
     ~DahengDriver() override {
-        closeCam();
+        closeCamera();
     }
 
     caf::behavior make_behavior() override {
