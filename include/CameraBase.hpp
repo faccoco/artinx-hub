@@ -35,7 +35,7 @@ bool inspect(Inspector& f, CameraBaseSettings& x) {
         f.field("pitch", x.pitch).fallback(0.0));
 }
 
-class CameraBase : public HubHelper<caf::event_based_actor, CameraBaseSettings, image_frame_atom> {
+class CameraBase : public HubHelper<caf::event_based_actor, CameraBaseSettings, image_frame_atom, rune_image_frame_atom> {
 protected:
     std::string mCameraSerialNumber;
 
