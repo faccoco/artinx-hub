@@ -141,11 +141,11 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         HubLogger::visualLog(fmt::format("predictedPos: w theta x y z yaw {:.3f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}",
                                          ekfPredict(1), ekfPredict(2), ekfPredict(3), ekfPredict(4), ekfPredict(5),
                                          ekfPredict(6)));
-        // logInfo(fmt::format("Energy Predictor: positionDiff {:.3f} and thetaDiff {:.3f}", positionDiff, thetaDiff));
+        logInfo(fmt::format("Energy Predictor: positionDiff {:.3f} and thetaDiff {:.3f}", positionDiff, thetaDiff));
         if(positionDiff < minPositionDiff) {
             if(thetaDiff < minThetaDiff) {
                 mTrackFan.state = mFilter.update(fanPosition);
-                // logInfo("TrackFan Matched");
+                logInfo("TrackFan Matched");
             } else {
                 double t = mTrackFan.state(0), w = mTrackFan.state(1);
                 mTrackFan.state = getRLabelPosFromFanPos(fanPosition);
@@ -158,7 +158,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
             }
             return true;
         } else {
-            // logInfo("TrackFan do not matched!");
+            logInfo("TrackFan do not matched!");
             return false;
         }
     }
@@ -243,6 +243,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     }
 
     void fitParameters() {
+        logInfo(fmt::format("mThetaInfo size : {}", mThetaInfos.size()));
         if(mThetaInfos.size() < mConfig.fanQueueLength) {
             return;
         }

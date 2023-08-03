@@ -122,7 +122,8 @@ class RuneDetector final
         std::vector<cv::Mat> img_channel;
         cv::split(src, img_channel);
         b = img_channel[0], g = img_channel[1], r = img_channel[2];
-        sub = GlobalSettings::get().getColor() == Color::Blue? b - r : r - b;
+        // sub = GlobalSettings::get().getColor() == Color::Blue? b - r : r - b;
+        sub = b - r;
         cv::threshold(sub, bin, threshold, 255, cv::THRESH_BINARY);
         return bin;
     }

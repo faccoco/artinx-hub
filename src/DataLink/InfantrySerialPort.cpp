@@ -35,7 +35,7 @@ public:
         speedY = reader.readCompressedFloat(-20.0f, 0.01f);
         const auto mask = reader.read();
         color = mask & 1;
-        energyMode = (mask >> 1) & 1;
+        energyMode = (mask >> 1) & 1 + (mask >> 2) & 1;
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
         capEnergy = reader.readCompressedFloat(-1.0f, 0.1f);
         chasisPower = reader.readCompressedFloat(-1.0f, 0.01f);
