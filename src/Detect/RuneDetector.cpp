@@ -6,6 +6,7 @@
 #include "Utility.hpp"
 
 #include "SuppressWarningBegin.hpp"
+#include "NetInference.hpp"
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
@@ -14,12 +15,22 @@
 #include <opencv2/aruco.hpp>
 #include <opencv2/calib3d.hpp>
 #include <utility>
+#include <Eigen/Core>
 
 #include "SuppressWarningEnd.hpp"
 
 struct RuneDetecorSettings final {
 
     bool debugView;
+    bool useNNet;
+
+    std::string modelPath;
+    float nmsThreshold;   // NMS参数
+    float confThreshold;  // 置信度参数
+    int imgSize;          // 推理图像大小
+    int kptNum;
+    int classNum;
+    int anchorNum;
 
     // bound for hsv
     int binThresh;
@@ -40,7 +51,19 @@ struct RuneDetecorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, RuneDetecorSettings& x) {
     return f.object(x).fields(
-        f.field("debugView", x.debugView).fallback(false), f.field("binThresh", x.binThresh).fallback(50),
+        f.field("debugView", x.debugView).fallback(false),
+        f.field("useNNet", x.useNNet).fallback(true),
+
+        f.field("modelPath", x.modelPath),
+        f.field("nmsThreshold", x.nmsThreshold).fallback(0.2),
+        f.field("confThreshold", x.confThreshold).fallback(0.7),
+        f.field("imgSize", x.imgSize).fallback(416),
+        f.field("kptNum", x.kptNum).fallback(0),
+        f.field("classNum", x.classNum).fallback(4),
+        f.field("anchorNum", x.anchorNum).fallback(1),
+
+        
+        f.field("binThresh", x.binThresh).fallback(50),
         f.field("roiBinThresh", x.roiBinThresh),
         f.field("dilateKernel", x.dilateKernel), f.field("minConvexHullThresh", x.minConvexHullThresh),
         f.field("maxConvexHullThresh", x.maxConvexHullThresh), f.field("minContourArea", x.minContourArea),
@@ -68,7 +91,10 @@ class RuneDetector final
     : public HubHelper<caf::event_based_actor, RuneDetecorSettings, energy_detect_available_atom, image_frame_atom> {
 
     Identifier mKey;
-    bool mEnable = true;
+
+    std::unique_ptr<YoloNet> mInfer;
+
+//    bool mEnable = true;
 
     void debugView(const std::string_view& name, const cv::Mat& src, const std::function<void(cv::Mat&)>& func) {
 #ifndef ARTINXHUB_DEBUG
@@ -191,7 +217,28 @@ class RuneDetector final
         }
         return {};
     }
-
+    std::optional<cv::Rect> getNNetROI(const cv::Mat& src)
+    {
+        const auto t1 = Clock::now();
+        auto objects = mInfer->work(src);
+        logInfo(fmt::format("net cost time: {:.4f} ms", (durationCastDouble(Clock::now() - t1) * 1000)));
+        logInfo(fmt::format("NNetEnergyDetect result size: {}", objects.size()));
+        if(mConfig.debugView) {
+            debugView("result", src, [&](cv::Mat& img) {
+                for(size_t i = 0; i < objects.size(); ++i) {
+                    cv::rectangle(img, objects[i].rect, cv::Scalar(0, 255, 0));
+                }
+            });
+        }
+        double maxProb = 0;
+        std::optional<cv::Rect> roiRect;
+        for(const auto& obj : objects) {
+            if(obj.prob > maxProb && (obj.label == 0 || obj.label == 2)) {
+             roiRect = expandRect(obj.rect, src.cols, src.rows, 1.2);
+            }
+        }
+        return roiRect;
+    }
     std::optional<cv::Point2f> getRLabel(const cv::Mat& src, const cv::Point2f& smallCenter, const cv::Point2f& largeCenter) {
         double roiSize = euclideanDistance(smallCenter, largeCenter) * mConfig.rRoiSizeScale;
         cv::Point2f RRoiCenter = smallCenter - (smallCenter - largeCenter) * mConfig.rPosScale;
@@ -232,11 +279,11 @@ class RuneDetector final
             cv::RotatedRect contourRect = cv::minAreaRect(contour);
             normalizeRect(contourRect);
 
-            if(contourRect.size.height / contourRect.size.width > mConfig.maxRRectSizeRatio) {
+            if(contourRect.size.height / (contourRect.size.width + 1e-6) > mConfig.maxRRectSizeRatio) {
                 continue;
             }
 
-            if(contourArea / contourRect.size.area() < mConfig.minRRectAreaRatio) {
+            if(contourArea / (contourRect.size.area() + 1e-6) < mConfig.minRRectAreaRatio) {
                 continue;
             }
 
@@ -254,7 +301,12 @@ class RuneDetector final
     }
 
     void detect(const cv::Mat& src, std::vector<cv::Point2f>& keyPoints) {
-        auto roiRectOptional = getRuneROI(src);
+        std::optional<cv::Rect> roiRectOptional;
+        if (!mConfig.useNNet)
+            roiRectOptional = getRuneROI(src);
+        else 
+            roiRectOptional = getNNetROI(src);
+
         // logInfo("roi get");
 
         if(!roiRectOptional.has_value()) {
@@ -356,7 +408,10 @@ class RuneDetector final
 
 public:
     RuneDetector(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, name }, mKey{ generateKey(this) } {}
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
+            mInfer = std::make_unique<YoloNet>(mConfig.modelPath, mConfig.nmsThreshold, mConfig.confThreshold, mConfig.imgSize,
+                                           mConfig.kptNum, mConfig.classNum, mConfig.anchorNum);
+        }
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {

@@ -8,6 +8,7 @@
 #include "NetInference.hpp"
 #include "SelectedTarget.hpp"
 #include "Utility.hpp"
+#include "DetectedEnergyFan.hpp"
 
 #include <string>
 #include <utility>
@@ -89,18 +90,18 @@ public:
                      const auto t1 = Clock::now();
                      const auto frame = std::get<0>(BlackBoard::instance().get<CameraFrame, std::string_view>(key).value());
 
-                     EnergyFan res;
 
-                     auto result = mInfer->work(res.frame.frame);
+                     auto result = mInfer->work(frame.frame);
                      logInfo(fmt::format("net cost time: {:.4f} ms", (durationCastDouble(Clock::now() - t1) * 1000)));
                      logInfo(fmt::format("NNetEnergyDetect result size: {}", result.size()));
                      if(mConfig.debugView) {
-                         debugView("result", res.frame.frame, [&](cv::Mat& src) {
+                         debugView("result", frame.frame, [&](cv::Mat& src) {
                              for(size_t i = 0; i < result.size(); ++i) {
                                  cv::rectangle(src, result[i].rect, cv::Scalar(0, 255, 0));
                              }
                          });
                      }
+                     EnergyFan res;
                      sendAll(energy_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }

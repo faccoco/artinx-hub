@@ -60,7 +60,8 @@ set(SOURCE
     "Utility/Timer.cpp"
     "Utility/VideoRecorder.cpp"
     "Utility/MathTools.cpp"
-    "Utility/RadarInfo.cpp")
+    "Utility/RadarInfo.cpp"
+    "Utility/NetInference.cpp")
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
@@ -122,6 +123,8 @@ if(DEFINED ENV{HIK_SDK})
   message("USB3: Hik SDK found at $ENV{HIK_SDK}")
 endif()
 
+
+
 target_link_libraries(ArtinxHub PRIVATE gxiapi)
 # target_link_libraries(ArtinxHub PRIVATE LinearMath Bullet3Common
 # BulletDynamics BulletCollision)
@@ -136,7 +139,19 @@ if(DEFINED ENV{ARTINX_RADAR})
   target_link_libraries(ArtinxHub PRIVATE nvinfer)
   target_link_directories(ArtinxHub PRIVATE $ENV{TRT_INFER_PATH}/lib)
   target_link_libraries(ArtinxHub PRIVATE trtinfer)
-else()
+endif()
+
+if(DEFINED ENV{ONEAPI_ROOT})
+  add_compile_definitions("ARTINX_OPENVINO2021")
+  set(InferenceEngine_DIR
+          $ENV{ONEAPI_ROOT}/openvino/openvino_2021/deployment_tools/inference_engine/share/)
+  find_package(InferenceEngine CONFIG REQUIRED)
+  target_link_libraries(ArtinxHub PRIVATE ${InferenceEngine_LIBRARIES})
+endif()
+
+if (DEFINED ENV{OPENVINO2022_PATH})
+  add_compile_definitions("ARTINX_OPENVINO2022")
+  set(InferenceEngine_DIR $ENV{OPENVINO2022_PATH}/runtime/cmake)
   find_package(InferenceEngine CONFIG REQUIRED)
   target_link_libraries(ArtinxHub PRIVATE ${InferenceEngine_LIBRARIES})
 endif()
