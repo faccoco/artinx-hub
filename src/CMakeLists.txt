@@ -14,7 +14,6 @@ set(SOURCE
     "DataLink/HeroSerialPort.cpp"
     "DataLink/SentrySerialPort.cpp"
     "DataLink/PosSynchronization.cpp"
-    "Detect/CarDetector.cpp"
     "Detect/NumClassifier.cpp"
     "Detect/ArmorDetector.cpp"
     "Detect/NNetArmorDetector.cpp"
@@ -34,10 +33,11 @@ set(SOURCE
     "Sensor/VideoReplay.cpp"
     "Sensor/HikDriver.cpp"
     "Sensor/CameraBase.cpp"
-        "Solve/AngleSolver.cpp"
+    "Solve/AngleSolver.cpp"
     "Solve/PeriodSolver.cpp"
     "Solve/ArmorLocator.cpp"
     "Solve/RadarLocator.cpp"
+    "Solve/BotLocator.cpp"
     "Strategy/Hero.cpp"
     "Strategy/Infantry.cpp"
     "Strategy/Sentry.cpp"
@@ -53,16 +53,14 @@ set(SOURCE
 #    "Test/Solve/Simulator.cpp"
     "Test/TestHelper.cpp"
     "Utility/ArmorDetectorDrawer.cpp"
-    "Utility/CarDetectorDrawer.cpp"
     "Utility/Crc.cpp"
     "Utility/EKF.cpp"
-    "Utility/KM.cpp"
     "Utility/OpenCVHelper.cpp"
     "Utility/PID.cpp"
     "Utility/Timer.cpp"
     "Utility/VideoRecorder.cpp"
     "Utility/MathTools.cpp"
-    "Utility/RadarInfo.cpp" Solve/BotLocator.cpp)
+    "Utility/RadarInfo.cpp")
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)

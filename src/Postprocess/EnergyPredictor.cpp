@@ -26,10 +26,10 @@ static constexpr double minPositionDiff = 1.8;
 static constexpr double minThetaDiff = 0.7;  // < pi/3
 static constexpr double diffTThresh = 0.005;
 
-static constexpr double fanLen = 0.75;
-static constexpr double longRuneArmorWidth = 0.3524;
-static constexpr double shortRuneArmorWidth = 0.338;
-static constexpr double runeArmorHeight = 0.1;
+static constexpr double fanLen = 0.705;
+static constexpr double longRuneArmorWidth = 0.330;
+static constexpr double shortRuneArmorWidth = 0.305;
+static constexpr double runeArmorHeight = 0.095;
 
 struct EnergyPredictorSettings final {
     uint8_t fanQueueLength;
@@ -225,12 +225,18 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
 
     void saveThetaInfo(const TimePoint& tp, double theta) {
         double dt = 0.0, dTheta = 0.0;
-        if(mThetaInfos.size() > 0) {
+        if(!mThetaInfos.empty()) {
             dt = durationCastDouble(tp - std::get<0>(mThetaInfos.back()));
             dTheta = theta - std::get<1>(mThetaInfos.back());
         }
-        if(mThetaInfos.size() >= mConfig.fanQueueLength)
+        if(mThetaInfos.size() >= mConfig.fanQueueLength){
+            auto top = mThetaInfos.front();
             mThetaInfos.pop_front();
+            if (mMode == TaskMode::BigRune){
+                mTrackFan.state(0) -= std::get<2>(top);  //reset t0
+            }
+        }
+            
         mThetaInfos.emplace_back(tp, theta, dt, dTheta);
         mDirSum = dTheta >= 0 ? mDirSum + 1 : mDirSum - 1;
         mDirection = mDirSum >= 0 ? 1 : -1;
@@ -245,9 +251,10 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         ceres::Solver::Options options;
         ceres::Solver::Summary summary;
 
-        for(auto it = mThetaInfos.begin(); it != mThetaInfos.end(); ++it) {
-            auto dt = std::get<2>(*it), dTheta = std::fabs(std::get<3>(*it));
-            problem.AddResidualBlock(new ceres::AutoDiffCostFunction<CurveFittingCost, 1, 4>(new CurveFittingCost(dt, dTheta)),
+        double t0 = 0.0, theta0 = 0.0; 
+        for(const auto& thetaInfo : mThetaInfos) {
+            t0 += std::get<2>(thetaInfo), theta0 += std::get<3>(thetaInfo);
+            problem.AddResidualBlock(new ceres::AutoDiffCostFunction<CurveFittingCost, 1, 4>(new CurveFittingCost(t0, theta0)),
                                      nullptr, mParameters);
         }
 
@@ -259,8 +266,9 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         problem.SetParameterUpperBound(mParameters, 2, 4.0);
         ceres::Solve(options, &problem, &summary);
         //        logInfo(summary.FullReport());
-        // logInfo(fmt::format("Final Cost: {:.3f} Param: {:.3f} {:.3f} {:.3f} {:.3f}", summary.final_cost, mParameters[0],
-        //                     mParameters[1], mParameters[2], mParameters[3]));
+        logInfo(fmt::format("Final Cost: {:.3f} Param: {:.3f} {:.3f} {:.3f} {:.3f}", summary.final_cost, mParameters[0],
+                            mParameters[1], mParameters[2], mParameters[3]));
+        
     }
 
     std::tuple<bool, double, double> solveAngle(const Eigen::VectorXd& X) {
@@ -318,7 +326,7 @@ public:
         auto JF = [this, nX](const Eigen::VectorXd& X) {
             Eigen::MatrixXd F(nX, nX);
             double a = mParameters[0], w = mParameters[1], p = mParameters[2];
-            if(mMode == TaskMode::BigRune) {
+            if(mMode == TaskMode::SmallRune) {
                 // clang-format off
                 F << 1,   0, 0, 0, 0, 0, 0,
                      0,   1, 0, 0, 0, 0, 0,
@@ -403,12 +411,13 @@ public:
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](energy_detect_available_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(energy_detect_available_atom, TypedIdentifier<EnergyFan>);
-                    
+
                      if(mConfig.setMode == 0) {
                          mMode = GlobalSettings::get().getTaskMode();
                      } else {
                          mMode = static_cast<TaskMode>(mConfig.setMode);
                      }
+
                      auto srcFan = BlackBoard::instance().get<EnergyFan>(key).value();
                      double dt = durationCastDouble(srcFan.lastUpdate - mTrackFan.lastUpdate);
                      mTrackFan.lastUpdate = srcFan.lastUpdate;
@@ -449,8 +458,9 @@ public:
                                  init(fanPos);
                                  matched = true;
                              } else {
-                                 if(mMode == TaskMode::BigRune)
-                                     fitParameters();
+                                 if(mMode == TaskMode::BigRune){
+                                    fitParameters();
+                                 }
                                  matched = update(dt, fanPos);
                              };
                          }
@@ -465,6 +475,7 @@ public:
                          HubLogger::watch("rLabelZ", mTrackFan.state(5));
                          HubLogger::watch("rLabelYaw", mTrackFan.state(6));
                          auto [success, yaw, pitch] = solveAngle(mTrackFan.state);
+                         HubLogger::visualLog(fmt::format("pnp solver result: {} {:.3f} {:.3f}", success, yaw, pitch));
                          if(success) {
                              sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(),
                                                  yaw, pitch, true, normalSolver);

@@ -110,11 +110,19 @@ class RuneDetector final
 
     cv::Mat binarize(const cv::Mat &src, int threshold)
     {
+        cv::Mat bin, gray;
+        cv::cvtColor(src, gray, cv::COLOR_BGR2GRAY);
+        cv::threshold(gray, bin, threshold, 255, cv::THRESH_BINARY);
+        return bin;
+    }
+
+    cv::Mat subBinarize(const cv::Mat &src, int threshold)
+    {
         cv::Mat bin, sub, b, g, r;
         std::vector<cv::Mat> img_channel;
         cv::split(src, img_channel);
         b = img_channel[0], g = img_channel[1], r = img_channel[2];
-        sub = r - b;
+        sub = GlobalSettings::get().getColor() == Color::Blue? b - r : r - b;
         cv::threshold(sub, bin, threshold, 255, cv::THRESH_BINARY);
         return bin;
     }
@@ -123,7 +131,7 @@ class RuneDetector final
         // cv::Mat bin = binarize(src, cv::Scalar(mConfig.lowerBlue[0], mConfig.lowerBlue[1], mConfig.lowerBlue[2]),
                             //    cv::Scalar(mConfig.upperBlue[0], mConfig.upperBlue[1], mConfig.upperBlue[2]));
 
-        cv::Mat bin = binarize(src, mConfig.binThresh);
+        cv::Mat bin = subBinarize(src, mConfig.binThresh);
 
         if(mConfig.debugView) {
             debugView("bin", bin, [](auto&) {});
@@ -141,8 +149,8 @@ class RuneDetector final
         std::vector<std::vector<cv::Point>> contours;
         std::vector<cv::Vec4i> hierarchy;
         cv::findContours(bin, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
-        if(contours.size() <= 0) {
-            logInfo("no contour found!!!");
+        if(!contours.empty() ) {
+            // logInfo("no contour found!!!");
         }
         // std::cout << "src have " << contours.size() << " contours." << std::endl;
 
@@ -235,15 +243,16 @@ class RuneDetector final
             cv::RotatedRect contourRect = cv::minAreaRect(contour);
             normalizeRect(contourRect);
 
-            // if(contourRect.size.height / contourRect.size.width > mConfig.maxRRectSizeRatio) {
-            //     continue;
-            // }
+            if(contourRect.size.height / contourRect.size.width > mConfig.maxRRectSizeRatio) {
+                continue;
+            }
 
-            // if(contourArea / contourRect.size.area() < mConfig.minRRectAreaRatio) {
-            //     continue;
-            // }
+            if(contourArea / contourRect.size.area() < mConfig.minRRectAreaRatio) {
+                continue;
+            }
 
             if(contourArea > maxArea) {
+                maxArea = contourArea;
                 rLabelRect = cv::minAreaRect(contour);
                 rectChoose = true;
             }
@@ -279,7 +288,7 @@ class RuneDetector final
         cv::findContours(roiBin, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE, cv::Point2f(roiRect.x, roiRect.y));
 
         if(contours.size() < 2) {
-            logInfo("no target contour in roiRect");
+            // logInfo("no target contour in roiRect");
             return;
         }
 
@@ -364,16 +373,16 @@ public:
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
-                     if (GlobalSettings::get().getTaskMode() == TaskMode::AutoAim){
-                        return;
-                     }
+                    //  if (GlobalSettings::get().getTaskMode() == TaskMode::AutoAim){
+                    //     return;
+                    //  }
 
                      auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
                      auto frame = std::get<0>(data);
 
                      //  cv::Mat src = frame.frame;
                      cv::Mat src = frame.frame;
-                    //  cv::blur(frame.frame, src, cv::Size(5, 5));
+                     cv::blur(frame.frame, src, cv::Size(5, 5));
                     //  debugView("blur", src, [](auto&) {});
                      std::vector<cv::Point2f> keyPoints;
                      detect(src, keyPoints);

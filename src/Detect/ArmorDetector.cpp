@@ -286,16 +286,15 @@ class ArmorDetector final
             condArmor.id = id;
             condArmor.prob = prob;
         }
-        std::sort(condArmors.begin(), condArmors.end(), [](const CondidateArmor& armor1, const CondidateArmor& armor2){
-            return armor1.prob > armor2.prob;
-        });
+        std::sort(condArmors.begin(), condArmors.end(),
+                  [](const CondidateArmor& armor1, const CondidateArmor& armor2) { return armor1.prob > armor2.prob; });
         std::vector<Armor> armors;
         std::unordered_set<int> usedLightIdx;
-        for (const auto& condArmor : condArmors){
+        for(const auto& condArmor : condArmors) {
             if(mConfig.excludeNegative && (condArmor.id == 8 || condArmor.prob < mConfig.numProbThresh))  // id 8 -> negative
                 continue;
 
-            if (usedLightIdx.count(condArmor.leftLightIdx) || usedLightIdx.count(condArmor.rightLightIdx)){
+            if(usedLightIdx.count(condArmor.leftLightIdx) || usedLightIdx.count(condArmor.rightLightIdx)) {
                 continue;
             }
             Armor armor;
@@ -307,9 +306,6 @@ class ArmorDetector final
             usedLightIdx.insert(condArmor.rightLightIdx);
             armors.push_back(armor);
         }
-
-        
-            
 
         if(mConfig.debugView) {
             if(!condArmors.empty()) {
@@ -344,8 +340,8 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
-                     if (GlobalSettings::get().getTaskMode() != TaskMode::AutoAim){
-                        return;
+                     if(GlobalSettings::get().getTaskMode() != TaskMode::AutoAim) {
+                         return;
                      }
                      const auto t1 = Clock::now();
                      const auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
@@ -354,7 +350,7 @@ public:
                      DetectedArmorArray res;
                      res.frame = frame;
                      res.armors = solve(frame.frame);
-                     if(res.armors.size() > 0) {
+                     if(!res.armors.empty()) {
                          HubLogger::visualLog(fmt::format("ArmorDetector detected {} targets, cost time {:.3f}ms",
                                                           res.armors.size(), durationCastDouble(Clock::now() - t1) * 1000));
                      }
