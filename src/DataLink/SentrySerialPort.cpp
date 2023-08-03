@@ -132,13 +132,15 @@ public:
               std::bind(&SentrySerialPort::sentrySetPacket, this)),
           mKey{ generateKey(this) } {
         std::thread([this]() {
-            ReadableTimePoint readableTimePoint(std::chrono::system_clock::now());
-            HubLogger::electricCtrlLog(fmt::format(
-                "{}:{}:{} bulletSpeed30_offset:{:.3f} fdb_position_x:{:.3f} fdb_position_y:{:.3f} fdb_yaw_in_world:{:.3f}",
-                readableTimePoint.tm.tm_hour, readableTimePoint.tm.tm_min, readableTimePoint.tm.tm_sec,
-                mElectricDataBuff.bulletSpeed30Offset, mElectricDataBuff.fdbPositionX, mElectricDataBuff.fdbPositionY,
-                mElectricDataBuff.fdbYawInWorld));
-            std::this_thread::sleep_for(10ms);
+            while(globalStatus == RunStatus::running) {
+                ReadableTimePoint readableTimePoint(std::chrono::system_clock::now());
+                HubLogger::electricCtrlLog(fmt::format(
+                    "{}:{}:{} bulletSpeed30_offset:{:.3f} fdb_position_x:{:.3f} fdb_position_y:{:.3f} fdb_yaw_in_world:{:.3f}",
+                    readableTimePoint.tm.tm_hour, readableTimePoint.tm.tm_min, readableTimePoint.tm.tm_sec,
+                    mElectricDataBuff.bulletSpeed30Offset, mElectricDataBuff.fdbPositionX, mElectricDataBuff.fdbPositionY,
+                    mElectricDataBuff.fdbYawInWorld));
+                std::this_thread::sleep_for(10ms);
+            }
         }).detach();
     }
 

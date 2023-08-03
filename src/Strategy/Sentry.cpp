@@ -87,7 +87,7 @@ public:
                     if(selected.selected.has_value()) {
                         mLastTarget1 = selected;
                         if(mLastTarget2.selected.has_value() && Clock::now() - mLastTarget2.lastUpdate < recordTime &&
-                           mLastTarget2.selected->id == RobotType::Hero) {
+                           mLastTarget2.selected->id == GlobalSettings::get().priorNum) {
                             return;
                         }
                     } else {
@@ -99,7 +99,7 @@ public:
                     if(selected.selected.has_value()) {
                         mLastTarget2 = selected;
                         if(mLastTarget1.selected.has_value() && Clock::now() - mLastTarget1.lastUpdate < recordTime &&
-                           mLastTarget2.selected->id != RobotType::Hero) {
+                           mLastTarget2.selected->id != GlobalSettings::get().priorNum) {
                             return;
                         }
                     } else {
