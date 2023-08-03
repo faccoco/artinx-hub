@@ -1,6 +1,5 @@
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
-#include "EnergyDetect.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "PostureData.hpp"
@@ -9,6 +8,7 @@
 #include "SerialPort/PacketHelper.hpp"
 #include "SerialPort/SerialPort.hpp"
 #include "Utility.hpp"
+#include "DetectedEnergyFan.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -24,7 +24,7 @@ class InfantryRecvPacket final {
 public:
     static constexpr uint16_t id = 0x0A;
 
-    float yaw, pitch, bulletSpeed, speedX, speedY;
+    float yaw, pitch,  bulletSpeed, speedX, speedY;
     uint8_t color, energyMode;
     float capEnergy, chasisPower;
     explicit InfantryRecvPacket(std::array<uint8_t, 1024>& buffer) {
@@ -85,19 +85,23 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
         HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
 
-        sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
-
         auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
         auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
-        // HubLogger::watch("yaw1", fdb.yaw);
-        // HubLogger::watch("pitch1", fdb.pitch);
+        HubLogger::watch("yaw1", fdb.yaw);
+        HubLogger::watch("pitch1", fdb.pitch);
         HubLogger::watch("deltaYaw1", deltaYaw1);
         HubLogger::watch("deltaPitch1", deltaPitch1);
 
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
-        const HeadInfo infoHead{ SynchronizedClock::instance().now(), { 0.0, fdb.pitch, fdb.yaw } };
+        GlobalSettings::get().taskMode = fdb.energyMode;
+
+        const double yaw = fdb.yaw + glm::half_pi<double>();
+        const double pitch = fdb.pitch;
+        const double roll = 0.0;
+        const HeadInfo infoHead{ SynchronizedClock::instance().now(),
+                                 {roll, pitch, yaw}};
 
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();

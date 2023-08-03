@@ -19,6 +19,7 @@
 #include <caf/event_based_actor.hpp>
 #include <fmt/core.h>
 #include <opencv2/imgproc.hpp>
+#include <stdexcept>
 
 #include "SuppressWarningEnd.hpp"
 #include <algorithm>
@@ -181,6 +182,7 @@ private:
         checkErrorCode(
             MV_CC_SetEnumValue(mCameraHandle, "BalanceWhiteAuto",
                                mConfig.enableAutoWhiteBalance ? MV_BALANCEWHITE_AUTO_CONTINUOUS : MV_BALANCEWHITE_AUTO_OFF));
+        checkErrorCode(MV_CC_SetBayerCvtQuality(mCameraHandle, 1));
         checkErrorCode(MV_CC_RegisterImageCallBackForBGR(mCameraHandle, newFrame, this));
         checkErrorCode(MV_CC_StartGrabbing(mCameraHandle));
     }

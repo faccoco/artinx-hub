@@ -19,9 +19,11 @@ set(SOURCE
     "Detect/ArmorDetector.cpp"
     "Detect/NNetArmorDetector.cpp"
     "Detect/RadarNNetDetector.cpp"
+    "Detect/RuneDetector.cpp"
     "HubMain.cpp"
     "Postprocess/CarPredictor.cpp"
     "Postprocess/PeriodPredictor.cpp"
+    "Postprocess/EnergyPredictor.cpp"
     "Postprocess/PeriodOutpostPredictor.cpp"
     "Preprocess/ColorCalibration.cpp"
     "Preprocess/IMUFilter.cpp"
@@ -87,9 +89,11 @@ set(InferenceEngine_DIR
 )
 find_package(Eigen3 CONFIG REQUIRED)
 find_package(spdlog CONFIG REQUIRED)
+find_package(Ceres CONFIG REQUIRED)
 
 add_executable(ArtinxHub ${SOURCE})
 target_include_directories(ArtinxHub PRIVATE ${CAF_INCLUDE_DIRS})
+target_link_libraries(ArtinxHub PRIVATE ceres Ceres::ceres)
 target_link_libraries(ArtinxHub PRIVATE CAF::core)
 target_link_libraries(
   ArtinxHub PRIVATE opencv_core opencv_videoio opencv_mcc opencv_calib3d

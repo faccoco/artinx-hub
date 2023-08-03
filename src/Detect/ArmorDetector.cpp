@@ -344,6 +344,9 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
+                     if (GlobalSettings::get().getTaskMode() != TaskMode::AutoAim){
+                        return;
+                     }
                      const auto t1 = Clock::now();
                      const auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
                      auto frame = std::get<0>(data);

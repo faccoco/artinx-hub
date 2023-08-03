@@ -1,7 +1,6 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedTarget.hpp"
-#include "EnergyDetect.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
 
