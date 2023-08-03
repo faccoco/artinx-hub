@@ -22,10 +22,6 @@ struct RuneDetecorSettings final {
     bool debugView;
 
     // bound for hsv
-    std::vector<int> upperRed;
-    std::vector<int> lowerRed;
-    std::vector<int> upperBlue;
-    std::vector<int> lowerBlue;
     int binThresh;
 
     int roiBinThresh;
@@ -44,8 +40,8 @@ struct RuneDetecorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, RuneDetecorSettings& x) {
     return f.object(x).fields(
-        f.field("debugView", x.debugView).fallback(false), f.field("binThresh", x.binThresh).fallback(50), f.field("upperRed", x.upperRed), f.field("lowerRed", x.lowerRed),
-        f.field("upperBlue", x.upperBlue), f.field("lowerBlue", x.lowerBlue), f.field("roiBinThresh", x.roiBinThresh),
+        f.field("debugView", x.debugView).fallback(false), f.field("binThresh", x.binThresh).fallback(50),
+        f.field("roiBinThresh", x.roiBinThresh),
         f.field("dilateKernel", x.dilateKernel), f.field("minConvexHullThresh", x.minConvexHullThresh),
         f.field("maxConvexHullThresh", x.maxConvexHullThresh), f.field("minContourArea", x.minContourArea),
         f.field("rRoiSizeScale", x.rRoiSizeScale).fallback(1.0), f.field("rPosScale", x.rPosScale).fallback(6.5),
@@ -99,13 +95,6 @@ class RuneDetector final
 
     static double distance(const cv::Point2f& center1, const cv::Point2f center2) {
         return cv::norm(center2 - center1);
-    }
-
-    cv::Mat binarize(const cv::Mat& src, const cv::Scalar& lowerBound, const cv::Scalar& upperBound) {
-        cv::Mat hsvImg, bin;
-        cv::cvtColor(src, hsvImg, cv::COLOR_BGR2HSV);
-        cv::inRange(hsvImg, lowerBound, upperBound, bin);
-        return bin;
     }
 
     cv::Mat binarize(const cv::Mat &src, int threshold)
