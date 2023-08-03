@@ -209,7 +209,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             // Difference of the current armor position and tracked armor's predicted position
             double minPositionDiff = 1000.0;
             for(const auto& armor : armors) {
-                if(std::isnan(armor.center.mVal.x) || std::isnan(armor.center.mVal.y) || std::isnan(armor.center.mVal.z) || armor.id != mTrackedArmor.id){
+                if(std::isnan(armor.center.mVal.x) || std::isnan(armor.center.mVal.y) || std::isnan(armor.center.mVal.z) ||
+                   armor.id != mTrackedArmor.id) {
                     continue;
                 }
                 auto p = getArmorPos(armor);
@@ -266,9 +267,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
 
 public:
     CarPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) }, mTrackedArmor{
-              TimePoint(), Eigen::VectorXd::Zero(9), 0, RobotType::Negative, TrackingState::LOST
-          } {
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) },
+          mTrackedArmor{ TimePoint(), Eigen::VectorXd::Zero(9), 0, RobotType::Negative, TrackingState::LOST } {
         // EKF
         // xa = x_armor, xc = x_robot_center
         // state: xc, yc, zc, yaw, v_xc, v_yc, v_zc, v_yaw, r
@@ -377,7 +377,8 @@ public:
 
                 if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
                     if(mTrackedArmor.trackingState == TrackingState::LOST ||
-                       (data->selected.has_value() && mTrackedArmor.id != data->selected->id)) {
+                       (data->selected.has_value() && mTrackedArmor.id == GlobalSettings::get().priorNum &&
+                        mTrackedArmor.id != data->selected->id)) {
                         // init
                         if(!data->selected.has_value())
                             return;

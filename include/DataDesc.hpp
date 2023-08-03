@@ -30,7 +30,7 @@ struct GlobalSettings final {
     double shootDelayTime = 0.f;
     bool started = false;
 
-    uint8_t priorNum = 1;
+    uint8_t priorNum = 0xff;
     bool blockEngineer = false, blockSentry = false;
 
     [[nodiscard]] double bulletRadius() const noexcept {
