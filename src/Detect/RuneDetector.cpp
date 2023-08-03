@@ -279,13 +279,13 @@ class RuneDetector final
             cv::RotatedRect contourRect = cv::minAreaRect(contour);
             normalizeRect(contourRect);
 
-            if(contourRect.size.height / (contourRect.size.width + 1e-6) > mConfig.maxRRectSizeRatio) {
-                continue;
-            }
+            // if(contourRect.size.height / (contourRect.size.width + 1e-6) > mConfig.maxRRectSizeRatio) {
+            //     continue;
+            // }
 
-            if(contourArea / (contourRect.size.area() + 1e-6) < mConfig.minRRectAreaRatio) {
-                continue;
-            }
+            // if(contourArea / (contourRect.size.area() + 1e-6) < mConfig.minRRectAreaRatio) {
+            //     continue;
+            // }
 
             if(contourArea > maxArea) {
                 maxArea = contourArea;
