@@ -1,4 +1,4 @@
-#ifndef ARTINX_RADAR
+#ifdef ARTINX_OPENVINO2021
 #include "BlackBoard.hpp"
 #include "ClassifiedNum.hpp"
 #include "DataDesc.hpp"
@@ -366,7 +366,7 @@ class NNetArmorDetector final
 
 public:
     NNetArmorDetector(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
         // 1. 读取网络
         mNetwork = mIe.ReadNetwork(mConfig.networkPath);
         mNumClassifierPtr = std::make_unique<NumberClassifier>(mConfig.numClassifyModelPath);

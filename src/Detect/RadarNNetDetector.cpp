@@ -214,7 +214,7 @@ class RadarNNetDetector final
 
 public:
     RadarNNetDetector(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
         if(!fs::exists(mConfig.modelPath)) {
             const auto err = "Model not exist at: " + mConfig.modelPath;
             logError(err);
