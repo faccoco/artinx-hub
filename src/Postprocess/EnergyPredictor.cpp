@@ -26,10 +26,10 @@ static constexpr double minPositionDiff = 1.8;
 static constexpr double minThetaDiff = 0.7;  // < pi/3
 static constexpr double diffTThresh = 0.005;
 
-static constexpr double fanLen = 0.705;
+static constexpr double fanLen = 0.75;
 static constexpr double longRuneArmorWidth = 0.3524;
 static constexpr double shortRuneArmorWidth = 0.338;
-static constexpr double runeArmorHeight = 0.095;
+static constexpr double runeArmorHeight = 0.1;
 
 struct EnergyPredictorSettings final {
     uint8_t fanQueueLength;
@@ -404,7 +404,8 @@ public:
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
             [&](energy_detect_available_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(energy_detect_available_atom, TypedIdentifier<EnergyFan>);
-                mMode = GlobalSettings::get().getTaskMode();
+                // mMode = GlobalSettings::get().getTaskMode();
+                mMode = TaskMode::SmallRune;
                 auto srcFan = BlackBoard::instance().get<EnergyFan>(key).value();
                 double dt = durationCastDouble(srcFan.lastUpdate - mTrackFan.lastUpdate);
                 mTrackFan.lastUpdate = srcFan.lastUpdate;

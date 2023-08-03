@@ -99,16 +99,9 @@ private:
         frameData.info.tfRobot2Camera = clcTfRobot2Camera(gunPose);
         frame.copyTo(frameData.frame);
 
-        if(GlobalSettings::get().getTaskMode() == TaskMode::AutoAim) {
-            sendAll(image_frame_atom_v,
-                    BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
-
-        } else if(GlobalSettings::get().getTaskMode() == TaskMode::SmallRune ||
-                  GlobalSettings::get().getTaskMode() == TaskMode::BigRune){
-            sendAll(rune_image_frame_atom_v,
-                    BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
     
-        }
+        sendAll(image_frame_atom_v,
+                    BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
     }
 
 public:

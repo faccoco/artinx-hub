@@ -26,6 +26,7 @@ struct RuneDetecorSettings final {
     std::vector<int> lowerRed;
     std::vector<int> upperBlue;
     std::vector<int> lowerBlue;
+    int binThresh;
 
     int roiBinThresh;
     int dilateKernel;
@@ -43,12 +44,13 @@ struct RuneDetecorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, RuneDetecorSettings& x) {
     return f.object(x).fields(
-        f.field("debugView", x.debugView).fallback(false), f.field("upperRed", x.upperRed), f.field("lowerRed", x.lowerRed),
+        f.field("debugView", x.debugView).fallback(false), f.field("binThresh", x.binThresh).fallback(50), f.field("upperRed", x.upperRed), f.field("lowerRed", x.lowerRed),
         f.field("upperBlue", x.upperBlue), f.field("lowerBlue", x.lowerBlue), f.field("roiBinThresh", x.roiBinThresh),
         f.field("dilateKernel", x.dilateKernel), f.field("minConvexHullThresh", x.minConvexHullThresh),
         f.field("maxConvexHullThresh", x.maxConvexHullThresh), f.field("minContourArea", x.minContourArea),
         f.field("rRoiSizeScale", x.rRoiSizeScale).fallback(1.0), f.field("rPosScale", x.rPosScale).fallback(6.5),
-        f.field("minRRectAreaRatio", x.minRRectAreaRatio), f.field("maxRRectSizeRatio", maxRRectSizeRatio);
+        f.field("minRRectAreaRatio", x.minRRectAreaRatio).fallback(0.9),
+        f.field("maxRRectSizeRatio", x.maxRRectSizeRatio).fallback(0.9));
 }
 
 static double euclideanDistance(const cv::Point2f& p1, const cv::Point2f& p2) {
@@ -106,18 +108,22 @@ class RuneDetector final
         return bin;
     }
 
-    cv::Mat binarize(const cv::Mat& src, double binThresh) {
-        cv::Mat bin;
-        cv::cvtColor(src, bin, cv::COLOR_BGR2GRAY);
-        cv::threshold(bin, bin, binThresh, 255, cv::THRESH_BINARY);
+    cv::Mat binarize(const cv::Mat &src, int threshold)
+    {
+        cv::Mat bin, sub, b, g, r;
+        std::vector<cv::Mat> img_channel;
+        cv::split(src, img_channel);
+        b = img_channel[0], g = img_channel[1], r = img_channel[2];
+        sub = r - b;
+        cv::threshold(sub, bin, threshold, 255, cv::THRESH_BINARY);
         return bin;
     }
 
     std::optional<cv::Rect2f> getRuneROI(const cv::Mat& src) {
-        cv::Mat bin = binarize(src, cv::Scalar(mConfig.lowerBlue[0], mConfig.lowerBlue[1], mConfig.lowerBlue[2]),
-                               cv::Scalar(mConfig.upperBlue[0], mConfig.upperBlue[1], mConfig.upperBlue[2]));
+        // cv::Mat bin = binarize(src, cv::Scalar(mConfig.lowerBlue[0], mConfig.lowerBlue[1], mConfig.lowerBlue[2]),
+                            //    cv::Scalar(mConfig.upperBlue[0], mConfig.upperBlue[1], mConfig.upperBlue[2]));
 
-        // cv::Mat bin = binarize(src, mConfig.binThresh);
+        cv::Mat bin = binarize(src, mConfig.binThresh);
 
         if(mConfig.debugView) {
             debugView("bin", bin, [](auto&) {});
@@ -225,25 +231,25 @@ class RuneDetector final
 
         for(auto contour : candidateContours) {
 
-            double contouArea = cv::contourArea(contour);
+            double contourArea = cv::contourArea(contour);
             cv::RotatedRect contourRect = cv::minAreaRect(contour);
             normalizeRect(contourRect);
-            
-            if(contourRect.size.height / contourRect.size.width < mConfig.maxRRectSizeRatio) {
-                continue;
-            }
 
-            if(contouArea / contourRect.size.area < mConfig.minRRectAreaRatio) {
-                continue;
-            }
+            // if(contourRect.size.height / contourRect.size.width > mConfig.maxRRectSizeRatio) {
+            //     continue;
+            // }
 
-            if(contouArea > maxArea) {
+            // if(contourArea / contourRect.size.area() < mConfig.minRRectAreaRatio) {
+            //     continue;
+            // }
+
+            if(contourArea > maxArea) {
                 rLabelRect = cv::minAreaRect(contour);
                 rectChoose = true;
             }
         }
 
-        if (!rectChoose)
+        if(!rectChoose)
             return {};
 
         return rLabelRect.center;
@@ -355,14 +361,17 @@ public:
         : HubHelper{ base, config, name }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-                 [&](rune_image_frame_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(rune_image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
+                 [&](image_frame_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
                      auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
                      auto frame = std::get<0>(data);
 
+                     //  cv::Mat src = frame.frame;
                      cv::Mat src = frame.frame;
+                    //  cv::blur(frame.frame, src, cv::Size(5, 5));
+                    //  debugView("blur", src, [](auto&) {});
                      std::vector<cv::Point2f> keyPoints;
                      detect(src, keyPoints);
 

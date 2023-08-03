@@ -24,5 +24,4 @@ struct CameraFrame final {
     cv::Mat frame;
 };
 
-ACTOR_PROTOCOL_DEFINE(rune_image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
 ACTOR_PROTOCOL_DEFINE(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
