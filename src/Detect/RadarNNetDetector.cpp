@@ -144,7 +144,9 @@ class RadarNNetDetector final
 
     DetectedBots detect(const CameraFrame& frame) {
         auto srcFrame = yolo::Image(frame.frame.data, frame.frame.cols, frame.frame.rows);
+        //        auto beg = SynchronizedClock::instance().now();
         auto inferRes = model->forward(srcFrame);
+        //        logInfo(fmt::format("infer cost {} s", (SynchronizedClock::instance().now() - beg) / 1ms));
         cv::Mat debug;
         frame.frame.copyTo(debug);
         DetectedBots result;
@@ -202,11 +204,11 @@ class RadarNNetDetector final
         constexpr auto isBlue = [](yolo::Box& box) { return box.class_label > 1 && box.class_label <= 10; };
         if(mConfig.selfRed) {
             for(auto& box : origin.botBoxes)
-                if(isRed(box))
+                if(isBlue(box))
                     selected.push_back(std::move(box));
         } else {
             for(auto& box : origin.botBoxes)
-                if(isBlue(box))
+                if(isRed(box))
                     selected.push_back(std::move(box));
         }
         std::swap(selected, origin.botBoxes);
@@ -233,8 +235,10 @@ public:
                      if(auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key)) {
                          const auto& [frame, name] = data.value();
                          auto result = detect(frame);
+                         HubLogger::visualLog(fmt::format("<<< Totally detect targets: {} >>>", result.botBoxes.size()));
                          removeSelfColor(result);
                          HubLogger::watch("Detected bots:", result.botBoxes.size());
+                         HubLogger::visualLog(fmt::format(">>> Detect rival targets: {} <<<", result.botBoxes.size()));
                          ACTOR_PROTOCOL_CHECK(bot_locate_request_atom, TypedIdentifier<DetectedBots>);
                          sendAll(bot_locate_request_atom_v, BlackBoard::instance().updateSync(mKey, std::move(result)));
                      }

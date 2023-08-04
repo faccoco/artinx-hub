@@ -110,7 +110,7 @@ class DahengDriver final : public CameraBase {
         frameData.info.tfRobot2Camera = clcTfRobot2Camera(gunPose);
 
         frameData.frame = std::move(bgr);
-        
+
         HubLogger::visualLog("Daheng Camera: Camera send an image");
         sendAll(
             image_frame_atom_v,
@@ -134,7 +134,7 @@ class DahengDriver final : public CameraBase {
 
         cv::Mat frame(cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, PixelStorageFormat,
                       const_cast<void*>(pFrameData->pImgBuf));
-        memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
+        //        memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
         newFrameImpl(timeStamp, frame, pFrameData->nWidth, pFrameData->nHeight);
     }
 
