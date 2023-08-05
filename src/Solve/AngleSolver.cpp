@@ -124,9 +124,9 @@ public:
                 // glm::dvec3 lVel = tf(data->linearVel.mVal) * mConfig.lVelDiscount;
                 glm::dvec3 lVel = tf(data->linearVel.mVal);
 
-                // double aVel = -data->angularVel.mVal;
+                double aVel = -data->angularVel.mVal;
 
-                double aVel = getMaxAVel(-data->angularVel.mVal);
+                // double aVel = getMaxAVel(-data->angularVel.mVal);
                 HubLogger::watch("maxAngleVel", aVel);
                 
                 double R[2] = { data->radius.first, data->radius.second };

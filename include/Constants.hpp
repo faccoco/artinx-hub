@@ -23,7 +23,7 @@ constexpr double thinnessOfArmor = 0.03;
 constexpr double widthOfSmallArmor = 0.135;
 constexpr double heightOfSmallArmor = 0.125;
 constexpr double widthOfArmorLightBar = 0.02;
-constexpr double heightOfArmorLightBar = 0.047;
+constexpr double heightOfArmorLightBar = 0.055;
 constexpr double widthOfLargeArmor = 0.230;
 constexpr double heightOfLargeArmor = 0.127;
 
