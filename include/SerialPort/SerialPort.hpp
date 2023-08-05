@@ -57,11 +57,17 @@ public:
     SendPacket mSendPacket{};
     std::function<void(const RecvPacket& recvPacket)> mRecvCallback;
     std::function<void()> mSetBeforeSend;
+    int32_t mRecordeCnt = 0;
 
     void receive() {
         if(!started)
             return;
+        mRecordeCnt++;
         std::vector<char> vec = mSerialPort->read();
+        if (mRecordeCnt == 100){
+            HubLogger::visualLog(fmt::format("SerialPort Recive : {} byte information", vec.size()));
+            mRecordeCnt = 0;
+        }
         for(uint8_t data : vec) {
             if(mPacketLen < RecvBufferLen) {
                 mPacketBuffer[mPacketLen++] = data;
