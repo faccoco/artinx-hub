@@ -139,12 +139,11 @@ public:
             while(globalStatus == RunStatus::running) {
                 ReadableTimePoint readableTimePoint(std::chrono::system_clock::now());
                 HubLogger::electricCtrlLog(
-                    fmt::format("{}:{}:{} bulletSpeed30_offset:{:.3f} fdb_position_x:{:.3f} fdb_position_y:{:.3f} "
+                    fmt::format("bulletSpeed:{:.3f} bulletSpeed30_offset:{:.3f} fdb_position_x:{:.3f} fdb_position_y:{:.3f} "
                                 "fdb_yaw_in_world:{:.3f} fric_left_rpm:{} fric_right_rpm:{} heat:{}",
-                                readableTimePoint.tm.tm_hour, readableTimePoint.tm.tm_min, readableTimePoint.tm.tm_sec,
-                                mElectricDataBuff.bulletSpeed30Offset, mElectricDataBuff.fdbPositionX,
-                                mElectricDataBuff.fdbPositionY, mElectricDataBuff.fdbYawInWorld, mElectricDataBuff.fricLeftRpm,
-                                mElectricDataBuff.fricRightRpm, mElectricDataBuff.heat));
+                                GlobalSettings::get().bulletSpeed, mElectricDataBuff.bulletSpeed30Offset,
+                                mElectricDataBuff.fdbPositionX, mElectricDataBuff.fdbPositionY, mElectricDataBuff.fdbYawInWorld,
+                                mElectricDataBuff.fricLeftRpm, mElectricDataBuff.fricRightRpm, mElectricDataBuff.heat));
                 std::this_thread::sleep_for(10ms);
             }
         }).detach();
