@@ -183,31 +183,41 @@ class ArmorDetector final
                 {
                     int dx = static_cast<int>(light->bottomLeft.x) - static_cast<int>(light->bottomRight.x);
                     int dy = static_cast<int>(light->bottomLeft.y) - static_cast<int>(light->bottomRight.y);
-                    int dxAbs = std::abs(dx);
-                    int dyAbs = std::abs(dy);
-                    if(dxAbs > dyAbs) {
-                        di.x = dx > 0 ? 1 : -1;
-                        di.y = static_cast<double>(dy) / dxAbs;
-                        iTimes = dxAbs;
+                    if(dx == 0 && dy == 0) {
+                        iTimes = 1;
+                        di.x = di.y = 0;
                     } else {
-                        di.x = static_cast<double>(dx) / dyAbs;
-                        di.y = dy > 0 ? 1 : -1;
-                        iTimes = dyAbs;
+                        int dxAbs = std::abs(dx);
+                        int dyAbs = std::abs(dy);
+                        if(dxAbs > dyAbs) {
+                            di.x = dx > 0 ? 1 : -1;
+                            di.y = static_cast<double>(dy) / dxAbs;
+                            iTimes = dxAbs;
+                        } else {
+                            di.x = static_cast<double>(dx) / dyAbs;
+                            di.y = dy > 0 ? 1 : -1;
+                            iTimes = dyAbs;
+                        }
                     }
                 }
                 {
                     int dx = static_cast<int>(light->topRight.x) - static_cast<int>(light->bottomRight.x);
                     int dy = static_cast<int>(light->topRight.y) - static_cast<int>(light->bottomRight.y);
-                    int dxAbs = std::abs(dx);
-                    int dyAbs = std::abs(dy);
-                    if(dxAbs > dyAbs) {
-                        dj.x = dx > 0 ? 1 : -1;
-                        dj.y = static_cast<double>(dy) / dxAbs;
-                        jTimes = dxAbs;
+                    if(dx == 0 && dy == 0) {
+                        jTimes = 1;
+                        dj.x = dj.y = 0;
                     } else {
-                        dj.x = static_cast<double>(dx) / dyAbs;
-                        dj.y = dy > 0 ? 1 : -1;
-                        jTimes = dyAbs;
+                        int dxAbs = std::abs(dx);
+                        int dyAbs = std::abs(dy);
+                        if(dxAbs > dyAbs) {
+                            dj.x = dx > 0 ? 1 : -1;
+                            dj.y = static_cast<double>(dy) / dxAbs;
+                            jTimes = dxAbs;
+                        } else {
+                            dj.x = static_cast<double>(dx) / dyAbs;
+                            dj.y = dy > 0 ? 1 : -1;
+                            jTimes = dyAbs;
+                        }
                     }
                 }
                 // calculate sum of red and blue
