@@ -137,8 +137,7 @@ class RuneDetector final
         std::vector<cv::Mat> img_channel;
         cv::split(src, img_channel);
         b = img_channel[0], g = img_channel[1], r = img_channel[2];
-        // sub = GlobalSettings::get().getColor() == Color::Blue? b - r : r - b;
-        sub = b - r;
+        sub = GlobalSettings::get().getColor() == Color::Blue? b - r : r - b;
         cv::threshold(sub, bin, threshold, 255, cv::THRESH_BINARY);
         return bin;
     }
@@ -220,14 +219,13 @@ class RuneDetector final
     }
     std::optional<cv::Rect> getNNetROI(const cv::Mat& src)
     {
-        const auto t1 = Clock::now();
+        // const auto t1 = Clock::now();
         auto objects = mInfer->work(src);
-        logInfo(fmt::format("net cost time: {:.4f} ms", (durationCastDouble(Clock::now() - t1) * 1000)));
-        logInfo(fmt::format("NNetEnergyDetect result size: {}", objects.size()));
+        // logInfo(fmt::format("net cost time: {:.4f} ms", (durationCastDouble(Clock::now() - t1) * 1000)));
         if(mConfig.debugView) {
-            debugView("result", src, [&](cv::Mat& img) {
-                for(size_t i = 0; i < objects.size(); ++i) {
-                    cv::rectangle(img, objects[i].rect, cv::Scalar(0, 255, 0));
+            debugView("NNetResult", src, [&](cv::Mat& img) {
+                for(const auto& obj : objects) {
+                    cv::rectangle(img, obj.rect, cv::Scalar(0, 255, 0));
                 }
             });
         }
@@ -319,6 +317,9 @@ class RuneDetector final
 
         // need to change
         cv::Mat roiBin = binarize(roiImg, mConfig.roiBinThresh);
+
+        auto closeKernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+        cv::morphologyEx(roiBin, roiBin, cv::MORPH_OPEN, closeKernel);
 
         // auto kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
         // cv::morphologyEx(roiBin, roiBin, cv::MORPH_CLOSE, kernel);
@@ -418,9 +419,9 @@ public:
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
-                    //  if (GlobalSettings::get().getTaskMode() == TaskMode::AutoAim){
-                    //     return;
-                    //  }
+                     if (GlobalSettings::get().getTaskMode() == TaskMode::AutoAim){
+                        return;
+                     }
 
                      auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
                      auto frame = std::get<0>(data);

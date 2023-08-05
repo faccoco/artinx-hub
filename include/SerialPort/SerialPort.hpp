@@ -95,7 +95,7 @@ public:
         if(mLastReceivedTime.has_value() && Clock::now() - mLastReceivedTime.value() > std::chrono::seconds(1)) {
             HubLogger::visualLog("SerialPort: hasn't received from serial for 1s, restart serial port");
             mLastReceivedTime.reset();
-            mSerialPort.release()->close();
+            mSerialPort->close();
             mSerialPort->open(mDevPath, mBaudRate);
         }
     }

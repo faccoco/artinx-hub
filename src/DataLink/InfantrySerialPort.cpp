@@ -1,5 +1,6 @@
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
+#include "DetectedEnergyFan.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "PostureData.hpp"
@@ -8,7 +9,6 @@
 #include "SerialPort/PacketHelper.hpp"
 #include "SerialPort/SerialPort.hpp"
 #include "Utility.hpp"
-#include "DetectedEnergyFan.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -24,7 +24,7 @@ class InfantryRecvPacket final {
 public:
     static constexpr uint16_t id = 0x0A;
 
-    float yaw, pitch,  bulletSpeed, speedX, speedY;
+    float yaw, pitch, bulletSpeed, speedX, speedY;
     uint8_t color, energyMode;
     float capEnergy, chasisPower;
     explicit InfantryRecvPacket(std::array<uint8_t, 1024>& buffer) {
@@ -35,7 +35,11 @@ public:
         speedY = reader.readCompressedFloat(-20.0f, 0.01f);
         const auto mask = reader.read();
         color = mask & 1;
-        energyMode = (mask >> 1) & 1 + (mask >> 2) & 1;
+        if(((mask >> 1) & 1) == 1) {
+            energyMode = 1;
+        } else if(((mask >> 2) & 1) == 1) {
+            energyMode = 2;
+        }
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
         capEnergy = reader.readCompressedFloat(-1.0f, 0.1f);
         chasisPower = reader.readCompressedFloat(-1.0f, 0.01f);
@@ -79,6 +83,7 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
     constexpr static size_t latencyLen = 100;
     std::deque<double> mLatency;
 
+    float mYaw = 0., mPitch = 0., mCapEnergy = 0., mChasisPower = 0.;
     TimePoint mLastReceivedTime, mLastTargetTime;
 
     void infantryRecvCB(const InfantryRecvPacket& fdb) {
@@ -100,8 +105,12 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         const double yaw = fdb.yaw + glm::half_pi<double>();
         const double pitch = fdb.pitch;
         const double roll = 0.0;
-        const HeadInfo infoHead{ SynchronizedClock::instance().now(),
-                                 {roll, pitch, yaw}};
+        const HeadInfo infoHead{ SynchronizedClock::instance().now(), { roll, pitch, yaw } };
+
+        mYaw = fdb.yaw;
+        mPitch = fdb.pitch;
+        mCapEnergy = fdb.capEnergy;
+        mChasisPower = fdb.chasisPower;
 
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();
@@ -126,8 +135,15 @@ public:
                                                           std::bind(&InfantrySerialPort::infantryRecvCB, this,
                                                                     std::placeholders::_1),
                                                           std::bind(&InfantrySerialPort::infantrySetPacket, this)),
-          mKey{ generateKey(this) } {}
-
+          mKey{ generateKey(this) } {
+        std::thread([this]() {
+            while(globalStatus == RunStatus::running) {
+                ReadableTimePoint readableTimePoint(std::chrono::system_clock::now());
+                HubLogger::electricCtrlLog(fmt::format("CapEnegy: {:.3f}, Chasis: {:.3f} Yaw: {:.3f}, Pitch: {:.3f}", mCapEnergy, mChasisPower, mYaw, mPitch));
+                std::this_thread::sleep_for(50ms);
+            }
+        }).detach();
+    }
     caf::behavior make_behavior() override {
         return {
             [this](start_atom) {

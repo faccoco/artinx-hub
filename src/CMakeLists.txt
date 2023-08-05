@@ -123,8 +123,6 @@ if(DEFINED ENV{HIK_SDK})
   message("USB3: Hik SDK found at $ENV{HIK_SDK}")
 endif()
 
-
-
 target_link_libraries(ArtinxHub PRIVATE gxiapi)
 # target_link_libraries(ArtinxHub PRIVATE LinearMath Bullet3Common
 # BulletDynamics BulletCollision)

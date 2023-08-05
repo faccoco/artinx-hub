@@ -378,8 +378,7 @@ public:
                 mTfCamera2Robot = data->tfRobot2Camera.invTransformObj();
 
                 if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
-                    if(mTrackedArmor.trackingState == TrackingState::LOST ||
-                       (data->selected.has_value() && mTrackedArmor.id != data->selected->id)) {
+                    if(mTrackedArmor.trackingState == TrackingState::LOST) {
                         // init
                         if(!data->selected.has_value())
                             return;

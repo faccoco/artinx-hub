@@ -26,10 +26,10 @@ static constexpr double minPositionDiff = 1.8;
 static constexpr double minThetaDiff = 0.7;  // < pi/3
 static constexpr double diffTThresh = 0.005;
 
-static constexpr double fanLen = 0.705;
-static constexpr double longRuneArmorWidth = 0.330;
-static constexpr double shortRuneArmorWidth = 0.305;
-static constexpr double runeArmorHeight = 0.095;
+static constexpr double fanLen = 0.7;
+static constexpr double longRuneArmorWidth = 0.350;
+static constexpr double shortRuneArmorWidth = 0.32;
+static constexpr double runeArmorHeight = 0.1;
 
 struct EnergyPredictorSettings final {
     uint8_t fanQueueLength;
@@ -243,7 +243,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     }
 
     void fitParameters() {
-        logInfo(fmt::format("mThetaInfo size : {}", mThetaInfos.size()));
+        // logInfo(fmt::format("mThetaInfo size : {}", mThetaInfos.size()));
         if(mThetaInfos.size() < mConfig.fanQueueLength) {
             return;
         }
@@ -276,14 +276,16 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         int cnt = 0;
         double predictTime = 0.0;
         double w = X(1), theta = X(2);
-        // logInfo(fmt::format("solve theta = {}, w = {}", theta, w));
+        logInfo(fmt::format("solve theta = {}, w = {}", theta, w));
         while(cnt < 10) {
             Eigen::VectorXd statePos = mTrackFan.state;
-            if(mMode == TaskMode::SmallRune) {
-                statePos(2) = theta + w * predictTime;
-            } else {
-                statePos(2) = clcBigRuneTheta(X(0), predictTime);
-            }
+            // if(mMode == TaskMode::SmallRune) {
+            //     statePos(2) = theta + w * predictTime;
+            // } else {
+            //     statePos(2) = clcBigRuneTheta(X(0), predictTime);
+            //     logInfo(fmt::format("Predictor theta: {}", statePos(2)));
+            // }
+            statePos(2) = theta + w * predictTime;
 
             Eigen::VectorXd predictPos = getFanPosFromState(statePos);
             auto [acess2, airTime, yaw, pitch] =
