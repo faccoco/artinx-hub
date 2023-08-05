@@ -30,6 +30,7 @@ struct PairedLight final {
 struct Light final {
     Color color;
     cv::Point2f top, bottom, center;
+    cv::Point2f topLeft, topRight, bottomLeft, bottomRight;
     float length;
     float width;
     float ratio;

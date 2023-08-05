@@ -106,6 +106,15 @@ class ArmorDetector final
         light.bottom = (p[2] + p[3]) / 2;
         light.center = clcCenter(light.top, light.bottom);
 
+        light.topLeft = p[0];
+        light.topRight = p[1];
+        light.bottomLeft = p[2];
+        light.bottomRight = p[3];
+        if(light.topLeft.x > light.topRight.x)
+            std::swap(light.topLeft, light.topRight);
+        if(light.bottomLeft.x > light.bottomRight.x)
+            std::swap(light.bottomLeft, light.bottomRight);
+
         light.length = cv::norm(light.top - light.bottom);
         light.width = cv::norm(p[0] - p[1]);
 
@@ -160,37 +169,79 @@ class ArmorDetector final
         cv::findContours(binary, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
         std::vector<Light> lights;
         for(auto& lightContour : contours) {
-            if(lightContour.size() < 5)
+            if(lightContour.size() < 5) {
                 continue;
+            }
 
             auto rRect = cv::minAreaRect(lightContour);
             auto light = isLight(rRect);
             if(light.has_value()) {
-                auto rect = rRect.boundingRect();
-                if(0 <= rect.x && 0 <= rect.width && rect.x + rect.width <= bgrImg.cols && 0 <= rect.y && 0 <= rect.height &&
-                   rect.y + rect.height <= bgrImg.rows) {
-                    int sumR = 0, sumB = 0;
-                    auto roi = bgrImg(rect);
-
-                    for(int i = 0; i < roi.rows; i++) {
-                        for(int j = 0; j < roi.cols; j++) {
-                            if(cv::pointPolygonTest(lightContour, cv::Point2f(j + rect.x, i + rect.y), false) >= 0) {
-                                // if point is inside contour
-                                auto b = static_cast<int>(roi.at<cv::Vec3b>(i, j)[0]),
-                                     r = static_cast<int>(roi.at<cv::Vec3b>(i, j)[2]);
-                                if(b - r >= 0) {
-                                    ++sumB;
-                                } else {
-                                    ++sumR;
-                                }
-                            }
+                // calculate iTimes, jTimes and di, dj
+                // iterate from bottom to top (j) and then from right to left (i)
+                int iTimes, jTimes;
+                cv::Point2d di, dj;
+                {
+                    int dx = static_cast<int>(light->bottomLeft.x) - static_cast<int>(light->bottomRight.x);
+                    int dy = static_cast<int>(light->bottomLeft.y) - static_cast<int>(light->bottomRight.y);
+                    if(dx == 0 && dy == 0) {
+                        iTimes = 1;
+                        di.x = di.y = 0;
+                    } else {
+                        int dxAbs = std::abs(dx);
+                        int dyAbs = std::abs(dy);
+                        if(dxAbs > dyAbs) {
+                            di.x = dx > 0 ? 1 : -1;
+                            di.y = static_cast<double>(dy) / dxAbs;
+                            iTimes = dxAbs;
+                        } else {
+                            di.x = static_cast<double>(dx) / dyAbs;
+                            di.y = dy > 0 ? 1 : -1;
+                            iTimes = dyAbs;
                         }
                     }
-                    light->color = sumB > sumR ? Color::Blue : Color::Red;
-                    if(light->color == selfColor)
-                        continue;
-                    lights.emplace_back(light.value());
                 }
+                {
+                    int dx = static_cast<int>(light->topRight.x) - static_cast<int>(light->bottomRight.x);
+                    int dy = static_cast<int>(light->topRight.y) - static_cast<int>(light->bottomRight.y);
+                    if(dx == 0 && dy == 0) {
+                        jTimes = 1;
+                        dj.x = dj.y = 0;
+                    } else {
+                        int dxAbs = std::abs(dx);
+                        int dyAbs = std::abs(dy);
+                        if(dxAbs > dyAbs) {
+                            dj.x = dx > 0 ? 1 : -1;
+                            dj.y = static_cast<double>(dy) / dxAbs;
+                            jTimes = dxAbs;
+                        } else {
+                            dj.x = static_cast<double>(dx) / dyAbs;
+                            dj.y = dy > 0 ? 1 : -1;
+                            jTimes = dyAbs;
+                        }
+                    }
+                }
+                // calculate sum of red and blue
+                int sumR = 0, sumB = 0;
+                cv::Point2d iIter = static_cast<cv::Point2i>(light->bottomRight);
+                for(int i = 0; i < iTimes; i++, iIter += di) {
+                    cv::Point2d jIter = iIter;
+                    for(int j = 0; j < jTimes; j++, jIter += dj) {
+                        int realY = static_cast<int>(jIter.y);
+                        int realX = static_cast<int>(jIter.x);
+                        // TODO: replace the if
+                        if(realX >= 0 && realX < bgrImg.cols && realY >= 0 && realY < bgrImg.rows) {
+                            const auto& pixel = bgrImg.at<cv::Vec3b>(realY, realX);
+                            sumB += pixel[0];
+                            sumR += pixel[2];
+                        }
+                    }
+                }
+
+                light->color = sumB > sumR ? Color::Blue : Color::Red;
+                if(light->color == selfColor) {
+                    continue;
+                }
+                lights.emplace_back(light.value());
             }
         }
 
