@@ -48,6 +48,7 @@ public:
     bool mCheckingHeader;
     std::array<uint8_t, SendBufferLen> mSendBuffer;
     size_t mSendBufferLen;
+    size_t mRecordCnt = 0, mRecordMax = 0;
 
     std::optional<TimePoint> mLastReceivedTime;
     const std::string mDevPath;
@@ -62,6 +63,12 @@ public:
         if(!started)
             return;
         std::vector<char> vec = mSerialPort->read();
+        if(mRecordCnt == 1000) {
+            HubLogger::logInfoBoth(fmt::format("SerialPort: Recive data {}", mRecordMax));
+            mRecordCnt = mRecordMax = 0;
+        }
+        ++mRecordCnt;
+        mRecordMax = std::max(mRecordMax, vec.size());
         for(uint8_t data : vec) {
             if(mPacketLen < RecvBufferLen) {
                 mPacketBuffer[mPacketLen++] = data;
@@ -95,7 +102,7 @@ public:
         if(mLastReceivedTime.has_value() && Clock::now() - mLastReceivedTime.value() > std::chrono::seconds(1)) {
             HubLogger::logInfoBoth("SerialPort: hasn't received from serial for 1s, restart serial port");
             mLastReceivedTime.reset();
-            mSerialPort.release()->close();
+            mSerialPort->close();
             mSerialPort->open(mDevPath, mBaudRate);
         }
     }
