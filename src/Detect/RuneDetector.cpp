@@ -219,9 +219,9 @@ class RuneDetector final
     }
     std::optional<cv::Rect> getNNetROI(const cv::Mat& src)
     {
-        // const auto t1 = Clock::now();
+        const auto t1 = Clock::now();
         auto objects = mInfer->work(src);
-        // logInfo(fmt::format("net cost time: {:.4f} ms", (durationCastDouble(Clock::now() - t1) * 1000)));
+        logInfo(fmt::format("net cost time: {:.4f} ms", (durationCastDouble(Clock::now() - t1) * 1000)));
         if(mConfig.debugView) {
             debugView("NNetResult", src, [&](cv::Mat& img) {
                 for(const auto& obj : objects) {
@@ -278,9 +278,9 @@ class RuneDetector final
             cv::RotatedRect contourRect = cv::minAreaRect(contour);
             normalizeRect(contourRect);
 
-            // if(contourRect.size.height / (contourRect.size.width + 1e-6) > mConfig.maxRRectSizeRatio) {
-            //     continue;
-            // }
+            if(contourRect.size.height / (contourRect.size.width + 1e-6) < 0.8) {
+                continue;
+            }
 
             // if(contourArea / (contourRect.size.area() + 1e-6) < mConfig.minRRectAreaRatio) {
             //     continue;
@@ -318,12 +318,9 @@ class RuneDetector final
         // need to change
         cv::Mat roiBin = binarize(roiImg, mConfig.roiBinThresh);
 
-        auto closeKernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
-        cv::morphologyEx(roiBin, roiBin, cv::MORPH_OPEN, closeKernel);
-
-        // auto kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
-        // cv::morphologyEx(roiBin, roiBin, cv::MORPH_CLOSE, kernel);
-
+        // auto closeKernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+        // cv::morphologyEx(roiBin, roiBin, cv::MORPH_OPEN, closeKernel);
+        
         if(mConfig.debugView)
             debugView("roiRect", roiBin, [](auto&) {});
 
@@ -419,17 +416,19 @@ public:
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
-                     if (GlobalSettings::get().getTaskMode() == TaskMode::AutoAim){
-                        return;
-                     }
+
+                    //  auto mode = GlobalSettings::get().getTaskMode(); 
+                    //  if (mode == TaskMode::AutoAim){
+                    //     return;
+                    //  }
 
                      auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
                      auto frame = std::get<0>(data);
 
                      //  cv::Mat src = frame.frame;
                      cv::Mat src = frame.frame;
-                     cv::blur(frame.frame, src, cv::Size(5, 5));
-                    //  debugView("blur", src, [](auto&) {});
+                    //  cv::blur(frame.frame, src, cv::Size(5, 5));
+                    // //  debugView("blur", src, [](auto&) {});
                      std::vector<cv::Point2f> keyPoints;
                      detect(src, keyPoints);
 
@@ -440,7 +439,8 @@ public:
                      if(keyPoints.size() == 5) {
                          res.keyPoints = keyPoints;
                      }
-
+                     
+                    //  HubLogger::visualLog(fmt::format("RuneDetector: Task Mode {},  detect keyPoints {}", magic_enum::enum_name(mode)));
                      sendAll(energy_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }

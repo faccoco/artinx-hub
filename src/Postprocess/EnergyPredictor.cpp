@@ -22,14 +22,14 @@
 
 #include "SuppressWarningEnd.hpp"
 
-static constexpr double minPositionDiff = 1.8;
-static constexpr double minThetaDiff = 0.7;  // < pi/3
-static constexpr double diffTThresh = 0.005;
+static constexpr double MinPositionDiff = 1.8;
+static constexpr double MinThetaDiff = 0.7;  // < pi/3
+static constexpr double DiffTThresh = 0.005;
 
-static constexpr double fanLen = 0.7;
-static constexpr double longRuneArmorWidth = 0.350;
-static constexpr double shortRuneArmorWidth = 0.32;
-static constexpr double runeArmorHeight = 0.1;
+static constexpr double FanLen = 0.7;
+static constexpr double LongRuneArmorWidth = 0.350917;
+static constexpr double ShortRuneArmorWidth = 0.337065;
+static constexpr double RuneArmorHeight = 0.104575;
 
 struct EnergyPredictorSettings final {
     uint8_t fanQueueLength;
@@ -54,7 +54,7 @@ bool inspect(Inspector& f, EnergyPredictorSettings& x) {
 }
 
 struct CurveFittingCost {
-    CurveFittingCost(double t_, double theta_) : t(t_), theta(theta_) {}
+    CurveFittingCost(double t0, double theta0) : t(t0), theta(theta0) {}
 
     template <typename T>
     bool operator()(const T* params, T* residual) const {
@@ -72,7 +72,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
     Identifier mKey;
     TaskMode mMode;
     int mDirSum = 0, mDirection = 0;  // mDirection (-1 Clockwise, 1 anti-clockwise)
-    constexpr static int mLostCountThresh = 10;
+    const int mLostCountThresh = 10;
     double mParameters[4]{ 0.780, 1.884, 0.0, 0.0 };
     double mDt;
     int mLostCount = 0;
@@ -113,9 +113,9 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         double rLabelX = X(3), rLabelY = X(4), rLabeZ = X(5);
         double theta = X(2), yaw = X(6);
         fanPos(0) = theta;
-        fanPos(1) = rLabelX + fanLen * std::cos(theta) * std::cos(yaw);
-        fanPos(2) = rLabelY + fanLen * std::sin(theta);
-        fanPos(3) = rLabeZ + fanLen * std::cos(theta) * std::sin(yaw);
+        fanPos(1) = rLabelX + FanLen * std::cos(theta) * std::cos(yaw);
+        fanPos(2) = rLabelY + FanLen * std::sin(theta);
+        fanPos(3) = rLabeZ + FanLen * std::cos(theta) * std::sin(yaw);
         fanPos(4) = yaw;
         return fanPos;
     }
@@ -124,9 +124,9 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         Eigen::VectorXd rLabelPos(7);
         double theta = fanPos(0), yaw = fanPos(4);
         rLabelPos(2) = theta;
-        rLabelPos(3) = fanPos(1) - fanLen * std::cos(theta) * std::cos(yaw);  // xr
-        rLabelPos(4) = fanPos(2) - fanLen * std::sin(theta);
-        rLabelPos(5) = fanPos(3) - fanLen * std::cos(theta) * std::sin(yaw);
+        rLabelPos(3) = fanPos(1) - FanLen * std::cos(theta) * std::cos(yaw);  // xr
+        rLabelPos(4) = fanPos(2) - FanLen * std::sin(theta);
+        rLabelPos(5) = fanPos(3) - FanLen * std::cos(theta) * std::sin(yaw);
         rLabelPos(6) = yaw;
         return rLabelPos;
     }
@@ -142,12 +142,12 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
                                          ekfPredict(1), ekfPredict(2), ekfPredict(3), ekfPredict(4), ekfPredict(5),
                                          ekfPredict(6)));
         logInfo(fmt::format("Energy Predictor: positionDiff {:.3f} and thetaDiff {:.3f}", positionDiff, thetaDiff));
-        if(positionDiff < minPositionDiff) {
-            if(thetaDiff < minThetaDiff) {
+        if(positionDiff < MinPositionDiff) {
+            if(thetaDiff < MinThetaDiff) {
                 mTrackFan.state = mFilter.update(fanPosition);
                 logInfo("TrackFan Matched");
             } else {
-                double t = mTrackFan.state(0), w = mTrackFan.state(1);
+                double t = 0, w = mTrackFan.state(1);
                 mTrackFan.state = getRLabelPosFromFanPos(fanPosition);
                 mTrackFan.state(0) = t;
                 mTrackFan.state(1) = w;
@@ -159,8 +159,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
             return true;
         } else {
             logInfo("TrackFan do not matched!");
-            return false;
         }
+        return false;
     }
 
     void changeTrackingState(bool matched) {
@@ -195,10 +195,10 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
 
     std::tuple<bool, glm::dvec3, double, glm::dmat4> pnpSolver(const std::vector<cv::Point2f>& keyPoints,
                                                                const CameraInfo& cameraInfo) {
-        const std::vector<cv::Point3d> mFanObjectPoints = { { +longRuneArmorWidth / 2, +runeArmorHeight / 2, 0.0 },
-                                                            { -longRuneArmorWidth / 2, +runeArmorHeight / 2, 0.0 },
-                                                            { +shortRuneArmorWidth / 2, -runeArmorHeight / 2, 0.0 },
-                                                            { -shortRuneArmorWidth / 2, -runeArmorHeight / 2, 0.0 } };
+        const std::vector<cv::Point3d> mFanObjectPoints = { { +LongRuneArmorWidth / 2, +RuneArmorHeight / 2, 0.0 },
+                                                            { -LongRuneArmorWidth / 2, +RuneArmorHeight / 2, 0.0 },
+                                                            { +ShortRuneArmorWidth / 2, -RuneArmorHeight / 2, 0.0 },
+                                                            { -ShortRuneArmorWidth / 2, -RuneArmorHeight / 2, 0.0 } };
         std::vector<cv::Point2f> imagePoints(4);
         for(int i = 0; i < 4; ++i) {
             imagePoints[i].x = keyPoints[i].x;
@@ -285,7 +285,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
             //     statePos(2) = clcBigRuneTheta(X(0), predictTime);
             //     logInfo(fmt::format("Predictor theta: {}", statePos(2)));
             // }
-            statePos(2) = theta + w * predictTime;
+            statePos(2) = theta + w * predictTime; //TODO
 
             Eigen::VectorXd predictPos = getFanPosFromState(statePos);
             auto [acess2, airTime, yaw, pitch] =
@@ -294,7 +294,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
             double diiffTime = requiredTime - predictTime;
             // HubLogger::watch("diffTime", diiffTime);
             // logInfo(fmt::format("{}th predictTime: {:.3f} requiredTime: {:.3f}", cnt, predictTime, requiredTime));
-            if(std::fabs(diiffTime) < diffTThresh) {
+            if(std::fabs(diiffTime) < DiffTThresh) {
                 return std::make_tuple(true, yaw, pitch);
                 break;
             }
@@ -364,9 +364,9 @@ public:
             double theta = X(2), yaw = X(6);
             // clang-format off
             h << 0, 0, 1,                                         0, 0, 0, 0,
-                 0, 0, -fanLen * std::sin(theta) * std::cos(yaw), 1, 0, 0, -fanLen * std::cos(theta) * std::sin(yaw),
-                 0, 0, fanLen * std::cos(theta),                  0, 1, 0, 0,
-                 0, 0, -fanLen * std::sin(theta) * std::sin(yaw), 0, 0, 1, fanLen * std::cos(theta)* std::cos(yaw),
+                 0, 0, -FanLen * std::sin(theta) * std::cos(yaw), 1, 0, 0, -FanLen * std::cos(theta) * std::sin(yaw),
+                 0, 0, FanLen * std::cos(theta),                  0, 1, 0, 0,
+                 0, 0, -FanLen * std::sin(theta) * std::sin(yaw), 0, 0, 1, FanLen * std::cos(theta)* std::cos(yaw),
                  0, 0, 0,                                         0, 0, 0, 1;
             // clang-format on
             return h;
@@ -479,10 +479,13 @@ public:
                          HubLogger::watch("rLabelYaw", mTrackFan.state(6));
                          auto [success, yaw, pitch] = solveAngle(mTrackFan.state);
                          HubLogger::visualLog(fmt::format("pnp solver result: {} {:.3f} {:.3f}", success, yaw, pitch));
-                         if(success) {
-                             sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(),
-                                                 yaw, pitch, true, normalSolver);
+                         if (!success || isnan(yaw) || isnan(pitch)){
+                            return;
                          }
+            
+                        sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(),
+                                            yaw, pitch, true, normalSolver);
+                         
                      }
                  } };
     }
