@@ -55,6 +55,7 @@ void NodeFactory::addNodeType(std::string name,
 }
 
 caf::actor NodeFactory::buildNode(caf::actor_system& system, const std::string& name, const HubConfig& config) {
+    HubLogger::visualLog("Build node " + name);
     logInfo("Build node " + name);
     const auto attr = config.to_dictionary().value();
     const auto typeAttr = attr.find("type"sv);

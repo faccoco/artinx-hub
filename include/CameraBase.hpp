@@ -3,6 +3,7 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
+#include <atomic>
 #include <caf/event_based_actor.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -20,6 +21,7 @@ struct CameraBaseSettings {
     glm::dvec3 offset;  // based on gun
     double yaw;         // in degree
     double pitch;       // in degree
+    bool restart;
 };
 
 template <class Inspector>
@@ -32,7 +34,7 @@ bool inspect(Inspector& f, CameraBaseSettings& x) {
         f.field("enableAutoWhiteBalance", x.enableAutoWhiteBalance).fallback(false), f.field("gain", x.gain).fallback(0.0),
         f.field("isAtGun", x.isAtGun).fallback(true), f.field("dx", x.offset.x).fallback(0.0),
         f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0), f.field("yaw", x.yaw).fallback(0.0),
-        f.field("pitch", x.pitch).fallback(0.0));
+        f.field("pitch", x.pitch).fallback(0.0), f.field("restart", x.restart).fallback(true));
 }
 
 class CameraBase : public HubHelper<caf::event_based_actor, CameraBaseSettings, image_frame_atom> {
@@ -40,6 +42,9 @@ protected:
     std::string mCameraSerialNumber;
 
     std::optional<Identifier> mHeadKey;
+    std::thread mDaemonThread;
+    std::atomic_bool mStopDaemon = false;
+    std::atomic_bool mSendFlag = false;
     cv::Mat mCameraMatrix;
     cv::Mat mDistCoefficients;
     // first rotate yaw, counterclockwise is positive, second rotate pitch, up is positive
@@ -51,8 +56,12 @@ protected:
 
     CameraBase(caf::actor_config& base, const HubConfig& config, std::string name);
 
+    ~CameraBase() override;
+
     static void loadCalibration(const std::string& identifier, uint32_t width, uint32_t height, double fallbackFov,
                                 cv::Mat& cameraMatrix, cv::Mat& distCoefficients);
+
+    virtual void restartCamera() noexcept = 0;
 
     void reportFrameRate(Clock::time_point timeStamp);
 

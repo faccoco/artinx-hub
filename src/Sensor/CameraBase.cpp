@@ -1,7 +1,32 @@
 #include "CameraBase.hpp"
+#include "Timer.hpp"
+#include <atomic>
+#include <thread>
 
 CameraBase::CameraBase(caf::actor_config& base, const HubConfig& config, std::string name)
-    : HubHelper{ base, config, std::move(name) } {}
+    : HubHelper{ base, config, std::move(name) } {
+    mDaemonThread = std::thread{ [this]() {
+        while(!mStopDaemon.load(std::memory_order_acquire)) {
+            std::this_thread::sleep_for(2s);
+            if(!mSendFlag.load(std::memory_order_consume)) {
+                if(mConfig.restart) {
+                    HubLogger::visualLog(fmt::format("Camera node {} down, restarting", mNodeName));
+                    logError(fmt::format("Camera node {} down, restarting", mNodeName));
+                    this->restartCamera();
+                    mSendFlag.store(false, std::memory_order_release);
+                } else {
+                    HubLogger::visualLog(fmt::format("Camera node {} down, not to restart", mNodeName));
+                    logError(fmt::format("Camera node {} down, not to restart", mNodeName));
+                }
+            }
+        }
+    } };
+}
+
+CameraBase::~CameraBase() {
+    mStopDaemon.store(true, std::memory_order_release);
+    mDaemonThread.join();
+}
 
 void CameraBase::loadCalibration(const std::string& identifier, const uint32_t width, const uint32_t height,
                                  const double fallbackFov, cv::Mat& cameraMatrix, cv::Mat& distCoefficients) {
@@ -25,8 +50,9 @@ void CameraBase::reportFrameRate(const Clock::time_point timeStamp) {
     const auto current = timeStamp.time_since_epoch().count();
     mLastFrames.push_back(current);
 
-    while(current - mLastFrames.front() > 1'000'000'000)
+    while(current - mLastFrames.front() > 1'000'000'000) {
         mLastFrames.pop_front();
+    }
 
     const auto delta = std::max(static_cast<Clock::rep>(1), current - mLastFrames.front());
     const auto fps = (static_cast<double>(mLastFrames.size()) - 1.0) * 1e9 / static_cast<double>(delta);
