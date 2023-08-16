@@ -90,7 +90,6 @@ class HubHelper : public T {
 
     std::tuple<SucceedAddress<Succeed>...> mDest;
     std::shared_mutex sMutex;
-    const std::string mNodeName;
     static constexpr size_t mDestSize = sizeof...(Succeed);
 
     template <typename Atom>
@@ -138,6 +137,7 @@ class HubHelper : public T {
 protected:
     std::conditional_t<std::is_void_v<Config>, char, Config> mConfig;
     GroupMask mGroupMask;
+    const std::string mNodeName;
 
     template <typename Self>
     static Identifier generateKey(Self* thisPointer) {

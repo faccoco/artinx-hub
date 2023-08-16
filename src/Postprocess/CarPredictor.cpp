@@ -94,7 +94,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         setArmorYaw(targetYaw);
         double yaw = mTrackedArmor.yaw;
         auto deltayaw = std::fabs(yaw - mTrackedArmor.state(3));
-        if(std::fabs(yaw - mTrackedArmor.state(3)) > mConfig.maxMatchYaw) {
+        if(std::fabs(yaw - mTrackedArmor.state(3)) > (mTrackedArmor.id == RobotType::Outpost ? 0.5 : mConfig.maxMatchYaw)) {
             mLastY = mTrackedArmor.state(1);
             mTrackedArmor.state(1) = targetPos.y;
             mTrackedArmor.state(3) = yaw;
@@ -144,7 +144,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             case TrackingState::TEMP_LOST: {
                 if(!matched) {
                     mLostCount++;
-                    if(mLostCount > mConfig.lostThreshold) {
+                    if(mLostCount > (mTrackedArmor.id == RobotType::Outpost ? 70 : mConfig.lostThreshold)) {
                         mLostCount = 0;
                         mTrackedArmor.trackingState = TrackingState::LOST;
                     }
@@ -403,9 +403,20 @@ public:
                            mTrackedArmor.trackingState == TrackingState::TEMP_LOST) {
                             res.center = glm::dvec3{ mTrackedArmor.state(0), mTrackedArmor.state(1), mTrackedArmor.state(2) };
                             res.yaw = mTrackedArmor.state(3);
-                            res.linearVel = glm::dvec3{ mTrackedArmor.state(4), mTrackedArmor.state(5), mTrackedArmor.state(6) };
-                            res.angularVel = mTrackedArmor.state(7);
-                            res.radius = { mTrackedArmor.state(8), mLastR };
+
+                            double angularVel = mTrackedArmor.state(7);
+                            if(mTrackedArmor.id == RobotType::Outpost && std::abs(angularVel) > 1.0) {
+                                res.radius = { radiusOfOutpost, radiusOfOutpost };
+                                res.linearVel = glm::dvec3{ 0, 0, 0 };
+                                res.angularVel = angularVel > 0 ? 0.5 * glm::two_pi<double>() : -0.5 * glm::two_pi<double>();
+                            }
+
+                            else {
+                                res.linearVel =
+                                    glm::dvec3{ mTrackedArmor.state(4), mTrackedArmor.state(5), mTrackedArmor.state(6) };
+                                res.angularVel = mTrackedArmor.state(7);
+                                res.radius = { mTrackedArmor.state(8), mTrackedArmor.state(8) };
+                            }
                             res.y = { mTrackedArmor.state(1), mLastY };
                             res.armorNum = mTrackedArmor.armorNum;
                             sendAll(car_predict_atom_v,

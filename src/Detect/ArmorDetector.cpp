@@ -237,7 +237,7 @@ class ArmorDetector final
                     }
                 }
 
-                light->color = sumB > sumR ? Color::Blue : Color::Red;
+                light->color = sumB >= sumR ? Color::Blue : Color::Red;
                 if(light->color == selfColor) {
                     continue;
                 }
@@ -342,7 +342,9 @@ class ArmorDetector final
         std::vector<Armor> armors;
         std::unordered_set<int> usedLightIdx;
         for(const auto& condArmor : condArmors) {
-            if(mConfig.excludeNegative && (condArmor.id == 8 || condArmor.prob < mConfig.numProbThresh))  // id 8 -> negative
+            if(mConfig.excludeNegative &&
+               (condArmor.id == RobotType::Negative || condArmor.prob < mConfig.numProbThresh ||
+                (condArmor.id == RobotType::Hero && !condArmor.isLargeArmor)))  // id 8 -> negative
                 continue;
 
             if(usedLightIdx.count(condArmor.leftLightIdx) || usedLightIdx.count(condArmor.rightLightIdx)) {

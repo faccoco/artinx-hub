@@ -108,6 +108,8 @@ class SentrySerialPort final
         GlobalSettings::get().blockEngineer = fdb.blockEngineer;
         GlobalSettings::get().blockSentry = fdb.blockSentry;
 
+        HubLogger::watch("priorNum", fdb.priorNum);
+
         const HeadInfo infoHead{ SynchronizedClock::instance().now(), { 0.0, fdb.pitch, fdb.yaw } };
 
         PostureData posture;

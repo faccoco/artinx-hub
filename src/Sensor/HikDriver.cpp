@@ -1,3 +1,6 @@
+#include "Utility.hpp"
+#include <cstdlib>
+#include <exception>
 #ifdef ARTINX_HIK
 #include "BlackBoard.hpp"
 #include "CameraBase.hpp"
@@ -6,7 +9,6 @@
 #include "DataDesc.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
-#include "PixelType.h"
 #include "Timer.hpp"
 
 #include "SuppressWarningBegin.hpp"
@@ -14,28 +16,60 @@
 #include <CameraParams.h>
 #include <MvCameraControl.h>
 #include <MvErrorDefine.h>
-#include <algorithm>
 #include <caf/event_based_actor.hpp>
-#include <cctype>
-#include <cstring>
 #include <fmt/core.h>
-#include <glm/ext/matrix_transform.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/opencv.hpp>
-#include <stdexcept>
 
 #include "SuppressWarningEnd.hpp"
+#include <algorithm>
+#include <atomic>
+#include <cctype>
+#include <csignal>
+#include <cstring>
+#include <optional>
+#include <stdexcept>
+#include <string_view>
+#include <thread>
+#include <type_traits>
 
 namespace {
+    template <typename Fun, typename... Args>
+    std::optional<std::result_of_t<std::decay_t<Fun>(std::decay_t<Args>...)>> timeoutTask(Fun&& fun, Duration dur, Args... args) {
+        typename std::result_of<typename std::decay<Fun>::type(typename std::decay<Args>::type...)>::type* result = nullptr;
+        std::thread taskThread{ [&]() {
+            std::signal(SIGABRT, [](int) -> void {});
+            try {
+                *result = fun(std::forward<Args>(args)...);
+            } catch(std::exception& e) {
+            }
+        } };
+        taskThread.join();
+        std::this_thread::sleep_for(dur);
+        if(result == nullptr) {
+            taskThread.~thread();
+        }
+        return std::move(*result);
+    }
+
     void showDriverVersion() {
         auto version = MV_CC_GetSDKVersion();
         logInfo(fmt::format("Hik driver version: {}.{}.{}.{}", (version & 0xFF000000) >> 24, (version & 0xFF0000) >> 16,
                             (version & 0xFF00) >> 8, version & 0xFF));
     }
 
-    void checkErrorCode(const unsigned int errorCode) {
-        if(errorCode != MV_OK)
+    void checkErrorCode(const uint32_t errorCode) {
+        if(errorCode != MV_OK) {
             logError(fmt::format("Hik Driver error: {0:x}", errorCode));
+        }
+    }
+
+    template <typename Fun, typename... Args>
+    void checkErrorCodeTimeout(Fun&& fn, Duration dur, std::string_view timeoutMsg, Args... args) {
+        if(auto res = timeoutTask(std::forward<Fun>(fn), dur, std::forward<Args>(args)...)) {
+            checkErrorCode(res.value());
+        } else {
+            logError(timeoutMsg);
+        }
     }
 
 }  // namespace
@@ -50,6 +84,11 @@ private:
     TimePoint mLastSend = SynchronizedClock::instance().now();
     std::atomic<bool> mStartFlag{ false };
 
+    void restartCamera() noexcept override {
+        // closeCamera();
+        openCamera(20, 500ms);
+    };
+
     static void newFrame(unsigned char* pData, MV_FRAME_OUT_INFO_EX* pFrameInfo, void* pUser) {
         auto instance = static_cast<HikDriver*>(pUser);
         auto timeStamp = SynchronizedClock::instance().now();
@@ -58,20 +97,21 @@ private:
                1e3 / instance->mConfig.fps ||
            !instance->mStartFlag.load(std::memory_order_consume)) {
             return;
-        } else {
-            instance->mLastSend = timeStamp;
         }
+        instance->mLastSend = timeStamp;
+
         cv::Mat bgr{ pFrameInfo->nHeight, pFrameInfo->nWidth, CV_8UC3, static_cast<void*>(pData) };
         instance->sendFrame(bgr);
     }
 
     MV_CC_DEVICE_INFO* getDeviceInfo() {
-        for(uint32_t i = 0; i < mDeviceList.nDeviceNum; ++i)
+        for(uint32_t i = 0; i < mDeviceList.nDeviceNum; ++i) {
             if(0 ==
                std::strncmp(reinterpret_cast<char*>(mDeviceList.pDeviceInfo[i]->SpecialInfo.stUsb3VInfo.chSerialNumber),
                             mConfig.identifier.c_str(), mConfig.identifier.length())) {
                 return mDeviceList.pDeviceInfo[i];
             }
+        }
         logError(fmt::format("Can find camera with serial number {}", mConfig.identifier));
         return nullptr;
     }
@@ -101,20 +141,28 @@ private:
         frameData.info.tfRobot2Camera = clcTfRobot2Camera(gunPose);
         frame.copyTo(frameData.frame);
 
+        HubLogger::visualLog("Hik Camera: Camera send an image");
         sendAll(image_frame_atom_v,
-                BlackBoard::instance().updateSync(mKey, std::move(frameData), std::string_view(mConfig.cameraName)));
+                BlackBoard::instance().updateSync(mKey, std::move(frameData), static_cast<std::string_view>(mConfig.cameraName)));
+        mSendFlag.store(true, std::memory_order_release);
     }
 
-public:
-    HikDriver(caf::actor_config& base, const HubConfig& config, std::string name)
-        : CameraBase{ base, config, std::move(name) }, mKey{ generateKey(this) } {
-        showDriverVersion();
-        checkErrorCode(MV_CC_EnumDevices(MV_USB_DEVICE, &mDeviceList));
-        if(mDeviceList.nDeviceNum == 0) {
-            throw std::runtime_error("No camera found");
-        } else {
-            logInfo(fmt::format("{} camera(s) found", mDeviceList.nDeviceNum));
+    void openCamera(size_t retryTimes = 1, Duration retryInterval = 1ms) {
+        for(size_t i = 0;; ++i) {
+            checkErrorCode(MV_CC_EnumDevices(MV_USB_DEVICE, &mDeviceList));
+            if(mDeviceList.nDeviceNum > 0) {
+                break;
+            }
+            if(mDeviceList.nDeviceNum == 0 && i >= retryTimes) {
+                HubLogger::visualLog(fmt::format(R"(No hik camera found after {} time(s) try)", retryTimes));
+                logError(fmt::format(R"(No hik camera found after {} time(s) try)", retryTimes));
+                terminateSystem(*this, false);
+                std::terminate();
+            }
+            std::this_thread::sleep_for(retryInterval);
         }
+        logInfo(fmt::format("{} camera(s) found", mDeviceList.nDeviceNum));
+
         std::transform(mConfig.identifier.begin(), mConfig.identifier.end(), mConfig.identifier.begin(),
                        [](const char c) { return std::toupper(c); });
         mDeviceInfo = mConfig.openMode == "Index" ? mDeviceList.pDeviceInfo[0] : getDeviceInfo();
@@ -137,10 +185,22 @@ public:
         checkErrorCode(MV_CC_StartGrabbing(mCameraHandle));
     }
 
+    void closeCamera() {
+        // checkErrorCodeTimeout(MV_CC_StopGrabbing, 1ms, msg, 3ms);
+        checkErrorCode(MV_CC_StopGrabbing(mCameraHandle));
+        checkErrorCode(MV_CC_CloseDevice(mCameraHandle));
+        checkErrorCode(MV_CC_DestroyHandle(mCameraHandle));
+    }
+
+public:
+    HikDriver(caf::actor_config& base, const HubConfig& config, std::string name)
+        : CameraBase{ base, config, std::move(name) }, mKey{ generateKey(this) } {
+        showDriverVersion();
+        openCamera();
+    }
+
     ~HikDriver() override {
-        MV_CC_StopGrabbing(mCameraHandle);
-        MV_CC_CloseDevice(mCameraHandle);
-        MV_CC_DestroyHandle(mCameraHandle);
+        closeCamera();
     }
 
     caf::behavior make_behavior() override {
@@ -156,3 +216,4 @@ public:
 };
 HUB_REGISTER_CLASS(HikDriver);
 #endif
+    

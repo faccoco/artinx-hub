@@ -99,18 +99,20 @@ public:
                         firstDelay = 0s;
                         secondDelay = waitTime;
                     }
-                    SynchronizedClock::instance().sleep_for(firstDelay);  // reserve time for turning head
-                    if(!mUpdateCnt.compare_exchange_strong(t1, t1))
+                    SynchronizedClock::instance().sleepFor(firstDelay);  // reserve time for turning head
+                    if(!mUpdateCnt.compare_exchange_strong(t1, t1)) {
                         return;
+                    }
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask,
                                         (data.value().lastUpdate + waitTime - mHeadDelay).time_since_epoch().count(), mYaw,
                                         mPitch, false, waitSolver);
                     //                    logInfo("send not shoot");
 
-                    SynchronizedClock::instance().sleep_for(secondDelay);  // ready for shoot
-                    if(!mUpdateCnt.compare_exchange_strong(t1, t1))
+                    SynchronizedClock::instance().sleepFor(secondDelay);  // ready for shoot
+                    if(!mUpdateCnt.compare_exchange_strong(t1, t1)) {
                         return;
+                    }
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask,
                                         (data.value().lastUpdate + waitTime).time_since_epoch().count(), mYaw, mPitch, true,

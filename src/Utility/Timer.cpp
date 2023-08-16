@@ -44,8 +44,9 @@ void Timer::bindSystem(caf::actor_system& system) {
 }
 
 void Timer::stop() {
-    if(mThread.joinable())
+    if(mThread.joinable()) {
         mThread.join();
+    }
 }
 
 void Timer::addTimer(caf::actor_addr actor, Duration period) {
@@ -56,13 +57,14 @@ void Timer::addTimer(caf::actor_addr actor, Duration period) {
 std::priority_queue<SynchronizedClock::TimerInfo> SynchronizedClock::mSleepForQueue;
 
 TimePoint SynchronizedClock::now() const {
-    if(mSimulationTime)
+    if(mSimulationTime) {
         return mSimulationTime.value();
+    }
 
     return Clock::now();
 }
 
-void SynchronizedClock::sleep_for(const Duration& d) {
+void SynchronizedClock::sleepFor(const Duration& d) {
     std::unique_lock lock(mMutex);
     if(mSimulationTime.has_value() && mSimulationTimeStep.has_value()) {
         std::condition_variable cv;
