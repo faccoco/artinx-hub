@@ -41,10 +41,10 @@ public:
         electricData.fricLeftRpm = reader.readCompressedFloat(0.0f, 1.0f);
         electricData.fricRightRpm = reader.readCompressedFloat(0.0f, 1.0f);
         electricData.heat = reader.readCompressedFloat(0.0f, 0.1f);
-
         electricData.fdbPositionX = reader.readCompressedFloat(-1.0f, 0.001f);
         electricData.fdbPositionY = reader.readCompressedFloat(-1.0f, 0.001f);
         electricData.fdbYawInWorld = reader.readCompressedFloat(-1.0f, 0.01f);
+        speedX = speedY = 0.f;
     }
 };
 
