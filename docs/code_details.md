@@ -67,7 +67,7 @@ public:
 ## Atom
 
 ```C++
-/*本质上为一个结构体
+/*为一个结构体,用于作为标识符传递消息
 例如：CAF_ADD_ATOM(ArtinxHub, image_frame_atom)
 该宏展开为：
 struct image_frame_atom{};

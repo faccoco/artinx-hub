@@ -2,7 +2,7 @@
 
 Artinx视觉组 集成框架
 
-<!-- vim-markdown-toc GFM -->
+<!-- vim-markdown-toc GitLab -->
 
 - [入门](#入门)
     - [计算机基础](#计算机基础)
@@ -14,11 +14,11 @@ Artinx视觉组 集成框架
     - [Commit规范](#commit规范)
     - [GitLab工作流](#gitlab工作流)
 - [仓库目录结构](#仓库目录结构)
-- [本地构建指南](#本地构建指南)
-    - [Windows](#windows)
+- [环境配置](#环境配置)
+    - [Windows(Not Guaranteed to Work)](#windowsnot-guaranteed-to-work)
     - [Linux](#linux)
     - [Genetic](#genetic)
-    - [LLVM-Clang](#llvm-clang)
+    - [Clang](#clang)
 - [机器人部署指南](#机器人部署指南)
     - [本地环境配置](#本地环境配置)
     - [CI配置](#ci配置)
@@ -61,12 +61,12 @@ Artinx视觉组 集成框架
 进阶
 
 - Effective C++
-- More Effective C++
-- Effective Modern C++
 - Modern C++ Tutorial: C++11/14/17/20 On the Fly
+- Effective Modern C++
+- More Effective C++
+- [小彭老师的Bilibili公开课](https://space.bilibili.com/263032155/channel/collectiondetail?sid=53025)
 - <https://github.com/AnthonyCalandra/modern-cpp-features>
 - <http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines>
-- [小彭老师的Bilibili公开课](https://space.bilibili.com/263032155/channel/collectiondetail?sid=53025)
 
 骨灰
 
@@ -163,11 +163,11 @@ Artinx视觉组 集成框架
 |-- README.md 自述文件
 ```
 
-## 本地构建指南
+## 环境配置
 
 下面仅介绍VS工作流和Clion工作流，VS Code工作流于docs文件夹中，可以自行探索Vim工作流（就是教你怎么调试跑程序）
 
-### Windows
+### Windows(Not Guaranteed to Work)
 
 - 安装IDE Visual Studio 2019（桌面C++ + 英文语言包）
 - 按照Genetic步骤安装依赖
@@ -195,7 +195,7 @@ export ONEAPI_ROOT=/opt/intel                  #/opt/intel 为ONEAPI默认安装
 source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference engine一般为未运行此行的问题
 ```
 
-- optional: 安装clang, 见LLVM-Clang
+- optional: 安装clang, 见 Clang
 - clone仓库
 - 用clion打开文件夹
 - 打开CMake设置，填入参数`-DARTINX_HUB_CAMERA=USB3 -DCMAKE_TOOLCHAIN_FILE=<path to vcpkg>/scripts/buildsystems/vcpkg.cmake` **2.0相机写`USB2`**
@@ -233,11 +233,12 @@ source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference en
 
 - 根据需求(USB2/USB3)安装大恒相机驱动[Daheng Imaging](https://daheng-imaging.com/list-58-1.html), 对应CMake参数的ARTINX_HUB_CAMERA=USB2/USB3
 - 安装 Hik Robot 驱动 [hik robotics](https://www.hikrobotics.com/cn/machinevision/service/download?module=0), 设置环境变量 `HIK_SDK=/opt/MVS`
-### LLVM-Clang
+
+### Clang
 
 >在ubuntu上配置最新 clang(stable) 编译环境
 
-- 访问[官方源](https://apt.llvm.org/),根据你的发行版和要安装的clang版本选择apt源并在 `/etc/apt/sources.list.d/ `目录下新建一个LLVM文件写入
+- 访问[官方源](https://apt.llvm.org/),根据你的发行版和要安装的clang版本选择apt源并在 `/etc/apt/sources.list.d/`目录下新建一个LLVM文件写入
 - 执行 `wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -`或`wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc` 添加gpg key
 - 执行 `apt update`
 - `apt intstall clang-x lld-x(x为你要安装的版本)`
@@ -280,7 +281,7 @@ sudo gitlab-runner start
 
 ```shell
 sudo usermod -a -G sudo gitlab-runner
-sudo visudo
+sudo vim /etc/sudoers
 加入这一行
 gitlab-runner ALL=(ALL) NOPASSWD: ALL
 ```
