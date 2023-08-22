@@ -4,33 +4,35 @@ Artinx视觉组 集成框架
 
 <!-- vim-markdown-toc GFM -->
 
-- [入门](#入门)
+- [ARTINX-HUB](#artinx-hub)
+  - [入门](#入门)
     - [计算机基础](#计算机基础)
     - [C++](#c)
     - [Linux/Git/Shell](#linuxgitshell)
-- [快速跳转](#快速跳转)
-- [开发规范](#开发规范)
+  - [快速跳转](#快速跳转)
+  - [开发规范](#开发规范)
     - [代码规范](#代码规范)
     - [Commit规范](#commit规范)
     - [GitLab工作流](#gitlab工作流)
-- [仓库目录结构](#仓库目录结构)
-- [本地构建指南](#本地构建指南)
+  - [仓库目录结构](#仓库目录结构)
+  - [本地构建指南](#本地构建指南)
     - [Windows](#windows)
     - [Linux](#linux)
     - [Genetic](#genetic)
+      - [Optional](#optional)
     - [LLVM-Clang](#llvm-clang)
-- [机器人部署指南](#机器人部署指南)
+  - [机器人部署指南](#机器人部署指南)
     - [本地环境配置](#本地环境配置)
     - [CI配置](#ci配置)
-- [CI持续部署指南](#ci持续部署指南)
+  - [CI持续部署指南](#ci持续部署指南)
     - [自启动流程](#自启动流程)
     - [自动部署](#自动部署)
-- [故障排除](#故障排除)
-- [框架指南](#框架指南)
+  - [故障排除](#故障排除)
+  - [框架指南](#框架指南)
     - [程序工作流](#程序工作流)
     - [框架工具类使用指南](#框架工具类使用指南)
     - [Group Mask使用方法](#group-mask使用方法)
-- [代码详解](#代码详解)
+  - [代码详解](#代码详解)
 
 <!-- vim-markdown-toc -->
 ## 入门
@@ -184,16 +186,6 @@ Artinx视觉组 集成框架
 
 - 安装Clion
 - 按照Genetic步骤安装依赖
-- 添加环境变量
-
-```shell
-sudo vim /etc/profile                           #打开/etc/profile文件
-
-#在文件末尾加入以后命令
-export DAHENG_SDK=<PATH>/Galaxy_camera     #PATH为相机SDK所在目录
-export ONEAPI_ROOT=/opt/intel                  #/opt/intel 为ONEAPI默认安装目录，若不在,请修改
-source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference engine一般为未运行此行的问题
-```
 
 - optional: 安装clang, 见LLVM-Clang
 - clone仓库
@@ -213,24 +205,34 @@ source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference en
   - glm
   - cpp-httplib
   - fmt
-  - bullet3 (未来可能被移除)
   - magic-enum
   - opencv4[contrib,ffmpeg]
   - glew
   - glfw3
   - opengl
   - eigen3
-  - boost
   - spdlog
+  - ceres
   如遇任何问题，请按照错误提示用apt补足缺少的软件包或更换网络重试一次
 - 集成vcpkg安装包，运行
 `./vcpkg integrate install`
 
-- 安装OpenVINO2022 [Download Intel® Distribution of OpenVINO™ Toolkit](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit-download.html)
+#### Optional
+- 根据需求安装OpenVINO2022，下载NAS上l_openvino_toolkitxxxxubuntu2022安装包
   - 安装install_dependencies文件夹OpenVINO依赖 `sudo install install_openvino_dependencies.sh`
 
 - 根据需求(USB2/USB3)安装大恒相机驱动[Daheng Imaging](https://daheng-imaging.com/list-58-1.html), 对应CMake参数的ARTINX_HUB_CAMERA=USB2/USB3
 - 安装 Hik Robot 驱动 [hik robotics](https://www.hikrobotics.com/cn/machinevision/service/download?module=0), 设置环境变量 `HIK_SDK=/opt/MVS`
+- 添加环境变量
+
+```shell
+sudo vim /etc/profile                           #打开/etc/profile文件
+
+#在文件末尾加入以后命令
+export OPENVINO2022_PATH = <PATH>                   #PATH为OPENVINO2022安装目录，需要加上openvino2022文件夹名
+export DAHENG_SDK=<PATH>/Galaxy_camera              #PATH为相机SDK所在目录
+source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference engine一般为未运行此行的问题
+```
 ### LLVM-Clang
 
 >在ubuntu上配置最新 clang(stable) 编译环境

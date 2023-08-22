@@ -1,3 +1,4 @@
+#ifdef ARTINX_OPENVINO2022
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedEnergyFan.hpp"
@@ -10,12 +11,10 @@
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
-#include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
-#include <opencv2/aruco.hpp>
 #include <opencv2/calib3d.hpp>
 #include <utility>
-#include <Eigen/Core>
+
 
 #include "SuppressWarningEnd.hpp"
 
@@ -447,3 +446,4 @@ public:
 };
 
 HUB_REGISTER_CLASS(RuneDetector);
+#endif
