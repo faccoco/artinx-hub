@@ -6,15 +6,14 @@
 #include "Hub.hpp"
 #include "Utility.hpp"
 
-#include "SuppressWarningBegin.hpp"
 #include "NetInference.hpp"
+#include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/gtc/quaternion.hpp>
 #include <opencv2/calib3d.hpp>
 #include <utility>
-
 
 #include "SuppressWarningEnd.hpp"
 
@@ -49,26 +48,20 @@ struct RuneDetecorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, RuneDetecorSettings& x) {
-    return f.object(x).fields(
-        f.field("debugView", x.debugView).fallback(false),
-        f.field("useNNet", x.useNNet).fallback(true),
+    return f.object(x).fields(f.field("debugView", x.debugView).fallback(false), f.field("useNNet", x.useNNet).fallback(true),
 
-        f.field("modelPath", x.modelPath),
-        f.field("nmsThreshold", x.nmsThreshold).fallback(0.2),
-        f.field("confThreshold", x.confThreshold).fallback(0.7),
-        f.field("imgSize", x.imgSize).fallback(416),
-        f.field("kptNum", x.kptNum).fallback(0),
-        f.field("classNum", x.classNum).fallback(4),
-        f.field("anchorNum", x.anchorNum).fallback(1),
+                              f.field("modelPath", x.modelPath), f.field("nmsThreshold", x.nmsThreshold).fallback(0.2),
+                              f.field("confThreshold", x.confThreshold).fallback(0.7),
+                              f.field("imgSize", x.imgSize).fallback(416), f.field("kptNum", x.kptNum).fallback(0),
+                              f.field("classNum", x.classNum).fallback(4), f.field("anchorNum", x.anchorNum).fallback(1),
 
-        
-        f.field("binThresh", x.binThresh).fallback(50),
-        f.field("roiBinThresh", x.roiBinThresh),
-        f.field("dilateKernel", x.dilateKernel), f.field("minConvexHullThresh", x.minConvexHullThresh),
-        f.field("maxConvexHullThresh", x.maxConvexHullThresh), f.field("minContourArea", x.minContourArea),
-        f.field("rRoiSizeScale", x.rRoiSizeScale).fallback(1.0), f.field("rPosScale", x.rPosScale).fallback(6.5),
-        f.field("minRRectAreaRatio", x.minRRectAreaRatio).fallback(0.9),
-        f.field("maxRRectSizeRatio", x.maxRRectSizeRatio).fallback(0.9));
+                              f.field("binThresh", x.binThresh).fallback(50), f.field("roiBinThresh", x.roiBinThresh),
+                              f.field("dilateKernel", x.dilateKernel), f.field("minConvexHullThresh", x.minConvexHullThresh),
+                              f.field("maxConvexHullThresh", x.maxConvexHullThresh), f.field("minContourArea", x.minContourArea),
+                              f.field("rRoiSizeScale", x.rRoiSizeScale).fallback(1.0),
+                              f.field("rPosScale", x.rPosScale).fallback(6.5),
+                              f.field("minRRectAreaRatio", x.minRRectAreaRatio).fallback(0.9),
+                              f.field("maxRRectSizeRatio", x.maxRRectSizeRatio).fallback(0.9));
 }
 
 static double euclideanDistance(const cv::Point2f& p1, const cv::Point2f& p2) {
@@ -93,7 +86,7 @@ class RuneDetector final
 
     std::unique_ptr<YoloNet> mInfer;
 
-//    bool mEnable = true;
+    //    bool mEnable = true;
 
     void debugView(const std::string_view& name, const cv::Mat& src, const std::function<void(cv::Mat&)>& func) {
 #ifndef ARTINXHUB_DEBUG
@@ -122,28 +115,26 @@ class RuneDetector final
         return cv::norm(center2 - center1);
     }
 
-    cv::Mat binarize(const cv::Mat &src, int threshold)
-    {
+    cv::Mat binarize(const cv::Mat& src, int threshold) {
         cv::Mat bin, gray;
         cv::cvtColor(src, gray, cv::COLOR_BGR2GRAY);
         cv::threshold(gray, bin, threshold, 255, cv::THRESH_BINARY);
         return bin;
     }
 
-    cv::Mat subBinarize(const cv::Mat &src, int threshold)
-    {
+    cv::Mat subBinarize(const cv::Mat& src, int threshold) {
         cv::Mat bin, sub, b, g, r;
         std::vector<cv::Mat> img_channel;
         cv::split(src, img_channel);
         b = img_channel[0], g = img_channel[1], r = img_channel[2];
-        sub = GlobalSettings::get().getColor() == Color::Blue? b - r : r - b;
+        sub = GlobalSettings::get().getColor() == Color::Blue ? b - r : r - b;
         cv::threshold(sub, bin, threshold, 255, cv::THRESH_BINARY);
         return bin;
     }
 
     std::optional<cv::Rect2f> getRuneROI(const cv::Mat& src) {
         // cv::Mat bin = binarize(src, cv::Scalar(mConfig.lowerBlue[0], mConfig.lowerBlue[1], mConfig.lowerBlue[2]),
-                            //    cv::Scalar(mConfig.upperBlue[0], mConfig.upperBlue[1], mConfig.upperBlue[2]));
+        //    cv::Scalar(mConfig.upperBlue[0], mConfig.upperBlue[1], mConfig.upperBlue[2]));
 
         cv::Mat bin = subBinarize(src, mConfig.binThresh);
 
@@ -163,7 +154,7 @@ class RuneDetector final
         std::vector<std::vector<cv::Point>> contours;
         std::vector<cv::Vec4i> hierarchy;
         cv::findContours(bin, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE);
-        if(!contours.empty() ) {
+        if(!contours.empty()) {
             // logInfo("no contour found!!!");
         }
         // std::cout << "src have " << contours.size() << " contours." << std::endl;
@@ -216,8 +207,7 @@ class RuneDetector final
         }
         return {};
     }
-    std::optional<cv::Rect> getNNetROI(const cv::Mat& src)
-    {
+    std::optional<cv::Rect> getNNetROI(const cv::Mat& src) {
         const auto t1 = Clock::now();
         auto objects = mInfer->work(src);
         logInfo(fmt::format("net cost time: {:.4f} ms", (durationCastDouble(Clock::now() - t1) * 1000)));
@@ -232,7 +222,7 @@ class RuneDetector final
         std::optional<cv::Rect> roiRect;
         for(const auto& obj : objects) {
             if(obj.prob > maxProb && (obj.label == 0 || obj.label == 2)) {
-             roiRect = expandRect(obj.rect, src.cols, src.rows, 1.2);
+                roiRect = expandRect(obj.rect, src.cols, src.rows, 1.2);
             }
         }
         return roiRect;
@@ -300,9 +290,9 @@ class RuneDetector final
 
     void detect(const cv::Mat& src, std::vector<cv::Point2f>& keyPoints) {
         std::optional<cv::Rect> roiRectOptional;
-        if (!mConfig.useNNet)
+        if(!mConfig.useNNet)
             roiRectOptional = getRuneROI(src);
-        else 
+        else
             roiRectOptional = getNNetROI(src);
 
         // logInfo("roi get");
@@ -319,7 +309,7 @@ class RuneDetector final
 
         // auto closeKernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
         // cv::morphologyEx(roiBin, roiBin, cv::MORPH_OPEN, closeKernel);
-        
+
         if(mConfig.debugView)
             debugView("roiRect", roiBin, [](auto&) {});
 
@@ -407,27 +397,27 @@ class RuneDetector final
 public:
     RuneDetector(caf::actor_config& base, const HubConfig& config, std::string name)
         : HubHelper{ base, config, name }, mKey{ generateKey(this) } {
-            mInfer = std::make_unique<YoloNet>(mConfig.modelPath, mConfig.nmsThreshold, mConfig.confThreshold, mConfig.imgSize,
+        mInfer = std::make_unique<YoloNet>(mConfig.modelPath, mConfig.nmsThreshold, mConfig.confThreshold, mConfig.imgSize,
                                            mConfig.kptNum, mConfig.classNum, mConfig.anchorNum);
-        }
+    }
     caf::behavior make_behavior() override {
         return { [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
                  [&](image_frame_atom, Identifier key) {
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
-                    //  auto mode = GlobalSettings::get().getTaskMode(); 
-                    //  if (mode == TaskMode::AutoAim){
-                    //     return;
-                    //  }
+                     //  auto mode = GlobalSettings::get().getTaskMode();
+                     //  if (mode == TaskMode::AutoAim){
+                     //     return;
+                     //  }
 
                      auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
                      auto frame = std::get<0>(data);
 
                      //  cv::Mat src = frame.frame;
                      cv::Mat src = frame.frame;
-                    //  cv::blur(frame.frame, src, cv::Size(5, 5));
-                    // //  debugView("blur", src, [](auto&) {});
+                     //  cv::blur(frame.frame, src, cv::Size(5, 5));
+                     // //  debugView("blur", src, [](auto&) {});
                      std::vector<cv::Point2f> keyPoints;
                      detect(src, keyPoints);
 
@@ -438,8 +428,9 @@ public:
                      if(keyPoints.size() == 5) {
                          res.keyPoints = keyPoints;
                      }
-                     
-                    //  HubLogger::visualLog(fmt::format("RuneDetector: Task Mode {},  detect keyPoints {}", magic_enum::enum_name(mode)));
+
+                     //  HubLogger::visualLog(fmt::format("RuneDetector: Task Mode {},  detect keyPoints {}",
+                     //  magic_enum::enum_name(mode)));
                      sendAll(energy_detect_available_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                  } };
     }

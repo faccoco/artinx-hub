@@ -5,11 +5,6 @@ Artinx视觉组 集成框架
 <!-- vim-markdown-toc GFM -->
 
 - [ARTINX-HUB](#artinx-hub)
-  - [入门](#入门)
-    - [计算机基础](#计算机基础)
-    - [C++](#c)
-    - [Linux/Git/Shell](#linuxgitshell)
-  - [快速跳转](#快速跳转)
   - [开发规范](#开发规范)
     - [代码规范](#代码规范)
     - [Commit规范](#commit规范)
@@ -35,58 +30,9 @@ Artinx视觉组 集成框架
   - [代码详解](#代码详解)
 
 <!-- vim-markdown-toc -->
-## 入门
 
-没有速成，速成的都是垃圾
 
-[CheckList](docs/checklist.md)
 
-### 计算机基础
-
-推荐书籍（按照难度排序）：
-
-- Computer Systems: A Programmer's Perspective (CSAPP)
-- 计算机程序的构造和解释（SICP）
-- 计算机组成与设计：硬件/软件接口
-- 操作系统概念（恐龙书）
-- 程序员修炼之道2：通向务实的最高境界
-- 编译原理（龙书）
-
-### C++
-
-基础
-
-- C++ Primer(Plus)
-- [于仕琪老师的Bilibili网课](https://www.bilibili.com/video/BV1Vf4y1P7pq)
-- C++ Programming Language
-
-进阶
-
-- Effective C++
-- More Effective C++
-- Effective Modern C++
-- Modern C++ Tutorial: C++11/14/17/20 On the Fly
-- <https://github.com/AnthonyCalandra/modern-cpp-features>
-- <http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines>
-- [小彭老师的Bilibili公开课](https://space.bilibili.com/263032155/channel/collectiondetail?sid=53025)
-
-骨灰
-
-- <https://www.youtube.com/user/CppCon>
-- <https://www.open-std.org/jtc1/sc22/wg21/docs/papers/>
-- <http://purecpp.org/>
-
-### Linux/Git/Shell
-
-- <https://git-scm.com/docs/user-manual>
-- <https://linuxtools-rst.readthedocs.io/zh_CN/latest/>
-
-## 快速跳转
-
-- [cppreference](https://en.cppreference.com/w/)
-- [glm manual](https://github.com/g-truc/glm/blob/master/manual.md) or [Opengl-glm](https://nas.artinx.club:5001/sharing/q01EttQss)
-- [OpenCV doc](https://docs.opencv.org/4.x/)
-- [规则手册](https://www.robomaster.com/zh-CN/resource/pages/announcement/1370)
 
 ## 开发规范
 
@@ -345,10 +291,6 @@ gitlab-runner ALL=(ALL) NOPASSWD: ALL
   - 打开Galaxy看看能不能检测到(仅限3.0相机）
   - 重装驱动，重新启动，重新插拔数据线
   - **哨兵靠相机的SN码区分上下云台，看看confg里面有没有写错**
-- 机器人上自瞄不工作
-  - 使用systemctl status ArtinxHub.service查看服务状态
-  - 打开127.0.0.1:5430查看工作状态
-  - 多半是相机或串口寄了
 
 ## 框架指南
 
@@ -386,7 +328,7 @@ CAF框架参见[actor_system.md](docs/actor_system.md)
 
 ### Group Mask使用方法
 
-由于哨兵的特殊用法（一个sentry strategy需要根据数据来自上下云台选择发给哪个angle solver），故引入了group mask机制：
+由于哨兵的特殊用法（一个sentry strategy需要根据数据来自前后那个相机进行决策），故引入了group mask机制：
 
 - config里atom的定义改为所有**可能**接受消息的actor
 - config新增两个内置属性group_id和group_mask，如果设置了group_id则mGroupMask为1<<group_id,如果设置了group_mask则mGroupMask为group_mask，否则默认为1
