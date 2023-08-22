@@ -178,14 +178,12 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
         const double yaw = fdb.yaw + glm::half_pi<double>();
         const double pitch = fdb.pitch;
         const double roll = fdb.roll;
-        const HeadInfo infoUp{ SynchronizedClock::instance().now(),
-                               {roll, pitch, yaw}};
+        const HeadInfo infoUp{ SynchronizedClock::instance().now(), { roll, pitch, yaw } };
 
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();
         posture.tfGround2Robot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
         posture.linearVelocityOfRobot = Vector<UnitType::LinearVelocity, FrameOfRef::Ground>{ { fdb.speedX, 0, -fdb.speedY } };
-
 
         sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
         sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoUp));
@@ -200,15 +198,18 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
 
 public:
     HeroSerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, SerialPort<HeroRecvPacket, HeroSendPacket>(
-                                                          mConfig.devPath, mConfig.baudRate,
-                                                          std::bind(&HeroSerialPort::heroRecvCB, this, std::placeholders::_1),
-                                                          std::bind(&HeroSerialPort::heroSetPacket, this)),
+        : HubHelper{ base, config, std::move(name) },
+          SerialPort<HeroRecvPacket, HeroSendPacket>(mConfig.devPath, mConfig.baudRate,
+                                                     std::bind(&HeroSerialPort::heroRecvCB, this, std::placeholders::_1),
+                                                     std::bind(&HeroSerialPort::heroSetPacket, this)),
           mKey(generateKey(this)) {}
 
     caf::behavior make_behavior() override {
         return {
-            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [this](start_atom) {
+                ACTOR_PROTOCOL_CHECK(start_atom);
+                mStarted = true;
+            },
             [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
                    SolverType solverType) {
                 ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);

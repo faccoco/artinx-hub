@@ -148,7 +148,7 @@ public:
         return {
             [this](start_atom) {
                 ACTOR_PROTOCOL_CHECK(start_atom);
-                started = true;
+                mStarted = true;
             },
             [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
                    SolverType solverType) {

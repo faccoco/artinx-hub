@@ -254,8 +254,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
 
         double t0 = 0.0, theta0 = 0.0; 
         for(const auto& thetaInfo : mThetaInfos) {
-            t0 += std::get<2>(thetaInfo), theta0 += std::get<3>(thetaInfo);
-            problem.AddResidualBlock(new ceres::AutoDiffCostFunction<CurveFittingCost, 1, 4>(new CurveFittingCost(t0, theta0)),
+            t0 += std::get<2>(thetaInfo), theta0 += std::fabs(std::get<3>(thetaInfo));
+            problem.AddResidualBlock(new ceres::AutoDiffCostFunction<CurveFittingCost, 1, 4>(new CurveFittingCost(t0, normalizeAngle(theta0))),
                                      nullptr, mParameters);
         }
 

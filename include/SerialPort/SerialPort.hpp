@@ -38,7 +38,7 @@ public:
 
     BufferedAsyncSerial::Ptr mSerialPort;
 
-    bool started = false;
+    bool mStarted = false;
 
     uint16_t mExpectedLen;
     std::array<uint8_t, RecvBufferLen> mPacketBuffer;
@@ -60,7 +60,7 @@ public:
     int32_t mRecordeCnt = 0;
 
     void receive() {
-        if(!started)
+        if(!mStarted)
             return;
         mRecordeCnt++;
         std::vector<char> vec = mSerialPort->read();
