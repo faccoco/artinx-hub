@@ -218,3 +218,4 @@ public:
 };
 HUB_REGISTER_CLASS(HikDriver);
 #endif
+    

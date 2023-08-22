@@ -76,22 +76,22 @@ public:
 
                     auto pointRefCam = Point<UnitType::Distance, FrameOfRef::Camera>{ p0 };
                     auto rvecRefCam = Vector<UnitType::Distance, FrameOfRef::Camera>{ r };
-                    Transform<FrameOfRef::Armor, FrameOfRef::Camera> rmat{};
 
                     double angle = glm::length(rvecRefCam.mVal);
                     auto axis = rvecRefCam.mVal / angle;
-                    rmat = glm::mat4_cast(glm::angleAxis(-angle, axis));
+                    auto rmat = glm::mat4_cast(glm::angleAxis(-angle, axis));
 
                     // HubLogger::watch("XRefCam", p0.x);
                     // HubLogger::watch("YRefCam", p0.y);
                     // HubLogger::watch("ZRefCam", p0.z);
                     // HubLogger::watch("isLargeArmor", armor.isLargeArmor);
                     // logInfo(fmt::format("isLargeArmor: {} {}", armor.ratio, isLargeArmor));
-                    // HubLogger::watch("YawRefCam", glm::degrees(-atan2(rmat.raw()[2][0], rmat.raw()[2][2])));
+                    // HubLogger::watch("YawRefCam", glm::degrees(normalizeAngle(-atan2(rmat[2][0], rmat[2][2]) - glm::half_pi<double>())));
 
                     auto armorImgCenter = clcArmorImgCenter();
                     res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefCam, armor.robotType,
-                                            armorType, ArmorMotion::Unsure, rmat });
+                                            armorType, ArmorMotion::Unsure,
+                                            Transform<FrameOfRef::Armor, FrameOfRef::Camera>(rmat) });
                     HubLogger::visualLog(fmt::format("ArmorLocator locate target: RobotType:{}, ArmorImgCenter:({:.2f}, "
                                                      "{:.2f})",
                                                      magic_enum::enum_name(armor.robotType), armorImgCenter.x, armorImgCenter.y));

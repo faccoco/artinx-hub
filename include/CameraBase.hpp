@@ -21,6 +21,7 @@ struct CameraBaseSettings {
     glm::dvec3 offset;  // based on gun
     double yaw;         // in degree
     double pitch;       // in degree
+    bool restart;
 };
 
 template <class Inspector>
@@ -33,7 +34,7 @@ bool inspect(Inspector& f, CameraBaseSettings& x) {
         f.field("enableAutoWhiteBalance", x.enableAutoWhiteBalance).fallback(false), f.field("gain", x.gain).fallback(0.0),
         f.field("isAtGun", x.isAtGun).fallback(true), f.field("dx", x.offset.x).fallback(0.0),
         f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0), f.field("yaw", x.yaw).fallback(0.0),
-        f.field("pitch", x.pitch).fallback(0.0));
+        f.field("pitch", x.pitch).fallback(0.0), f.field("restart", x.restart).fallback(true));
 }
 
 class CameraBase : public HubHelper<caf::event_based_actor, CameraBaseSettings, image_frame_atom> {

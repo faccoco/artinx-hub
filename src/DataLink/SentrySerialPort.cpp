@@ -20,15 +20,30 @@ public:
     static constexpr uint16_t id = 0xE0;
 
     float yaw, pitch, bulletSpeed, speedX, speedY;
-    uint8_t color;
+    uint8_t color, priorNum;
     float capEnergy, chasisPower;
+    bool blockSentry, blockEngineer;
+    struct ElectricData {
+        float bulletSpeed30Offset, fdbPositionX, fdbPositionY, fdbYawInWorld, fricLeftRpm, fricRightRpm, heat;
+    } electricData;
     explicit SentryRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
         const auto mask = reader.read();
         color = mask & 1;
+        priorNum = (mask >> 1) & 0x7;
+        blockEngineer = (mask >> 4) & 1;
+        blockSentry = (mask >> 5) & 1;
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
+        electricData.bulletSpeed30Offset = reader.readCompressedFloat(-100.0f, 0.1f);
+        electricData.fricLeftRpm = reader.readCompressedFloat(0.0f, 1.0f);
+        electricData.fricRightRpm = reader.readCompressedFloat(0.0f, 1.0f);
+        electricData.heat = reader.readCompressedFloat(0.0f, 0.1f);
+        electricData.fdbPositionX = reader.readCompressedFloat(-1.0f, 0.001f);
+        electricData.fdbPositionY = reader.readCompressedFloat(-1.0f, 0.001f);
+        electricData.fdbYawInWorld = reader.readCompressedFloat(-1.0f, 0.01f);
+        speedX = speedY = 0.f;
     }
 };
 
@@ -61,15 +76,17 @@ bool inspect(Inspector& f, SentrySerialPortSettings& x) {
     return f.object(x).fields(f.field("devPath", x.devPath), f.field("baudRate", x.baudRate));
 }
 
-class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySerialPortSettings, update_head_atom,
-                                                update_posture_atom, energy_detector_control_atom>,
-                               public SerialPort<SentryRecvPacket, SentrySendPacket> {
+class SentrySerialPort final
+    : public HubHelper<caf::event_based_actor, SentrySerialPortSettings, update_head_atom, update_posture_atom>,
+      public SerialPort<SentryRecvPacket, SentrySendPacket> {
     Identifier mKey;
 
     constexpr static size_t latencyLen = 100;
     std::deque<double> mLatency;
 
     TimePoint mLastReceivedTime, mLastTargetTime;
+
+    SentryRecvPacket::ElectricData mElectricDataBuff;
 
     void infantryRecvCB(const SentryRecvPacket& fdb) {
         if(fdb.bulletSpeed > 15)
@@ -86,6 +103,12 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
+        GlobalSettings::get().priorNum = fdb.priorNum;
+        GlobalSettings::get().blockEngineer = fdb.blockEngineer;
+        GlobalSettings::get().blockSentry = fdb.blockSentry;
+
+        HubLogger::watch("priorNum", fdb.priorNum);
+
         const HeadInfo infoHead{ SynchronizedClock::instance().now(), { 0.0, fdb.pitch, fdb.yaw } };
 
         PostureData posture;
@@ -95,6 +118,8 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
 
         sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
         sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoHead));
+
+        mElectricDataBuff = fdb.electricData;
     }
 
     void sentrySetPacket() {
@@ -106,12 +131,24 @@ class SentrySerialPort final : public HubHelper<caf::event_based_actor, SentrySe
 
 public:
     SentrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, SerialPort<SentryRecvPacket, SentrySendPacket>(
-                                                          mConfig.devPath, mConfig.baudRate,
-                                                          std::bind(&SentrySerialPort::infantryRecvCB, this,
-                                                                    std::placeholders::_1),
-                                                          std::bind(&SentrySerialPort::sentrySetPacket, this)),
-          mKey{ generateKey(this) } {}
+        : HubHelper{ base, config, std::move(name) },
+          SerialPort<SentryRecvPacket, SentrySendPacket>(
+              mConfig.devPath, mConfig.baudRate, std::bind(&SentrySerialPort::infantryRecvCB, this, std::placeholders::_1),
+              std::bind(&SentrySerialPort::sentrySetPacket, this)),
+          mKey{ generateKey(this) } {
+        std::thread([this]() {
+            while(globalStatus == RunStatus::running) {
+                ReadableTimePoint readableTimePoint(std::chrono::system_clock::now());
+                HubLogger::electricCtrlLog(
+                    fmt::format("bulletSpeed:{:.3f} bulletSpeed30_offset:{:.3f} fdb_position_x:{:.3f} fdb_position_y:{:.3f} "
+                                "fdb_yaw_in_world:{:.3f} fric_left_rpm:{} fric_right_rpm:{} heat:{}",
+                                GlobalSettings::get().bulletSpeed, mElectricDataBuff.bulletSpeed30Offset,
+                                mElectricDataBuff.fdbPositionX, mElectricDataBuff.fdbPositionY, mElectricDataBuff.fdbYawInWorld,
+                                mElectricDataBuff.fricLeftRpm, mElectricDataBuff.fricRightRpm, mElectricDataBuff.heat));
+                std::this_thread::sleep_for(10ms);
+            }
+        }).detach();
+    }
 
     caf::behavior make_behavior() override {
         return {

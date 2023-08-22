@@ -33,6 +33,9 @@ struct GlobalSettings final {
     bool started = false;
     int taskMode = 0;
 
+    uint8_t priorNum = 0xff;
+    bool blockEngineer = false, blockSentry = false;
+
     [[nodiscard]] double bulletRadius() const noexcept {
         return bullet42mm ? radiusOf42mm : radiusOf17mm;
     }

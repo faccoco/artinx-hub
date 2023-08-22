@@ -10,10 +10,14 @@ CameraBase::CameraBase(caf::actor_config& base, const HubConfig& config, std::st
         while(!mStopDaemon.load(std::memory_order_acquire)) {
             std::this_thread::sleep_for(2s);
             if(!mSendFlag.load(std::memory_order_consume)) {
-                HubLogger::visualLog(fmt::format("Camera node {} down, restarting", mNodeName));
-                logError(fmt::format("Camera node {} down, restarting", mNodeName));
-                this->restartCamera();
-                std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(4000 / mConfig.fps)));
+                if(mConfig.restart) {
+                    HubLogger::visualLog(fmt::format("Camera node {} down, restarting", mNodeName));
+                    logError(fmt::format("Camera node {} down, restarting", mNodeName));
+                    this->restartCamera();
+                } else {
+                    HubLogger::visualLog(fmt::format("Camera node {} down, not to restart", mNodeName));
+                    logError(fmt::format("Camera node {} down, not to restart", mNodeName));
+                }
             }
             mSendFlag.store(false, std::memory_order_release);
         }
