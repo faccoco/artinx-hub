@@ -10,14 +10,14 @@
 
 #include "SuppressWarningEnd.hpp"
 
-#include <cstdint>
 #include <atomic>
+#include <cstdint>
 
 using Clock = std::chrono::steady_clock;
 static_assert(std::is_same_v<Clock::period, std::nano>);
 
 enum class Color { Blue, Red, Purple, Negative };
-enum class TaskMode {AutoAim = 0, SmallRune = 1, BigRune = 2};
+enum class TaskMode { AutoAim = 0, SmallRune = 1, BigRune = 2 };
 
 struct GlobalSettings final {
     double gForce;
@@ -32,7 +32,6 @@ struct GlobalSettings final {
     double shootDelayTime = 0.f;
     bool started = false;
     int taskMode = 0;
-    
 
     [[nodiscard]] double bulletRadius() const noexcept {
         return bullet42mm ? radiusOf42mm : radiusOf17mm;
@@ -46,7 +45,7 @@ struct GlobalSettings final {
         return isRed ? Color::Red : Color::Blue;
     }
 
-    TaskMode getTaskMode() const noexcept{
+    TaskMode getTaskMode() const noexcept {
         return static_cast<TaskMode>(taskMode);
     }
 
@@ -146,10 +145,12 @@ struct __ImplActorProtocol final {
     }
 };
 
-#define ACTOR_PROTOCOL_DEFINE(...)                              \
-    template <>                                                 \
-    struct __ImplActorProtocol<__VA_ARGS__> final {             \
-        static constexpr bool check() noexcept { return true; } \
+#define ACTOR_PROTOCOL_DEFINE(...)                  \
+    template <>                                     \
+    struct __ImplActorProtocol<__VA_ARGS__> final { \
+        static constexpr bool check() noexcept {    \
+            return true;                            \
+        }                                           \
     }
 
 template <typename... Args>
