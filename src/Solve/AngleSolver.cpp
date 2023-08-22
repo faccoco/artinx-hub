@@ -37,7 +37,7 @@ static std::optional<T> getQueueMax(const std::deque<T>& queue) {
     if(!queue.empty()) {
         T maxT = queue.front();
         for(T t : queue) {
-            if (abs(t) > abs(maxT))
+            if(abs(t) > abs(maxT))
                 maxT = t;
         }
         return maxT;
@@ -57,15 +57,14 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
         return { center.x + r * cos(theta), center.y + r * sin(theta), center.z };
     }
 
-    double getMaxAVel(double aVel)
-    {
+    double getMaxAVel(double aVel) {
         mPastAVel.push_back(aVel);
         if(mPastAVel.size() > 3) {
-            if (mPastAVel.size() > 50)
+            if(mPastAVel.size() > 50)
                 mPastAVel.pop_front();
             return getQueueMax<double>(mPastAVel).value();
-        }
-        else return aVel;
+        } else
+            return aVel;
     }
 
 public:
@@ -128,7 +127,7 @@ public:
 
                 // double aVel = getMaxAVel(-data->angularVel.mVal);
                 HubLogger::watch("maxAngleVel", aVel);
-                
+
                 double R[2] = { data->radius.first, data->radius.second };
                 double Z[2] = { data->y.first, data->y.second };
 

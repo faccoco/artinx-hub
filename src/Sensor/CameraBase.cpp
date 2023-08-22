@@ -1,8 +1,8 @@
 #include "CameraBase.hpp"
 #include "Timer.hpp"
+#include "Utility.hpp"
 #include <atomic>
 #include <thread>
-#include "Utility.hpp"
 
 CameraBase::CameraBase(caf::actor_config& base, const HubConfig& config, std::string name)
     : HubHelper{ base, config, std::move(name) } {

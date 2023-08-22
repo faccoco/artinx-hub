@@ -131,10 +131,11 @@ class SentrySerialPort final
 
 public:
     SentrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) },
-          SerialPort<SentryRecvPacket, SentrySendPacket>(
-              mConfig.devPath, mConfig.baudRate, std::bind(&SentrySerialPort::infantryRecvCB, this, std::placeholders::_1),
-              std::bind(&SentrySerialPort::sentrySetPacket, this)),
+        : HubHelper{ base, config, std::move(name) }, SerialPort<SentryRecvPacket, SentrySendPacket>(
+                                                          mConfig.devPath, mConfig.baudRate,
+                                                          std::bind(&SentrySerialPort::infantryRecvCB, this,
+                                                                    std::placeholders::_1),
+                                                          std::bind(&SentrySerialPort::sentrySetPacket, this)),
           mKey{ generateKey(this) } {
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {

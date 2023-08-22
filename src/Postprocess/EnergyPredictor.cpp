@@ -229,14 +229,14 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
             dt = durationCastDouble(tp - std::get<0>(mThetaInfos.back()));
             dTheta = theta - std::get<1>(mThetaInfos.back());
         }
-        if(mThetaInfos.size() >= mConfig.fanQueueLength){
+        if(mThetaInfos.size() >= mConfig.fanQueueLength) {
             auto top = mThetaInfos.front();
             mThetaInfos.pop_front();
-            if (mMode == TaskMode::BigRune){
-                mTrackFan.state(0) -= std::get<2>(top);  //reset t0
+            if(mMode == TaskMode::BigRune) {
+                mTrackFan.state(0) -= std::get<2>(top);  // reset t0
             }
         }
-            
+
         mThetaInfos.emplace_back(tp, theta, dt, dTheta);
         mDirSum = dTheta >= 0 ? mDirSum + 1 : mDirSum - 1;
         mDirection = mDirSum >= 0 ? 1 : -1;
@@ -252,11 +252,12 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         ceres::Solver::Options options;
         ceres::Solver::Summary summary;
 
-        double t0 = 0.0, theta0 = 0.0; 
+        double t0 = 0.0, theta0 = 0.0;
         for(const auto& thetaInfo : mThetaInfos) {
             t0 += std::get<2>(thetaInfo), theta0 += std::fabs(std::get<3>(thetaInfo));
-            problem.AddResidualBlock(new ceres::AutoDiffCostFunction<CurveFittingCost, 1, 4>(new CurveFittingCost(t0, normalizeAngle(theta0))),
-                                     nullptr, mParameters);
+            problem.AddResidualBlock(
+                new ceres::AutoDiffCostFunction<CurveFittingCost, 1, 4>(new CurveFittingCost(t0, normalizeAngle(theta0))),
+                nullptr, mParameters);
         }
 
         problem.SetParameterLowerBound(mParameters, 0, 0.780);
@@ -269,7 +270,6 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
         //        logInfo(summary.FullReport());
         logInfo(fmt::format("Final Cost: {:.3f} Param: {:.3f} {:.3f} {:.3f} {:.3f}", summary.final_cost, mParameters[0],
                             mParameters[1], mParameters[2], mParameters[3]));
-        
     }
 
     std::tuple<bool, double, double> solveAngle(const Eigen::VectorXd& X) {
@@ -285,7 +285,7 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
             //     statePos(2) = clcBigRuneTheta(X(0), predictTime);
             //     logInfo(fmt::format("Predictor theta: {}", statePos(2)));
             // }
-            statePos(2) = theta + w * predictTime; //TODO
+            statePos(2) = theta + w * predictTime;  // TODO
 
             Eigen::VectorXd predictPos = getFanPosFromState(statePos);
             auto [acess2, airTime, yaw, pitch] =
@@ -307,8 +307,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
 
 public:
     EnergyPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, name }, mKey{ generateKey(this) },
-          mTrackFan{ TimePoint(), Eigen::VectorXd::Zero(7), FanTrackingState::LOST } {
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) }, mTrackFan{ TimePoint(), Eigen::VectorXd::Zero(7),
+                                                                                 FanTrackingState::LOST } {
         mLostCount = mConfig.lostCnt;
 
         int nX = 7;  // state:t w theta xr yr zr yaw
@@ -461,8 +461,8 @@ public:
                                  init(fanPos);
                                  matched = true;
                              } else {
-                                 if(mMode == TaskMode::BigRune){
-                                    fitParameters();
+                                 if(mMode == TaskMode::BigRune) {
+                                     fitParameters();
                                  }
                                  matched = update(dt, fanPos);
                              };
@@ -479,13 +479,12 @@ public:
                          HubLogger::watch("rLabelYaw", mTrackFan.state(6));
                          auto [success, yaw, pitch] = solveAngle(mTrackFan.state);
                          HubLogger::visualLog(fmt::format("pnp solver result: {} {:.3f} {:.3f}", success, yaw, pitch));
-                         if (!success || isnan(yaw) || isnan(pitch)){
-                            return;
+                         if(!success || isnan(yaw) || isnan(pitch)) {
+                             return;
                          }
-            
-                        sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(),
-                                            yaw, pitch, true, normalSolver);
-                         
+
+                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(),
+                                             yaw, pitch, true, normalSolver);
                      }
                  } };
     }

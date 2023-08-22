@@ -31,7 +31,7 @@ struct ArmorDetectorSettings final {
     float maxArmorAngle;       // angle(degree)
     float minLargeArmorRatio;  // width / height
     std::string numClassifyModelPath;
-    float numProbThresh;       // number classify probability threshold
+    float numProbThresh;  // number classify probability threshold
     float armorRatio;
     bool excludeNegative;
 };

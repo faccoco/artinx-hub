@@ -139,7 +139,8 @@ public:
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
                 ReadableTimePoint readableTimePoint(std::chrono::system_clock::now());
-                HubLogger::electricCtrlLog(fmt::format("CapEnegy: {:.3f}, Chasis: {:.3f} Yaw: {:.3f}, Pitch: {:.3f}", mCapEnergy, mChasisPower, mYaw, mPitch));
+                HubLogger::electricCtrlLog(fmt::format("CapEnegy: {:.3f}, Chasis: {:.3f} Yaw: {:.3f}, Pitch: {:.3f}", mCapEnergy,
+                                                       mChasisPower, mYaw, mPitch));
                 std::this_thread::sleep_for(50ms);
             }
         }).detach();

@@ -64,7 +64,7 @@ public:
             return;
         mRecordeCnt++;
         std::vector<char> vec = mSerialPort->read();
-        if (mRecordeCnt == 100){
+        if(mRecordeCnt == 100) {
             HubLogger::visualLog(fmt::format("SerialPort Recive : {} byte information", vec.size()));
             mRecordeCnt = 0;
         }

@@ -84,7 +84,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
         if(sockFd != -1) {
             strncpy(ifReq.ifr_name, mConfig.ethName.data(), IFNAMSIZ);  // Interface name
             ifReq.ifr_name[IFNAMSIZ - 1] = 0;
-            if(ioctl(sockFd, SIOCGIFADDR, &ifReq) == 0) {               // SIOCGIFADDR obtain interface address
+            if(ioctl(sockFd, SIOCGIFADDR, &ifReq) == 0) {  // SIOCGIFADDR obtain interface address
                 memcpy(&sockIn, &ifReq.ifr_addr, sizeof(ifReq.ifr_addr));
                 return inet_ntoa(sockIn.sin_addr);
             }
@@ -150,7 +150,7 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
                     if(gConfigHelper->updateConfigData(std::move(configData))) {
                         caf::scoped_actor {
                             system()
-                        } -> send(caf::actor_cast<caf::actor>(system().registry().get("_DAEMON_")), reload_all_config_atom_v);
+                            } -> send(caf::actor_cast<caf::actor>(system().registry().get("_DAEMON_")), reload_all_config_atom_v);
                         return "Succeed";
                     } else {
                         return "Invalid config, check your spelling";

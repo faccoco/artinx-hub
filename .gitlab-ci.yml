@@ -12,7 +12,7 @@ format-check:
   tags:
     - linux-server
   script:
-    - clang-format --dry-run --Werror **/*.cpp **/*.hpp
+    - clang-format --fallback-style=none --dry-run --Werror **/*.cpp **/*.hpp
 
 llvm-check:
   stage: clang-test

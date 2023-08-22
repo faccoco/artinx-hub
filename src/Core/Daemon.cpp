@@ -59,8 +59,9 @@ class DaemonActor final : public caf::event_based_actor {
 
 public:
     DaemonActor(caf::actor_config& base, caf::actor_system& sys, std::vector<std::pair<std::string, caf::actor>>& actors)
-        : event_based_actor{ base }, gSystem{ sys }, gActors{ actors }, gFactory{ &NodeFactory::get() },
-          gConfigHelper{ &ConfigHelper::instance() } {
+        : event_based_actor{ base }, gSystem{ sys }, gActors{ actors }, gFactory{ &NodeFactory::get() }, gConfigHelper{
+              &ConfigHelper::instance()
+          } {
         for(auto&& [name, actor] : actors) {
             this->monitor(actor);
             mActorsAddr.emplace(actor.address(), name);

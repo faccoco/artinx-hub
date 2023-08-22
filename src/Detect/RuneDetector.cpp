@@ -37,7 +37,7 @@ struct RuneDetecorSettings final {
     int dilateKernel;
     double minConvexHullThresh;  // for hull area ratio filter
     double maxConvexHullThresh;
-    int minContourArea;          // for contour area filter
+    int minContourArea;  // for contour area filter
     double rRoiSizeScale;
 
     double minRRectAreaRatio;
