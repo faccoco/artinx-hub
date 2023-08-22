@@ -1,8 +1,7 @@
 
-
 # 参考文档
 
-[CAF User Manual — CAF 0.18.5 documentation (actor-framework.readthedocs.io)](https://actor-framework.readthedocs.io/en/stable/index.html)
+[CAF User Manual](https://actor-framework.readthedocs.io/en/stable/index.html)
 
 # Actor信息发送
 
@@ -23,8 +22,20 @@
 
 + blocking_actor在act函数中使用receives函数处理消息
 + 使用基于动态模板匹配的方式来分发参数到对应函数，因此要确保调用方和被调用方的接口一致
+- 重启消息和配置文件重载通过在基类中`set_default_handler`实现，因此自己不要乱set
+- daemon仅守护在主进程中创建的actor
 
-# 运行配置
+# 调试输出
+
++ `HubLogger`类:
+    - `watch`: 输出到网页前端
+    - `logInfo/logWarning/logError`: 终端无缓冲输出,保证不被hub内的输出打断
+    - `print`: 没用过，自己看看
+    - `electricCtrlLog`: 输出电控log到文件
+    - `electricCtrlLog`: 输出视觉log到文件
+    - 剩下自己看
+     
+# 运行配置(Windows)
 
 + 一定要2空格缩进，LF行尾
 
@@ -53,9 +64,3 @@
     ]
   }
   ```
-
-  
-
-# 调试输出
-
-+ 暂时使用logInfo函数
