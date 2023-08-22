@@ -1,3 +1,4 @@
+#ifdef ARTINX_HIK
 #include "BlackBoard.hpp"
 #include "CameraBase.hpp"
 #include "CameraFrame.hpp"
@@ -110,7 +111,7 @@ class DahengDriver final : public CameraBase {
         frameData.info.tfRobot2Camera = clcTfRobot2Camera(gunPose);
 
         frameData.frame = std::move(bgr);
-        
+
         HubLogger::visualLog("Daheng Camera: Camera send an image");
         sendAll(
             image_frame_atom_v,
@@ -303,3 +304,4 @@ public:
 };
 
 HUB_REGISTER_CLASS(DahengDriver);
+#endif

@@ -1,6 +1,6 @@
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
-#include "EnergyDetect.hpp"
+#include "DetectedEnergyFan.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "PostureData.hpp"
@@ -25,7 +25,7 @@ public:
     static constexpr uint16_t id = 0x0A;
 
     float yaw, pitch, bulletSpeed, speedX, speedY;
-    uint8_t color, energyMode;
+    uint8_t color, energyMode = 0;
     float capEnergy, chasisPower;
     explicit InfantryRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
@@ -35,7 +35,11 @@ public:
         speedY = reader.readCompressedFloat(-20.0f, 0.01f);
         const auto mask = reader.read();
         color = mask & 1;
-        energyMode = (mask >> 1) & 1;
+        if(((mask >> 1) & 1) == 1) {
+            energyMode = 1;
+        } else if(((mask >> 2) & 1) == 1) {
+            energyMode = 2;
+        }
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
         capEnergy = reader.readCompressedFloat(-1.0f, 0.1f);
         chasisPower = reader.readCompressedFloat(-1.0f, 0.01f);
@@ -79,25 +83,34 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
     constexpr static size_t latencyLen = 100;
     std::deque<double> mLatency;
 
+    float mYaw = 0., mPitch = 0., mCapEnergy = 0., mChasisPower = 0.;
     TimePoint mLastReceivedTime, mLastTargetTime;
 
     void infantryRecvCB(const InfantryRecvPacket& fdb) {
         GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
         HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
 
-        sendAll(energy_detector_control_atom_v, static_cast<bool>(fdb.energyMode));
-
         auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
         auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
-        // HubLogger::watch("yaw1", fdb.yaw);
-        // HubLogger::watch("pitch1", fdb.pitch);
+        HubLogger::watch("yaw1", fdb.yaw);
+        HubLogger::watch("pitch1", fdb.pitch);
         HubLogger::watch("deltaYaw1", deltaYaw1);
         HubLogger::watch("deltaPitch1", deltaPitch1);
 
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
-        const HeadInfo infoHead{ SynchronizedClock::instance().now(), { 0.0, fdb.pitch, fdb.yaw } };
+        GlobalSettings::get().taskMode = fdb.energyMode;
+
+        const double yaw = fdb.yaw + glm::half_pi<double>();
+        const double pitch = fdb.pitch;
+        const double roll = 0.0;
+        const HeadInfo infoHead{ SynchronizedClock::instance().now(), { roll, pitch, yaw } };
+
+        mYaw = fdb.yaw;
+        mPitch = fdb.pitch;
+        mCapEnergy = fdb.capEnergy;
+        mChasisPower = fdb.chasisPower;
 
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();
@@ -122,13 +135,21 @@ public:
                                                           std::bind(&InfantrySerialPort::infantryRecvCB, this,
                                                                     std::placeholders::_1),
                                                           std::bind(&InfantrySerialPort::infantrySetPacket, this)),
-          mKey{ generateKey(this) } {}
-
+          mKey{ generateKey(this) } {
+        std::thread([this]() {
+            while(globalStatus == RunStatus::running) {
+                ReadableTimePoint readableTimePoint(std::chrono::system_clock::now());
+                HubLogger::electricCtrlLog(fmt::format("CapEnegy: {:.3f}, Chasis: {:.3f} Yaw: {:.3f}, Pitch: {:.3f}", mCapEnergy,
+                                                       mChasisPower, mYaw, mPitch));
+                std::this_thread::sleep_for(50ms);
+            }
+        }).detach();
+    }
     caf::behavior make_behavior() override {
         return {
             [this](start_atom) {
                 ACTOR_PROTOCOL_CHECK(start_atom);
-                started = true;
+                mStarted = true;
             },
             [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
                    SolverType solverType) {

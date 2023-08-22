@@ -1,8 +1,10 @@
 #pragma once
+#include "Hub.hpp"
 #include "SuppressWarningBegin.hpp"
 
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "SerialPort/Crc.hpp"
+#include "Timer.hpp"
 #include "Utility.hpp"
 
 #include "SuppressWarningEnd.hpp"
@@ -16,8 +18,8 @@ public:
     SerialPort(const std::string& devPath, uint32_t baudRate, const std::function<void(const RecvPacket& recvPacket)>& recvCB,
                const std::function<void()>& setBeforeSend)
         : mSerialPort(std::make_unique<BufferedAsyncSerial>()), mPacketLen(0), mCheckingHeader(false), mSendBufferLen(0),
-          mRecvCallback(recvCB), mSetBeforeSend(setBeforeSend) {
-        mSerialPort->open(devPath, baudRate);
+          mDevPath(devPath), mBaudRate(baudRate), mRecvCallback(recvCB), mSetBeforeSend(setBeforeSend) {
+        mSerialPort->open(mDevPath, mBaudRate);
         mSendPacket.serialize();
         std::thread{ [this]() {
             while(globalStatus == RunStatus::running) {
@@ -36,7 +38,7 @@ public:
 
     BufferedAsyncSerial::Ptr mSerialPort;
 
-    bool started = false;
+    bool mStarted = false;
 
     uint16_t mExpectedLen;
     std::array<uint8_t, RecvBufferLen> mPacketBuffer;
@@ -47,21 +49,32 @@ public:
     std::array<uint8_t, SendBufferLen> mSendBuffer;
     size_t mSendBufferLen;
 
+    std::optional<TimePoint> mLastReceivedTime;
+    const std::string mDevPath;
+    const uint32_t mBaudRate;
+
     std::mutex mPacketMutex;
     SendPacket mSendPacket{};
     std::function<void(const RecvPacket& recvPacket)> mRecvCallback;
     std::function<void()> mSetBeforeSend;
+    int32_t mRecordeCnt = 0;
 
     void receive() {
-        if(!started)
+        if(!mStarted)
             return;
+        mRecordeCnt++;
         std::vector<char> vec = mSerialPort->read();
+        if(mRecordeCnt == 100) {
+            HubLogger::visualLog(fmt::format("SerialPort Recive : {} byte information", vec.size()));
+            mRecordeCnt = 0;
+        }
         for(uint8_t data : vec) {
             if(mPacketLen < RecvBufferLen) {
                 mPacketBuffer[mPacketLen++] = data;
                 if(mPacketLen == mExpectedLen && Crc::VerifyCrc16CheckSum(mPacketBuffer.data(), mPacketLen)) {
                     if(mPacketBuffer[5] == RecvPacket::id) {  // mPacketBuffer[5] ==> Protocol id
                         mRecvCallback(RecvPacket(mPacketBuffer));
+                        mLastReceivedTime = Clock::now();
                     }
                 }
             }
@@ -84,6 +97,12 @@ public:
                 mHeaderLen = 0;
                 mHeaderBuffer[mHeaderLen++] = data;
             }
+        }
+        if(mLastReceivedTime.has_value() && Clock::now() - mLastReceivedTime.value() > std::chrono::seconds(1)) {
+            HubLogger::visualLog("SerialPort: hasn't received from serial for 1s, restart serial port");
+            mLastReceivedTime.reset();
+            mSerialPort->close();
+            mSerialPort->open(mDevPath, mBaudRate);
         }
     }
 

@@ -4,12 +4,8 @@ Artinx视觉组 集成框架
 
 <!-- vim-markdown-toc GitLab -->
 
-- [入门](#入门)
-    - [计算机基础](#计算机基础)
-    - [C++](#c)
-    - [Linux/Git/Shell](#linuxgitshell)
-- [快速跳转](#快速跳转)
-- [开发规范](#开发规范)
+- [ARTINX-HUB](#artinx-hub)
+  - [开发规范](#开发规范)
     - [代码规范](#代码规范)
     - [Commit规范](#commit规范)
     - [GitLab工作流](#gitlab工作流)
@@ -22,22 +18,19 @@ Artinx视觉组 集成框架
 - [机器人部署指南](#机器人部署指南)
     - [本地环境配置](#本地环境配置)
     - [CI配置](#ci配置)
-- [CI持续部署指南](#ci持续部署指南)
+  - [CI持续部署指南](#ci持续部署指南)
     - [自启动流程](#自启动流程)
     - [自动部署](#自动部署)
-- [故障排除](#故障排除)
-- [框架指南](#框架指南)
+  - [故障排除](#故障排除)
+  - [框架指南](#框架指南)
     - [程序工作流](#程序工作流)
     - [框架工具类使用指南](#框架工具类使用指南)
     - [Group Mask使用方法](#group-mask使用方法)
-- [代码详解](#代码详解)
+  - [代码详解](#代码详解)
 
 <!-- vim-markdown-toc -->
-## 入门
 
-没有速成，速成的都是垃圾
 
-[CheckList](docs/checklist.md)
 
 ### 计算机基础
 
@@ -184,16 +177,6 @@ Artinx视觉组 集成框架
 
 - 安装Clion
 - 按照Genetic步骤安装依赖
-- 添加环境变量
-
-```shell
-sudo vim /etc/profile                           #打开/etc/profile文件
-
-#在文件末尾加入以后命令
-export DAHENG_SDK=<PATH>/Galaxy_camera     #PATH为相机SDK所在目录
-export ONEAPI_ROOT=/opt/intel                  #/opt/intel 为ONEAPI默认安装目录，若不在,请修改
-source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference engine一般为未运行此行的问题
-```
 
 - optional: 安装clang, 见 Clang
 - clone仓库
@@ -213,28 +196,35 @@ source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference en
   - glm
   - cpp-httplib
   - fmt
-  - bullet3 (未来可能被移除)
   - magic-enum
   - opencv4[contrib,ffmpeg]
   - glew
   - glfw3
   - opengl
   - eigen3
-  - boost
   - spdlog
+  - ceres
   如遇任何问题，请按照错误提示用apt补足缺少的软件包或更换网络重试一次
 - 集成vcpkg安装包，运行
 `./vcpkg integrate install`
 
-- 安装OneAPI [Download the Intel® oneAPI Base Toolkit](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html)
-  - 仅勾选TBB即可，其它没用
-- 安装2021 离线版OpenVINO [Download Intel® Distribution of OpenVINO™ Toolkit](https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit-download.html)(OpenVINO2021不支持win11)
-  - 也要安装在OneAPI文件夹下
+#### Optional
+- 根据需求安装OpenVINO2022，下载NAS上l_openvino_toolkitxxxxubuntu2022安装包
+  - 安装install_dependencies文件夹OpenVINO依赖 `sudo install install_openvino_dependencies.sh`
 
 - 根据需求(USB2/USB3)安装大恒相机驱动[Daheng Imaging](https://daheng-imaging.com/list-58-1.html), 对应CMake参数的ARTINX_HUB_CAMERA=USB2/USB3
 - 安装 Hik Robot 驱动 [hik robotics](https://www.hikrobotics.com/cn/machinevision/service/download?module=0), 设置环境变量 `HIK_SDK=/opt/MVS`
+- 添加环境变量
 
-### Clang
+```shell
+sudo vim /etc/profile                           #打开/etc/profile文件
+
+#在文件末尾加入以后命令
+export OPENVINO2022_PATH = <PATH>                   #PATH为OPENVINO2022安装目录，需要加上openvino2022文件夹名
+export DAHENG_SDK=<PATH>/Galaxy_camera              #PATH为相机SDK所在目录
+source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference engine一般为未运行此行的问题
+```
+### LLVM-Clang
 
 >在ubuntu上配置最新 clang(stable) 编译环境
 
@@ -346,10 +336,6 @@ gitlab-runner ALL=(ALL) NOPASSWD: ALL
   - 打开Galaxy看看能不能检测到(仅限3.0相机）
   - 重装驱动，重新启动，重新插拔数据线
   - **哨兵靠相机的SN码区分上下云台，看看confg里面有没有写错**
-- 机器人上自瞄不工作
-  - 使用systemctl status ArtinxHub.service查看服务状态
-  - 打开127.0.0.1:5430查看工作状态
-  - 多半是相机或串口寄了
 
 ## 框架指南
 
@@ -387,7 +373,7 @@ CAF框架参见[actor_system.md](docs/actor_system.md)
 
 ### Group Mask使用方法
 
-由于哨兵的特殊用法（一个sentry strategy需要根据数据来自上下云台选择发给哪个angle solver），故引入了group mask机制：
+由于哨兵的特殊用法（一个sentry strategy需要根据数据来自前后那个相机进行决策），故引入了group mask机制：
 
 - config里atom的定义改为所有**可能**接受消息的actor
 - config新增两个内置属性group_id和group_mask，如果设置了group_id则mGroupMask为1<<group_id,如果设置了group_mask则mGroupMask为group_mask，否则默认为1

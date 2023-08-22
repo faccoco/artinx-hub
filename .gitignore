@@ -16,3 +16,4 @@ cmake-*.sh
 .clangd
 Folder.DotSettings
 config/*
+log

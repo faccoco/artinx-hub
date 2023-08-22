@@ -1,5 +1,6 @@
 #include "CameraBase.hpp"
 #include "Timer.hpp"
+#include "Utility.hpp"
 #include <atomic>
 #include <thread>
 
@@ -9,10 +10,14 @@ CameraBase::CameraBase(caf::actor_config& base, const HubConfig& config, std::st
         while(!mStopDaemon.load(std::memory_order_acquire)) {
             std::this_thread::sleep_for(2s);
             if(!mSendFlag.load(std::memory_order_consume)) {
-                HubLogger::visualLog(fmt::format("Camera node {} down, restarting", mNodeName));
-                logError(fmt::format("Camera node {} down, restarting", mNodeName));
-                this->restartCamera();
-                std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(4000 / mConfig.fps)));
+                if(mConfig.restart) {
+                    HubLogger::visualLog(fmt::format("Camera node {} down, restarting", mNodeName));
+                    logError(fmt::format("Camera node {} down, restarting", mNodeName));
+                    this->restartCamera();
+                } else {
+                    HubLogger::visualLog(fmt::format("Camera node {} down, not to restart", mNodeName));
+                    logError(fmt::format("Camera node {} down, not to restart", mNodeName));
+                }
             }
             mSendFlag.store(false, std::memory_order_release);
         }
@@ -56,11 +61,11 @@ void CameraBase::reportFrameRate(const Clock::time_point timeStamp) {
 }
 
 Transform<FrameOfRef::Robot, FrameOfRef::Camera, true> CameraBase::clcTfRobot2Camera(const Pose& gunPose) {
-    double yaw = gunPose.yaw;
-    double pitch = mConfig.isAtGun ? gunPose.pitch : 0;
+    double yaw = gunPose.yaw + mYaw;
+    double pitch = mConfig.isAtGun ? gunPose.pitch + mPitch : mPitch;
     double roll = gunPose.roll;
-    return mFixedTransform *
-        glm::rotate(
-               glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -roll, glm::dvec3{ 0, 0, 1 }), -pitch, glm::dvec3{ 1, 0, 0 }),
-               -yaw, glm::dvec3{ 0, 1, 0 });
+    return glm::lookAtRH(glm::dvec3{ mConfig.offset.x, mConfig.offset.y, mConfig.offset.z },
+                         glm::dvec3{ mConfig.offset.x + std::cos(pitch) * std::cos(yaw), mConfig.offset.y + std::sin(pitch),
+                                     mConfig.offset.z - std::cos(pitch) * std::sin(yaw) },
+                         glm::dvec3{ sin(roll), cos(roll), 0.0 });
 }

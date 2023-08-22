@@ -10,12 +10,14 @@
 
 #include "SuppressWarningEnd.hpp"
 
+#include <atomic>
 #include <cstdint>
 
 using Clock = std::chrono::steady_clock;
 static_assert(std::is_same_v<Clock::period, std::nano>);
 
 enum class Color { Blue, Red, Purple, Negative };
+enum class TaskMode { AutoAim = 0, SmallRune = 1, BigRune = 2 };
 
 struct GlobalSettings final {
     double gForce;
@@ -29,6 +31,10 @@ struct GlobalSettings final {
     double bulletSpeed;
     double shootDelayTime = 0.f;
     bool started = false;
+    int taskMode = 0;
+
+    uint8_t priorNum = 0xff;
+    bool blockEngineer = false, blockSentry = false;
 
     [[nodiscard]] double bulletRadius() const noexcept {
         return bullet42mm ? radiusOf42mm : radiusOf17mm;
@@ -40,6 +46,10 @@ struct GlobalSettings final {
 
     [[nodiscard]] Color getColor() const noexcept {
         return isRed ? Color::Red : Color::Blue;
+    }
+
+    TaskMode getTaskMode() const noexcept {
+        return static_cast<TaskMode>(taskMode);
     }
 
     void setColor(Color color) noexcept {

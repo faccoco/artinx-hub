@@ -44,7 +44,6 @@ void terminateSystem(caf::local_actor& actor, bool success);
 
 extern std::string globalConfigName;
 void appendTestResult(std::string_view message);
-std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>& w);
 
 // width < height
 // angle = 0
@@ -57,6 +56,8 @@ std::vector<uint32_t> solveKM(uint32_t n, uint32_t m, const std::vector<double>&
 // 3 height 2
 
 void boxRect(std::vector<cv::Point2f>& res, const cv::RotatedRect& rect);
+
+cv::Rect2i expandRect(const cv::Rect2f& rect, int oriWidth, int oriHeight, float expandRatio);
 
 // a,b,c mustn't be on the same line or on the same point
 glm::dvec3 circleCenter(const glm::dvec3& a, const glm::dvec3& b, const glm::dvec3& c);

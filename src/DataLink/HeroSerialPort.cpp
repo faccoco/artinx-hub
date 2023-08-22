@@ -175,7 +175,10 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
         mCapEnergy = fdb.capEnergy;
         mChasisPower = fdb.chasisPower;
 
-        const HeadInfo infoUp{ SynchronizedClock::instance().now(), { -fdb.roll, fdb.pitch, fdb.yaw } };
+        const double yaw = fdb.yaw + glm::half_pi<double>();
+        const double pitch = fdb.pitch;
+        const double roll = fdb.roll;
+        const HeadInfo infoUp{ SynchronizedClock::instance().now(), { roll, pitch, yaw } };
 
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();
@@ -203,7 +206,10 @@ public:
 
     caf::behavior make_behavior() override {
         return {
-            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [this](start_atom) {
+                ACTOR_PROTOCOL_CHECK(start_atom);
+                mStarted = true;
+            },
             [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
                    SolverType solverType) {
                 ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
