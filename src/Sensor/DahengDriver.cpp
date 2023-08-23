@@ -135,7 +135,7 @@ class DahengDriver final : public CameraBase {
 
         cv::Mat frame(cv::Size{ pFrameData->nWidth, pFrameData->nHeight }, PixelStorageFormat,
                       const_cast<void*>(pFrameData->pImgBuf));
-        memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
+        //        memcpy(frame.data, pFrameData->pImgBuf, pFrameData->nImgSize);
         newFrameImpl(timeStamp, frame, pFrameData->nWidth, pFrameData->nHeight);
     }
 

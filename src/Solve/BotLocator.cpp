@@ -41,7 +41,7 @@ private:
     Identifier mKey;
     const cv::Mat mMap;
     bool mStart = false;
-    std::array<bool, 11> redUseage, blueUseage;
+    std::array<bool, 7> redUseage, blueUseage;
 
     void debugView(const std::string_view& name, const cv::Mat& src, const std::function<void(cv::Mat&)>& func) {
 
@@ -50,10 +50,11 @@ private:
 
         cv::Mat res;
         src.copyTo(res);
-        if(res.depth() == CV_8U)
+        if(res.depth() == CV_8U) {
             cv::putText(res, name.data(), { 0, 20 }, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 255 });
-        else
+        } else {
             cv::putText(res, name.data(), { 0, 20 }, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 0, 255, 0 });
+        }
 
         func(res);
 
@@ -87,8 +88,8 @@ private:
     std::vector<uint16_t> generateId(const std::vector<yolo::Box>& boxes) {
         std::vector<size_t> noNumber;
         std::vector<uint16_t> result(boxes.size());
-        std::fill_n(redUseage.begin(), 10, false);
-        std::fill_n(blueUseage.begin(), 10, false);
+        std::fill_n(redUseage.begin(), 7, false);
+        std::fill_n(blueUseage.begin(), 7, false);
         for(size_t i = 0; i < boxes.size(); ++i) {
             if(boxes[i].class_label == 10 || boxes[i].class_label == 19) {
                 noNumber.push_back(i);
@@ -106,7 +107,8 @@ private:
                 for(size_t i = 0; i < blueUseage.size(); ++i) {
                     if(!blueUseage[i]) {
                         blueUseage[i] = true;
-                        result[index] = i + 101;
+                        //                        result[index] = 6 - i + 101;
+                        result[index] = 6 + 101;
                         break;
                     }
                 }
@@ -114,7 +116,8 @@ private:
                 for(size_t i = 0; i < redUseage.size(); ++i) {
                     if(!redUseage[i]) {
                         redUseage[i] = true;
-                        result[index] = i + 1;
+                        //                        result[index] = 6 - i + 1;
+                        result[index] = 6 + 1;
                         break;
                     }
                 }
@@ -124,16 +127,16 @@ private:
     }
 
     void fixOffset(BotsPosition& origin) {
-        constexpr auto inRedRHeightRange = [](const DetectedBotPosition& bot) {
+        constexpr static auto inRedRHeightRange = [](const DetectedBotPosition& bot) {
             return (bot.x > 3.4 && bot.x < 9.5) && (/*r3*/ bot.y > 10.7 && bot.y < 15);
         };
-        constexpr auto inBlueRHeightRange = [](const DetectedBotPosition& bot) {
+        constexpr static auto inBlueRHeightRange = [](const DetectedBotPosition& bot) {
             return (bot.x > 18.5 && bot.x < 24.6) && (/*r3*/ bot.y > 9 && bot.y < 4.3);
         };
-        constexpr auto inRedRoundHeightRange = [](const DetectedBotPosition& bot) {
+        constexpr static auto inRedRoundHeightRange = [](const DetectedBotPosition& bot) {
             return (bot.x > 9.75 && bot.x < 12.75) && (bot.y > 8 && bot.y < 11.5);
         };
-        constexpr auto inBlueRoundHeightRange = [](const DetectedBotPosition& bot) {
+        constexpr static auto inBlueRoundHeightRange = [](const DetectedBotPosition& bot) {
             return (bot.x > 15.25 && bot.x < 18.25) && (bot.y > 3.5 && bot.y < 7);
         };
         if(mConfig.selfRed) {
@@ -207,6 +210,11 @@ public:
                          auto res = locate(data.value());
                          fixOffset(res);
                          HubLogger::watch("Solve bots:", res.data.size());
+                         HubLogger::visualLog("===== Finish pos solve =====");
+                         for(size_t i = 0; i < res.data.size(); ++i) {
+                             HubLogger::visualLog(
+                                 fmt::format("ID: {} pos: [ x: {}, y: {} ]", res.data[i].id, res.data[i].x, res.data[i].y));
+                         }
                          showLocateResult(res);
                          sendAll(sync_position_atom_v, BlackBoard::instance().updateSync(mKey, std::move(res)));
                      }
