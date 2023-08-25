@@ -84,22 +84,25 @@ Artinx视觉组 集成框架
 ### 代码规范
 
 - 所有类型名使用大驼峰ThisIsType，宏使用大写+下划线THIS_IS_MACRO，其余使用小驼峰thisIsVariable
-- 使用根目录下的.clang-format文件格式化代码
+- 使用根目录下的.clang-format文件格式化代码，.clang-tidy进行检查
 - 未经允许禁止引入新的第三方库
 - 使用C++17标准，不在使用宏支持跨平台的情况下使用编译器/操作系统相关的代码
 - 未经允许禁止引入新的单例
 - 在vector大小已知时使用resize/reserve预分配空间
 - 使用智能指针，一般情况下不允许出现任何形式的new/delete
-- 使用函数/模板重用代码
+- 使用函数/模板/继承重用代码
 - 仅允许Resharper C++和clang的linter标记
-- 按值传递所有权，其余情况一遍按const引用传递参数。拥有SSO优化的string二者均可。
+- 按值传递所有权，其余情况一遍按const引用传递参数(string 使用 string_view)。拥有SSO优化的string二者均可。
 - 未经允许禁止更改公共API
 - 尽量使用Transform.hpp提供的编译期量纲分析和参考系检查的Point/Vector/Normal/Transform，不直接使用glm库
 - 使用Identifier和BlackBoard系统传递大型结构体
-- 禁止使用C动态内存管理和字符串API
+- 禁止使用C动态内存管理，字符串API
+- 禁止使用C风格的类型转换
+- 使用命名空间，未经允许禁止暴露变量/函数到全局作用域，
+- 未经允许禁止在头文件中使用using指令和声明
 - 使用SynchronizedClock作为同步系统时钟
 - 使用Clock获取系统时钟的相关类型信息
-- 所有Atom必须使用**ACTOR_PROTOCOL_CHECK**和**ACTOR_PROTOCOL_DEFINE**检查参数类型
+- 所有Atom必须使用``ACTOR_PROTOCOL_CHECK``和``ACTOR_PROTOCOL_DEFINE``检查参数类型
 
 ### Commit规范
 
@@ -108,6 +111,7 @@ Artinx视觉组 集成框架
 - 尽可能确保commit时源码能够正常编译，正常运行，通过测试
 - 未经允许禁止提交二进制文件，禁止提交个人配置文件
 - 一切新功能代码修改均在feature-（小写和-组成）分支下进行，一切bug修复均在hotfix-分支下进行，在review通过后，需向develop分支发起**merge request**，由管理员merge至develop分支
+- feature分支向主分支merge时使用squash commit
 - develop分支的功能稳定后，将由管理员merge至main分支，非管理员无法直接对develop分支和main分支做修改
 
 - 工作流样例：
@@ -127,7 +131,7 @@ Artinx视觉组 集成框架
 
 1. 某人发起新的issue对应新的功能/bug修复，此时新的补充或纠正等讨论内容发在issue上
 2. 管理员指定给某人在该issue上工作，创建新的merge request以跟踪进度
-3. assignee完成工作后push代码，由reviewer审核代码，完成审核后由管理员merge入develop分支，并在log.md写明本次merge添加了什么功能，修改了那些程序逻辑
+3. assignee完成工作后push代码，由reviewer审核代码，完成审核后由管理员merge入develop分支，并在CHANGELOG.md写明本次merge添加了什么功能，修改了那些程序逻辑
 4. merge完成后issue被自动关闭
 
 ## 仓库目录结构
@@ -194,7 +198,7 @@ Artinx视觉组 集成框架
   - nlohmann-json
   - caf
   - glm
-  - cpp-httplib
+  - cpp-httplib(建议更换)
   - fmt
   - magic-enum
   - opencv4[contrib,ffmpeg]
@@ -334,8 +338,13 @@ gitlab-runner ALL=(ALL) NOPASSWD: ALL
 - 相机无法启动
   - 查看错误码查文档
   - 打开Galaxy看看能不能检测到(仅限3.0相机）
+  - 看看相机的SN码有没有写错
   - 重装驱动，重新启动，重新插拔数据线
-  - **哨兵靠相机的SN码区分上下云台，看看confg里面有没有写错**
+- 机器人上自瞄不工作
+  - 使用systemctl status ArtinxHub.service查看服务状态
+  - 打开网页查看工作状态
+  - 多半是相机或串口寄了
+  - 看看confg有没有写错
 
 ## 框架指南
 
