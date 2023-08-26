@@ -30,55 +30,6 @@ Artinx视觉组 集成框架
 
 <!-- vim-markdown-toc -->
 
-
-
-### 计算机基础
-
-推荐书籍（按照难度排序）：
-
-- Computer Systems: A Programmer's Perspective (CSAPP)
-- 计算机程序的构造和解释（SICP）
-- 计算机组成与设计：硬件/软件接口
-- 操作系统概念（恐龙书）
-- 程序员修炼之道2：通向务实的最高境界
-- 编译原理（龙书）
-
-### C++
-
-基础
-
-- C++ Primer(Plus)
-- [于仕琪老师的Bilibili网课](https://www.bilibili.com/video/BV1Vf4y1P7pq)
-- C++ Programming Language
-
-进阶
-
-- Effective C++
-- Modern C++ Tutorial: C++11/14/17/20 On the Fly
-- Effective Modern C++
-- More Effective C++
-- [小彭老师的Bilibili公开课](https://space.bilibili.com/263032155/channel/collectiondetail?sid=53025)
-- <https://github.com/AnthonyCalandra/modern-cpp-features>
-- <http://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines>
-
-骨灰
-
-- <https://www.youtube.com/user/CppCon>
-- <https://www.open-std.org/jtc1/sc22/wg21/docs/papers/>
-- <http://purecpp.org/>
-
-### Linux/Git/Shell
-
-- <https://git-scm.com/docs/user-manual>
-- <https://linuxtools-rst.readthedocs.io/zh_CN/latest/>
-
-## 快速跳转
-
-- [cppreference](https://en.cppreference.com/w/)
-- [glm manual](https://github.com/g-truc/glm/blob/master/manual.md) or [Opengl-glm](https://nas.artinx.club:5001/sharing/q01EttQss)
-- [OpenCV doc](https://docs.opencv.org/4.x/)
-- [规则手册](https://www.robomaster.com/zh-CN/resource/pages/announcement/1370)
-
 ## 开发规范
 
 ### 代码规范
@@ -164,8 +115,6 @@ Artinx视觉组 集成框架
 
 - 安装IDE Visual Studio 2019（桌面C++ + 英文语言包）
 - 按照Genetic步骤安装依赖
-- 添加环境变量 `ONEAPI_ROOT=<path>\intel`
- `DAHENG_SDK=<path>\GalaxySDK\Samples\VC SDK`
 - clone仓库
 - 用VS打开文件夹,填写cmake参数`-DARTINX_HUB_CAMERA=USB3 -DCMAKE_TOOLCHAIN_FILE=<path to vcpkg>/scripts/buildsystems/vcpkg.cmake`
 - 点击项目-配置ArtinxHub 生成构建文件
@@ -177,8 +126,7 @@ Artinx视觉组 集成框架
 
 - 安装Clion
 - 按照Genetic步骤安装依赖
-
-- optional: 安装clang, 见 Clang
+- optional: 安装clang, 见 Clang; 安装OpenVION2022以及相机驱动
 - clone仓库
 - 用clion打开文件夹
 - 打开CMake设置，填入参数`-DARTINX_HUB_CAMERA=USB3 -DCMAKE_TOOLCHAIN_FILE=<path to vcpkg>/scripts/buildsystems/vcpkg.cmake` **2.0相机写`USB2`**
