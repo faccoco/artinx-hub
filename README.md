@@ -270,7 +270,7 @@ gitlab-runner ALL=(ALL) NOPASSWD: ALL
   - 缩进错误
 - 程序卡死
   - 某个Actor挂了（使用Probe/std::cout定位bug）
-  - 某个Actor死循环（监视系统未完成，谁来干一下）
+  - 某个Actor死循环
 - 串口无法打开(permission denied): 执行 `sudo gpasswd --add ${USER} dialout`
 - 串口无法收发数据
   - 重新插拔usb2ttl
@@ -332,4 +332,5 @@ CAF框架参见[actor_system.md](docs/actor_system.md)
 ## 代码详解
 
 - 参见[code_details.md](docs/code_details.md)
+- 参见[tech_docs](docs/tech_doc)
 
