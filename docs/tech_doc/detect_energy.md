@@ -22,8 +22,8 @@
   + params: 11.085 M 
   + FLOPs: 62.313 M
 
-![results](results.png)
-![confusion_matrix](confusion_matrix_normalized.png)
+![results](images/results.png)
+![confusion_matrix](images/confusion_matrix_normalized.png)
 
 ##### 神经网络的推理
 + 获得 .pt的权重文件后，使用ultralytics集成的命令，将其导出为 .onnx的权重文件，在符的识别程序中使用openvino2022来读取 .onnx。目前使用的网络未经过nms，便要在获得网络输出后进行nms。

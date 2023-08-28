@@ -1,8 +1,8 @@
 # ARTINX2023雷达
 #### 计划流程图
-![计划流程图](plan_process.png)
+![计划流程图](images/plan_process.png)
 #### 2023赛季实际1流程图
-![实际1流程图](actual_process.png)
+![实际1流程图](images/actual_process.png)
 
 ***本文档只讲思路，代码相关看仓库里的doc/radar.md***
 

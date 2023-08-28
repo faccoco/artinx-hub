@@ -1,12 +1,12 @@
 # ARTINX2023能量机关预测算法
 在识别到能量机关扇叶的四个关键点和R标中心点在图像中的坐标后，假设打符车正对着能量机关，那么通过四个关键点计算出待击打扇叶中心坐标，在结合R标中心点的坐标，即可算出待击打扇叶与水平线夹角θ。
 
-![fan](energyFan.png)
+![fan](images/energyFan.png)
 
 求该θ角后，在通过PNP算法的平移向量tvec算得扇叶中心在车辆惯性系下的位置xc，yc，zc，通过旋转向量rvec算出扇叶在惯性系下的yaw角δ，如下图所示，基于以上观测量，坐标系采用OpenGL右手系，车辆枪口朝向为Z轴负方向，建立状态转移方程和观测方程：
 
-![coorddinate1](coordinate1.png)
-![coorddinate2](coordinate2.png)
+![coorddinate1](images/coordinate1.png)
+![coorddinate2](images/coordinate2.png)
 
 状态转移方程选取的状态量X=[t, w, θ，xr, yr, zr]，其中w为能量机关扇叶角速度由于能量机关R标中心点在惯性系下一直不变，因此其状态转移方程为
 
