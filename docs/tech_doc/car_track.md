@@ -59,13 +59,19 @@ EKF状态量与观测量如下：
 
  \- 观测向量：[xa, ya, za, yaw]，其中：
  \- xa, ya, za：装甲板在世界坐标系下的位置。
- \- yaw：装甲板的yaw角。
+ \- yaw：装甲板的yaw角, 正对装甲板为 0°
 
- \- 状态转移函数
+ \- 观测方程
  $x_a = x_c - r * cos(\theta)$
  $y_a = y_c - r * sin(\theta)$
  $z_a = z_a$
  $\theta = \theta$
+
+ \- 状态转移函数
+ $x'_c = x_c + v_{xc} * dt$
+ $y'_c = y_c + v_{yc} * dt$
+ $z'_c = z_c + v_{zc} * dt$
+ $\theta' = \theta +v_\theta*dt$
 
  \- 状态转移误差协方差矩阵
 
