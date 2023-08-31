@@ -27,11 +27,6 @@
     - [容器命令](#容器命令)
     - [容器数据卷](#容器数据卷)
     - [dockerfile](#dockerfile)
-- [remote debug setting](#remote-debug-setting)
-  - [1. Install ssh server](#1-install-ssh-server)
-  - [2. vscode](#2-vscode)
-  - [4.build and run](#4build-and-run)
-  - [3. httpServer visualization](#3-httpserver-visualization)
 
 # Linux命令
 
@@ -327,8 +322,8 @@ docker exec [可选参数] [容器名]         #在容器中运行命令
 -p              #指定主机端口映射到容器端口 （-p ip:主机端口：容器端口 -p 主机端口:容器端口）
 -P              #随机制定端口
 
-docker run -it ubuntu /bin/bash    #启动并进入容器，并且运行bash
-docker exec -it ubuntu /bin/bash
+docker run -it [镜像名] /bin/bash    #启动并进入容器，并且运行bash
+docker exec -it [容器名] /bin/bash
 
 docker ps [可选参数]   #列出正在运行的容器
 
@@ -367,43 +362,3 @@ docker volume rm $(docker volume ls -qf dangling=true)
 #清理磁盘、删除关闭的容器、无用的数据卷和网络
 docker system prune
 ```
-# GitLab CI/CD
-## 
-# remote debug setting
-
-## 1. Install ssh server
-
-```shell
-sudo apt update
-sudo apt install openssh-server -y
-sudo systemctl status ssh #查看状态
-# 如果你的防火墙开启了，使用下面语句
-sudo ufw allow ssh
-```
-
-## 2. vscode 
-
-(1)vscode 安装一下插件:
-
-+ Remote-SSH
-+ Remote Development
-
-(2) 打开Remote-ssh
-
-```shell
-ssh username@xxx.xxx.xxx.xxx
-```
-
-## 4.build and run
-
-(1) vscode远程ssh连接后，可以直接在vscode里编辑远程主机代码
-
-(2) 在vscode终端`artinx_hub`目录下运行以下命令，即可编译并运行程序
-
-```shell
-sudo bash ./scripts/auto-make.bash    #需要修改一些文件内容
-```
-
-## 3. httpServer visualization
-
-打开浏览器输入`xxx.xxx.xxx.xxx:5630/pages/index.html`,注意远程调试主机和机器人NUC连同一个wifi, `xxx.xxx.xxx.xxx`为机器人NUC的IP地址。
