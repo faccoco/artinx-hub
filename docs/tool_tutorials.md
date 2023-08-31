@@ -248,7 +248,6 @@ git push -u origin main
 
     ```shell
     git diff --cached
-    git reset gut checkout .
     #或者
     git reset --hard
     ```

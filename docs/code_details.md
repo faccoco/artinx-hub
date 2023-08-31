@@ -472,18 +472,6 @@ public:
 
 ## SolvePnP
 
-+ *
-  Reference*:[OpenCV: Perspective-n-Point (PnP) pose computation](https://docs.opencv.org/3.4/d5/d1f/calib3d_solvePnP.html)
++ *Reference*:[OpenCV: Perspective-n-Point (PnP) pose computation](https://docs.opencv.org/3.4/d5/d1f/calib3d_solvePnP.html)
 + *Reference*:https://www.cnblogs.com/singlex/category/911880.html
 
-## Coordinate system regulation and coordinate transformation
-
-### Coordinate system regulation
-
-+ 坐标系统一采用右手系
-
-+ 装甲板坐标以装甲板中心为原点，装甲板平板为xy平面。
-+ 枪管坐标系的原点规定在枪管pitch轴旋转的两个支点的中点处，沿枪管朝前为z轴负，垂直枪管为向右为x轴正。
-+ 机器人坐标系原点规定在底盘中心，向正右方为x轴正，正上方为y轴正，正后方为z轴正。
-
-+ 世界坐标系原点和机器人坐标系原点重合

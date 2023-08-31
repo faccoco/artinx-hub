@@ -1,10 +1,9 @@
 # Artinx 2023 赛季 自瞄
 
-Ref: 华南师范大学 https://github.com/chenjunnn/rm_vision(已失效) author:陈君
+Ref：https://gitlab.com/rm_vision 
 
-替代仓库：https://gitlab.com/rm_vision 
-
-本md仅为算法的粗略解释，官方算法详解参见nas： 视觉共享文件夹/rm_vision/陈君-毕设.pdf
+## 坐标系规定
+采用OpenGL右手系，惯性系原点规定在枪管pitch和yaw两轴旋转交点处
 
 ## 装甲板识别
 
@@ -58,20 +57,22 @@ EKF状态量与观测量如下：
  \- r：装甲板相对车辆中心的距离。
 
  \- 观测向量：[xa, ya, za, yaw]，其中：
- \- xa, ya, za：装甲板在世界坐标系下的位置。
- \- yaw：装甲板的yaw角, 正对装甲板为 90°
+ \- xa, ya, za：装甲板在惯性坐标系下的位置。
+ \- yaw：装甲板的yaw角, 枪管正对者装甲板为 90°
 
- \- 观测方程
- $x_a = x_c - r * cos(\theta)$
- $y_a = y_c - r * sin(\theta)$
- $z_a = z_a$
- $\theta = \theta$
+ ![car](images/car.png)
 
- \- 状态转移函数
+  \- 状态转移函数
  $x'_c = x_c + v_{xc} * dt$
  $y'_c = y_c + v_{yc} * dt$
  $z'_c = z_c + v_{zc} * dt$
  $\theta' = \theta +v_\theta*dt$
+
+ \- 观测方程
+ $x_a = x_c + r * cos(\theta)$
+ $y_a = y_a$
+ $z_a = z_c + r * sin(\theta)$
+ $\theta = \theta$
 
  \- 状态转移误差协方差矩阵
 
