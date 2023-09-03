@@ -64,7 +64,6 @@ bool inspect(Inspector& f, ArmorDetectorSettings& x) {
         f.field("excludeNegative", x.excludeNegative).fallback(true));
 }
 
-// reference: https://github.com/chenjunnn/rm_auto_aim
 class ArmorDetector final
     : public HubHelper<caf::event_based_actor, ArmorDetectorSettings, armor_detect_available_atom, image_frame_atom> {
     Identifier mKey;
