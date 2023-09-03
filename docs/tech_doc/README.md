@@ -8,5 +8,8 @@
 能量机关识别: [detect_energy.md](detect_energy.md)
 能量机关拟合&击打: [predict_hit_energy.md](predict_hit_energy.md)
 
-##雷达站
+## 雷达站
 雷达: [radar.md](radar.md)
+
+## 哨兵雷达
+哨兵雷达：[ROS2 Navigation Sentry Deployment Guide](ROS2_navigation_sentry_deployment_guide.md)
