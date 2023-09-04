@@ -5,11 +5,11 @@
 #include <shared_mutex>
 
 void RadarTransform::setReady() {
-    flag.store(true, std::memory_order_release);
+    flag.store(true);
 }
 
 bool RadarTransform::isReady() {
-    return flag.load(std::memory_order_consume);
+    return flag.load();
 }
 
 glm::dmat4 RadarTransform::load() {
@@ -42,7 +42,7 @@ cv::Mat RadarPerspectiveTransform::load() {
 
 void RadarPerspectiveTransform::store(const cv::Mat& rhs) {
     std::lock_guard guard(mutex);
-    trans = rhs;
+    trans = rhs.clone();
 }
 
 RadarPerspectiveTransform& RadarPerspectiveTransform::instant() {

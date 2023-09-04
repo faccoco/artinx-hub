@@ -176,7 +176,7 @@ class RadarNNetDetector final
             static const auto parseArmor = [](const yolo::Box& armor) -> std::pair<Color, int> {
                 if(armor.class_label > 1 && armor.class_label <= 10)
                     return { Color::Blue, armor.class_label - 1 };
-                else if(armor.class_label > 10 && armor.class_label <= 19)
+                if(armor.class_label > 10 && armor.class_label <= 19)
                     return { Color::Red, armor.class_label - 10 };
                 return { Color::Negative, 0 };
             };

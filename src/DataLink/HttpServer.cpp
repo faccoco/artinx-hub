@@ -111,6 +111,9 @@ class HttpServer final : public HubHelper<caf::event_based_actor, HttpServerSett
         }
         auto img = mImage[id].image;
         guard.unlock();
+        if(img.empty()){
+            return std::nullopt;
+        }
 
         std::vector<uchar> data;
         if(!cv::imencode(".jpg", img, data)) {
