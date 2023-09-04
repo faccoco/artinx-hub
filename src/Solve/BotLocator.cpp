@@ -73,6 +73,7 @@ private:
         }
         debugView("PerspectView", perspectedView, [](auto) {});
     }
+
     void showLocateResult(const BotsPosition& res) {
         cv::Mat resultMap = mMap.clone();
         if(mStart) {
