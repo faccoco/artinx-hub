@@ -17,3 +17,5 @@ cmake-*.sh
 Folder.DotSettings
 config/*
 log
+*.mkv
+*.log
