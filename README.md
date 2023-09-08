@@ -4,29 +4,29 @@ Artinx视觉组 集成框架
 
 <!-- vim-markdown-toc GitLab -->
 
-- [ARTINX-HUB](#artinx-hub)
-  - [开发规范](#开发规范)
+- [开发规范](#开发规范)
     - [代码规范](#代码规范)
     - [Commit规范](#commit规范)
     - [GitLab工作流](#gitlab工作流)
 - [仓库目录结构](#仓库目录结构)
 - [环境配置](#环境配置)
+    - [Genetic](#genetic)
     - [Windows(Not Guaranteed to Work)](#windowsnot-guaranteed-to-work)
     - [Linux](#linux)
-    - [Genetic](#genetic)
-    - [Clang](#clang)
+        - [Optional](#optional)
+    - [LLVM-Clang](#llvm-clang)
 - [机器人部署指南](#机器人部署指南)
     - [本地环境配置](#本地环境配置)
     - [CI配置](#ci配置)
-  - [CI持续部署指南](#ci持续部署指南)
+- [CI持续部署指南](#ci持续部署指南)
     - [自启动流程](#自启动流程)
     - [自动部署](#自动部署)
-  - [故障排除](#故障排除)
-  - [框架指南](#框架指南)
+- [故障排除](#故障排除)
+- [框架指南](#框架指南)
     - [程序工作流](#程序工作流)
     - [框架工具类使用指南](#框架工具类使用指南)
     - [Group Mask使用方法](#group-mask使用方法)
-  - [代码详解](#代码详解)
+- [代码详解](#代码详解)
 
 <!-- vim-markdown-toc -->
 
@@ -113,6 +113,27 @@ Artinx视觉组 集成框架
 
 ## 环境配置
 
+### Genetic
+
+- 克隆[vcpkg](https://github.com/microsoft/vcpkg)，并执行bootstrap脚本
+- 用vcpkg安装以下软件包(windows下, 软件包名称后加`:x64-windows`)：
+  - nlohmann-json
+  - caf
+  - glm
+  - cpp-httplib(建议更换)
+  - fmt
+  - magic-enum
+  - opencv4[contrib,ffmpeg]
+  - opengl
+  - eigen3
+  - spdlog
+  - ceres
+
+  如遇任何问题，请按照错误提示用apt补足缺少的软件包或更换网络重试一次
+- 集成vcpkg到Visual Studio，以管理员身份运行
+`./vcpkg integrate install`
+- 启用shell补全:`./vcpkg integrate ${your shell name}`,然后重启shell
+
 下面仅介绍VS工作流和Clion工作流，VS Code工作流于docs文件夹中，可以自行探索Vim工作流（就是教你怎么调试跑程序）
 
 ### Windows(Not Guaranteed to Work)
@@ -138,27 +159,6 @@ Artinx视觉组 集成框架
 - 在Build选项卡编译程序
 - 添加运行配置，填入参数（config文件路径）
 - 运行/调试
-
-### Genetic
-
-- 克隆[vcpkg](https://github.com/microsoft/vcpkg)，并执行bootstrap脚本
-- 用vcpkg安装以下软件包(windows下, 软件包名称后加`:x64-windows`)：
-  - nlohmann-json
-  - caf
-  - glm
-  - cpp-httplib(建议更换)
-  - fmt
-  - magic-enum
-  - opencv4[contrib,ffmpeg]
-  - glew
-  - glfw3
-  - opengl
-  - eigen3
-  - spdlog
-  - ceres
-  如遇任何问题，请按照错误提示用apt补足缺少的软件包或更换网络重试一次
-- 集成vcpkg安装包，运行
-`./vcpkg integrate install`
 
 #### Optional
 - 根据需求安装OpenVINO2022，下载NAS上l_openvino_toolkitxxxxubuntu2022安装包
@@ -318,7 +318,7 @@ CAF框架参见[actor_system.md](docs/actor_system.md)
   - ```ACTOR_PROTOCOL_DEFINE(set_target_atom, TypedIdentifier<SelectedTarget>);```
     表示atom对应的参数类型为一个type-wrapped的key，这个key指向被放在BlackBoard上的SelectedTarget类型的value
   - 在sendAll处会自动检查atom与参数类型的对应关系
-  - 在actor的behavior接收参数时，需要手动check：```ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);```, 与define对称，这里需要自觉和参数/实际使用方法匹配
+  - 在actor的behavior接收参数时，需要手动check：`ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);`, 与define对称，这里需要自觉和参数/实际使用方法匹配
   - 如遇编译错误则说明没用include对应define的头文件
 - 如遇比较棘手的Bug，可以使用ACTOR_EXCEPTION_PROBE宏将BUG范围缩小至代码块级别：
   - 只要在任意代码块内使用```ACTOR_EXCEPTION_PROBE();```即可
