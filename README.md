@@ -20,7 +20,7 @@ Artinx视觉组 集成框架
     - [CI配置](#ci配置)
 - [CI持续部署指南](#ci持续部署指南)
     - [自启动流程](#自启动流程)
-    - [自动部署](#自动部署)
+    - [自动部署(CD)](#自动部署cd)
 - [故障排除](#故障排除)
 - [框架指南](#框架指南)
     - [程序工作流](#程序工作流)
@@ -42,8 +42,8 @@ Artinx视觉组 集成框架
 - 在vector大小已知时使用resize/reserve预分配空间
 - 使用智能指针，一般情况下不允许出现任何形式的new/delete
 - 使用函数/模板/继承重用代码
-- 仅允许Resharper C++和clang的linter标记
-- 按值传递所有权，其余情况一遍按const引用传递参数(string 使用 string_view)。拥有SSO优化的string二者均可。
+- 仅允许Resharper C++和clangd的linter标记
+- 按值传递所有权，其余情况一遍按const引用传递参数(string 也可以使用 string_view)。拥有SSO优化的string二者均可。
 - 未经允许禁止更改公共API
 - 尽量使用Transform.hpp提供的编译期量纲分析和参考系检查的Point/Vector/Normal/Transform，不直接使用glm库
 - 使用Identifier和BlackBoard系统传递大型结构体
@@ -102,13 +102,14 @@ Artinx视觉组 集成框架
 |-- src 源代码
 |-- tests 单元测试文件
 |-- .clang-format C/C++格式化配置文件
+|-- .clang-tidy linter config
 |-- .gitattributes
 |-- .gitignore
 |-- .gitlab-ci.yml GitLab CI配置文件
 |-- CMakeLists.txt CMake根目录配置文件
 |-- CMakeSettings.json Visual Studio 2019 CMake配置文件
 |-- Folder.DotSettings Resharper++ Lint配置文件
-|-- README.md 自述文件
+|-- README.md 本文件
 ```
 
 ## 环境配置
@@ -120,19 +121,21 @@ Artinx视觉组 集成框架
   - nlohmann-json
   - caf
   - glm
-  - cpp-httplib(建议更换)
+  - cpp-httplib(性能差，建议更换)
   - fmt
   - magic-enum
-  - opencv4[contrib,ffmpeg]
+  - opencv4[contrib,ffmpeg], 如用zsh请用""括起来
   - opengl
   - eigen3
   - spdlog
   - ceres
 
-  如遇任何问题，请按照错误提示用apt补足缺少的软件包或更换网络重试一次
-- 集成vcpkg到Visual Studio，以管理员身份运行
-`./vcpkg integrate install`
-- 启用shell补全:`./vcpkg integrate ${your shell name}`,然后重启shell
+>eg: ./vcpkg install caf
+
+  如遇任何问题，请按照错误提示用包管理器补足缺少的软件包或更换网络~~(魔法上网)~~重试一次
+
+- 集成vcpkg到Visual Studio，以管理员身份运行 `./vcpkg integrate install`
+- 启用shell补全:`./vcpkg integrate ${SHELL}`, 然后重启shell
 
 下面仅介绍VS工作流和Clion工作流，VS Code工作流于docs文件夹中，可以自行探索Vim工作流（就是教你怎么调试跑程序）
 
@@ -149,7 +152,7 @@ Artinx视觉组 集成框架
 
 ### Linux
 
-- 安装Clion
+- 安装Clion/VSCode
 - 按照Genetic步骤安装依赖
 - optional: 安装clang, 见 Clang; 安装OpenVION2022以及相机驱动
 - clone仓库
@@ -161,6 +164,7 @@ Artinx视觉组 集成框架
 - 运行/调试
 
 #### Optional
+
 - 根据需求安装OpenVINO2022，下载NAS上l_openvino_toolkitxxxxubuntu2022安装包
   - 安装install_dependencies文件夹OpenVINO依赖 `sudo install install_openvino_dependencies.sh`
 
@@ -173,12 +177,14 @@ sudo vim /etc/profile                           #打开/etc/profile文件
 
 #在文件末尾加入以后命令
 export OPENVINO2022_PATH = <PATH>                   #PATH为OPENVINO2022安装目录，需要加上openvino2022文件夹名
-export DAHENG_SDK=<PATH>/Galaxy_camera              #PATH为相机SDK所在目录
+export DAHENG_SDK=<PATH>/Galaxy_camera              #PATH为大恒相机SDK所在目录
+export HIK_SDK=/opt/MVS                             #默认安装到此位置，不一样的自己改
 source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference engine一般为未运行此行的问题
 ```
+
 ### LLVM-Clang
 
->在ubuntu上配置最新 clang(stable) 编译环境
+>在ubuntu上配置最新 clang 编译环境
 
 - 访问[官方源](https://apt.llvm.org/),根据你的发行版和要安装的clang版本选择apt源并在 `/etc/apt/sources.list.d/`目录下新建一个LLVM文件写入
 - 执行 `wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -`或`wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc` 添加gpg key
@@ -188,7 +194,7 @@ source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference en
 - 配置Clion的clang编译环境:
   - 进入设置，搜索`Toolchains`,点击加号，选择`system`,添加一个名为"LLVM"的环境，然后`C compiler`写clang，`C++ compiler`写clang++，`debuger`选lldb
   - 在Cmake选项里面选择LLVM，如果嫌麻烦也可以在上一步中将LLVM设为默认环境
-- 如果你使用命令行运行cmake,使用 `-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++` 来指定clang为编译器，若不指定，则默认使用 `cc` 和 `c++` （一般是 gcc 和 g++ 的软链接）
+- 如果你使用命令行运行cmake,使用 `-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++` 来指定clang为c++编译器，若不指定，则默认使用 `cc` 和 `c++` （一般是 gcc 和 g++ 的软链接）
 
 ## 机器人部署指南
 
@@ -196,15 +202,19 @@ source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference en
 
 - 按照Linux环境配置即可（统一使用Ubuntu 20.04LTS，如果相机驱动不工作考虑降Linux内核版本，统一文件夹路径）
 - 在BIOS中配置通电/恢复供电自启动
+- 把风扇转速改成固定最大
 - 配置开机自动登录
-- 配置串口通讯免Root
+- 删除浏览器的key，目录在`~/.local/share/keyrings/`,删除后重启浏览器，会要求设置密码，留空即可
+- 配置串口通讯免Root(ubuntu)
 
 ```shell
 groups ${USER}# check whether current user are in the dialout group
 sudo gpasswd --add ${USER} dialout
 ```
 
-在机器人上用clion调试前记得临时关闭service：
+其他临时解决办法: `sudo chmod 777 /dev/${your tty serial port}`
+
+- 在机器人上用clion调试前记得临时关闭service：
 
 ```shell
 sudo systemctl stop ArtinxHub.service
@@ -251,9 +261,9 @@ gitlab-runner ALL=(ALL) NOPASSWD: ALL
   - 启动artinx-hub
   - 若程序终止，则sleep 1s后尝试重新启动程序
 
-### 自动部署
+### 自动部署(CD)
 
-- 管理员手动下发部署信号
+- develop分支CI完成无误后，管理员手动下发部署信号
 - 本地gitlab-runner pull最新develop分支，进行增量构建
 - ci构建完毕后，执行./scripts/setup-service.bash
   - 关闭已有服务和进程
@@ -267,6 +277,7 @@ gitlab-runner ALL=(ALL) NOPASSWD: ALL
 按照概率排序：
 
 - 程序无法启动（报BadConfig等）
+  - 语法错误
   - 字段类型错误
   - 字段名错误
   - atom目标缺失
@@ -315,13 +326,13 @@ CAF框架参见[actor_system.md](docs/actor_system.md)
   - receiver通过type-erased的key从BlackBoard拿到value的**拷贝**
 
 - **ACTOR_PROTOCOL_CHECK**和**ACTOR_PROTOCOL_DEFINE**：指示atom对应的参数类型
-  - ```ACTOR_PROTOCOL_DEFINE(set_target_atom, TypedIdentifier<SelectedTarget>);```
+  - `ACTOR_PROTOCOL_DEFINE(set_target_atom, TypedIdentifier<SelectedTarget>);`
     表示atom对应的参数类型为一个type-wrapped的key，这个key指向被放在BlackBoard上的SelectedTarget类型的value
   - 在sendAll处会自动检查atom与参数类型的对应关系
   - 在actor的behavior接收参数时，需要手动check：`ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);`, 与define对称，这里需要自觉和参数/实际使用方法匹配
   - 如遇编译错误则说明没用include对应define的头文件
 - 如遇比较棘手的Bug，可以使用ACTOR_EXCEPTION_PROBE宏将BUG范围缩小至代码块级别：
-  - 只要在任意代码块内使用```ACTOR_EXCEPTION_PROBE();```即可
+  - 只要在任意代码块内使用`ACTOR_EXCEPTION_PROBE();`即可
   - 这个宏会建立一个变量，处理三类问题：
     - 浮点异常（除零，nan等）：生命周期开始时启动硬件浮点异常，结束时关闭硬件浮点异常，如果中间触发了浮点异常则会收到signal，可以定位到行
     - 异常超时（延迟过高）：生命周期开始和结束时会计时，由于程序每秒需要处理上百帧，过长的生命周期显然是个bug，可以定位到代码块
