@@ -133,6 +133,7 @@ Artinx视觉组 集成框架
 >eg: ./vcpkg install caf
 
   如遇任何问题，请按照错误提示用包管理器补足缺少的软件包或更换网络~~(魔法上网)~~重试一次
+  当vcpkg部分包需求的依赖过新时，考虑使用`git checkout`命令签出到版本较老的tag(如2023.01.09)
 
 - 集成vcpkg到Visual Studio，以管理员身份运行 `./vcpkg integrate install`
 - 启用shell补全:`./vcpkg integrate ${SHELL}`, 然后重启shell
@@ -168,8 +169,10 @@ Artinx视觉组 集成框架
 - 根据需求安装OpenVINO2022，下载NAS上l_openvino_toolkitxxxxubuntu2022安装包
   - 安装install_dependencies文件夹OpenVINO依赖 `sudo install install_openvino_dependencies.sh`
 
-- 根据需求(USB2/USB3)安装大恒相机驱动[Daheng Imaging](https://daheng-imaging.com/list-58-1.html), 对应CMake参数的ARTINX_HUB_CAMERA=USB2/USB3
-- 安装 Hik Robot 驱动 [hik robotics](https://www.hikrobotics.com/cn/machinevision/service/download?module=0), 设置环境变量 `HIK_SDK=/opt/MVS`
+- 根据需求(USB2/USB3)安装大恒相机驱[Daheng Imaging](https://daheng-imaging.com/list-58-1.html)(注意nuc的架构，jetson orin请下载arm64/aarch64的版本，intel nuc请下载x86_64/amd64/x64的架构), 对应CMake参数的ARTINX_HUB_CAMERA=USB2/USB3。
+- 根据需求安装 Hik Robot 驱动 [hik robotics](https://www.hikrobotics.com/cn/machinevision/service/download?module=0)(同样注意nuc的架构), 设置环境变量。
+`HIK_SDK=/opt/MVS`
+
 - 添加环境变量
 
 ```shell
