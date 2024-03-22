@@ -1,3 +1,4 @@
+#ifdef ARTINX_DAHENG
 #include "BlackBoard.hpp"
 #include "CameraBase.hpp"
 #include "CameraFrame.hpp"
@@ -303,3 +304,4 @@ public:
 };
 
 HUB_REGISTER_CLASS(DahengDriver);
+#endif
