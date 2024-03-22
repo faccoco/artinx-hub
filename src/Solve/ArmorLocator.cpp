@@ -94,9 +94,11 @@ public:
                     res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefCam, armor.robotType,
                                             armorType, ArmorMotion::Unsure,
                                             Transform<FrameOfRef::Armor, FrameOfRef::Camera>(rmat) });
-                    HubLogger::visualLog(fmt::format("ArmorLocator locate target: RobotType:{}, ArmorImgCenter:({:.2f}, "
-                                                     "{:.2f})",
-                                                     magic_enum::enum_name(armor.robotType), armorImgCenter.x, armorImgCenter.y));
+                    HubLogger::visualLog(
+                        fmt::format("ArmorLocator locate target: RobotType:{}, ArmorImgCenter:({:.2f}, "
+                                    "{:.2f}), Position:({:.2f}, {:.2f}, {:.2f}), Yaw:{:.2f}",
+                                    magic_enum::enum_name(armor.robotType), armorImgCenter.x, armorImgCenter.y, p0.x, p0.y, p0.z,
+                                    glm::degrees(normalizeAngle(-atan2(rmat[2][0], rmat[2][2]) - glm::half_pi<double>()))));
                 }
 
                 sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
