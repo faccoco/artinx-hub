@@ -69,8 +69,9 @@ public:
                     const auto pnpRes =
                         cv::solvePnP(armor.isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
                                      cameraInfo.cameraMatrix, cameraInfo.distCoefficients, rvec, tvec, false, cv::SOLVEPNP_IPPE);
-                    if(!pnpRes)
+                    if(!pnpRes) {
                         continue;
+                    }
                     glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
                     glm::dvec3 r = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
 
