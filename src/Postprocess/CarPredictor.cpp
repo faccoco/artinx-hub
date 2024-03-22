@@ -380,8 +380,9 @@ public:
                 if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
                     if(mTrackedArmor.trackingState == TrackingState::LOST) {
                         // init
-                        if(!data->selected.has_value())
+                        if(!data->selected.has_value()) {
                             return;
+                        }
                         init(data->selected.value());
                     } else {
                         // update
@@ -426,8 +427,9 @@ public:
                     const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                     // logInfo("ArmorPredictor receive");
                     HubLogger::visualLog("ArmorPredictor receive");
-                    if(!dataPosture.has_value() || !data->selected.has_value())
+                    if(!dataPosture.has_value() || !data->selected.has_value()) {
                         return;
+                    }
                     res.center = getArmorPos(data->selected.value());
                     res.yaw = getArmorYaw(data->selected.value());
                     res.linearVel = -dataPosture->linearVelocityOfRobot.mVal;
