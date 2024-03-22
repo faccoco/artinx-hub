@@ -386,6 +386,11 @@ public:
                         init(data->selected.value());
                     } else {
                         // update
+
+                        if (data->lastUpdate.time_since_epoch().count() < mTrackedArmor.lastUpdate.time_since_epoch().count()){
+                            logInfo("CarPredictor pakage order wrong! Ignore old pkg");
+                        }
+                        
                         bool matched = update(durationCastDouble(data->lastUpdate - mTrackedArmor.lastUpdate), data->targets);
 
                         // Prevent radius from spreading

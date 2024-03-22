@@ -399,7 +399,8 @@ public:
                      ACTOR_EXCEPTION_PROBE();
 
                      if(GlobalSettings::get().getTaskMode() != TaskMode::AutoAim) {
-                         return;
+                        HubLogger::visualLog("Robot not in autoaim mode");
+                        return;
                      }
                      const auto t1 = Clock::now();
                      const auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();

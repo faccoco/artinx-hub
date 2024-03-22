@@ -94,6 +94,11 @@ public:
                     res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefCam, armor.robotType,
                                             armorType, ArmorMotion::Unsure,
                                             Transform<FrameOfRef::Armor, FrameOfRef::Camera>(rmat) });
+
+                    if(std::isnan(p0.x) || std::isnan(p0.y) || std::isnan(p0.z)){
+                        HubLogger::visualLog("ArmorLocator: nan orrcur");
+                    }
+                
                     HubLogger::visualLog(
                         fmt::format("ArmorLocator locate target: RobotType:{}, ArmorImgCenter:({:.2f}, "
                                     "{:.2f}), Position:({:.2f}, {:.2f}, {:.2f}), Yaw:{:.2f}",
