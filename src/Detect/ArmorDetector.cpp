@@ -80,10 +80,11 @@ class ArmorDetector final
 
         cv::Mat res;
         src.copyTo(res);
-        if(res.depth() == CV_8U)
+        if(res.depth() == CV_8U) {
             cv::putText(res, name.data(), { 0, 20 }, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 255 });
-        else
+        } else {
             cv::putText(res, name.data(), { 0, 20 }, cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar{ 0, 255, 0 });
+        }
 
         func(res);
 
@@ -109,10 +110,12 @@ class ArmorDetector final
         light.topRight = p[1];
         light.bottomLeft = p[2];
         light.bottomRight = p[3];
-        if(light.topLeft.x > light.topRight.x)
+        if(light.topLeft.x > light.topRight.x) {
             std::swap(light.topLeft, light.topRight);
-        if(light.bottomLeft.x > light.bottomRight.x)
+        }
+        if(light.bottomLeft.x > light.bottomRight.x) {
             std::swap(light.bottomLeft, light.bottomRight);
+        }
 
         light.length = cv::norm(light.top - light.bottom);
         light.width = cv::norm(p[0] - p[1]);
@@ -130,9 +133,8 @@ class ArmorDetector final
         }
         if(ratioOK && angleOK) {
             return light;
-        } else {
-            return {};
         }
+        return {};
     }
 
     std::vector<Armor> solve(const cv::Mat& image) {
@@ -227,7 +229,7 @@ class ArmorDetector final
                     for(int j = 0; j < jTimes; j++, jIter += dj) {
                         int realY = static_cast<int>(jIter.y);
                         int realX = static_cast<int>(jIter.x);
-                        // TODO: replace the if
+                        // TODO(zitto): replace the if
                         if(realX >= 0 && realX < bgrImg.cols && realY >= 0 && realY < bgrImg.rows) {
                             const auto& pixel = bgrImg.at<cv::Vec3b>(realY, realX);
                             sumB += pixel[0];
@@ -284,24 +286,28 @@ class ArmorDetector final
                 float lightLenRation =
                     light1.length < light2.length ? light1.length / light2.length : light2.length / light1.length;
 
-                if(lightLenRation < mConfig.min2LightLenRatio)
+                if(lightLenRation < mConfig.min2LightLenRatio) {
                     continue;
+                }
 
-                if(std::fabs(light1.tiltAngle - light2.tiltAngle) > mConfig.max2LightDiffAngle)
+                if(std::fabs(light1.tiltAngle - light2.tiltAngle) > mConfig.max2LightDiffAngle) {
                     continue;
+                }
 
                 // Distance between the center of 2 lights (unit : light length)
                 cv::Point2f diff = light1.center - light2.center;
                 float avgLightLen = (light1.length + light2.length) / 2;
                 float armorWidth = cv::norm(diff);
                 float armorRatio = armorWidth / avgLightLen;
-                if(armorRatio < mConfig.minArmorRectRatio || armorRatio > mConfig.maxArmorRectRatio)
+                if(armorRatio < mConfig.minArmorRectRatio || armorRatio > mConfig.maxArmorRectRatio) {
                     continue;
+                }
 
                 // Angle of light center connection
                 float angle = std::fabs(std::atan(diff.y / (diff.x + 1e-6))) / CV_PI * 180;
-                if(angle > mConfig.maxArmorAngle)
+                if(angle > mConfig.maxArmorAngle) {
                     continue;
+                }
 
                 bool isContainLights = false;
                 std::vector<cv::Point2f> points = { light1.top, light1.bottom, light2.bottom, light2.top };
@@ -312,8 +318,9 @@ class ArmorDetector final
                         break;
                     }
                 }
-                if(isContainLights)
+                if(isContainLights) {
                     continue;
+                }
 
                 CondidateArmor condArmor;
                 condArmor.isLargeArmor = armorRatio > mConfig.minLargeArmorRatio;
@@ -341,10 +348,11 @@ class ArmorDetector final
         std::vector<Armor> armors;
         std::unordered_set<int> usedLightIdx;
         for(const auto& condArmor : condArmors) {
-            if(mConfig.excludeNegative && (condArmor.id == 8 || condArmor.prob < mConfig.numProbThresh))  // id 8 -> negative
+            if(mConfig.excludeNegative && (condArmor.id == 8 || condArmor.prob < mConfig.numProbThresh)) {  // id 8 -> negative
                 continue;
+            }
 
-            if(usedLightIdx.count(condArmor.leftLightIdx) || usedLightIdx.count(condArmor.rightLightIdx)) {
+            if((usedLightIdx.count(condArmor.leftLightIdx) != 0u) || (usedLightIdx.count(condArmor.rightLightIdx) != 0u)) {
                 continue;
             }
             Armor armor;
