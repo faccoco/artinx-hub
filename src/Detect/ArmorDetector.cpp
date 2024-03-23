@@ -229,7 +229,7 @@ class ArmorDetector final
                     for(int j = 0; j < jTimes; j++, jIter += dj) {
                         int realY = static_cast<int>(jIter.y);
                         int realX = static_cast<int>(jIter.x);
-                        // TODO(zitto): replace the if
+                        // TODO(12012710): replace the if
                         if(realX >= 0 && realX < bgrImg.cols && realY >= 0 && realY < bgrImg.rows) {
                             const auto& pixel = bgrImg.at<cv::Vec3b>(realY, realX);
                             sumB += pixel[0];
