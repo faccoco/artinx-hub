@@ -177,12 +177,13 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         mTrackedArmor.id = armor.id;
 
         int armorId = static_cast<int>(armor.id);
-        if(armor.type == ArmorType::Large && armorId >= 3 && armorId <= 5)
+        if(armor.type == ArmorType::Large && armorId >= 3 && armorId <= 5) {
             mTrackedArmor.armorNum = 2;
-        else if(armor.id == RobotType::Outpost)
+        } else if(armor.id == RobotType::Outpost) {
             mTrackedArmor.armorNum = 3;
-        else
+        } else {
             mTrackedArmor.armorNum = 4;
+        }
 
         mEKF.setState(mTrackedArmor.state);
         mTrackedArmor.trackingState = TrackingState::DETECTING;
@@ -209,8 +210,9 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             // Difference of the current armor position and tracked armor's predicted position
             double minPositionDiff = 1000.0;
             for(const auto& armor : armors) {
-                if(std::isnan(armor.center.mVal.x) || std::isnan(armor.center.mVal.y) || std::isnan(armor.center.mVal.z))
+                if(std::isnan(armor.center.mVal.x) || std::isnan(armor.center.mVal.y) || std::isnan(armor.center.mVal.z)) {
                     continue;
+                }
                 if(armor.id != mTrackedArmor.id) {
                     continue;
                 }
@@ -221,8 +223,9 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
                     isInitCand = true;
                 }
             }
-            if(!isInitCand)
+            if(!isInitCand) {
                 return false;
+            }
 
             double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
 
@@ -380,8 +383,9 @@ public:
                 if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
                     if(mTrackedArmor.trackingState == TrackingState::LOST) {
                         // init
-                        if(!data->selected.has_value())
+                        if(!data->selected.has_value()) {
                             return;
+                        }
                         init(data->selected.value());
                     } else {
                         // update
@@ -426,8 +430,9 @@ public:
                     const auto dataPosture = BlackBoard::instance().get<PostureData>(mIMUKey);
                     // logInfo("ArmorPredictor receive");
                     HubLogger::visualLog("ArmorPredictor receive");
-                    if(!dataPosture.has_value() || !data->selected.has_value())
+                    if(!dataPosture.has_value() || !data->selected.has_value()) {
                         return;
+                    }
                     res.center = getArmorPos(data->selected.value());
                     res.yaw = getArmorYaw(data->selected.value());
                     res.linearVel = -dataPosture->linearVelocityOfRobot.mVal;
