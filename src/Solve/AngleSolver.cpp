@@ -22,6 +22,7 @@ struct AngleSolverSettings final {
     double requiredTimeWeight;
     double maxShootDeltaTheta;  // in degree
     double lVelDiscount;
+    double orietationAngle;
 };
 
 template <class Inspector>
@@ -29,7 +30,7 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
     return f.object(x).fields(
         f.field("delay", x.delay).fallback(0.0), f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
         f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
-        f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60), f.field("lVelDiscount", x.lVelDiscount).fallback(1.0));
+        f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60), f.field("lVelDiscount", x.lVelDiscount).fallback(1.0),f.field("orietationAngle", x.orietationAngle).fallback(20.0));
 }
 
 template <class T>
@@ -48,7 +49,9 @@ static std::optional<T> getQueueMax(const std::deque<T>& queue) {
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
 
     std::deque<double> mPastAVel;
-
+    static double absAngleDifferece(double a, double b) {
+        return std::abs(normalizeAngle(b - a));
+    }
     static constexpr glm::dvec3 tf(const glm::dvec3& ori) {
         return { ori.x, -ori.z, ori.y };
     }
@@ -120,13 +123,14 @@ public:
                 glm::dvec3 center = tf(data->center.mVal);
                 double theta = -data->yaw.mVal;
 
+                double centerYaw = normalizeAngle(atan2(center.y, center.x)-glm::half_pi<double>());               
                 // glm::dvec3 lVel = tf(data->linearVel.mVal) * mConfig.lVelDiscount;
                 glm::dvec3 lVel = tf(data->linearVel.mVal);
 
                 double aVel = -data->angularVel.mVal;
 
                 // double aVel = getMaxAVel(-data->angularVel.mVal);
-                HubLogger::watch("maxAngleVel", aVel);
+                HubLogger::watch("AngleVelRefRobot", aVel);
 
                 double R[2] = { data->radius.first, data->radius.second };
                 double Z[2] = { data->y.first, data->y.second };
@@ -139,6 +143,7 @@ public:
 
                 // solve and determine possible armor
                 std::optional<double> yaw, pitch;
+                std::optional<int> targetArmorId;
                 int armorNum = data->armorNum;
                 for(int i = 0; i < armorNum; i++) {
                     double r = R[i & 1];
@@ -160,29 +165,43 @@ public:
                         if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {
                             double deltaTheta = normalizeAngle(requiredTheta - yawAngle - glm::pi<double>());
                             if(r == 0 || std::abs(deltaTheta) <= glm::radians(mConfig.maxShootDeltaTheta)) {
-                                yaw = yawAngle;
-                                pitch = pitchAngle;
+                                double angleDiff = absAngleDifferece(centerYaw, yawAngle);
+                                if(angleDiff - glm::radians(mConfig.orietationAngle) <=1e-6){
+                                    if(!yaw.has_value()){
+                                        yaw = yawAngle;
+                                        pitch = pitchAngle;
+                                        targetArmorId = i;
+                                    }else{
+                                        double yawDiff = absAngleDifferece(centerYaw, yaw.value());
+                                        if(angleDiff < yawDiff){
+                                            yaw = yawAngle;
+                                            pitch = pitchAngle;
+                                            targetArmorId = i; 
+                                        }
+                                    }
+                                }else{
+                                    logInfo(fmt::format("AngleSolver: {}th armor yawAngle diff:{:.3f} degrees do not satisfy oritationAngle",
+                                                    i, glm::degrees(angleDiff)));    
+                                }
                             } else {
-                                // logInfo(fmt::format("AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy
-                                // maxShootDelatYaw",
-                                //                     i, deltaTheta));
+                                logInfo(fmt::format("AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw",
+                                                    i, deltaTheta));
                             }
                             break;
                         }
                         predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
                     }
-                    if(yaw.has_value()) {
-                        HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
-                                                         yaw.value(), pitch.value()));
+                    theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
+                }
+                if(yaw.has_value()) {
+                        
+                        HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", targetArmorId.value(), yaw.value(), pitch.value()));
                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
                                             yaw.value(), pitch.value(), true, normalSolver);
-                        return;
                     } else {
                         // logInfo(fmt::format("AngleSolver: {}th armor exceed max iter times or not satisfy maxShootDeltaYaw",
                         // i));
                     }
-                    theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
-                }
                 // logInfo("AngleSolver: solve failed! Four Armor do not satisfy maxShootDeltaYaw");
             },
         };
