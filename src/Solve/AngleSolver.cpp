@@ -30,7 +30,8 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
     return f.object(x).fields(
         f.field("delay", x.delay).fallback(0.0), f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
         f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
-        f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60), f.field("lVelDiscount", x.lVelDiscount).fallback(1.0),f.field("orietationAngle", x.orietationAngle).fallback(20.0));
+        f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60), f.field("lVelDiscount", x.lVelDiscount).fallback(1.0),
+        f.field("orietationAngle", x.orietationAngle).fallback(20.0));
 }
 
 template <class T>
@@ -123,7 +124,7 @@ public:
                 glm::dvec3 center = tf(data->center.mVal);
                 double theta = -data->yaw.mVal;
 
-                double centerYaw = normalizeAngle(atan2(center.y, center.x)-glm::half_pi<double>());               
+                double centerYaw = normalizeAngle(atan2(center.y, center.x) - glm::half_pi<double>());
                 // glm::dvec3 lVel = tf(data->linearVel.mVal) * mConfig.lVelDiscount;
                 glm::dvec3 lVel = tf(data->linearVel.mVal);
 
@@ -166,22 +167,23 @@ public:
                             double deltaTheta = normalizeAngle(requiredTheta - yawAngle - glm::pi<double>());
                             if(r == 0 || std::abs(deltaTheta) <= glm::radians(mConfig.maxShootDeltaTheta)) {
                                 double angleDiff = absAngleDifferece(centerYaw, yawAngle);
-                                if(angleDiff - glm::radians(mConfig.orietationAngle) <=1e-6){
-                                    if(!yaw.has_value()){
+                                if(angleDiff - glm::radians(mConfig.orietationAngle) <= 1e-6) {
+                                    if(!yaw.has_value()) {
                                         yaw = yawAngle;
                                         pitch = pitchAngle;
                                         targetArmorId = i;
-                                    }else{
+                                    } else {
                                         double yawDiff = absAngleDifferece(centerYaw, yaw.value());
-                                        if(angleDiff < yawDiff){
+                                        if(angleDiff < yawDiff) {
                                             yaw = yawAngle;
                                             pitch = pitchAngle;
-                                            targetArmorId = i; 
+                                            targetArmorId = i;
                                         }
                                     }
-                                }else{
-                                    logInfo(fmt::format("AngleSolver: {}th armor yawAngle diff:{:.3f} degrees do not satisfy oritationAngle",
-                                                    i, glm::degrees(angleDiff)));    
+                                } else {
+                                    logInfo(fmt::format(
+                                        "AngleSolver: {}th armor yawAngle diff:{:.3f} degrees do not satisfy oritationAngle", i,
+                                        glm::degrees(angleDiff)));
                                 }
                             } else {
                                 logInfo(fmt::format("AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw",
@@ -194,14 +196,15 @@ public:
                     theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
                 }
                 if(yaw.has_value()) {
-                        
-                        HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", targetArmorId.value(), yaw.value(), pitch.value()));
-                        sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
-                                            yaw.value(), pitch.value(), true, normalSolver);
-                    } else {
-                        // logInfo(fmt::format("AngleSolver: {}th armor exceed max iter times or not satisfy maxShootDeltaYaw",
-                        // i));
-                    }
+
+                    HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}",
+                                                     targetArmorId.value(), yaw.value(), pitch.value()));
+                    sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
+                                        yaw.value(), pitch.value(), true, normalSolver);
+                } else {
+                    // logInfo(fmt::format("AngleSolver: {}th armor exceed max iter times or not satisfy maxShootDeltaYaw",
+                    // i));
+                }
                 // logInfo("AngleSolver: solve failed! Four Armor do not satisfy maxShootDeltaYaw");
             },
         };
