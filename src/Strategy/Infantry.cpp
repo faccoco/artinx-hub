@@ -36,8 +36,14 @@ public:
                      selected.tfRobot2Camera = data.tfRobot2Camera;
                      selected.targets = data.targets;
 
+                     auto autoAimMode = GlobalSettings::get().getAutoAimMode();
+
                      double minDisToImgCenter = std::numeric_limits<double>::max();
                      for(const auto& target : selected.targets) {
+                         if((autoAimMode == AutoAimMode::HeroFirst && target.id==RobotType::Hero) || (autoAimMode == AutoAimMode::SentryFirst && target.id==RobotType::Sentry)){
+                            selected.selected = target;
+                            break;
+                         }
                          if(target.distToImgCenter < minDisToImgCenter) {
                              selected.selected = target;
                              minDisToImgCenter = target.distToImgCenter;

@@ -25,7 +25,7 @@ public:
     static constexpr uint16_t id = 0x0A;
 
     float yaw, pitch, bulletSpeed, speedX, speedY;
-    uint8_t color, energyMode = 0;
+    uint8_t color, energyMode = 0, autoAimMode = 0;
     float capEnergy, chasisPower;
     explicit InfantryRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
@@ -40,6 +40,7 @@ public:
         } else if(((mask >> 2) & 1) == 1) {
             energyMode = 2;
         }
+        autoAimMode = mask >> 3;
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
         capEnergy = reader.readCompressedFloat(-1.0f, 0.1f);
         chasisPower = reader.readCompressedFloat(-1.0f, 0.01f);
