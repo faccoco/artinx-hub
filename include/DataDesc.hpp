@@ -152,12 +152,10 @@ struct __ImplActorProtocol final {
     }
 };
 
-#define ACTOR_PROTOCOL_DEFINE(...)                  \
-    template <>                                     \
-    struct __ImplActorProtocol<__VA_ARGS__> final { \
-        static constexpr bool check() noexcept {    \
-            return true;                            \
-        }                                           \
+#define ACTOR_PROTOCOL_DEFINE(...)                              \
+    template <>                                                 \
+    struct __ImplActorProtocol<__VA_ARGS__> final {             \
+        static constexpr bool check() noexcept { return true; } \
     }
 
 template <typename... Args>
