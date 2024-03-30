@@ -17,8 +17,8 @@ using Clock = std::chrono::steady_clock;
 static_assert(std::is_same_v<Clock::period, std::nano>);
 
 enum class Color { Blue, Red, Purple, Negative };
-enum class TaskMode { AutoAim = 0, SmallRune = 1, BigRune = 2};
-enum class AutoAimMode { Normal = 0, BaseFirst = 1, SentryFirst = 2, HeroFirst = 3};
+enum class TaskMode { AutoAim = 0, SmallRune = 1, BigRune = 2 };
+enum class AutoAimMode { Normal = 0, BaseFirst = 1, SentryFirst = 2, HeroFirst = 3 };
 struct GlobalSettings final {
     double gForce;
     double dragCoefficient;
@@ -152,10 +152,12 @@ struct __ImplActorProtocol final {
     }
 };
 
-#define ACTOR_PROTOCOL_DEFINE(...)                              \
-    template <>                                                 \
-    struct __ImplActorProtocol<__VA_ARGS__> final {             \
-        static constexpr bool check() noexcept { return true; } \
+#define ACTOR_PROTOCOL_DEFINE(...)                  \
+    template <>                                     \
+    struct __ImplActorProtocol<__VA_ARGS__> final { \
+        static constexpr bool check() noexcept {    \
+            return true;                            \
+        }                                           \
     }
 
 template <typename... Args>
