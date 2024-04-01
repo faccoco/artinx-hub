@@ -1,10 +1,12 @@
 #include "BlackBoard.hpp"
+#include "Common.hpp"
 #include "DataDesc.hpp"
 #include "ExceptionProbe.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "PostureData.hpp"
 #include "SelectedTarget.hpp"
+#include "Timer.hpp"
 #include "Utility.hpp"
 
 #include "SuppressWarningBegin.hpp"
@@ -32,23 +34,9 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
         f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60), f.field("lVelDiscount", x.lVelDiscount).fallback(1.0));
 }
 
-template <class T>
-static std::optional<T> getQueueMax(const std::deque<T>& queue) {
-    if(!queue.empty()) {
-        T maxT = queue.front();
-        for(T t : queue) {
-            if(abs(t) > abs(maxT)) {
-                maxT = t;
-            }
-        }
-        return maxT;
-    }
-    return {};
-}
-
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
 
-    std::deque<double> mPastAVel;
+    TimePoint latestReceived;
 
     static constexpr glm::dvec3 tf(const glm::dvec3& ori) {
         return { ori.x, -ori.z, ori.y };
@@ -58,20 +46,11 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
         return { center.x + r * cos(theta), center.y + r * sin(theta), center.z };
     }
 
-    double getMaxAVel(double aVel) {
-        mPastAVel.push_back(aVel);
-        if(mPastAVel.size() > 3) {
-            if(mPastAVel.size() > 50) {
-                mPastAVel.pop_front();
-            }
-            return getQueueMax<double>(mPastAVel).value();
-        }
-        return aVel;
-    }
-
 public:
     AngleSolver(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) } {}
+        : HubHelper{ base, config, std::move(name) } {
+            latestReceived = TimePoint::min();
+        }
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
@@ -81,6 +60,13 @@ public:
 
                 auto data = BlackBoard::instance().get<PredictedTarget>(key);
                 if(!(data.has_value())) {
+                    return;
+                }
+
+                // check pkg order
+                if(data->lastUpdate.time_since_epoch().count() > latestReceived.time_since_epoch().count()) {
+                    latestReceived = data->lastUpdate;
+                } else {
                     return;
                 }
 
@@ -118,6 +104,14 @@ public:
 
                 auto data = BlackBoard::instance().get<PredictedTarget>(key);
                 if(!(data.has_value())) {
+                    return;
+                }
+
+                // check pkg order
+                if(data->lastUpdate.time_since_epoch().count() > latestReceived.time_since_epoch().count()) {
+                    latestReceived = data->lastUpdate;
+                } else {
+                    logInfo("angle solver pkg order wrong! ignore wrong order");
                     return;
                 }
 
@@ -181,10 +175,10 @@ public:
                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
                                             yaw.value(), pitch.value(), true, normalSolver);
                         return;
-                    } else {
-                        // logInfo(fmt::format("AngleSolver: {}th armor exceed max iter times or not satisfy maxShootDeltaYaw",
-                        // i));
                     }
+                    // logInfo(fmt::format("AngleSolver: {}th armor exceed max iter times or not satisfy maxShootDeltaYaw",
+                    // i));
+
                     theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
                 }
                 // logInfo("AngleSolver: solve failed! Four Armor do not satisfy maxShootDeltaYaw");
