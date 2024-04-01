@@ -168,7 +168,7 @@ public:
                             double deltaTheta = normalizeAngle(requiredTheta - yawAngle - glm::pi<double>());
                             if(r == 0 || std::abs(deltaTheta) <= glm::radians(mConfig.maxShootDeltaTheta)) {
                                 double angleDiff = absAngleDifferece(centerYaw, normalizeAngle(yawAngle-glm::half_pi<double>()));
-                                if(angleDiff - glm::radians(mConfig.orietationAngle) <= 1e-6) {
+                                if(angleDiff - glm::radians(mConfig.orietationAngle) <= 4e-4) {
                                     if(!yaw.has_value() || angleDiff < absAngleDifferece(centerYaw, yaw.value())) {
                                         yaw = yawAngle;
                                         pitch = pitchAngle;
