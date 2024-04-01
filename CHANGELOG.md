@@ -110,6 +110,9 @@
 
 ## 2024
 ### 4.1
-
 - 加入包序检测(AngleSolver.cpp)
+
+### 4.2
+- 加入待击打角度筛选(AngleSolver.cpp)
+- 添加jetson时间戳问题处理方案(docs/jetson_timestamp.md)
 

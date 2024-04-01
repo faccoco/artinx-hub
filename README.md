@@ -207,6 +207,8 @@ source /opt/intel/openvino_2021/bin/setupvars.sh    #链接找不到inference en
 - 在BIOS中配置通电/恢复供电自启动
 - 把风扇转速改成固定最大
   - [在`Jetson Orin`中更改风扇转速](https://docs.nvidia.com/jetson/archives/r34.1/DeveloperGuide/text/SD/PlatformPowerAndPerformance/JetsonOrinNxSeriesAndJetsonAgxOrinSeries.html#fan-profile-control): 注意`#TEMP`是当下温度距最大温度值的差值
+  - 或参照[jetson_startup.md](docs/jetson_startup.md) 设置`/usr/bin/jetson_clocks --fan`命令开机执行。
+- 若使用的jetson没有硬件时钟，参照[jetson_startup.md](docs/jetson_startup.md)使用`fake-hwclock`防止时间戳重置。
 
 - 配置开机自动登录
 - 删除浏览器的key，目录在`~/.local/share/keyrings/`,删除后重启浏览器，会要求设置密码，留空即可
