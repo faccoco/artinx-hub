@@ -11,6 +11,7 @@ jetson orin nx 的风扇不是太行，放任它自己调节经常会导致cpu�
 
 ## jetson 时间戳
 jetson orin nx没有硬件时钟(rtc)，开机时的时钟默认为1970年1月1日。fake-hwclock命令能够保存当前时间戳，结合开机执行的fake-hwclock load命令可以一定程度避免log时间戳重复的问题。
+使用`sudo apt install fake-hwclock`安装`fake-hwclock`
 
 ## startup.sh文件内容
 ```
