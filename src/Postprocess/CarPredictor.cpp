@@ -391,7 +391,7 @@ public:
                         // update
 
                         if (data->lastUpdate.time_since_epoch().count() < mTrackedArmor.lastUpdate.time_since_epoch().count()){
-                            logInfo("CarPredictor pakage order wrong!");
+                            HubLogger::visualLog("CarPredictor: received pakage order wrong!");
                         }
                         
                         bool matched = update(durationCastDouble(data->lastUpdate - mTrackedArmor.lastUpdate), data->targets);
