@@ -39,8 +39,9 @@ static std::optional<T> getQueueMax(const std::deque<T>& queue) {
     if(!queue.empty()) {
         T maxT = queue.front();
         for(T t : queue) {
-            if(abs(t) > abs(maxT)) {
+            if(abs(t) > abs(maxT)) { {
                 maxT = t;
+            }
             }
         }
         return maxT;
