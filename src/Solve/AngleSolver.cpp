@@ -37,8 +37,9 @@ static std::optional<T> getQueueMax(const std::deque<T>& queue) {
     if(!queue.empty()) {
         T maxT = queue.front();
         for(T t : queue) {
-            if(abs(t) > abs(maxT))
+            if(abs(t) > abs(maxT)) {
                 maxT = t;
+            }
         }
         return maxT;
     }
@@ -60,11 +61,12 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
     double getMaxAVel(double aVel) {
         mPastAVel.push_back(aVel);
         if(mPastAVel.size() > 3) {
-            if(mPastAVel.size() > 50)
+            if(mPastAVel.size() > 50) {
                 mPastAVel.pop_front();
+            }
             return getQueueMax<double>(mPastAVel).value();
-        } else
-            return aVel;
+        }
+        return aVel;
     }
 
 public:
@@ -78,8 +80,9 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<PredictedTarget>(key);
-                if(!(data.has_value()))
+                if(!(data.has_value())) {
                     return;
+                }
 
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->center;
                 Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->linearVel;
@@ -114,8 +117,9 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<PredictedTarget>(key);
-                if(!(data.has_value()))
+                if(!(data.has_value())) {
                     return;
+                }
 
                 glm::dvec3 center = tf(data->center.mVal);
                 double theta = -data->yaw.mVal;
