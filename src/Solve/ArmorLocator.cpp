@@ -69,8 +69,9 @@ public:
                     const auto pnpRes =
                         cv::solvePnP(armor.isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
                                      cameraInfo.cameraMatrix, cameraInfo.distCoefficients, rvec, tvec, false, cv::SOLVEPNP_IPPE);
-                    if(!pnpRes)
+                    if(!pnpRes) {
                         continue;
+                    }
                     glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
                     glm::dvec3 r = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
 
@@ -93,9 +94,16 @@ public:
                     res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefCam, armor.robotType,
                                             armorType, ArmorMotion::Unsure,
                                             Transform<FrameOfRef::Armor, FrameOfRef::Camera>(rmat) });
-                    HubLogger::visualLog(fmt::format("ArmorLocator locate target: RobotType:{}, ArmorImgCenter:({:.2f}, "
-                                                     "{:.2f})",
-                                                     magic_enum::enum_name(armor.robotType), armorImgCenter.x, armorImgCenter.y));
+
+                    if(std::isnan(p0.x) || std::isnan(p0.y) || std::isnan(p0.z)){
+                        HubLogger::visualLog("ArmorLocator: nan orrcur");
+                    }
+                
+                    HubLogger::visualLog(
+                        fmt::format("ArmorLocator locate target: RobotType:{}, ArmorImgCenter:({:.2f}, "
+                                    "{:.2f}), Position:({:.2f}, {:.2f}, {:.2f}), Yaw:{:.2f}",
+                                    magic_enum::enum_name(armor.robotType), armorImgCenter.x, armorImgCenter.y, p0.x, p0.y, p0.z,
+                                    glm::degrees(normalizeAngle(-atan2(rmat[2][0], rmat[2][2]) - glm::half_pi<double>()))));
                 }
 
                 sendAll(detect_available_atom_v, mGroupMask, BlackBoard::instance().updateSync(mKey, std::move(res)));
