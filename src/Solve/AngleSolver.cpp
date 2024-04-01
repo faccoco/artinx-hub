@@ -34,21 +34,6 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
         f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60), f.field("lVelDiscount", x.lVelDiscount).fallback(1.0));
 }
 
-template <class T>
-static std::optional<T> getQueueMax(const std::deque<T>& queue) {
-    if(!queue.empty()) {
-        T maxT = queue.front();
-        for(T t : queue) {
-            if(abs(t) > abs(maxT)) { {
-                maxT = t;
-            }
-            }
-        }
-        return maxT;
-    }
-    return {};
-}
-
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
 
     TimePoint latestReceived;
