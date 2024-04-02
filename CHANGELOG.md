@@ -108,3 +108,11 @@
     - 海康尝试 10s 不成功后结束整个进程
     - 大恒直接结束整个进程
 
+## 2024
+### 4.1
+- 加入包序检测(AngleSolver.cpp)
+
+### 4.2
+- 加入待击打角度筛选(AngleSolver.cpp)
+- 添加jetson时间戳问题处理方案(docs/jetson_timestamp.md)
+
