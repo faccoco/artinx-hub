@@ -1,4 +1,5 @@
 #pragma once
+#include "DetectedArmor.hpp"
 #include "DetectedTarget.hpp"
 #include "Timer.hpp"
 #include <optional>
@@ -19,6 +20,7 @@ struct PredictedTarget final {
     std::pair<double, double> radius;
     std::pair<double, double> y;
     int armorNum;
+    RobotType robotType;
 };
 
 struct PredictedPeriodTarget final {
@@ -34,4 +36,4 @@ ACTOR_PROTOCOL_DEFINE(set_period_outpost_atom, TypedIdentifier<SelectedTarget>, 
 ACTOR_PROTOCOL_DEFINE(predict_success_atom, TypedIdentifier<PredictedTarget>);
 ACTOR_PROTOCOL_DEFINE(car_predict_atom, TypedIdentifier<PredictedTarget>);
 ACTOR_PROTOCOL_DEFINE(period_predict_success_atom, TypedIdentifier<PredictedPeriodTarget>);
-ACTOR_PROTOCOL_DEFINE(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
+ACTOR_PROTOCOL_DEFINE(set_target_info_atom, GroupMask, Clock::rep, uint8_t, double, double, double, bool, SolverType);

@@ -210,9 +210,9 @@ public:
                 ACTOR_PROTOCOL_CHECK(start_atom);
                 mStarted = true;
             },
-            [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
+            [this](set_target_info_atom, GroupMask mask, Clock::rep begin, uint8_t targetType, double yawAngle, double pitchAngle, double targetDist, bool isFire,
                    SolverType solverType) {
-                ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
+                ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, uint8_t, double, double, double ,bool, SolverType);
 
                 yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
 

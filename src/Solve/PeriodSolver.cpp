@@ -71,7 +71,8 @@ public:
                     }
                     if(!data->period.has_value()) {
                         sendAllHighPriority(set_target_info_atom_v, mGroupMask,
-                                            data.value().lastUpdate.time_since_epoch().count(), yaw, pitch, false, waitSolver);
+                                            data.value().lastUpdate.time_since_epoch().count(), RobotType::Outpost, yaw, pitch,
+                                            0.0F, false, waitSolver);
                         return;
                     } else {
                         mAirTime = airTime;
@@ -79,7 +80,6 @@ public:
                         mPitch = pitch;
                     }
                 }
-
                 double waitTimeDouble = data->period.value() - mAirTime - delayTime - GlobalSettings::get().latency -
                     GlobalSettings::get().shootDelayTime;
                 while(waitTimeDouble < 0)
@@ -105,8 +105,8 @@ public:
                     }
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask,
-                                        (data.value().lastUpdate + waitTime - mHeadDelay).time_since_epoch().count(), mYaw,
-                                        mPitch, false, waitSolver);
+                                        (data.value().lastUpdate + waitTime - mHeadDelay).time_since_epoch().count(),
+                                        static_cast<uint8_t>(RobotType::Outpost), mYaw, mPitch, 0.0F, false, waitSolver);
                     //                    logInfo("send not shoot");
 
                     SynchronizedClock::instance().sleepFor(secondDelay);  // ready for shoot
@@ -115,8 +115,8 @@ public:
                     }
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask,
-                                        (data.value().lastUpdate + waitTime).time_since_epoch().count(), mYaw, mPitch, true,
-                                        waitSolver);  // shoot
+                                        (data.value().lastUpdate + waitTime).time_since_epoch().count(),
+                                        static_cast<uint8_t>(RobotType::Outpost), mYaw, mPitch, 0.0F, true, waitSolver);  // shoot
                 }).detach();
             },
             [this](hero_strategy_control_atom, bool periodActive, bool priorActive) {

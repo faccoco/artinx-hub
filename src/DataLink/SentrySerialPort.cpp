@@ -51,17 +51,18 @@ class SentrySendPacket final {
 public:
     static constexpr uint16_t id = 0xB0;
 
-    float yaw, pitch;
+    float yaw, pitch, dist;
     bool isFire;
-    uint8_t hasTargets{};
+    uint8_t hasTargets{},targetType{};
 
     PacketBuffer<5, id> buffer{};
 
     void serialize() {
         buffer = {};
-        buffer.serialize(hasTargets);
+        buffer.serialize(hasTargets | (targetType << 1));
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
+        buffer.serialize(dist, -1.0f, 0.001f);
         buffer.serializeCrc16();
     }
 };
@@ -128,6 +129,25 @@ class SentrySerialPort final
             mSendPacket.hasTargets |= 1;
         HubLogger::watch("hasTargets", mSendPacket.hasTargets);
     }
+    inline uint8_t tfRobotType(uint8_t robotType){
+        switch (robotType)
+        {
+        case 0:
+            return 7;// 规则中哨兵ID 7
+            break;
+        case 6:
+            return 10; // 规则中前哨站ID 10
+            break;
+        case 7:
+            return 11; // 规则中基地ID 11
+            break;
+        case 9:
+            return 12; // 约定通信中符ID 12
+        default:
+            return robotType; // 其它与规则ID一致
+            break;
+        }
+    }
 
 public:
     SentrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
@@ -157,9 +177,9 @@ public:
                 ACTOR_PROTOCOL_CHECK(start_atom);
                 mStarted = true;
             },
-            [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
+            [this](set_target_info_atom, GroupMask mask, Clock::rep begin, uint8_t targetType, double yawAngle, double pitchAngle, double targetDist, bool isFire,
                    SolverType solverType) {
-                ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
+                ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, uint8_t, double, double, double, bool, SolverType);
 
                 yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
                 HubLogger::watch("targetYaw", yawAngle);
@@ -170,6 +190,9 @@ public:
                     mSendPacket.yaw = static_cast<float>(yawAngle);
                     mSendPacket.pitch = static_cast<float>(pitchAngle);
                     mSendPacket.isFire = isFire;
+                    mSendPacket.targetType = tfRobotType(targetType);
+                    if(targetDist>60.0f || targetDist<0.0f)targetDist=60.0f;
+                    mSendPacket.dist = static_cast<float>(targetDist);
                     mLastTargetTime = Clock::now();
                 }
 

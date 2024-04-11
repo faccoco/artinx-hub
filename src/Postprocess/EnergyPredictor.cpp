@@ -482,9 +482,9 @@ public:
                          if(!success || isnan(yaw) || isnan(pitch)) {
                              return;
                          }
-
-                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(),
-                                             yaw, pitch, true, normalSolver);
+                         auto Dist = sqrt(square(mTrackFan.state(3)) + square(mTrackFan.state(4)) + square(mTrackFan.state(5)));
+                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(), 9,
+                                             yaw, pitch, Dist, true, normalSolver);
                      }
                  } };
     }
