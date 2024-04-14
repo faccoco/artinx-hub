@@ -1,3 +1,5 @@
+#include "DetectedArmor.hpp"
+#define GLM_ENABLE_EXPERIMENTAL
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "ExceptionProbe.hpp"
@@ -71,8 +73,8 @@ public:
                     }
                     if(!data->period.has_value()) {
                         sendAllHighPriority(set_target_info_atom_v, mGroupMask,
-                                            data.value().lastUpdate.time_since_epoch().count(), RobotType::Outpost, yaw, pitch,
-                                            0.0F, false, waitSolver);
+                                            data.value().lastUpdate.time_since_epoch().count(), static_cast<uint8_t>(RobotType::Outpost), yaw, pitch,
+                                            static_cast<double>(0.0), false, waitSolver);
                         return;
                     } else {
                         mAirTime = airTime;
@@ -106,7 +108,7 @@ public:
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask,
                                         (data.value().lastUpdate + waitTime - mHeadDelay).time_since_epoch().count(),
-                                        static_cast<uint8_t>(RobotType::Outpost), mYaw, mPitch, 0.0F, false, waitSolver);
+                                        static_cast<uint8_t>(RobotType::Outpost), mYaw, mPitch, static_cast<double>(0.0), false, waitSolver);
                     //                    logInfo("send not shoot");
 
                     SynchronizedClock::instance().sleepFor(secondDelay);  // ready for shoot
@@ -116,7 +118,7 @@ public:
 
                     sendAllHighPriority(set_target_info_atom_v, mGroupMask,
                                         (data.value().lastUpdate + waitTime).time_since_epoch().count(),
-                                        static_cast<uint8_t>(RobotType::Outpost), mYaw, mPitch, 0.0F, true, waitSolver);  // shoot
+                                        static_cast<uint8_t>(RobotType::Outpost), mYaw, mPitch, static_cast<double>(0.0), true, waitSolver);  // shoot
                 }).detach();
             },
             [this](hero_strategy_control_atom, bool periodActive, bool priorActive) {

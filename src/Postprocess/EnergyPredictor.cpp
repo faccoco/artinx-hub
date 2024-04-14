@@ -1,3 +1,5 @@
+#include <cstdint>
+#define GLM_ENABLE_EXPERIMENTAL
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedEnergyFan.hpp"
@@ -483,7 +485,7 @@ public:
                              return;
                          }
                          auto Dist = sqrt(square(mTrackFan.state(3)) + square(mTrackFan.state(4)) + square(mTrackFan.state(5)));
-                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(), 9,
+                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(), static_cast<uint8_t>(9),
                                              yaw, pitch, Dist, true, normalSolver);
                      }
                  } };
