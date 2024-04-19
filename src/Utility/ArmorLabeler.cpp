@@ -17,11 +17,13 @@ namespace fs = std::filesystem;
 struct ArmorLabelerSettings final {
     std::string savePath;
     int saveInterval;
+    int startId;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, ArmorLabelerSettings& x) {
-    return f.object(x).fields(f.field("savePath", x.savePath), f.field("saveInterval", x.saveInterval).fallback(1));
+    return f.object(x).fields(f.field("savePath", x.savePath), f.field("saveInterval", x.saveInterval).fallback(1),
+                              f.field("startId", x.startId).fallback(-1));
 }
 
 class ArmorLabeler final : public HubHelper<caf::event_based_actor, ArmorLabelerSettings> {
@@ -31,7 +33,7 @@ class ArmorLabeler final : public HubHelper<caf::event_based_actor, ArmorLabeler
 public:
     ArmorLabeler(caf::actor_config& base, const HubConfig& config, std::string name)
         : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
-        currentId = getMaxFileId(mConfig.savePath) + 1;
+        currentId = mConfig.startId == -1 ? getMaxFileId(mConfig.savePath) + 1 : mConfig.startId;
     }
 
     // get max file id
@@ -59,7 +61,7 @@ public:
         sprintf(newTextFilename, "%s/%08d.txt", savePath.c_str(), newId);
 
         std::ofstream textFile(newTextFilename);
-        textFile << label << std::endl;
+        textFile << label << "\n";
         textFile.close();
 
         cv::imwrite(newJpgFilename, src);
