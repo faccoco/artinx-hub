@@ -46,6 +46,7 @@ struct CondidateArmor final {
     float ratio;
     float angle;
     float prob;
+    Color color;
     std::vector<cv::Point2f> points;
 };
 
@@ -165,7 +166,7 @@ class ArmorDetector final
     std::vector<Light> findLights(const cv::Mat& bgrImg, const cv::Mat& binary) {
         mDebugLights.clear();
 
-        auto selfColor = GlobalSettings::get().getColor();
+        auto selfColor = Color::Purple;
         std::vector<std::vector<cv::Point2i>> contours;
         cv::findContours(binary, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
         std::vector<Light> lights;
@@ -309,18 +310,18 @@ class ArmorDetector final
                     continue;
                 }
 
-                bool isContainLights = false;
+//                bool isContainLights = false;
                 std::vector<cv::Point2f> points = { light1.top, light1.bottom, light2.bottom, light2.top };
-                for(uint32_t k = i + 1; k < j; ++k) {
-                    const auto boundRect = cv::boundingRect(points);
-                    if(boundRect.contains(lights[k].top) || boundRect.contains(lights[k].bottom)) {
-                        isContainLights = true;
-                        break;
-                    }
-                }
-                if(isContainLights) {
-                    continue;
-                }
+//                for(uint32_t k = i + 1; k < j; ++k) {
+//                    const auto boundRect = cv::boundingRect(points);
+//                    if(boundRect.contains(lights[k].top) || boundRect.contains(lights[k].bottom)) {
+//                        isContainLights = true;
+//                        break;
+//                    }
+//                }
+//                if(isContainLights) {
+//                    continue;
+//                }
 
                 CondidateArmor condArmor;
                 condArmor.isLargeArmor = armorRatio > mConfig.minLargeArmorRatio;
@@ -331,6 +332,7 @@ class ArmorDetector final
                 condArmor.angle = angle;
                 condArmor.ratio = armorRatio;
                 condArmor.points = points;
+                condArmor.color = light1.color;
 
                 condArmors.push_back(std::move(condArmor));
             }
@@ -360,6 +362,7 @@ class ArmorDetector final
             armor.robotType = static_cast<RobotType>(condArmor.id);
             armor.isLargeArmor = condArmor.isLargeArmor;
             armor.prob = condArmor.prob;
+            armor.robotColor = condArmor.color;
             usedLightIdx.insert(condArmor.leftLightIdx);
             usedLightIdx.insert(condArmor.rightLightIdx);
             armors.push_back(armor);
