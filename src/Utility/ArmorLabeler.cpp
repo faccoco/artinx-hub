@@ -28,12 +28,12 @@ bool inspect(Inspector& f, ArmorLabelerSettings& x) {
 
 class ArmorLabeler final : public HubHelper<caf::event_based_actor, ArmorLabelerSettings> {
     Identifier mKey;
-    int currentId;
+    int mCurrentId;
 
 public:
     ArmorLabeler(caf::actor_config& base, const HubConfig& config, std::string name)
         : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
-        currentId = mConfig.startId == -1 ? getMaxFileId(mConfig.savePath) + 1 : mConfig.startId;
+        mCurrentId = mConfig.startId == -1 ? getMaxFileId(mConfig.savePath) + 1 : mConfig.startId;
     }
 
     // get max file id
@@ -99,9 +99,9 @@ public:
                                               armorPoints[2].x / width, armorPoints[2].y / height, armorPoints[3].x / width,
                                               armorPoints[3].y / height);
                      }
-                     writeFile(showImg, label, mConfig.savePath, currentId);
+                     writeFile(showImg, label, mConfig.savePath, mCurrentId);
                      sleep(mConfig.saveInterval);
-                     currentId++;
+                     mCurrentId++;
                  } };
     }
 };
