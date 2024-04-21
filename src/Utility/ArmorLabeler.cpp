@@ -55,7 +55,7 @@ public:
         return maxId;
     }
 
-    static void writeFile(cv::Mat& src, std::string& label, std::string& savePath, int newId) {
+    static void writeFile(const cv::Mat& src, const std::string& label, const std::string& savePath, const int newId) {
         char newJpgFilename[256], newTextFilename[256];
         sprintf(newJpgFilename, "%s/%08d.jpg", savePath.c_str(), newId);
         sprintf(newTextFilename, "%s/%08d.txt", savePath.c_str(), newId);
