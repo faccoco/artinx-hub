@@ -59,7 +59,9 @@ set(SOURCE
         "Utility/VideoRecorder.cpp"
         "Utility/MathTools.cpp"
         "Utility/RadarInfo.cpp"
-        "Utility/NetInference.cpp")
+        "Utility/NetInference.cpp"
+        "Utility/ArmorLabeler.cpp"
+)
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
@@ -167,6 +169,11 @@ add_custom_command(
         TARGET ArtinxHub
         PRE_BUILD
         COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/data $<TARGET_FILE_DIR:ArtinxHub>/data)
+
+add_custom_command(
+        TARGET ArtinxHub
+        PRE_BUILD
+        COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_SOURCE_DIR}/record $<TARGET_FILE_DIR:ArtinxHub>/record)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     target_compile_options(ArtinxHub PRIVATE /W4 /WX-)
