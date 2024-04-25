@@ -39,7 +39,7 @@ struct SelectedTargetInfo final {
     bool isFire;
     SolverType solveType;
     std::optional<glm::dvec3> targetPos;
-    std::optional<double>targetDist;
+    std::optional<double> targetDist;
     std::optional<RobotType> targetType;
 };
 
