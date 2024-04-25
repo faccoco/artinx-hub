@@ -1,6 +1,7 @@
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
+#include "DetectedArmor.hpp"
 #include "DetectedEnergyFan.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
@@ -51,17 +52,18 @@ class InfantrySendPacket final {
 public:
     static constexpr uint16_t id = 0x0F;
 
-    float yaw, pitch, targetDist;
+    float yaw, pitch, x, y, z;
     bool isFire;
     uint8_t hasTargets{}, targetType{};
 
-    PacketBuffer<7, id> buffer{};
+    PacketBuffer<9, id> buffer{};
 
     void serialize() {
         buffer = {};
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
-        buffer.serialize(targetDist, -4.0f, 0.0005f);
+        buffer.serialize(x, -4.0f, 0.0005f);
+        buffer.serialize(y, -4.0f, 0.0005f);
         buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | static_cast<uint8_t>(hasTargets << 1) |
                                               static_cast<uint8_t>(targetType << 2)));
         buffer.serializeCrc16();
@@ -130,24 +132,6 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
             mSendPacket.hasTargets |= 1;
         HubLogger::watch("hasTargets", mSendPacket.hasTargets);
     }
-    inline uint8_t tfRobotType(uint8_t robotType) {
-        switch(robotType) {
-            case 0:
-                return 7;  // 规则中哨兵ID 7
-                break;
-            case 6:
-                return 10;  // 规则中前哨站ID 10
-                break;
-            case 7:
-                return 11;  // 规则中基地ID 11
-                break;
-            case 9:
-                return 12;  // 约定通信中符ID 12
-            default:
-                return robotType;  // 其它与规则ID一致
-                break;
-        }
-    }
 
 public:
     InfantrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
@@ -176,9 +160,9 @@ public:
                 auto data = BlackBoard::instance().get<SelectedTargetInfo>(key).value();
                 double yawAngle = data.yawAngle;
                 double pitchAngle = data.pitchAngle;
-                double targetDist = data.targetPos.value().length();
+                std::optional<glm::dvec3> targetPos = data.targetPos;
+                std::optional<RobotType> targetType = data.targetType;
                 bool isFire = data.isFire;
-                RobotType targetType = data.targetType.value();
                 yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
 
                 {
@@ -186,8 +170,17 @@ public:
                     mSendPacket.yaw = static_cast<float>(yawAngle);
                     mSendPacket.pitch = static_cast<float>(pitchAngle);
                     mSendPacket.isFire = isFire;
-                    mSendPacket.targetDist = static_cast<float>(targetDist);
-                    mSendPacket.targetType = tfRobotType(targetType);
+                    if(targetPos.has_value()) {
+                        mSendPacket.x = targetPos.value().x;
+                        mSendPacket.y = targetPos.value().y;
+                    } else {
+                        mSendPacket.x = 0.0f;
+                        mSendPacket.y = 0.0f;
+                    }
+                    if(targetType.has_value())
+                        mSendPacket.targetType = tfRobotType(targetType.value());
+                    else
+                        mSendPacket.targetType = 0;
                     mLastTargetTime = Clock::now();
                 }
 

@@ -3,7 +3,6 @@
 #include "DetectedArmor.hpp"
 #include "DetectedTarget.hpp"
 #include "Timer.hpp"
-// #include <bits/chrono.h>
 #include <glm/fwd.hpp>
 #include <optional>
 
@@ -39,7 +38,6 @@ struct SelectedTargetInfo final {
     bool isFire;
     SolverType solveType;
     std::optional<glm::dvec3> targetPos;
-    std::optional<double> targetDist;
     std::optional<RobotType> targetType;
 };
 
