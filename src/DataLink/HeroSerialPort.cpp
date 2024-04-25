@@ -204,10 +204,10 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
 
 public:
     HeroSerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, SerialPort<HeroRecvPacket, HeroSendPacket>(
-                                                          mConfig.devPath, mConfig.baudRate,
-                                                          std::bind(&HeroSerialPort::heroRecvCB, this, std::placeholders::_1),
-                                                          std::bind(&HeroSerialPort::heroSetPacket, this)),
+        : HubHelper{ base, config, std::move(name) },
+          SerialPort<HeroRecvPacket, HeroSendPacket>(mConfig.devPath, mConfig.baudRate,
+                                                     std::bind(&HeroSerialPort::heroRecvCB, this, std::placeholders::_1),
+                                                     std::bind(&HeroSerialPort::heroSetPacket, this)),
           mKey(generateKey(this)) {}
 
     caf::behavior make_behavior() override {
@@ -218,11 +218,11 @@ public:
             },
             [this](set_target_info_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(set_target_info_atom, TypedIdentifier<SelectedTargetInfo>);
-                auto data=BlackBoard::instance().get<SelectedTargetInfo>(key).value();
+                auto data = BlackBoard::instance().get<SelectedTargetInfo>(key).value();
                 double yawAngle = normalizeAngle(data.yawAngle - glm::half_pi<double>());
                 double pitchAngle = data.pitchAngle;
-                bool isFire=data.isFire;
-                SolverType solverType=data.solveType;
+                bool isFire = data.isFire;
+                SolverType solverType = data.solveType;
                 isFire = solverType && isFire;
                 {
                     std::lock_guard lock{ mPacketMutex };
@@ -236,8 +236,8 @@ public:
                 }
 
                 const auto current = Clock::now();
-                const auto latency =
-                    double(current.time_since_epoch().count() - data.lastUpdate.time_since_epoch().count()) / Duration::period::den * Duration::period::num;
+                const auto latency = double(current.time_since_epoch().count() - data.lastUpdate.time_since_epoch().count()) /
+                    Duration::period::den * Duration::period::num;
 
                 if(mLatency.size() >= latencyLen)
                     mLatency.pop_front();

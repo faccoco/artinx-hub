@@ -79,7 +79,7 @@ public:
                 } else {
                     return;
                 }
-                res.lastUpdate=data.value().lastUpdate;
+                res.lastUpdate = data.value().lastUpdate;
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->center;
                 Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->linearVel;
                 RobotType targetType = data->robotType;
@@ -103,14 +103,15 @@ public:
                 //      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
                 //      posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
                 if(accessible) {
-                    res.isFire=true;
-                    res.lastUpdate=data.value().lastUpdate;
-                    res.pitchAngle=pitchAngle;
-                    res.yawAngle=yawAngle;
-                    res.solveType=normalSolver;
-                    res.targetType=targetType;
-                    res.targetPos=tfPos;
-                    sendAll(set_target_info_atom_v, BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{mKey.val}, res));
+                    res.isFire = true;
+                    res.lastUpdate = data.value().lastUpdate;
+                    res.pitchAngle = pitchAngle;
+                    res.yawAngle = yawAngle;
+                    res.solveType = normalSolver;
+                    res.targetType = targetType;
+                    res.targetPos = tfPos;
+                    sendAll(set_target_info_atom_v,
+                            BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
                 } else {
                     HubLogger::visualLog("AngleSolver: armor inaccessable (single armor)");
                 }
@@ -131,8 +132,8 @@ public:
                     logInfo("angle solver pkg order wrong! ignore wrong order");
                     return;
                 }
-                res.lastUpdate=data.value().lastUpdate;
-                res.targetType=data.value().robotType;
+                res.lastUpdate = data.value().lastUpdate;
+                res.targetType = data.value().robotType;
                 glm::dvec3 center = tf(data->center.mVal);
                 double theta = -data->yaw.mVal;
 
@@ -205,12 +206,13 @@ public:
                     if(yaw.has_value()) {
                         HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
                                                          yaw.value(), pitch.value()));
-                        res.pitchAngle=pitch.value();
-                        res.yawAngle=yaw.value();
-                        res.solveType=normalSolver;
-                        res.isFire=true;
-                        res.targetPos=targetPos;
-                        sendAll(set_target_info_atom_v, BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{mKey.val}, res));
+                        res.pitchAngle = pitch.value();
+                        res.yawAngle = yaw.value();
+                        res.solveType = normalSolver;
+                        res.isFire = true;
+                        res.targetPos = targetPos;
+                        sendAll(set_target_info_atom_v,
+                                BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
                         return;
                     }
                     theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);

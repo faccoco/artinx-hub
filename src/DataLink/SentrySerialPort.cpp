@@ -55,7 +55,7 @@ public:
 
     float yaw, pitch, dist;
     bool isFire;
-    uint8_t hasTargets{},targetType{};
+    uint8_t hasTargets{}, targetType{};
 
     PacketBuffer<5, id> buffer{};
 
@@ -131,33 +131,31 @@ class SentrySerialPort final
             mSendPacket.hasTargets |= 1;
         HubLogger::watch("hasTargets", mSendPacket.hasTargets);
     }
-    inline uint8_t tfRobotType(uint8_t robotType){
-        switch (robotType)
-        {
-        case 0:
-            return 7;// 规则中哨兵ID 7
-            break;
-        case 6:
-            return 10; // 规则中前哨站ID 10
-            break;
-        case 7:
-            return 11; // 规则中基地ID 11
-            break;
-        case 9:
-            return 12; // 约定通信中符ID 12
-        default:
-            return robotType; // 其它与规则ID一致
-            break;
+    inline uint8_t tfRobotType(uint8_t robotType) {
+        switch(robotType) {
+            case 0:
+                return 7;  // 规则中哨兵ID 7
+                break;
+            case 6:
+                return 10;  // 规则中前哨站ID 10
+                break;
+            case 7:
+                return 11;  // 规则中基地ID 11
+                break;
+            case 9:
+                return 12;  // 约定通信中符ID 12
+            default:
+                return robotType;  // 其它与规则ID一致
+                break;
         }
     }
 
 public:
     SentrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, SerialPort<SentryRecvPacket, SentrySendPacket>(
-                                                          mConfig.devPath, mConfig.baudRate,
-                                                          std::bind(&SentrySerialPort::infantryRecvCB, this,
-                                                                    std::placeholders::_1),
-                                                          std::bind(&SentrySerialPort::sentrySetPacket, this)),
+        : HubHelper{ base, config, std::move(name) },
+          SerialPort<SentryRecvPacket, SentrySendPacket>(
+              mConfig.devPath, mConfig.baudRate, std::bind(&SentrySerialPort::infantryRecvCB, this, std::placeholders::_1),
+              std::bind(&SentrySerialPort::sentrySetPacket, this)),
           mKey{ generateKey(this) } {
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
@@ -198,14 +196,15 @@ public:
                     mSendPacket.pitch = static_cast<float>(pitchAngle);
                     mSendPacket.isFire = isFire;
                     mSendPacket.targetType = tfRobotType(targetType);
-                    if(targetDist>60.0f || targetDist<0.0f)targetDist=60.0f;
+                    if(targetDist > 60.0f || targetDist < 0.0f)
+                        targetDist = 60.0f;
                     mSendPacket.dist = static_cast<float>(targetDist);
                     mLastTargetTime = Clock::now();
                 }
 
                 const auto current = Clock::now();
-                const auto latency =
-                    double(current.time_since_epoch().count() - data.lastUpdate.time_since_epoch().count()) / Duration::period::den * Duration::period::num;
+                const auto latency = double(current.time_since_epoch().count() - data.lastUpdate.time_since_epoch().count()) /
+                    Duration::period::den * Duration::period::num;
 
                 if(mLatency.size() >= latencyLen)
                     mLatency.pop_front();

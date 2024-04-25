@@ -53,7 +53,7 @@ public:
 
     float yaw, pitch, targetDist;
     bool isFire;
-    uint8_t hasTargets{},targetType{};
+    uint8_t hasTargets{}, targetType{};
 
     PacketBuffer<7, id> buffer{};
 
@@ -62,7 +62,8 @@ public:
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
         buffer.serialize(targetDist, -4.0f, 0.0005f);
-        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | static_cast<uint8_t>(hasTargets << 1) | static_cast<uint8_t>(targetType << 2)));
+        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | static_cast<uint8_t>(hasTargets << 1) |
+                                              static_cast<uint8_t>(targetType << 2)));
         buffer.serializeCrc16();
     }
 };
@@ -129,33 +130,31 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
             mSendPacket.hasTargets |= 1;
         HubLogger::watch("hasTargets", mSendPacket.hasTargets);
     }
-    inline uint8_t tfRobotType(uint8_t robotType){
-        switch (robotType)
-        {
-        case 0:
-            return 7;// 规则中哨兵ID 7
-            break;
-        case 6:
-            return 10; // 规则中前哨站ID 10
-            break;
-        case 7:
-            return 11; // 规则中基地ID 11
-            break;
-        case 9:
-            return 12; // 约定通信中符ID 12
-        default:
-            return robotType; // 其它与规则ID一致
-            break;
+    inline uint8_t tfRobotType(uint8_t robotType) {
+        switch(robotType) {
+            case 0:
+                return 7;  // 规则中哨兵ID 7
+                break;
+            case 6:
+                return 10;  // 规则中前哨站ID 10
+                break;
+            case 7:
+                return 11;  // 规则中基地ID 11
+                break;
+            case 9:
+                return 12;  // 约定通信中符ID 12
+            default:
+                return robotType;  // 其它与规则ID一致
+                break;
         }
     }
 
 public:
     InfantrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, SerialPort<InfantryRecvPacket, InfantrySendPacket>(
-                                                          mConfig.devPath, mConfig.baudRate,
-                                                          std::bind(&InfantrySerialPort::infantryRecvCB, this,
-                                                                    std::placeholders::_1),
-                                                          std::bind(&InfantrySerialPort::infantrySetPacket, this)),
+        : HubHelper{ base, config, std::move(name) },
+          SerialPort<InfantryRecvPacket, InfantrySendPacket>(
+              mConfig.devPath, mConfig.baudRate, std::bind(&InfantrySerialPort::infantryRecvCB, this, std::placeholders::_1),
+              std::bind(&InfantrySerialPort::infantrySetPacket, this)),
           mKey{ generateKey(this) } {
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
@@ -193,8 +192,8 @@ public:
                 }
 
                 const auto current = Clock::now();
-                const auto latency =
-                    double(current.time_since_epoch().count() - data.lastUpdate.time_since_epoch().count()) / Duration::period::den * Duration::period::num;
+                const auto latency = double(current.time_since_epoch().count() - data.lastUpdate.time_since_epoch().count()) /
+                    Duration::period::den * Duration::period::num;
 
                 if(mLatency.size() >= latencyLen)
                     mLatency.pop_front();
