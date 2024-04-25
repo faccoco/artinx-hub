@@ -14,6 +14,8 @@
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
+#include <glm/fwd.hpp>
+#include <optional>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 #include <magic_enum.hpp>
@@ -39,7 +41,7 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
 }
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
-
+    Identifier mKey;
     std::deque<double> mPastAVel;
     static double absAngleDifferece(double a, double b) {
         return std::abs(normalizeAngle(b - a));
@@ -55,7 +57,8 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
     }
 
 public:
-    AngleSolver(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, std::move(name) } {
+    AngleSolver(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
         latestReceived = TimePoint::min();
     }
     caf::behavior make_behavior() override {
@@ -69,19 +72,18 @@ public:
                 if(!(data.has_value())) {
                     return;
                 }
-
+                SelectedTargetInfo res;
                 // check pkg order
                 if(data->lastUpdate.time_since_epoch().count() > latestReceived.time_since_epoch().count()) {
                     latestReceived = data->lastUpdate;
                 } else {
                     return;
                 }
-
+                res.lastUpdate=data.value().lastUpdate;
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->center;
                 Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->linearVel;
                 RobotType targetType = data->robotType;
                 auto horizontalDist = std::sqrt(square(posRefRobot.mVal.z) + square(posRefRobot.mVal.x));
-                auto Dist = std::sqrt(square(posRefRobot.mVal.z) + square(posRefRobot.mVal.x) + square(posRefRobot.mVal.y));
                 HubLogger::watch("verticalDistance", posRefRobot.mVal.y);
                 HubLogger::watch("horizontalDistance", horizontalDist);
 
@@ -101,8 +103,14 @@ public:
                 //      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
                 //      posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
                 if(accessible) {
-                    sendAllHighPriority(set_target_info_atom_v, mGroupMask, data.value().lastUpdate.time_since_epoch().count(),
-                                        static_cast<uint8_t>(targetType), yawAngle, pitchAngle, Dist, true, normalSolver);
+                    res.isFire=true;
+                    res.lastUpdate=data.value().lastUpdate;
+                    res.pitchAngle=pitchAngle;
+                    res.yawAngle=yawAngle;
+                    res.solveType=normalSolver;
+                    res.targetType=targetType;
+                    res.targetPos=tfPos;
+                    sendAll(set_target_info_atom_v, BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{mKey.val}, res));
                 } else {
                     HubLogger::visualLog("AngleSolver: armor inaccessable (single armor)");
                 }
@@ -115,7 +123,7 @@ public:
                 if(!(data.has_value())) {
                     return;
                 }
-
+                SelectedTargetInfo res;
                 // check pkg order
                 if(data->lastUpdate.time_since_epoch().count() > latestReceived.time_since_epoch().count()) {
                     latestReceived = data->lastUpdate;
@@ -123,10 +131,9 @@ public:
                     logInfo("angle solver pkg order wrong! ignore wrong order");
                     return;
                 }
-
+                res.lastUpdate=data.value().lastUpdate;
+                res.targetType=data.value().robotType;
                 glm::dvec3 center = tf(data->center.mVal);
-                auto Dist = std::sqrt(square(center.x) + square(center.y) + square(center.z));
-                RobotType targetType = data->robotType;
                 double theta = -data->yaw.mVal;
 
                 double centerYaw = normalizeAngle(atan2(center.y, center.x) - glm::half_pi<double>());
@@ -151,6 +158,7 @@ public:
                 // solve and determine possible armor
                 std::optional<double> yaw, pitch;
                 std::optional<int> targetArmorId;
+                std::optional<glm::dvec3> targetPos;
                 int armorNum = data->armorNum;
                 for(int i = 0; i < armorNum; i++) {
                     double r = R[i & 1];
@@ -179,6 +187,7 @@ public:
                                         yaw = yawAngle;
                                         pitch = pitchAngle;
                                         targetArmorId = i;
+                                        targetPos = predictCenter;
                                     }
                                 } else {
                                     HubLogger::visualLog(fmt::format(
@@ -196,8 +205,12 @@ public:
                     if(yaw.has_value()) {
                         HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
                                                          yaw.value(), pitch.value()));
-                        sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
-                                            static_cast<uint8_t>(targetType), yaw.value(), pitch.value(), Dist, true, normalSolver);
+                        res.pitchAngle=pitch.value();
+                        res.yawAngle=yaw.value();
+                        res.solveType=normalSolver;
+                        res.isFire=true;
+                        res.targetPos=targetPos;
+                        sendAll(set_target_info_atom_v, BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{mKey.val}, res));
                         return;
                     }
                     theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);

@@ -1,7 +1,10 @@
 #pragma once
+#include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
 #include "DetectedTarget.hpp"
 #include "Timer.hpp"
+// #include <bits/chrono.h>
+#include <glm/fwd.hpp>
 #include <optional>
 
 struct SelectedTarget final {
@@ -29,6 +32,17 @@ struct PredictedPeriodTarget final {
     std::optional<double> period;
 };
 
+struct SelectedTargetInfo final {
+    TimePoint lastUpdate;
+    double yawAngle;
+    double pitchAngle;
+    bool isFire;
+    SolverType solveType;
+    std::optional<glm::dvec3> targetPos;
+    std::optional<double>targetDist;
+    std::optional<RobotType> targetType;
+};
+
 ACTOR_PROTOCOL_DEFINE(hero_strategy_control_atom, bool, bool);
 ACTOR_PROTOCOL_DEFINE(set_target_atom, TypedIdentifier<SelectedTarget>);
 ACTOR_PROTOCOL_DEFINE(set_period_target_atom, TypedIdentifier<SelectedTarget>, bool);
@@ -36,4 +50,4 @@ ACTOR_PROTOCOL_DEFINE(set_period_outpost_atom, TypedIdentifier<SelectedTarget>, 
 ACTOR_PROTOCOL_DEFINE(predict_success_atom, TypedIdentifier<PredictedTarget>);
 ACTOR_PROTOCOL_DEFINE(car_predict_atom, TypedIdentifier<PredictedTarget>);
 ACTOR_PROTOCOL_DEFINE(period_predict_success_atom, TypedIdentifier<PredictedPeriodTarget>);
-ACTOR_PROTOCOL_DEFINE(set_target_info_atom, GroupMask, Clock::rep, uint8_t, double, double, double, bool, SolverType);
+ACTOR_PROTOCOL_DEFINE(set_target_info_atom, TypedIdentifier<SelectedTargetInfo>);

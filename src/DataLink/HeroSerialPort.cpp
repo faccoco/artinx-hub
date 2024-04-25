@@ -1,12 +1,18 @@
 #include "BlackBoard.hpp"
+#include "DataDesc.hpp"
+#include "DetectedArmor.hpp"
 #include "HeadInfo.hpp"
 #include "PostureData.hpp"
 #include "SelectedTarget.hpp"
 #include "SerialPort/PacketHelper.hpp"
 #include "SerialPort/SerialPort.hpp"
+#include "Timer.hpp"
+#include "Utility.hpp"
 
 #include <caf/event_based_actor.hpp>
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/fwd.hpp>
+#include <optional>
 
 class HeroRecvPacket final {
 public:
@@ -210,12 +216,13 @@ public:
                 ACTOR_PROTOCOL_CHECK(start_atom);
                 mStarted = true;
             },
-            [this](set_target_info_atom, GroupMask mask, Clock::rep begin, uint8_t targetType, double yawAngle, double pitchAngle, double targetDist, bool isFire,
-                   SolverType solverType) {
-                ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, uint8_t, double, double, double ,bool, SolverType);
-
-                yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
-
+            [this](set_target_info_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(set_target_info_atom, TypedIdentifier<SelectedTargetInfo>);
+                auto data=BlackBoard::instance().get<SelectedTargetInfo>(key).value();
+                double yawAngle = normalizeAngle(data.yawAngle - glm::half_pi<double>());
+                double pitchAngle = data.pitchAngle;
+                bool isFire=data.isFire;
+                SolverType solverType=data.solveType;
                 isFire = solverType && isFire;
                 {
                     std::lock_guard lock{ mPacketMutex };
@@ -230,7 +237,7 @@ public:
 
                 const auto current = Clock::now();
                 const auto latency =
-                    double(current.time_since_epoch().count() - begin) / Duration::period::den * Duration::period::num;
+                    double(current.time_since_epoch().count() - data.lastUpdate.time_since_epoch().count()) / Duration::period::den * Duration::period::num;
 
                 if(mLatency.size() >= latencyLen)
                     mLatency.pop_front();

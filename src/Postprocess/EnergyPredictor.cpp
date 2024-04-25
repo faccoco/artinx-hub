@@ -1,5 +1,3 @@
-#include <cstdint>
-#define GLM_ENABLE_EXPERIMENTAL
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedEnergyFan.hpp"
@@ -8,6 +6,7 @@
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
 #include "Utility.hpp"
+#include <cstdint>
 
 #include "SuppressWarningBegin.hpp"
 
@@ -16,6 +15,7 @@
 #include <ceres/ceres.h>
 #include <cmath>
 #include <fmt/format.h>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/fwd.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtx/vector_angle.hpp>
@@ -309,8 +309,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
 
 public:
     EnergyPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, name }, mKey{ generateKey(this) }, mTrackFan{ TimePoint(), Eigen::VectorXd::Zero(7),
-                                                                                 FanTrackingState::LOST } {
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) },
+          mTrackFan{ TimePoint(), Eigen::VectorXd::Zero(7), FanTrackingState::LOST } {
         mLostCount = mConfig.lostCnt;
 
         int nX = 7;  // state:t w theta xr yr zr yaw
@@ -484,9 +484,15 @@ public:
                          if(!success || isnan(yaw) || isnan(pitch)) {
                              return;
                          }
-                         auto Dist = sqrt(square(mTrackFan.state(3)) + square(mTrackFan.state(4)) + square(mTrackFan.state(5)));
-                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(), static_cast<uint8_t>(9),
-                                             yaw, pitch, Dist, true, normalSolver);
+
+                         SelectedTargetInfo res;
+                         res.lastUpdate = srcFan.lastUpdate;
+                         res.yawAngle = yaw;
+                         res.pitchAngle = pitch;
+                         res.isFire = true;
+                         res.solveType = normalSolver;
+                         sendAll(set_target_info_atom_v,
+                                 BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
                      }
                  } };
     }

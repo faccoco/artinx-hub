@@ -1,5 +1,6 @@
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
+#include "DataDesc.hpp"
 #include "DetectedEnergyFan.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
@@ -171,10 +172,14 @@ public:
                 ACTOR_PROTOCOL_CHECK(start_atom);
                 mStarted = true;
             },
-            [this](set_target_info_atom, GroupMask mask, Clock::rep begin, uint8_t targetType, double yawAngle, double pitchAngle, double targetDist, bool isFire,
-                   SolverType solverType) {
-                ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, uint8_t, double, double, double, bool, SolverType);
-
+            [this](set_target_info_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(set_target_info_atom, TypedIdentifier<SelectedTargetInfo>);
+                auto data = BlackBoard::instance().get<SelectedTargetInfo>(key).value();
+                double yawAngle = data.yawAngle;
+                double pitchAngle = data.pitchAngle;
+                double targetDist = data.targetPos.value().length();
+                bool isFire = data.isFire;
+                RobotType targetType = data.targetType.value();
                 yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
 
                 {
@@ -189,7 +194,7 @@ public:
 
                 const auto current = Clock::now();
                 const auto latency =
-                    double(current.time_since_epoch().count() - begin) / Duration::period::den * Duration::period::num;
+                    double(current.time_since_epoch().count() - data.lastUpdate.time_since_epoch().count()) / Duration::period::den * Duration::period::num;
 
                 if(mLatency.size() >= latencyLen)
                     mLatency.pop_front();

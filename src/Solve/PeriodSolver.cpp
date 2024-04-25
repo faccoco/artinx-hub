@@ -1,7 +1,6 @@
-#include "DetectedArmor.hpp"
-#define GLM_ENABLE_EXPERIMENTAL
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
+#include "DetectedArmor.hpp"
 #include "ExceptionProbe.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
@@ -11,6 +10,7 @@
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 #include <magic_enum.hpp>
 
@@ -27,6 +27,7 @@ bool inspect(Inspector& f, PeriodSolverSettings& x) {
 }
 
 class PeriodSolver final : public HubHelper<caf::event_based_actor, PeriodSolverSettings, set_target_info_atom> {
+    Identifier mKey;
     const double delayTime;
     const Duration mHeadDelay;
     bool mPeriodActive;
@@ -44,7 +45,7 @@ class PeriodSolver final : public HubHelper<caf::event_based_actor, PeriodSolver
 
 public:
     PeriodSolver(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, delayTime(mConfig.delay),
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) }, delayTime(mConfig.delay),
           mHeadDelay(doubleCastDuration(mConfig.headDelay)) {}
     caf::behavior make_behavior() override {
         return {
@@ -58,7 +59,6 @@ public:
                 auto data = BlackBoard::instance().get<PredictedPeriodTarget>(key);
                 if(!(data.has_value()))
                     return;
-
                 if(data->position.has_value()) {
                     // HubLogger::watch("x", data->position.mVal.x);
                     HubLogger::watch("verticalDistance", data->position->mVal.y);
@@ -72,9 +72,16 @@ public:
                         // TODO: handle inaccessible cases
                     }
                     if(!data->period.has_value()) {
-                        sendAllHighPriority(set_target_info_atom_v, mGroupMask,
-                                            data.value().lastUpdate.time_since_epoch().count(), static_cast<uint8_t>(RobotType::Outpost), yaw, pitch,
-                                            static_cast<double>(0.0), false, waitSolver);
+                        SelectedTargetInfo res;
+                        res.lastUpdate = data.value().lastUpdate;
+                        res.yawAngle = yaw;
+                        res.pitchAngle = pitch;
+                        res.isFire = false;
+                        res.solveType = waitSolver;
+                        res.targetType = RobotType::Outpost;
+                        res.targetPos = tfPos;
+                        sendAll(set_target_info_atom_v,
+                                BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
                         return;
                     } else {
                         mAirTime = airTime;
@@ -105,20 +112,25 @@ public:
                     if(!mUpdateCnt.compare_exchange_strong(t1, t1)) {
                         return;
                     }
-
-                    sendAllHighPriority(set_target_info_atom_v, mGroupMask,
-                                        (data.value().lastUpdate + waitTime - mHeadDelay).time_since_epoch().count(),
-                                        static_cast<uint8_t>(RobotType::Outpost), mYaw, mPitch, static_cast<double>(0.0), false, waitSolver);
+                    SelectedTargetInfo res;
+                    res.lastUpdate = data.value().lastUpdate + waitTime - mHeadDelay;
+                    res.yawAngle = mYaw;
+                    res.pitchAngle = mPitch;
+                    res.isFire = false;
+                    res.solveType = waitSolver;
+                    res.targetType = RobotType::Outpost;
+                    sendAll(set_target_info_atom_v,
+                            BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
                     //                    logInfo("send not shoot");
 
                     SynchronizedClock::instance().sleepFor(secondDelay);  // ready for shoot
                     if(!mUpdateCnt.compare_exchange_strong(t1, t1)) {
                         return;
                     }
-
-                    sendAllHighPriority(set_target_info_atom_v, mGroupMask,
-                                        (data.value().lastUpdate + waitTime).time_since_epoch().count(),
-                                        static_cast<uint8_t>(RobotType::Outpost), mYaw, mPitch, static_cast<double>(0.0), true, waitSolver);  // shoot
+                    res.isFire = true;
+                    res.lastUpdate = data.value().lastUpdate + waitTime;
+                    sendAll(set_target_info_atom_v,
+                            BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));  // shoot
                 }).detach();
             },
             [this](hero_strategy_control_atom, bool periodActive, bool priorActive) {
