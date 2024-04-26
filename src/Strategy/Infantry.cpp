@@ -1,12 +1,12 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
+#include "DetectedArmor.hpp"
 #include "DetectedEnergyFan.hpp"
 #include "DetectedTarget.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
 
 #include "SuppressWarningBegin.hpp"
-
 #include <caf/event_based_actor.hpp>
 #include <glm/glm.hpp>
 
@@ -34,16 +34,33 @@ public:
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
                      selected.tfRobot2Camera = data.tfRobot2Camera;
-                     selected.targets = data.targets;
-
-                     auto autoAimMode = GlobalSettings::get().getAutoAimMode();
-
+                     AutoAimMode autoAimMode = GlobalSettings::get().getAutoAimMode();
+                     RobotType PriorTarget;
+                     switch(autoAimMode) {
+                         case AutoAimMode::HeroFirst:
+                             PriorTarget = RobotType::Hero;
+                             break;
+                         case AutoAimMode::BaseFirst:
+                             PriorTarget = RobotType::Base;
+                             break;
+                         case AutoAimMode::SentryFirst:
+                             PriorTarget = RobotType::Sentry;
+                             break;
+                         default:
+                             PriorTarget = RobotType::Negative;
+                             break;
+                     }
+                     bool hasPriorTarget = false;
+                     for(const auto& target : data.targets) {
+                         if(target.id == PriorTarget) {
+                             hasPriorTarget = true;
+                             selected.targets.push_back(target);
+                         }
+                     }
+                     if(!hasPriorTarget)
+                         selected.targets = data.targets;
                      double minDisToImgCenter = std::numeric_limits<double>::max();
                      for(const auto& target : selected.targets) {
-                         if((autoAimMode == AutoAimMode::HeroFirst && target.id==RobotType::Hero) || (autoAimMode == AutoAimMode::SentryFirst && target.id==RobotType::Sentry)){
-                            selected.selected = target;
-                            break;
-                         }
                          if(target.distToImgCenter < minDisToImgCenter) {
                              selected.selected = target;
                              minDisToImgCenter = target.distToImgCenter;

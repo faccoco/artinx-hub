@@ -1,5 +1,6 @@
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
+#include "DataDesc.hpp"
 #include "DetectedEnergyFan.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
@@ -102,6 +103,7 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
         GlobalSettings::get().taskMode = fdb.energyMode;
+        GlobalSettings::get().autoAimMode = fdb.autoAimMode;
 
         const double yaw = fdb.yaw;
         const double pitch = fdb.pitch;
@@ -131,11 +133,10 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
 
 public:
     InfantrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, SerialPort<InfantryRecvPacket, InfantrySendPacket>(
-                                                          mConfig.devPath, mConfig.baudRate,
-                                                          std::bind(&InfantrySerialPort::infantryRecvCB, this,
-                                                                    std::placeholders::_1),
-                                                          std::bind(&InfantrySerialPort::infantrySetPacket, this)),
+        : HubHelper{ base, config, std::move(name) },
+          SerialPort<InfantryRecvPacket, InfantrySendPacket>(
+              mConfig.devPath, mConfig.baudRate, std::bind(&InfantrySerialPort::infantryRecvCB, this, std::placeholders::_1),
+              std::bind(&InfantrySerialPort::infantrySetPacket, this)),
           mKey{ generateKey(this) } {
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
