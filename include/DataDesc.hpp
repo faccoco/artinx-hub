@@ -18,7 +18,7 @@ static_assert(std::is_same_v<Clock::period, std::nano>);
 
 enum class Color { Blue, Red, Purple, Negative };
 enum class TaskMode { AutoAim = 0, SmallRune = 1, BigRune = 2 };
-
+enum class AutoAimMode { Normal = 0, HeroFirst = 1, SentryFirst = 2, BaseFirst = 3 };
 struct GlobalSettings final {
     double gForce;
     double dragCoefficient;
@@ -31,7 +31,7 @@ struct GlobalSettings final {
     double bulletSpeed;
     double shootDelayTime = 0.f;
     bool started = false;
-    int taskMode = 0;
+    int taskMode = 0, autoAimMode = 0;
 
     uint8_t priorNum = 0xff;
     bool blockEngineer = false, blockSentry = false;
@@ -50,6 +50,10 @@ struct GlobalSettings final {
 
     TaskMode getTaskMode() const noexcept {
         return static_cast<TaskMode>(taskMode);
+    }
+
+    AutoAimMode getAutoAimMode() const noexcept {
+        return static_cast<AutoAimMode>(autoAimMode);
     }
 
     void setColor(Color color) noexcept {
@@ -148,10 +152,12 @@ struct __ImplActorProtocol final {
     }
 };
 
-#define ACTOR_PROTOCOL_DEFINE(...)                              \
-    template <>                                                 \
-    struct __ImplActorProtocol<__VA_ARGS__> final {             \
-        static constexpr bool check() noexcept { return true; } \
+#define ACTOR_PROTOCOL_DEFINE(...)                  \
+    template <>                                     \
+    struct __ImplActorProtocol<__VA_ARGS__> final { \
+        static constexpr bool check() noexcept {    \
+            return true;                            \
+        }                                           \
     }
 
 template <typename... Args>
