@@ -13,27 +13,40 @@
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
+#include <glm/gtc/constants.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <magic_enum.hpp>
+#include <vector>
 
 #include "SuppressWarningEnd.hpp"
 
 struct AngleSolverSettings final {
     double delay;
+    bool gimbalFixed;
     double sameTimeThreshold;
     double requiredTimeWeight;
     double maxShootDeltaTheta;  // in degree
     double lVelDiscount;
-    double orietationAngle; // in degree
+    double orietationAngle;  // in degree
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
-    return f.object(x).fields(
-        f.field("delay", x.delay).fallback(0.0), f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
-        f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
-        f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60), f.field("lVelDiscount", x.lVelDiscount).fallback(1.0));
+    return f.object(x).fields(f.field("delay", x.delay).fallback(0.0), f.field("gimbalFixed", x.gimbalFixed).fallback(false),
+                              f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
+                              f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
+                              f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60),
+                              f.field("lVelDiscount", x.lVelDiscount).fallback(1.0),
+                              f.field("orietationAngle", x.orietationAngle).fallback(45));
 }
+
+struct CandidateTarget final {
+    double yawAngle;
+    double pitchAngle;
+    double diffAngle;
+    double r;
+    double height;
+};
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
 
@@ -52,10 +65,9 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
     }
 
 public:
-    AngleSolver(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) } {
-            latestReceived = TimePoint::min();
-        }
+    AngleSolver(caf::actor_config& base, const HubConfig& config, std::string name) : HubHelper{ base, config, std::move(name) } {
+        latestReceived = TimePoint::min();
+    }
     caf::behavior make_behavior() override {
         return {
             [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
@@ -129,9 +141,8 @@ public:
 
                 double aVel = -data->angularVel.mVal;
 
-                // double aVel = getMaxAVel(-data->angularVel.mVal);
                 HubLogger::watch("CenterYaw", centerYaw);
-				HubLogger::watch("AngleVelRefRobot", aVel);
+                HubLogger::watch("AngleVelRefRobot", aVel);
 
                 double R[2] = { data->radius.first, data->radius.second };
                 double Z[2] = { data->y.first, data->y.second };
@@ -144,8 +155,8 @@ public:
 
                 // solve and determine possible armor
                 std::optional<double> yaw, pitch;
-                std::optional<int> targetArmorId;
                 int armorNum = data->armorNum;
+                std::vector<CandidateTarget> candTargets;
                 for(int i = 0; i < armorNum; i++) {
                     double r = R[i & 1];
                     center.z = Z[i & 1];
@@ -166,36 +177,56 @@ public:
                         if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {
                             double deltaTheta = normalizeAngle(requiredTheta - yawAngle - glm::pi<double>());
                             if(r == 0 || std::abs(deltaTheta) <= glm::radians(mConfig.maxShootDeltaTheta)) {
-                                double angleDiff = absAngleDifferece(centerYaw, normalizeAngle(yawAngle-glm::half_pi<double>()));
-                                if(angleDiff - glm::radians(mConfig.orietationAngle) <= 4e-4) {
-                                    if(!yaw.has_value() || angleDiff < absAngleDifferece(centerYaw, yaw.value())) {
-                                        yaw = yawAngle;
-                                        pitch = pitchAngle;
-                                        targetArmorId = i;
-                                    }
-                                } else {
-                                    HubLogger::visualLog(fmt::format(
-                                        "AngleSolver: {}th armor yawAngle diff:{:.3f} degrees do not satisfy oritationAngle", i,
-                                        glm::degrees(angleDiff)));
-                                }
+                                double angleDiff =
+                                    absAngleDifferece(centerYaw, normalizeAngle(yawAngle - glm::half_pi<double>()));
+                                CandidateTarget candTarget;
+                                candTarget.yawAngle = yawAngle;
+                                candTarget.pitchAngle = pitchAngle;
+                                candTarget.diffAngle = angleDiff;
+                                candTarget.r = r;
+                                candTarget.height = center.z;
+                                candTargets.push_back(candTarget);
                             } else {
-                                HubLogger::visualLog(fmt::format("AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw",
-                                                    i, deltaTheta));
+                                HubLogger::visualLog(fmt::format(
+                                    "AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw", i, deltaTheta));
                             }
                             break;
                         }
                         predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
                     }
-                    if(yaw.has_value()) {
-                        HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
-                                                         yaw.value(), pitch.value()));
-                        sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
-                                            yaw.value(), pitch.value(), true, normalSolver);
-                        return;
-                    } 
                     theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
                 }
-                // logInfo("AngleSolver: solve failed! Four Armor do not satisfy maxShootDeltaYaw");
+
+                if(!candTargets.empty()) {
+                    bool fire = false;
+
+                    std::sort(candTargets.begin(), candTargets.end(),
+                              [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
+                    yaw = candTargets[0].yawAngle;
+                    pitch = candTargets[0].pitchAngle;
+
+                    if(mConfig.gimbalFixed) {
+                        double r = candTargets[0].r;
+                        center.z = candTargets[0].height;
+                        auto armorFaced = getPos(
+                            center, r, normalizeAngle(glm::half_pi<double>() + centerYaw));  // armor_yaw - center_yaw - half_pi
+                        auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(armorFaced, lVel);
+                        if(accessible) {
+                            fire =
+                                (absAngleDifferece(yaw.value(), yawAngle) < (glm::radians(mConfig.orietationAngle) + 4e-4) ? true :
+                                                                                                                           false);
+                            yaw = yawAngle;
+                            pitch = pitchAngle;
+                        }
+                    }
+                    HubLogger::watch("fire", fire);
+
+                    HubLogger::visualLog(
+                        fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", 0, yaw.value(), pitch.value()));
+                    sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
+                                        yaw.value(), pitch.value(), fire, normalSolver);
+                    return;
+                }
             },
         };
     }
