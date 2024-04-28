@@ -14,6 +14,7 @@
 #include "Utility.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -54,18 +55,17 @@ class InfantrySendPacket final {
 public:
     static constexpr uint16_t id = 0x0F;
 
-    float yaw, pitch, x, y, z;
+    float yaw, pitch, horizontalDist, z;
     bool isFire;
     uint8_t hasTargets{}, targetType{};
 
-    PacketBuffer<9, id> buffer{};
+    PacketBuffer<7, id> buffer{};
 
     void serialize() {
         buffer = {};
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
-        buffer.serialize(x, -4.0f, 0.0005f);
-        buffer.serialize(y, -4.0f, 0.0005f);
+        buffer.serialize(horizontalDist, -4.0f, 0.0005f);
         buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | static_cast<uint8_t>(hasTargets << 1) |
                                               static_cast<uint8_t>(targetType << 2)));
         buffer.serializeCrc16();
@@ -174,11 +174,11 @@ public:
                     mSendPacket.pitch = static_cast<float>(pitchAngle);
                     mSendPacket.isFire = isFire;
                     if(targetPos.has_value()) {
-                        mSendPacket.x = targetPos.value().x;
-                        mSendPacket.y = targetPos.value().y;
+                        mSendPacket.horizontalDist=std::sqrt(square(targetPos.value().x)+square(targetPos.value().y));
+                        mSendPacket.z=targetPos.value().z;
                     } else {
-                        mSendPacket.x = 0.0f;
-                        mSendPacket.y = 0.0f;
+                        mSendPacket.horizontalDist=0.0f;
+                        mSendPacket.z=0.0f;
                     }
                     if(targetType.has_value())
                         mSendPacket.targetType = tfRobotType(targetType.value());
