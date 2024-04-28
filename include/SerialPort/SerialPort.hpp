@@ -71,6 +71,9 @@ public:
             case Base:
                 return 11;  // 规则中基地ID 11
                 break;
+            case Negative:
+                return 0;  // 无效目标
+                break;
             default:
                 return static_cast<uint8_t>(robotType);  // 其它与规则ID一致
                 break;

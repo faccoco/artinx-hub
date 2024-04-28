@@ -34,25 +34,11 @@ public:
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
                      selected.tfRobot2Camera = data.tfRobot2Camera;
-                     AutoAimMode autoAimMode = GlobalSettings::get().getAutoAimMode();
-                     RobotType PriorTarget;
-                     switch(autoAimMode) {
-                         case AutoAimMode::HeroFirst:
-                             PriorTarget = RobotType::Hero;
-                             break;
-                         case AutoAimMode::BaseFirst:
-                             PriorTarget = RobotType::Base;
-                             break;
-                         case AutoAimMode::SentryFirst:
-                             PriorTarget = RobotType::Sentry;
-                             break;
-                         default:
-                             PriorTarget = RobotType::Negative;
-                             break;
-                     }
+                     RobotType priorNum = static_cast<RobotType>(GlobalSettings::get().priorNum);
+                     HubLogger::watch("PriorNum", GlobalSettings::get().priorNum);
                      bool hasPriorTarget = false;
                      for(const auto& target : data.targets) {
-                         if(target.id == PriorTarget) {
+                         if(target.id == priorNum) {
                              hasPriorTarget = true;
                              selected.targets.push_back(target);
                          }

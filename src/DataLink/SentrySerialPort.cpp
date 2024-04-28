@@ -53,7 +53,7 @@ class SentrySendPacket final {
 public:
     static constexpr uint16_t id = 0xB0;
 
-    float yaw, pitch, dist, x, y, z;
+    float yaw, pitch, horizontalDist, z;
     bool isFire;
     uint8_t hasTargets{}, targetType{};
 
@@ -64,8 +64,7 @@ public:
         buffer.serialize(hasTargets | (targetType << 1));
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
-        buffer.serialize(x, -4.0f, 0.0005f);
-        buffer.serialize(y, -4.0f, 0.0005f);
+        buffer.serialize(horizontalDist, -4.0f, 0.0005f);
         buffer.serializeCrc16();
     }
 };
@@ -164,31 +163,24 @@ public:
                 ACTOR_PROTOCOL_CHECK(set_target_info_atom, TypedIdentifier<SelectedTargetInfo>);
 
                 auto data = BlackBoard::instance().get<SelectedTargetInfo>(key).value();
-                double yawAngle = data.yawAngle;
+                double yawAngle = normalizeAngle(data.yawAngle - glm::half_pi<double>());
                 double pitchAngle = data.pitchAngle;
                 bool isFire = data.isFire;
-                std::optional<glm::dvec3> targetPos = data.targetPos;
-                std::optional<RobotType> targetType = data.targetType;
-                yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
+                glm::dvec3 targetPos = data.targetPos.has_value() ? data.targetPos.value() : glm::dvec3(0.0f, 0.0f, 0.0f);
+                RobotType targetType = data.targetType.value();
                 HubLogger::watch("targetYaw", yawAngle);
                 HubLogger::watch("targetPitch", pitchAngle);
+                // HubLogger::watch("targetTypeReferee", tfRobotType(targetType));
+                // HubLogger::watch("targetHorizontalDist", std::sqrt(square(targetPos.x) + square(targetPos.y)));
 
                 {
                     std::lock_guard lock{ mPacketMutex };
                     mSendPacket.yaw = static_cast<float>(yawAngle);
                     mSendPacket.pitch = static_cast<float>(pitchAngle);
                     mSendPacket.isFire = isFire;
-                    if(targetPos.has_value()) {
-                        mSendPacket.x = targetPos.value().x;
-                        mSendPacket.y = targetPos.value().y;
-                    } else {
-                        mSendPacket.x = 0.0f;
-                        mSendPacket.y = 0.0f;
-                    }
-                    if(targetType.has_value())
-                        mSendPacket.targetType = tfRobotType(targetType.value());
-                    else
-                        mSendPacket.targetType = 0;
+                    mSendPacket.horizontalDist = static_cast<float>(std::sqrt(square(targetPos.x) + square(targetPos.y)));
+                    mSendPacket.z = targetPos.z;
+                    mSendPacket.targetType = tfRobotType(targetType);
                     mLastTargetTime = Clock::now();
                 }
 

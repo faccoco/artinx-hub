@@ -2,7 +2,6 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
-#include "DataDesc.hpp"
 #include "DetectedEnergyFan.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
@@ -29,7 +28,7 @@ public:
     static constexpr uint16_t id = 0x0A;
 
     float yaw, pitch, bulletSpeed, speedX, speedY;
-    uint8_t color, energyMode = 0, autoAimMode = 0;
+    uint8_t color, energyMode = 0, priorNum = 8 /*Negative*/;
     float capEnergy, chasisPower;
     explicit InfantryRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
@@ -44,7 +43,7 @@ public:
         } else if(((mask >> 2) & 1) == 1) {
             energyMode = 2;
         }
-        autoAimMode = mask >> 3;
+        priorNum = mask >> 3;
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
         capEnergy = reader.readCompressedFloat(-1.0f, 0.1f);
         chasisPower = reader.readCompressedFloat(-1.0f, 0.01f);
@@ -108,7 +107,7 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
         GlobalSettings::get().taskMode = fdb.energyMode;
-        GlobalSettings::get().autoAimMode = fdb.autoAimMode;
+        GlobalSettings::get().priorNum = fdb.priorNum;
 
         const double yaw = fdb.yaw;
         const double pitch = fdb.pitch;
@@ -163,8 +162,8 @@ public:
                 auto data = BlackBoard::instance().get<SelectedTargetInfo>(key).value();
                 double yawAngle = data.yawAngle;
                 double pitchAngle = data.pitchAngle;
-                std::optional<glm::dvec3> targetPos = data.targetPos;
-                std::optional<RobotType> targetType = data.targetType;
+                glm::dvec3 targetPos = data.targetPos.has_value() ? data.targetPos.value() : glm::dvec3(0.0f, 0.0f, 0.0f);
+                RobotType targetType = data.targetType.value();
                 bool isFire = data.isFire;
                 yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
 
@@ -173,17 +172,9 @@ public:
                     mSendPacket.yaw = static_cast<float>(yawAngle);
                     mSendPacket.pitch = static_cast<float>(pitchAngle);
                     mSendPacket.isFire = isFire;
-                    if(targetPos.has_value()) {
-                        mSendPacket.horizontalDist=std::sqrt(square(targetPos.value().x)+square(targetPos.value().y));
-                        mSendPacket.z=targetPos.value().z;
-                    } else {
-                        mSendPacket.horizontalDist=0.0f;
-                        mSendPacket.z=0.0f;
-                    }
-                    if(targetType.has_value())
-                        mSendPacket.targetType = tfRobotType(targetType.value());
-                    else
-                        mSendPacket.targetType = 0;
+                    mSendPacket.horizontalDist = static_cast<float>(std::sqrt(square(targetPos.x) + square(targetPos.y)));
+                    mSendPacket.z = targetPos.z;
+                    mSendPacket.targetType = tfRobotType(targetType);
                     mLastTargetTime = Clock::now();
                 }
 
@@ -198,6 +189,8 @@ public:
                 HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
                 HubLogger::watch("targetYaw1", yawAngle);
                 HubLogger::watch("targetPitch1", pitchAngle);
+                // HubLogger::watch("targetTypeReferee", tfRobotType(targetType));
+                // HubLogger::watch("targetHorizontalDist", std::sqrt(square(targetPos.x) + square(targetPos.y)));
                 HubLogger::visualLog(
                     fmt::format("InfantrySerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
                                 yawAngle, pitchAngle, static_cast<int>(mLatency.back() * 1000),
