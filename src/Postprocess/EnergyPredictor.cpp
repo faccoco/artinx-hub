@@ -15,7 +15,6 @@
 #include <ceres/ceres.h>
 #include <cmath>
 #include <fmt/format.h>
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/fwd.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtx/vector_angle.hpp>
@@ -490,6 +489,7 @@ public:
                          res.yawAngle = yaw;
                          res.pitchAngle = pitch;
                          res.isFire = true;
+                         res.targetType = RobotType::Negative;
                          res.solveType = normalSolver;
                          sendAll(set_target_info_atom_v,
                                  BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));

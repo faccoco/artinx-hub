@@ -10,7 +10,6 @@
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 #include <magic_enum.hpp>
 
