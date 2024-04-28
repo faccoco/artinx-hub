@@ -15,10 +15,9 @@
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/fwd.hpp>
-#include <optional>
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 #include <magic_enum.hpp>
+#include <optional>
 
 #include "SuppressWarningEnd.hpp"
 
@@ -37,8 +36,7 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
         f.field("delay", x.delay).fallback(0.0), f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
         f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
         f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60), f.field("lVelDiscount", x.lVelDiscount).fallback(1.0),
-        f.field("orietationAngle", x.orietationAngle).fallback(90),
-        f.field("orietationAngle", x.orietationAngle).fallback(30.0));
+        f.field("orietationAngle", x.orietationAngle).fallback(90));
 }
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
