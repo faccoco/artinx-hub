@@ -16,6 +16,7 @@ set(SOURCE
         "DataLink/PosSynchronization.cpp"
         "Detect/NumClassifier.cpp"
         "Detect/ArmorDetector.cpp"
+        "Detect/TensorRTDetector"
         "Detect/RadarNNetDetector.cpp"
         "Detect/RuneDetector.cpp"
         "HubMain.cpp"
@@ -60,8 +61,9 @@ set(SOURCE
         "Utility/MathTools.cpp"
         "Utility/RadarInfo.cpp"
         "Utility/NetInference.cpp"
+        "Utility/TRTModule.cpp"
         "Utility/ArmorLabeler.cpp"
-)
+        )
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
@@ -131,6 +133,13 @@ if (DEFINED ENV{HIK_SDK})
 endif ()
 target_link_libraries(ArtinxHub PRIVATE magic_enum::magic_enum)
 target_link_libraries(ArtinxHub PRIVATE fmt::fmt)
+
+if (DEFINED ENV{CUDA_PATH})
+    set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
+    find_package(TensorRT REQUIRED)
+    target_link_libraries(ArtinxHub PRIVATE $ENV{TensorRT_SOURCE} ${TensorRT_LIBS} cuda nvonnxparser)
+    add_compile_definitions("ARTINX_CUDA")
+endif()
 
 if (DEFINED ENV{ARTINX_RADAR})
     set(CUDA_TOOLKIT_ROOT_DIR $ENV{CUDA_PATH})
