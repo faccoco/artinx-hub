@@ -213,8 +213,7 @@ public:
                         auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(armorFaced, lVel);
                         if(accessible) {
                             fire =
-                                (absAngleDifferece(yaw.value(), yawAngle) < (glm::radians(mConfig.orietationAngle) + 4e-4) ? true :
-                                                                                                                           false);
+                                (absAngleDifferece(yaw.value(), yawAngle) < (glm::radians(mConfig.orietationAngle) + 4e-4));
                             yaw = yawAngle;
                             pitch = pitchAngle;
                         }
