@@ -18,6 +18,7 @@ static_assert(std::is_same_v<Clock::period, std::nano>);
 
 enum class Color { Blue, Red, Purple, Negative };
 enum class TaskMode { AutoAim = 0, SmallRune = 1, BigRune = 2 };
+
 struct GlobalSettings final {
     double gForce;
     double dragCoefficient;
