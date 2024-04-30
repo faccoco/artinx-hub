@@ -61,7 +61,7 @@ public:
 
     void serialize() {
         buffer = {};
-        buffer.serialize(hasTargets | (targetType << 1));
+        buffer.serialize( static_cast<uint8_t>((hasTargets) | targetType << 1));
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
         buffer.serialize(horizontalDist, -4.0f, 0.0005f);
