@@ -19,6 +19,6 @@ config/*
 log
 *.mkv
 *.log
-*.onnx
 *.cache
 data/dataset
+data/weights/armor_detect/

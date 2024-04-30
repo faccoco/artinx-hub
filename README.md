@@ -172,6 +172,8 @@ Artinx视觉组 集成框架
 - 根据需求(USB2/USB3)安装大恒相机驱[Daheng Imaging](https://daheng-imaging.com/list-58-1.html)(注意nuc的架构，jetson orin请下载arm64/aarch64的版本，intel nuc请下载x86_64/amd64/x64的架构), 对应CMake参数的ARTINX_HUB_CAMERA=USB2/USB3。
 - 根据需求安装 Hik Robot 驱动 [hik robotics](https://www.hikrobotics.com/cn/machinevision/service/download?module=0)(同样注意nuc的架构), 设置环境变量。
 `HIK_SDK=/opt/MVS`
+- 根据需求安装CUDA，CUDNN与TensorRT，配置环境变量
+`CUDA_PATH=/usr/local/<cuda version>`，例如`CUDA_PATH=/usr/local/cuda-12.2`
 
 - 添加环境变量
 
