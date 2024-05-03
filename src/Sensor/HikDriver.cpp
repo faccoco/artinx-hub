@@ -1,3 +1,6 @@
+#include "Utility.hpp"
+#include <cstdlib>
+#include <exception>
 #ifdef ARTINX_HIK
 #include "BlackBoard.hpp"
 #include "CameraBase.hpp"
@@ -7,9 +10,6 @@
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "Timer.hpp"
-#include "Utility.hpp"
-#include <cstdlib>
-#include <exception>
 
 #include "SuppressWarningBegin.hpp"
 
@@ -28,6 +28,7 @@
 #include <csignal>
 #include <cstring>
 #include <optional>
+#include <stdexcept>
 #include <string_view>
 #include <thread>
 #include <type_traits>
@@ -57,13 +58,22 @@ namespace {
                             (version & 0xFF00) >> 8, version & 0xFF));
     }
 
-}  // namespace
-#define CheckErrorCode(ERROR_CODE)                                                            \
-    {                                                                                         \
-        if((ERROR_CODE) != MV_OK) {                                                           \
-            logError(fmt::format("Hik Driver error: {:x} at line {}", ERROR_CODE, __LINE__)); \
-        }                                                                                     \
+    void checkErrorCode(const uint32_t errorCode) {
+        if(errorCode != MV_OK) {
+            logError(fmt::format("Hik Driver error: {0:x}", errorCode));
+        }
     }
+
+    template <typename Fun, typename... Args>
+    void checkErrorCodeTimeout(Fun&& fn, Duration dur, std::string_view timeoutMsg, Args... args) {
+        if(auto res = timeoutTask(std::forward<Fun>(fn), dur, std::forward<Args>(args)...)) {
+            checkErrorCode(res.value());
+        } else {
+            logError(timeoutMsg);
+        }
+    }
+
+}  // namespace
 
 class HikDriver final : public CameraBase {
 private:
@@ -76,9 +86,8 @@ private:
     std::atomic<bool> mStartFlag{ false };
 
     void restartCamera() noexcept override {
-        CheckErrorCode(MV_CC_CloseDevice(mCameraHandle));
-        CheckErrorCode(MV_CC_DestroyHandle(mCameraHandle));
-        openCamera(20, 100ms);
+        // closeCamera();
+        openCamera(20, 500ms);
     };
 
     static void newFrame(unsigned char* pData, MV_FRAME_OUT_INFO_EX* pFrameInfo, void* pUser) {
@@ -139,17 +148,18 @@ private:
         mSendFlag.store(true, std::memory_order_release);
     }
 
-    void openCamera(uint32_t retryTimes = 1, Duration retryInterval = 0ms) {
-        for(uint32_t i = 0;; ++i) {
-            CheckErrorCode(MV_CC_EnumDevices(MV_USB_DEVICE, &mDeviceList));
+    void openCamera(size_t retryTimes = 1, Duration retryInterval = 1ms) {
+        for(size_t i = 0;; ++i) {
+            checkErrorCode(MV_CC_EnumDevices(MV_USB_DEVICE, &mDeviceList));
             if(mDeviceList.nDeviceNum > 0) {
                 break;
-            } else if(i >= retryTimes) {
+            }
+            if(mDeviceList.nDeviceNum == 0 && i >= retryTimes) {
                 HubLogger::visualLog(fmt::format(R"(No hik camera found after {} time(s) try)", retryTimes));
                 logError(fmt::format(R"(No hik camera found after {} time(s) try)", retryTimes));
-                return;
+                terminateSystem(*this, false);
+                std::terminate();
             }
-            logInfo(fmt::format("{}th time try to find hik camera, found 0 device", i));
             std::this_thread::sleep_for(retryInterval);
         }
         logInfo(fmt::format("{} camera(s) found", mDeviceList.nDeviceNum));
@@ -158,30 +168,30 @@ private:
                        [](const char c) { return std::toupper(c); });
         mDeviceInfo = mConfig.openMode == "Index" ? mDeviceList.pDeviceInfo[0] : getDeviceInfo();
         mCameraSerialNumber = std::string(reinterpret_cast<char*>(mDeviceInfo->SpecialInfo.stUsb3VInfo.chSerialNumber));
-        CheckErrorCode(MV_CC_CreateHandleWithoutLog(&mCameraHandle, mDeviceInfo));
-        CheckErrorCode(MV_CC_CloseDevice(mCameraHandle));
-        CheckErrorCode(MV_CC_OpenDevice(mCameraHandle, MV_ACCESS_Control));
-        CheckErrorCode(MV_CC_GetImageInfo(mCameraHandle, &mImageInfo));
+        checkErrorCode(MV_CC_CreateHandleWithoutLog(&mCameraHandle, mDeviceInfo));
+        checkErrorCode(MV_CC_OpenDevice(mCameraHandle, MV_ACCESS_ControlSwitchEnableWithKey));
+        checkErrorCode(MV_CC_GetImageInfo(mCameraHandle, &mImageInfo));
         logInfo(fmt::format("Resolution for {}: {} x {}", mCameraSerialNumber, mImageInfo.nWidthMax, mImageInfo.nHeightMax));
         loadCalibration(mCameraSerialNumber, static_cast<uint32_t>(mImageInfo.nWidthMax),
                         static_cast<uint32_t>(mImageInfo.nHeightMax), mConfig.fov, mCameraMatrix, mDistCoefficients);
-        CheckErrorCode(MV_CC_SetEnumValue(mCameraHandle, "ExposureAuto", MV_EXPOSURE_AUTO_MODE_OFF));
-        CheckErrorCode(MV_CC_SetEnumValue(mCameraHandle, "ExposureMode", MV_EXPOSURE_MODE_TIMED));
-        CheckErrorCode(MV_CC_SetFloatValue(mCameraHandle, "ExposureTime", mConfig.exposureTime * 1.0e6));
-        CheckErrorCode(MV_CC_SetFloatValue(mCameraHandle, "Gain", mConfig.gain));
-        CheckErrorCode(MV_CC_SetEnumValue(mCameraHandle, "AcquisitionMode", MV_ACQ_MODE_CONTINUOUS));
-        CheckErrorCode(
+        checkErrorCode(MV_CC_SetEnumValue(mCameraHandle, "ExposureAuto", MV_EXPOSURE_AUTO_MODE_OFF));
+        checkErrorCode(MV_CC_SetEnumValue(mCameraHandle, "ExposureMode", MV_EXPOSURE_MODE_TIMED));
+        checkErrorCode(MV_CC_SetFloatValue(mCameraHandle, "ExposureTime", mConfig.exposureTime * 1.0e6));
+        checkErrorCode(MV_CC_SetFloatValue(mCameraHandle, "Gain", mConfig.gain));
+        checkErrorCode(MV_CC_SetEnumValue(mCameraHandle, "AcquisitionMode", MV_ACQ_MODE_CONTINUOUS));
+        checkErrorCode(
             MV_CC_SetEnumValue(mCameraHandle, "BalanceWhiteAuto",
                                mConfig.enableAutoWhiteBalance ? MV_BALANCEWHITE_AUTO_CONTINUOUS : MV_BALANCEWHITE_AUTO_OFF));
-        CheckErrorCode(MV_CC_SetBayerCvtQuality(mCameraHandle, 1));
-        CheckErrorCode(MV_CC_RegisterImageCallBackForBGR(mCameraHandle, newFrame, this));
-        CheckErrorCode(MV_CC_StartGrabbing(mCameraHandle));
+        checkErrorCode(MV_CC_SetBayerCvtQuality(mCameraHandle, 1));
+        checkErrorCode(MV_CC_RegisterImageCallBackForBGR(mCameraHandle, newFrame, this));
+        checkErrorCode(MV_CC_StartGrabbing(mCameraHandle));
     }
 
     void closeCamera() {
-        CheckErrorCode(MV_CC_StopGrabbing(mCameraHandle));
-        CheckErrorCode(MV_CC_CloseDevice(mCameraHandle));
-        CheckErrorCode(MV_CC_DestroyHandle(mCameraHandle));
+        // checkErrorCodeTimeout(MV_CC_StopGrabbing, 1ms, msg, 3ms);
+        checkErrorCode(MV_CC_StopGrabbing(mCameraHandle));
+        checkErrorCode(MV_CC_CloseDevice(mCameraHandle));
+        checkErrorCode(MV_CC_DestroyHandle(mCameraHandle));
     }
 
 public:
