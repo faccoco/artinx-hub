@@ -74,3 +74,8 @@ double yawAngle = std::atan2(horizontalSpeedY, horizontalSpeedX);
 
 ## 入射角：
 + 此处入射角仅考虑入射时水平平面角度
+
+## 追踪朝向角：
++ 参考 [上交2023青工会-反陀螺和自动弹道校正](https://sjtu-robomaster-team.github.io/antitop/)**打击目标选择**一节
++ `centerYaw`为惯性系原点与预测目标整车中心连线的yaw角朝向，通过设置`orietationAngle 追踪朝向角`来达到减小云台移动幅度从而提高命中率
++ （需考虑诸多细节，待完善）
