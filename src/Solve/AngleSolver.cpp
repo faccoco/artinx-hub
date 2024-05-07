@@ -36,7 +36,7 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
         f.field("delay", x.delay).fallback(0.0), f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
         f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
         f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60), f.field("lVelDiscount", x.lVelDiscount).fallback(1.0),
-        f.field("orietationAngle", x.orietationAngle).fallback(90));
+        f.field("orietationAngle", x.orietationAngle).fallback(37));
 }
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
