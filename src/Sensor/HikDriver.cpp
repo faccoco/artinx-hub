@@ -1,3 +1,4 @@
+#include <chrono>
 #ifdef ARTINX_HIK
 #include "BlackBoard.hpp"
 #include "CameraBase.hpp"
@@ -58,6 +59,7 @@ namespace {
     }
 
 }  // namespace
+
 #define CheckErrorCode(ERROR_CODE)                                                            \
     {                                                                                         \
         if((ERROR_CODE) != MV_OK) {                                                           \
@@ -78,7 +80,7 @@ private:
     void restartCamera() noexcept override {
         CheckErrorCode(MV_CC_CloseDevice(mCameraHandle));
         CheckErrorCode(MV_CC_DestroyHandle(mCameraHandle));
-        openCamera(20, 100ms);
+        openCamera(mConfig.cameraConnectMaxTry, std::chrono::milliseconds(mConfig.cameraConnectTimeout));
     };
 
     static void newFrame(unsigned char* pData, MV_FRAME_OUT_INFO_EX* pFrameInfo, void* pUser) {
@@ -207,4 +209,5 @@ public:
     }
 };
 HUB_REGISTER_CLASS(HikDriver);
+#undef CheckErrorCode
 #endif
