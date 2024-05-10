@@ -1,21 +1,32 @@
 #include "CameraBase.hpp"
+#include "Common.hpp"
 #include "Timer.hpp"
+#include "Utility.hpp"
 #include <atomic>
+#include <cassert>
+#include <chrono>
 #include <thread>
 
 CameraBase::CameraBase(caf::actor_config& base, const HubConfig& config, std::string name)
     : HubHelper{ base, config, std::move(name) } {
     mDaemonThread = std::thread{ [this]() {
+        if(mConfig.restartCheckInterval <= mConfig.cameraConnectTimeout * mConfig.cameraConnectMaxTry) {
+            logError(
+                "!!! Your maximux camera connect try time may excedding the camera down check interval. This will cause infinate "
+                "camera restart");
+            terminateSystem(*this, false);
+        }
         while(!mStopDaemon.load(std::memory_order_acquire)) {
-            std::this_thread::sleep_for(2s);
+            std::this_thread::sleep_for(std::chrono::milliseconds(mConfig.restartCheckInterval));
             if(!mSendFlag.load(std::memory_order_consume)) {
-                if(mConfig.restart) {
+                if(mConfig.enableRestart) {
                     HubLogger::visualLog(fmt::format("Camera node {} down, restarting", mNodeName));
                     logError(fmt::format("Camera node {} down, restarting", mNodeName));
+                    mSendFlag.store(false, std::memory_order_release);
                     this->restartCamera();
                 } else {
-                    HubLogger::visualLog(fmt::format("Camera node {} down, not to restart", mNodeName));
-                    logError(fmt::format("Camera node {} down, not to restart", mNodeName));
+                    HubLogger::visualLog(fmt::format("Camera node {} down", mNodeName));
+                    logError(fmt::format("Camera node {} down", mNodeName));
                 }
             }
             mSendFlag.store(false, std::memory_order_release);
