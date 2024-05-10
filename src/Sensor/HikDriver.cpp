@@ -79,7 +79,6 @@ namespace {
         }
     }
 
-}  // namespace
 
 class HikDriver final : public CameraBase {
 private:
