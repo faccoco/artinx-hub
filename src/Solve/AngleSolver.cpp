@@ -14,12 +14,12 @@
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
-#include <glm/gtc/constants.hpp>
 #include <glm/fwd.hpp>
+#include <glm/gtc/constants.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <magic_enum.hpp>
-#include <vector>
 #include <optional>
+#include <vector>
 
 #include "SuppressWarningEnd.hpp"
 
@@ -90,7 +90,9 @@ public:
                 } else {
                     return;
                 }
+
                 res.lastUpdate = data.value().lastUpdate;
+
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->center;
                 Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->linearVel;
                 RobotType targetType = data->robotType;
@@ -168,8 +170,6 @@ public:
 
                 // solve and determine possible armor
                 std::optional<double> yaw, pitch;
-                std::optional<int> targetArmorId;
-                std::optional<glm::dvec3> targetPos;
                 int armorNum = data->armorNum;
                 std::vector<CandidateTarget> candTargets;
                 for(int i = 0; i < armorNum; i++) {
@@ -201,6 +201,7 @@ public:
                                 candTarget.r = r;
                                 candTarget.height = center.z;
                                 candTargets.push_back(candTarget);
+                                res.targetPos = predictPos;
                             } else {
                                 HubLogger::visualLog(fmt::format(
                                     "AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw", i, deltaTheta));
@@ -209,13 +210,6 @@ public:
                         }
                         predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
                     }
-                    if(yaw.has_value()) {
-                        HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
-                                                         yaw.value(), pitch.value()));
-                        sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
-                                            yaw.value(), pitch.value(), true, normalSolver);
-                        return;
-                    } 
                     theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
                 }
 
@@ -234,18 +228,21 @@ public:
                             center, r, normalizeAngle(glm::half_pi<double>() + centerYaw));  // armor_yaw - center_yaw - half_pi
                         auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(armorFaced, lVel);
                         if(accessible) {
-                            fire =
-                                (absAngleDifferece(yaw.value(), yawAngle) < (glm::radians(mConfig.orietationAngle) + 4e-4));
+                            fire = (absAngleDifferece(yaw.value(), yawAngle) < (glm::radians(mConfig.orietationAngle) + 4e-4));
                             yaw = yawAngle;
                             pitch = pitchAngle;
                         }
                     }
                     HubLogger::watch("fire", fire);
-
                     HubLogger::visualLog(
                         fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", 0, yaw.value(), pitch.value()));
-                    sendAllHighPriority(set_target_info_atom_v, mGroupMask, data->lastUpdate.time_since_epoch().count(),
-                                        yaw.value(), pitch.value(), fire, normalSolver);
+
+                    res.pitchAngle = pitch.value();
+                    res.yawAngle = yaw.value();
+                    res.isFire = fire;
+                    res.solveType = normalSolver;
+                    sendAll(set_target_info_atom_v,
+                            BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
                     return;
                 }
             },
