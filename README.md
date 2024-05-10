@@ -54,6 +54,7 @@ Artinx视觉组 集成框架
 - 使用SynchronizedClock作为同步系统时钟
 - 使用Clock获取系统时钟的相关类型信息
 - 所有Atom必须使用``ACTOR_PROTOCOL_CHECK``和``ACTOR_PROTOCOL_DEFINE``检查参数类型
+- 所有与角度相关的log输出采用角度制，所有与角速度相关的输出采用弧度制。
 
 ### Commit规范
 

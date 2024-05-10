@@ -98,10 +98,10 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
 
         auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
         auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
-        HubLogger::watch("yaw1", fdb.yaw);
-        HubLogger::watch("pitch1", fdb.pitch);
-        HubLogger::watch("deltaYaw1", deltaYaw1);
-        HubLogger::watch("deltaPitch1", deltaPitch1);
+        HubLogger::watch("yaw1", glm::degrees(fdb.yaw));
+        HubLogger::watch("pitch1", glm::degrees(fdb.pitch));
+        HubLogger::watch("deltaYaw1", glm::degrees(deltaYaw1));
+        HubLogger::watch("deltaPitch1", glm::degrees(deltaPitch1));
 
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
