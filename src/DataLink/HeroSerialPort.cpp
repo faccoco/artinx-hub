@@ -46,17 +46,19 @@ class HeroSendPacket final {
 public:
     static constexpr uint16_t id = 0x0F;
 
-    float yaw, pitch;
+    float yaw, pitch, horizontalDist, z;
     bool isFire;
-    uint8_t hasTargets{};
+    uint8_t hasTargets{},targetType{};
 
-    PacketBuffer<5, id> buffer{};
+    PacketBuffer<7, id> buffer{};
 
     void serialize() {
         buffer = {};
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
-        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | (hasTargets << 1)));
+        buffer.serialize(horizontalDist, -4.0f, 0.0005f);
+        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | static_cast<uint8_t>(hasTargets << 1) |
+                                              static_cast<uint8_t>(targetType << 2)));
         buffer.serializeCrc16();
     }
 };
@@ -224,6 +226,8 @@ public:
                 bool isFire = data.isFire;
                 SolverType solverType = data.solveType;
                 isFire = solverType && isFire;
+                glm::dvec3 targetPos = data.targetPos.has_value() ? data.targetPos.value() : glm::dvec3(0.0f, 0.0f, 0.0f);
+                RobotType targetType = data.targetType.value();
                 {
                     std::lock_guard lock{ mPacketMutex };
                     if(mPeriodMode && solverType == normalSolver)
@@ -232,6 +236,9 @@ public:
                     mSendPacket.yaw = static_cast<float>(yawAngle);
                     mSendPacket.pitch = static_cast<float>(pitchAngle);
                     mSendPacket.isFire = isFire;
+                    mSendPacket.horizontalDist = static_cast<float>(std::sqrt(square(targetPos.x) + square(targetPos.y)));
+                    mSendPacket.z = targetPos.z;
+                    mSendPacket.targetType = tfRobotType(targetType);
                     mLastTargetTime = Clock::now();
                 }
 
@@ -246,6 +253,8 @@ public:
                 HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
                 HubLogger::watch("targetYaw1", yawAngle);
                 HubLogger::watch("targetPitch1", pitchAngle);
+                // HubLogger::watch("targetTypeReferee", tfRobotType(targetType));
+                // HubLogger::watch("targetHorizontalDist", std::sqrt(square(targetPos.x) + square(targetPos.y)));
                 HubLogger::visualLog(
                     fmt::format("HeroSerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
                                 yawAngle, pitchAngle, static_cast<int>(mLatency.back() * 1000),
