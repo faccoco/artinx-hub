@@ -389,11 +389,12 @@ public:
                         init(data->selected.value());
                     } else {
                         // update
-
                         if (data->lastUpdate.time_since_epoch().count() < mTrackedArmor.lastUpdate.time_since_epoch().count()){
                             HubLogger::visualLog("CarPredictor: received pakage order wrong!");
                         }
                         
+                       // if (mTrackedArmor.id==RobotType::Outpost) mTrackedArmor.state(8)=2.65;
+
                         bool matched = update(durationCastDouble(data->lastUpdate - mTrackedArmor.lastUpdate), data->targets);
 
                         // Prevent radius from spreading
