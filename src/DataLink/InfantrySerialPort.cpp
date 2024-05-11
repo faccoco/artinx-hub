@@ -1,5 +1,7 @@
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
+#include "DataDesc.hpp"
+#include "DetectedArmor.hpp"
 #include "DetectedEnergyFan.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
@@ -11,6 +13,7 @@
 #include "Utility.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -25,7 +28,7 @@ public:
     static constexpr uint16_t id = 0x0A;
 
     float yaw, pitch, bulletSpeed, speedX, speedY;
-    uint8_t color, energyMode = 0;
+    uint8_t color, energyMode = 0, priorNum = 8 /*Negative*/;
     float capEnergy, chasisPower;
     explicit InfantryRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
@@ -40,6 +43,7 @@ public:
         } else if(((mask >> 2) & 1) == 1) {
             energyMode = 2;
         }
+        priorNum = mask >> 3;
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
         capEnergy = reader.readCompressedFloat(-1.0f, 0.1f);
         chasisPower = reader.readCompressedFloat(-1.0f, 0.01f);
@@ -50,17 +54,19 @@ class InfantrySendPacket final {
 public:
     static constexpr uint16_t id = 0x0F;
 
-    float yaw, pitch;
+    float yaw, pitch, horizontalDist, z;
     bool isFire;
-    uint8_t hasTargets{};
+    uint8_t hasTargets{}, targetType{};
 
-    PacketBuffer<5, id> buffer{};
+    PacketBuffer<7, id> buffer{};
 
     void serialize() {
         buffer = {};
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
-        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | (hasTargets << 1)));
+        buffer.serialize(horizontalDist, -4.0f, 0.0005f);
+        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | static_cast<uint8_t>(hasTargets << 1) |
+                                              static_cast<uint8_t>(targetType << 2)));
         buffer.serializeCrc16();
     }
 };
@@ -101,6 +107,7 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
 
         GlobalSettings::get().taskMode = fdb.energyMode;
+        GlobalSettings::get().priorNum = fdb.priorNum;
 
         const double yaw = fdb.yaw;
         const double pitch = fdb.pitch;
@@ -151,10 +158,14 @@ public:
                 ACTOR_PROTOCOL_CHECK(start_atom);
                 mStarted = true;
             },
-            [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
-                   SolverType solverType) {
-                ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
-
+            [this](set_target_info_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(set_target_info_atom, TypedIdentifier<SelectedTargetInfo>);
+                auto data = BlackBoard::instance().get<SelectedTargetInfo>(key).value();
+                double yawAngle = data.yawAngle;
+                double pitchAngle = data.pitchAngle;
+                glm::dvec3 targetPos = data.targetPos.has_value() ? data.targetPos.value() : glm::dvec3(0.0f, 0.0f, 0.0f);
+                RobotType targetType = data.targetType.value();
+                bool isFire = data.isFire;
                 yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
 
                 {
@@ -162,12 +173,15 @@ public:
                     mSendPacket.yaw = static_cast<float>(yawAngle);
                     mSendPacket.pitch = static_cast<float>(pitchAngle);
                     mSendPacket.isFire = isFire;
+                    mSendPacket.horizontalDist = static_cast<float>(std::sqrt(square(targetPos.x) + square(targetPos.y)));
+                    mSendPacket.z = targetPos.z;
+                    mSendPacket.targetType = tfRobotType(targetType);
                     mLastTargetTime = Clock::now();
                 }
 
                 const auto current = Clock::now();
-                const auto latency =
-                    double(current.time_since_epoch().count() - begin) / Duration::period::den * Duration::period::num;
+                const auto latency = double(current.time_since_epoch().count() - data.lastUpdate.time_since_epoch().count()) /
+                    Duration::period::den * Duration::period::num;
 
                 if(mLatency.size() >= latencyLen)
                     mLatency.pop_front();
@@ -176,6 +190,8 @@ public:
                 HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
                 HubLogger::watch("targetYaw1", yawAngle);
                 HubLogger::watch("targetPitch1", pitchAngle);
+                // HubLogger::watch("targetTypeReferee", tfRobotType(targetType));
+                // HubLogger::watch("targetHorizontalDist", std::sqrt(square(targetPos.x) + square(targetPos.y)));
                 HubLogger::visualLog(
                     fmt::format("InfantrySerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
                                 yawAngle, pitchAngle, static_cast<int>(mLatency.back() * 1000),

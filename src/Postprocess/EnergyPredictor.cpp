@@ -6,6 +6,7 @@
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
 #include "Utility.hpp"
+#include <cstdint>
 
 #include "SuppressWarningBegin.hpp"
 
@@ -483,8 +484,15 @@ public:
                              return;
                          }
 
-                         sendAllHighPriority(set_target_info_atom_v, mGroupMask, srcFan.lastUpdate.time_since_epoch().count(),
-                                             yaw, pitch, true, normalSolver);
+                         SelectedTargetInfo res;
+                         res.lastUpdate = srcFan.lastUpdate;
+                         res.yawAngle = yaw;
+                         res.pitchAngle = pitch;
+                         res.isFire = true;
+                         res.targetType = RobotType::Negative;
+                         res.solveType = normalSolver;
+                         sendAll(set_target_info_atom_v,
+                                 BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
                      }
                  } };
     }

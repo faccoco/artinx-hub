@@ -1,4 +1,5 @@
 #pragma once
+#include "DetectedArmor.hpp"
 #include "Hub.hpp"
 #include "SuppressWarningBegin.hpp"
 
@@ -58,6 +59,26 @@ public:
     std::function<void(const RecvPacket& recvPacket)> mRecvCallback;
     std::function<void()> mSetBeforeSend;
     int32_t mRecordeCnt = 0;
+
+    inline uint8_t tfRobotType(RobotType robotType) {
+        switch(robotType) {
+            case Sentry:
+                return 7;  // 规则中哨兵ID 7
+                break;
+            case Outpost:
+                return 10;  // 规则中前哨站ID 10
+                break;
+            case Base:
+                return 11;  // 规则中基地ID 11
+                break;
+            case Negative:
+                return 0;  // 无效目标
+                break;
+            default:
+                return static_cast<uint8_t>(robotType);  // 其它与规则ID一致
+                break;
+        }
+    }
 
     void receive() {
         if(!mStarted)
