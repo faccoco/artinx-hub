@@ -1,12 +1,18 @@
 #include "BlackBoard.hpp"
+#include "DataDesc.hpp"
+#include "DetectedArmor.hpp"
 #include "HeadInfo.hpp"
 #include "PostureData.hpp"
 #include "SelectedTarget.hpp"
 #include "SerialPort/PacketHelper.hpp"
 #include "SerialPort/SerialPort.hpp"
+#include "Timer.hpp"
+#include "Utility.hpp"
 
 #include <caf/event_based_actor.hpp>
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/fwd.hpp>
+#include <optional>
 
 class HeroRecvPacket final {
 public:
@@ -40,17 +46,19 @@ class HeroSendPacket final {
 public:
     static constexpr uint16_t id = 0x0F;
 
-    float yaw, pitch;
+    float yaw, pitch, horizontalDist, z;
     bool isFire;
-    uint8_t hasTargets{};
+    uint8_t hasTargets{}, targetType{};
 
-    PacketBuffer<5, id> buffer{};
+    PacketBuffer<7, id> buffer{};
 
     void serialize() {
         buffer = {};
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
-        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | (hasTargets << 1)));
+        buffer.serialize(horizontalDist, -4.0f, 0.0005f);
+        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | static_cast<uint8_t>(hasTargets << 1) |
+                                              static_cast<uint8_t>(targetType << 2)));
         buffer.serializeCrc16();
     }
 };
@@ -210,13 +218,16 @@ public:
                 ACTOR_PROTOCOL_CHECK(start_atom);
                 mStarted = true;
             },
-            [this](set_target_info_atom, GroupMask mask, Clock::rep begin, double yawAngle, double pitchAngle, bool isFire,
-                   SolverType solverType) {
-                ACTOR_PROTOCOL_CHECK(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
-
-                yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
-
+            [this](set_target_info_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(set_target_info_atom, TypedIdentifier<SelectedTargetInfo>);
+                auto data = BlackBoard::instance().get<SelectedTargetInfo>(key).value();
+                double yawAngle = normalizeAngle(data.yawAngle - glm::half_pi<double>());
+                double pitchAngle = data.pitchAngle;
+                bool isFire = data.isFire;
+                SolverType solverType = data.solveType;
                 isFire = solverType && isFire;
+                glm::dvec3 targetPos = data.targetPos.has_value() ? data.targetPos.value() : glm::dvec3(0.0f, 0.0f, 0.0f);
+                RobotType targetType = data.targetType.value();
                 {
                     std::lock_guard lock{ mPacketMutex };
                     if(mPeriodMode && solverType == normalSolver)
@@ -225,12 +236,15 @@ public:
                     mSendPacket.yaw = static_cast<float>(yawAngle);
                     mSendPacket.pitch = static_cast<float>(pitchAngle);
                     mSendPacket.isFire = isFire;
+                    mSendPacket.horizontalDist = static_cast<float>(std::sqrt(square(targetPos.x) + square(targetPos.y)));
+                    mSendPacket.z = targetPos.z;
+                    mSendPacket.targetType = tfRobotType(targetType);
                     mLastTargetTime = Clock::now();
                 }
 
                 const auto current = Clock::now();
-                const auto latency =
-                    double(current.time_since_epoch().count() - begin) / Duration::period::den * Duration::period::num;
+                const auto latency = double(current.time_since_epoch().count() - data.lastUpdate.time_since_epoch().count()) /
+                    Duration::period::den * Duration::period::num;
 
                 if(mLatency.size() >= latencyLen)
                     mLatency.pop_front();
@@ -239,6 +253,8 @@ public:
                 HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
                 HubLogger::watch("targetYaw1", yawAngle);
                 HubLogger::watch("targetPitch1", pitchAngle);
+                // HubLogger::watch("targetTypeReferee", tfRobotType(targetType));
+                // HubLogger::watch("targetHorizontalDist", std::sqrt(square(targetPos.x) + square(targetPos.y)));
                 HubLogger::visualLog(
                     fmt::format("HeroSerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
                                 yawAngle, pitchAngle, static_cast<int>(mLatency.back() * 1000),

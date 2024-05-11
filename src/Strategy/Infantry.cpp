@@ -1,12 +1,12 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
+#include "DetectedArmor.hpp"
 #include "DetectedEnergyFan.hpp"
 #include "DetectedTarget.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
 
 #include "SuppressWarningBegin.hpp"
-
 #include <caf/event_based_actor.hpp>
 #include <glm/glm.hpp>
 
@@ -34,8 +34,17 @@ public:
                      SelectedTarget selected;
                      selected.lastUpdate = data.lastUpdate;
                      selected.tfRobot2Camera = data.tfRobot2Camera;
-                     selected.targets = data.targets;
-
+                     RobotType priorNum = static_cast<RobotType>(GlobalSettings::get().priorNum);
+                     HubLogger::watch("PriorNum", GlobalSettings::get().priorNum);
+                     bool hasPriorTarget = false;
+                     for(const auto& target : data.targets) {
+                         if(target.id == priorNum) {
+                             hasPriorTarget = true;
+                             selected.targets.push_back(target);
+                         }
+                     }
+                     if(!hasPriorTarget)
+                         selected.targets = data.targets;
                      double minDisToImgCenter = std::numeric_limits<double>::max();
                      for(const auto& target : selected.targets) {
                          if(target.distToImgCenter < minDisToImgCenter) {

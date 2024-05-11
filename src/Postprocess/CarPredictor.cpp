@@ -390,10 +390,10 @@ public:
                     } else {
                         // update
 
-                        if (data->lastUpdate.time_since_epoch().count() < mTrackedArmor.lastUpdate.time_since_epoch().count()){
+                        if(data->lastUpdate.time_since_epoch().count() < mTrackedArmor.lastUpdate.time_since_epoch().count()) {
                             HubLogger::visualLog("CarPredictor: received pakage order wrong!");
                         }
-                        
+
                         bool matched = update(durationCastDouble(data->lastUpdate - mTrackedArmor.lastUpdate), data->targets);
 
                         // Prevent radius from spreading
@@ -417,6 +417,7 @@ public:
                             res.radius = { mTrackedArmor.state(8), mLastR };
                             res.y = { mTrackedArmor.state(1), mLastY };
                             res.armorNum = mTrackedArmor.armorNum;
+                            res.robotType = mTrackedArmor.id;
                             sendAll(car_predict_atom_v,
                                     BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
                         }
@@ -445,6 +446,7 @@ public:
                     res.radius = { 0, 0 };
                     res.y = { res.center.mVal.y, res.center.mVal.y };
                     res.armorNum = 1;
+                    res.robotType = mTrackedArmor.id;
                     // logInfo("ArmorPredictor send");
                     HubLogger::visualLog(fmt::format("ArmorPredictor do not use predict func, position : ({:.3f} {:.3f} {:.3f}), "
                                                      "linearVel: ({:.3f} {:.3f} {:.3f})",

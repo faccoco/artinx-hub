@@ -1,6 +1,9 @@
 #pragma once
+#include "DataDesc.hpp"
+#include "DetectedArmor.hpp"
 #include "DetectedTarget.hpp"
 #include "Timer.hpp"
+#include <glm/fwd.hpp>
 #include <optional>
 
 struct SelectedTarget final {
@@ -19,12 +22,23 @@ struct PredictedTarget final {
     std::pair<double, double> radius;
     std::pair<double, double> y;
     int armorNum;
+    RobotType robotType;
 };
 
 struct PredictedPeriodTarget final {
     TimePoint lastUpdate;
     std::optional<Vector<UnitType::Distance, FrameOfRef::Robot>> position;
     std::optional<double> period;
+};
+
+struct SelectedTargetInfo final {
+    TimePoint lastUpdate;
+    double yawAngle;
+    double pitchAngle;
+    bool isFire;
+    SolverType solveType;
+    std::optional<glm::dvec3> targetPos;
+    std::optional<RobotType> targetType;
 };
 
 ACTOR_PROTOCOL_DEFINE(hero_strategy_control_atom, bool, bool);
@@ -34,4 +48,4 @@ ACTOR_PROTOCOL_DEFINE(set_period_outpost_atom, TypedIdentifier<SelectedTarget>, 
 ACTOR_PROTOCOL_DEFINE(predict_success_atom, TypedIdentifier<PredictedTarget>);
 ACTOR_PROTOCOL_DEFINE(car_predict_atom, TypedIdentifier<PredictedTarget>);
 ACTOR_PROTOCOL_DEFINE(period_predict_success_atom, TypedIdentifier<PredictedPeriodTarget>);
-ACTOR_PROTOCOL_DEFINE(set_target_info_atom, GroupMask, Clock::rep, double, double, bool, SolverType);
+ACTOR_PROTOCOL_DEFINE(set_target_info_atom, TypedIdentifier<SelectedTargetInfo>);
