@@ -132,11 +132,13 @@ Artinx视觉组 集成框架
 
 >eg: ./vcpkg install caf
 
-  如遇任何问题，请按照错误提示用包管理器补足缺少的软件包或更换网络~~(魔法上网)~~重试一次
+  如遇任何问题，请查找错误提示中的报错日志文件，根据报错信息用包管理器补足缺少的软件包或更换网络~~(魔法上网)~~重试一次（安装脚本为scripts下的EnvSetup.sh, 应该涵盖大部分可能缺失的包。）
   当vcpkg部分包需求的依赖过新时，考虑使用`git checkout`命令签出到版本较老的tag(如2023.01.09)
 
 - 集成vcpkg到Visual Studio，以管理员身份运行 `./vcpkg integrate install`
 - 启用shell补全:`./vcpkg integrate ${SHELL}`, 然后重启shell
+
+
 
 下面仅介绍VS工作流和Clion工作流，VS Code工作流于docs文件夹中，可以自行探索Vim工作流（就是教你怎么调试跑程序）
 
