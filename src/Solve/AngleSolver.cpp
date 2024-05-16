@@ -26,11 +26,13 @@
 struct AngleSolverSettings final {
     double delay;
     bool gimbalFixed;
+    bool enableOrietationAngleLimit;
     double sameTimeThreshold;
     double requiredTimeWeight;
     double maxShootDeltaTheta;  // in degree
     double lVelDiscount;
     double orietationAngle;  // in degree
+    double aVelThreshold;
 };
 
 template <class Inspector>
@@ -40,7 +42,9 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
                               f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
                               f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60),
                               f.field("lVelDiscount", x.lVelDiscount).fallback(1.0),
-                              f.field("orietationAngle", x.orietationAngle).fallback(37));
+                              f.field("orietationAngle", x.orietationAngle).fallback(37),
+                              f.field("enableOrietationAngleLimit", x.enableOrietationAngleLimit).fallback(false),
+                              f.field("aVelThreshold", x.aVelThreshold).fallback(9.0));
 }
 
 struct CandidateTarget final {
@@ -166,7 +170,6 @@ public:
                 }
 
                 // solve and determine possible armor
-                std::optional<double> yaw, pitch;
                 int armorNum = data->armorNum;
                 std::vector<CandidateTarget> candTargets;
                 for(int i = 0; i < armorNum; i++) {
@@ -211,14 +214,19 @@ public:
                 }
 
                 if(!candTargets.empty()) {
-                    SelectedTargetInfo res;
+                    std::optional<double> yaw, pitch;
                     bool fire = false;
 
                     std::sort(candTargets.begin(), candTargets.end(),
                               [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
                     yaw = candTargets[0].yawAngle;
                     pitch = candTargets[0].pitchAngle;
-
+                    if(mConfig.enableOrietationAngleLimit) {
+                        if(aVel > mConfig.aVelThreshold && candTargets[0].diffAngle > glm::radians(mConfig.orietationAngle)) {
+                            yaw.reset();
+                            pitch.reset();
+                        }
+                    }
                     if(mConfig.gimbalFixed) {
                         double r = candTargets[0].r;
                         center.z = candTargets[0].height;
@@ -231,19 +239,21 @@ public:
                             pitch = pitchAngle;
                         }
                     }
-                    res.yawAngle = yaw.value();
-                    res.pitchAngle = pitch.value();
-                    res.solveType = normalSolver;
-                    res.isFire = fire;
-                    res.targetPos = candTargets[0].pos;
-                    res.lastUpdate = data.value().lastUpdate;
-                    res.targetType = data.value().robotType;
+                    SelectedTargetInfo res;
+                    if(yaw.has_value()) {
+                        res.yawAngle = yaw.value();
+                        res.pitchAngle = pitch.value();
+                        res.solveType = normalSolver;
+                        res.isFire = fire;
+                        res.targetPos = candTargets[0].pos;
+                        res.lastUpdate = data.value().lastUpdate;
+                        res.targetType = data.value().robotType;
+                        sendAll(set_target_info_atom_v,
+                                BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
+                        HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", 0,
+                                                         yaw.value(), pitch.value()));
+                    }
                     HubLogger::watch("fire", fire);
-
-                    HubLogger::visualLog(
-                        fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", 0, yaw.value(), pitch.value()));
-                    sendAll(set_target_info_atom_v,
-                            BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
                     return;
                 }
             },
