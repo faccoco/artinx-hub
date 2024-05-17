@@ -308,8 +308,8 @@ class EnergyPredictor final : public HubHelper<caf::event_based_actor, EnergyPre
 
 public:
     EnergyPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, name }, mKey{ generateKey(this) }, mTrackFan{ TimePoint(), Eigen::VectorXd::Zero(7),
-                                                                                 FanTrackingState::LOST } {
+        : HubHelper{ base, config, name }, mKey{ generateKey(this) },
+          mTrackFan{ TimePoint(), Eigen::VectorXd::Zero(7), FanTrackingState::LOST } {
         mLostCount = mConfig.lostCnt;
 
         int nX = 7;  // state:t w theta xr yr zr yaw

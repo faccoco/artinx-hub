@@ -19,6 +19,7 @@ public:
 
     // Set the initial state
     void setState(const Eigen::VectorXd& x0);
+    Eigen::VectorXd getState();
 
     // Compute a predicted state
     Eigen::MatrixXd predict();

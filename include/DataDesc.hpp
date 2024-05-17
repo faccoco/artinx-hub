@@ -24,7 +24,6 @@ struct GlobalSettings final {
     double dragCoefficient;
     double airDensity;
     bool bullet42mm;
-
     double latency = 0.0;
 
     bool isRed;
