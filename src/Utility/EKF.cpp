@@ -13,6 +13,11 @@ void ExtendedKalmanFilter::setState(const Eigen::VectorXd& x0) {
     xPost = x0;
 }
 
+Eigen::VectorXd ExtendedKalmanFilter::getState() {
+    return xPost;
+}
+
+
 Eigen::MatrixXd ExtendedKalmanFilter::predict() {
     F = Jf(xPost), Q = updateQ();
     xPri = f(xPost);

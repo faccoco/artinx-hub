@@ -61,7 +61,7 @@ public:
 
     void serialize() {
         buffer = {};
-        buffer.serialize(static_cast<uint8_t>((hasTargets) | targetType << 1));
+        buffer.serialize( static_cast<uint8_t>((hasTargets) | targetType << 1));
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
         buffer.serialize(horizontalDist, -4.0f, 0.0005f);
@@ -134,11 +134,10 @@ class SentrySerialPort final
 
 public:
     SentrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, SerialPort<SentryRecvPacket, SentrySendPacket>(
-                                                          mConfig.devPath, mConfig.baudRate,
-                                                          std::bind(&SentrySerialPort::infantryRecvCB, this,
-                                                                    std::placeholders::_1),
-                                                          std::bind(&SentrySerialPort::sentrySetPacket, this)),
+        : HubHelper{ base, config, std::move(name) },
+          SerialPort<SentryRecvPacket, SentrySendPacket>(
+              mConfig.devPath, mConfig.baudRate, std::bind(&SentrySerialPort::infantryRecvCB, this, std::placeholders::_1),
+              std::bind(&SentrySerialPort::sentrySetPacket, this)),
           mKey{ generateKey(this) } {
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
