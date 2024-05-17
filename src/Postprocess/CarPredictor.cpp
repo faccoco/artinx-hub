@@ -2,6 +2,7 @@
 
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
+#include "DetectedArmor.hpp"
 #include "EKF.hpp"
 #include "ExceptionProbe.hpp"
 #include "Hub.hpp"
@@ -197,11 +198,28 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
     bool update(const double dt, const std::vector<DetectedTarget>& armors) {
         mDt = dt;
         HubLogger::watch("dt", dt);
-        Eigen::VectorXd ekfPrediction = mEKF.predict();
+
+        if(mTrackedArmor.id == RobotType::Outpost) {
+            auto filterState = mEKF.getState();
+            filterState(4) = 0;
+            filterState(5) = 0;
+            filterState(6) = 0;
+            if (filterState(7) < -1) {
+                filterState(7) = -2.512;
+            } else if (filterState(7) > 1) {
+                filterState(7) = 2.512;
+            }
+            filterState(8) = 0.265;
+
+            mEKF.setState(filterState);
+        }
+
+        Eigen::VectorXd ekfPrediction;
+        ekfPrediction = mEKF.predict();
+
         bool matched = false;
         // Use KF prediction as default target state if no matched armor is found
         mTrackedArmor.state = ekfPrediction;
-
         if(!armors.empty()) {
             // pair[pos,yaw]
             bool isInitCand = false;
@@ -389,11 +407,11 @@ public:
                         init(data->selected.value());
                     } else {
                         // update
-                        if (data->lastUpdate.time_since_epoch().count() < mTrackedArmor.lastUpdate.time_since_epoch().count()){
+                        if(data->lastUpdate.time_since_epoch().count() < mTrackedArmor.lastUpdate.time_since_epoch().count()) {
                             HubLogger::visualLog("CarPredictor: received pakage order wrong!");
                         }
-                        
-                       // if (mTrackedArmor.id==RobotType::Outpost) mTrackedArmor.state(8)=2.65;
+
+                        // if (mTrackedArmor.id==RobotType::Outpost) mTrackedArmor.state(8)=2.65;
 
                         bool matched = update(durationCastDouble(data->lastUpdate - mTrackedArmor.lastUpdate), data->targets);
 

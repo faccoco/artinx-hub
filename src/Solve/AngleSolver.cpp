@@ -13,6 +13,7 @@
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
+#include <cmath>
 #include <fmt/format.h>
 #include <glm/fwd.hpp>
 #include <glm/gtc/constants.hpp>
@@ -221,17 +222,22 @@ public:
                     yaw = candTargets[0].yawAngle;
                     pitch = candTargets[0].pitchAngle;
 
-                    if(mConfig.gimbalFixed) {
+                    if(mConfig.gimbalFixed && std::abs(aVel) > 0.1) {
                         double r = candTargets[0].r;
                         center.z = candTargets[0].height;
                         auto armorFaced = getPos(
                             center, r, normalizeAngle(glm::half_pi<double>() + centerYaw));  // armor_yaw - center_yaw - half_pi
                         auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(armorFaced, lVel);
                         if(accessible) {
-                            fire = (absAngleDifferece(yaw.value(), yawAngle) < (glm::radians(mConfig.orietationAngle) + 4e-4));
+                            // fire = (absAngleDifferece(yaw.value(), yawAngle) < (glm::radians(mConfig.orietationAngle) + 4e-4));
+                            fire = glm::degrees(candTargets[0].diffAngle) < mConfig.orietationAngle;
+                            HubLogger::watch("diffAngle", candTargets[0].diffAngle);
                             yaw = yawAngle;
                             pitch = pitchAngle;
                         }
+                        
+                    } else {
+                        fire = true;
                     }
                     HubLogger::watch("fire", fire);
                     HubLogger::visualLog(

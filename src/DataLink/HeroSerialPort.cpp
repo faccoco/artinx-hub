@@ -71,6 +71,7 @@ public:
                                               static_cast<uint8_t>(targetType << 2)));
         buffer.serializeCrc16();
     }
+
 };
 
 struct HeroSerialPortSettings final {
@@ -118,6 +119,9 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
         mCapEnergy = fdb.capEnergy;
         mChasisPower = fdb.chasisPower;
 
+        // if (fdb.shootDelay < 500){
+        //     GlobalSettings::get().shootDelayTime = fdb.shootDelay;
+        // }
         GlobalSettings::get().shootDelayTime = fdb.shootDelay;
         HubLogger::watch("shootDelayTime", GlobalSettings::get().shootDelayTime);
 
@@ -166,8 +170,10 @@ public:
                 double yawAngle = normalizeAngle(data.yawAngle - glm::half_pi<double>());
                 double pitchAngle = data.pitchAngle;
                 bool isFire = data.isFire;
-                SolverType solverType = data.solveType;
-                isFire = solverType && isFire;
+                //SolverType solverType = data.solveType;
+                //isFire = solverType && isFire;
+                
+                HubLogger::watch("isFire1",isFire);
                 glm::dvec3 targetPos = data.targetPos.has_value() ? data.targetPos.value() : glm::dvec3(0.0f, 0.0f, 0.0f);
                 RobotType targetType = data.targetType.value();
                 {
@@ -192,8 +198,8 @@ public:
                 HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
                 HubLogger::watch("targetYaw1", yawAngle * 180.0 / glm::pi<double>());
                 HubLogger::watch("targetPitch1", pitchAngle * 180.0 / glm::pi<double>());
-                // HubLogger::watch("targetTypeReferee", tfRobotType(targetType));
-                // HubLogger::watch("targetHorizontalDist", std::sqrt(square(targetPos.x) + square(targetPos.y)));
+                HubLogger::watch("targetTypeReferee", tfRobotType(targetType));
+                HubLogger::watch("targetHorizontalDist", std::sqrt(square(targetPos.x) + square(targetPos.y)));
                 HubLogger::visualLog(
                     fmt::format("HeroSerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
                                 yawAngle, pitchAngle, static_cast<int>(mLatency.back() * 1000),
