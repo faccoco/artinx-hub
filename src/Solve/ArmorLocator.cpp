@@ -82,13 +82,13 @@ public:
                     auto axis = rvecRefCam.mVal / angle;
                     auto rmat = glm::mat4_cast(glm::angleAxis(-angle, axis));
 
-                    // HubLogger::watch("XRefCam", p0.x);
-                    // HubLogger::watch("YRefCam", p0.y);
-                    // HubLogger::watch("ZRefCam", p0.z);
+                    HubLogger::watch("XRefCam", p0.x);
+                    HubLogger::watch("YRefCam", p0.y);
+                    HubLogger::watch("ZRefCam", p0.z);
                     // HubLogger::watch("isLargeArmor", armor.isLargeArmor);
                     // logInfo(fmt::format("isLargeArmor: {} {}", armor.ratio, isLargeArmor));
-                    // HubLogger::watch("YawRefCam", glm::degrees(normalizeAngle(-atan2(rmat[2][0], rmat[2][2]) -
-                    // glm::half_pi<double>())));
+                    HubLogger::watch("YawRefCam", glm::degrees(normalizeAngle(-atan2(rmat[2][0], rmat[2][2]) -
+                    glm::half_pi<double>())));
 
                     auto armorImgCenter = clcArmorImgCenter();
                     res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefCam, armor.robotType,

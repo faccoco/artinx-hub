@@ -140,7 +140,7 @@ public:
                 // glm::dvec3 lVel = tf(data->linearVel.mVal) * mConfig.lVelDiscount;
                 glm::dvec3 lVel = tf(data->linearVel.mVal);
 
-                double aVel = -data->angularVel.mVal;
+                double aVel = std::abs(data->angularVel.mVal) > 1 ? -data->angularVel.mVal : 0;
 
                 // double aVel = getMaxAVel(-data->angularVel.mVal);
                 HubLogger::watch("CenterYaw", centerYaw);

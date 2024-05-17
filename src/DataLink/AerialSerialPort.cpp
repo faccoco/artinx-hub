@@ -1,5 +1,6 @@
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
+#include "Common.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
 #include "DetectedEnergyFan.hpp"
@@ -23,14 +24,14 @@
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
 
-class InfantryRecvPacket final {
+class AerialRecvPacket final {
 public:
     static constexpr uint16_t id = 0x0A;
 
     float yaw, pitch, bulletSpeed, speedX, speedY;
     uint8_t color, energyMode = 0, priorNum = 8 /*Negative*/;
     float capEnergy, chasisPower;
-    explicit InfantryRecvPacket(std::array<uint8_t, 1024>& buffer) {
+    explicit AerialRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
@@ -50,7 +51,7 @@ public:
     }
 };
 
-class InfantrySendPacket final {
+class AerialSendPacket final {
 public:
     static constexpr uint16_t id = 0x0F;
 
@@ -64,26 +65,26 @@ public:
         buffer = {};
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
-        // buffer.serialize(horizontalDist, -4.0f, 0.0005f);
+        buffer.serialize(horizontalDist, -4.0f, 0.0005f);
         buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | static_cast<uint8_t>(hasTargets << 1) |
                                               static_cast<uint8_t>(targetType << 2)));
         buffer.serializeCrc16();
     }
 };
 
-struct InfantrySerialPortSettings final {
+struct AerialSerialPortSettings final {
     std::string devPath;
     uint32_t baudRate;
 };
 
 template <class Inspector>
-bool inspect(Inspector& f, InfantrySerialPortSettings& x) {
+bool inspect(Inspector& f, AerialSerialPortSettings& x) {
     return f.object(x).fields(f.field("devPath", x.devPath), f.field("baudRate", x.baudRate));
 }
 
-class InfantrySerialPort final : public HubHelper<caf::event_based_actor, InfantrySerialPortSettings, update_head_atom,
+class AerialSerialPort final : public HubHelper<caf::event_based_actor, AerialSerialPortSettings, update_head_atom,
                                                   update_posture_atom, energy_detector_control_atom>,
-                                 public SerialPort<InfantryRecvPacket, InfantrySendPacket> {
+                                 public SerialPort<AerialRecvPacket, AerialSendPacket> {
     Identifier mKey;
 
     constexpr static size_t latencyLen = 100;
@@ -92,7 +93,7 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
     float mYaw = 0., mPitch = 0., mCapEnergy = 0., mChasisPower = 0.;
     TimePoint mLastReceivedTime, mLastTargetTime;
 
-    void infantryRecvCB(const InfantryRecvPacket& fdb) {
+    void aerialRecvCB(const AerialRecvPacket& fdb) {
         GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
         HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
 
@@ -128,7 +129,7 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoHead));
     }
 
-    void infantrySetPacket() {
+    void aerialSetPacket() {
         mSendPacket.hasTargets = 0;
         if(Clock::now() - mLastTargetTime < 500ms)
             mSendPacket.hasTargets |= 1;
@@ -136,12 +137,12 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
     }
 
 public:
-    InfantrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, SerialPort<InfantryRecvPacket, InfantrySendPacket>(
+    AerialSerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) }, SerialPort<AerialRecvPacket, AerialSendPacket>(
                                                           mConfig.devPath, mConfig.baudRate,
-                                                          std::bind(&InfantrySerialPort::infantryRecvCB, this,
+                                                          std::bind(&AerialSerialPort::aerialRecvCB, this,
                                                                     std::placeholders::_1),
-                                                          std::bind(&InfantrySerialPort::infantrySetPacket, this)),
+                                                          std::bind(&AerialSerialPort::aerialSetPacket, this)),
           mKey{ generateKey(this) } {
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
@@ -193,7 +194,7 @@ public:
                 // HubLogger::watch("targetTypeReferee", tfRobotType(targetType));
                 // HubLogger::watch("targetHorizontalDist", std::sqrt(square(targetPos.x) + square(targetPos.y)));
                 HubLogger::visualLog(
-                    fmt::format("InfantrySerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
+                    fmt::format("AerialSerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
                                 yawAngle, pitchAngle, static_cast<int>(mLatency.back() * 1000),
                                 static_cast<int>(GlobalSettings::get().latency * 1000)));
             },
@@ -201,4 +202,4 @@ public:
     }
 };
 
-HUB_REGISTER_CLASS(InfantrySerialPort);
+HUB_REGISTER_CLASS(AerialSerialPort);

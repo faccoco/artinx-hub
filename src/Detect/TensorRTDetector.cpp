@@ -1,3 +1,5 @@
+#include <chrono>
+#include <ratio>
 #include <vector>
 #ifdef ARTINX_CUDA
 #include "BlackBoard.hpp"
@@ -109,6 +111,8 @@ public:
                      ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
                      ACTOR_EXCEPTION_PROBE();
 
+                     auto start = std::chrono::high_resolution_clock::now();
+
                      if(GlobalSettings::get().getTaskMode() != TaskMode::AutoAim) {
                          return;
                      }
@@ -121,6 +125,10 @@ public:
 
                      std::vector<Armor> armors;
                      detect(frame.frame, armors);
+
+                     auto end = std::chrono::high_resolution_clock::now();
+
+                     HubLogger::watch("detect_cost", std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
                      res.armors = std::move(armors);
 

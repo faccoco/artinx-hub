@@ -27,6 +27,7 @@
  *
  */
 
+#include "Common.hpp"
 #include "SuppressWarningBegin.hpp"
 
 #include "AsyncSerial/AsyncSerial.h"
