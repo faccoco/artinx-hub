@@ -61,7 +61,6 @@ public:
     uint8_t hasTargets{}, targetType{};
 
     PacketBuffer<7, id> buffer{};
-    PacketBuffer<7, id> buffer{};
 
     void serialize() {
         buffer = {};

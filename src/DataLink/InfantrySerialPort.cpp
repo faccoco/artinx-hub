@@ -130,17 +130,18 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
 
     void infantrySetPacket() {
         mSendPacket.hasTargets = 0;
-        if(Clock::now() - mLastTargetTime < 500ms)
+        if(Clock::now() - mLastTargetTime < 500ms) {
             mSendPacket.hasTargets |= 1;
+        }
         HubLogger::watch("hasTargets", mSendPacket.hasTargets);
     }
 
 public:
     InfantrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) },
-          SerialPort<InfantryRecvPacket, InfantrySendPacket>(
-              mConfig.devPath, mConfig.baudRate, std::bind(&InfantrySerialPort::infantryRecvCB, this, std::placeholders::_1),
-              std::bind(&InfantrySerialPort::infantrySetPacket, this)),
+        : HubHelper{ base, config, std::move(name) }, SerialPort<InfantryRecvPacket, InfantrySendPacket>(
+                                                          mConfig.devPath, mConfig.baudRate,
+                                                          [this](auto && PH1) { infantryRecvCB(std::forward<decltype(PH1)>(PH1)); },
+                                                          std::bind(&InfantrySerialPort::infantrySetPacket, this)),
           mKey{ generateKey(this) } {
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
