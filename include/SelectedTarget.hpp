@@ -23,6 +23,7 @@ struct PredictedTarget final {
     std::pair<double, double> y;
     int armorNum;
     RobotType robotType;
+    ArmorType armorType;
 };
 
 struct PredictedPeriodTarget final {
@@ -36,6 +37,7 @@ struct SelectedTargetInfo final {
     double yawAngle;
     double pitchAngle;
     bool isFire;
+    ArmorType armorType;
     SolverType solveType;
     std::optional<glm::dvec3> targetPos;
     std::optional<RobotType> targetType;

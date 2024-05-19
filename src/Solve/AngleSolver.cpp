@@ -248,6 +248,7 @@ public:
                         res.targetPos = candTargets[0].pos;
                         res.lastUpdate = data.value().lastUpdate;
                         res.targetType = data.value().robotType;
+                        res.armorType = data.value().armorType;
                         sendAll(set_target_info_atom_v,
                                 BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
                         HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", 0,

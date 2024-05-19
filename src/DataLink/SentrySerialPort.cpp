@@ -54,14 +54,14 @@ public:
     static constexpr uint16_t id = 0xB0;
 
     float yaw, pitch, horizontalDist, z;
-    bool isFire;
+    bool isFire,isLargeArmor;
     uint8_t hasTargets{}, targetType{};
 
     PacketBuffer<7, id> buffer{};
 
     void serialize() {
         buffer = {};
-        buffer.serialize(static_cast<uint8_t>((hasTargets) | targetType << 1));
+        buffer.serialize(static_cast<uint8_t>((hasTargets) | targetType << 1 | isLargeArmor<<5));
         buffer.serialize(yaw, -4.0f, 0.0005f);
         buffer.serialize(pitch, -4.0f, 0.0005f);
         buffer.serialize(horizontalDist, -4.0f, 0.0005f);
@@ -182,6 +182,7 @@ public:
                     mSendPacket.horizontalDist = static_cast<float>(std::sqrt(square(targetPos.x) + square(targetPos.y)));
                     mSendPacket.z = targetPos.z;
                     mSendPacket.targetType = tfRobotType(targetType);
+                    mSendPacket.isLargeArmor = data.armorType == ArmorType::Large;
                     mLastTargetTime = Clock::now();
                 }
 
