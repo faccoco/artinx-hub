@@ -208,7 +208,7 @@ public:
                         }
                         aveLatency=getAvelatency(latency,mConfig.latencyThreshold);
                         double requiredTime = airTime + mConfig.delay + aveLatency;
-                        double requiredTheta = theta + -aVel * requiredTime;
+                        double requiredTheta = theta + aVel * requiredTime;
 
                         if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {
                             double deltaTheta = normalizeAngle(requiredTheta - yawAngle - glm::pi<double>());
