@@ -179,7 +179,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         mTrackedArmor.id = armor.id;
 
         int armorId = static_cast<int>(armor.id);
-        mTrackedArmor.armorType=armor.type;
+        mTrackedArmor.armorType = armor.type;
         if(armor.type == ArmorType::Large && armorId >= 3 && armorId <= 5) {
             mTrackedArmor.armorNum = 2;
         } else if(armor.id == RobotType::Outpost) {
@@ -378,7 +378,7 @@ public:
                 ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);
                 ACTOR_EXCEPTION_PROBE();
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);
-                
+
                 PredictedTarget res;
                 res.lastUpdate = data->lastUpdate;
                 mTfCamera2Robot = data->tfRobot2Camera.invTransformObj();
