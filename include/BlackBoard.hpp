@@ -38,16 +38,18 @@ public:
             if(const auto ptr = getImpl(hashCode)) {
                 std::lock_guard guard{ ptr->first };
                 ptr->second = std::make_tuple(std::move(val), (std::move(valList), ...));
-            } else
+            } else {
                 insertImpl(hashCode, std::move(std::make_tuple(std::move(val), (std::move(valList), ...))));
+            }
             return TypedIdentifier<T, TL...>{ key.val };
         } else {
             const auto hashCode = typeid(T).hash_code() ^ key.val;
             if(const auto ptr = getImpl(hashCode)) {
                 std::lock_guard guard{ ptr->first };
                 ptr->second = std::move(val);
-            } else
+            } else {
                 insertImpl(hashCode, std::move(val));
+            }
             return TypedIdentifier<T>{ key.val };
         }
     }
