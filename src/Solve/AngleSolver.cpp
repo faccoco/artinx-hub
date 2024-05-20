@@ -12,16 +12,16 @@
 
 #include "SuppressWarningBegin.hpp"
 
+#include "SuppressWarningEnd.hpp"
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/fwd.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <list>
 #include <magic_enum.hpp>
 #include <optional>
 #include <vector>
-
-#include "SuppressWarningEnd.hpp"
 
 struct AngleSolverSettings final {
     double delay;
@@ -32,6 +32,7 @@ struct AngleSolverSettings final {
     double maxShootDeltaTheta;  // in degree
     double lVelDiscount;
     double orietationAngle;  // in degree
+    double latencyThreshold;
     double aVelThreshold;
 };
 
@@ -43,6 +44,7 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
                               f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60),
                               f.field("lVelDiscount", x.lVelDiscount).fallback(1.0),
                               f.field("orietationAngle", x.orietationAngle).fallback(37),
+                              f.field("latencyThreshold", x.latencyThreshold).fallback(500),
                               f.field("enableOrietationAngleLimit", x.enableOrietationAngleLimit).fallback(false),
                               f.field("aVelThreshold", x.aVelThreshold).fallback(9.0));
 }
@@ -59,6 +61,7 @@ struct CandidateTarget final {
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
     Identifier mKey;
     std::deque<double> mPastAVel;
+    std::list<double> latency;
     static double absAngleDifferece(double a, double b) {
         return std::abs(normalizeAngle(b - a));
     }
@@ -70,6 +73,24 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
 
     static glm::dvec3 getPos(const glm::dvec3& center, double r, double theta) {
         return { center.x + r * cos(theta), center.y + r * sin(theta), center.z };
+    }
+
+    static double getAvglatency(std::list<double>& latency, double threshold) {
+        double addLatency = 0;
+        if(latency.size() < 20) {
+            latency.push_back(GlobalSettings::get().shootDelayTime);
+        } else {
+            latency.pop_front();
+            latency.push_back(GlobalSettings::get().shootDelayTime);
+        }
+        int count = 0;
+        for(double a : latency) {
+            if(a < threshold) {
+                addLatency += a;
+                count++;
+            }
+        }
+        return addLatency / count;
     }
 
 public:
@@ -149,12 +170,11 @@ public:
                 }
                 glm::dvec3 center = tf(data->center.mVal);
                 double theta = -data->yaw.mVal;
-
                 double centerYaw = normalizeAngle(atan2(center.y, center.x) - glm::half_pi<double>());
                 // glm::dvec3 lVel = tf(data->linearVel.mVal) * mConfig.lVelDiscount;
                 glm::dvec3 lVel = tf(data->linearVel.mVal);
 
-                double aVel = -data->angularVel.mVal;
+                double aVel = std::abs(data->angularVel.mVal) > 1 ? -data->angularVel.mVal : 0;
 
                 // double aVel = getMaxAVel(-data->angularVel.mVal);
                 HubLogger::watch("CenterYaw", centerYaw);
@@ -170,8 +190,11 @@ public:
                 }
 
                 // solve and determine possible armor
+                std::optional<double> yaw, pitch;
+                glm::dvec3 targetPos;
                 int armorNum = data->armorNum;
                 std::vector<CandidateTarget> candTargets;
+                double avgLatency;
                 for(int i = 0; i < armorNum; i++) {
                     double r = R[i & 1];
                     center.z = Z[i & 1];
@@ -186,7 +209,16 @@ public:
                             // HubLogger::logInfoBoth(fmt::format("AngleSolver: {}th armor gets inaccessible", i));
                             break;
                         }
-                        double requiredTime = airTime + mConfig.delay + GlobalSettings::get().latency;
+                        
+                        double delay;
+                        if (mConfig.gimbalFixed){
+                            avgLatency = getAvglatency(latency, mConfig.latencyThreshold);
+                            HubLogger::watch("avgLatency", avgLatency);
+                            delay = avgLatency / 1000;
+                        }else{
+                            delay = mConfig.delay;
+                        }
+                        double requiredTime = airTime + delay + GlobalSettings::get().latency;
                         double requiredTheta = theta + aVel * requiredTime;
 
                         if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {
@@ -234,7 +266,8 @@ public:
                             center, r, normalizeAngle(glm::half_pi<double>() + centerYaw));  // armor_yaw - center_yaw - half_pi
                         auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(armorFaced, lVel);
                         if(accessible) {
-                            fire = (absAngleDifferece(yaw.value(), yawAngle) < (glm::radians(mConfig.orietationAngle) + 4e-4));
+                            fire = glm::degrees(candTargets[0].diffAngle) < mConfig.orietationAngle;
+                            HubLogger::watch("diffAngle", candTargets[0].diffAngle);
                             yaw = yawAngle;
                             pitch = pitchAngle;
                         }

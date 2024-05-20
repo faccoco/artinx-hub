@@ -1,7 +1,9 @@
 #include "AsyncSerial/BufferedAsyncSerial.h"
 #include "BlackBoard.hpp"
+#include "Common.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
+#include "DetectedEnergyFan.hpp"
 #include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "PostureData.hpp"
@@ -12,47 +14,44 @@
 #include "Utility.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
-#include "Timer.hpp"
-#include "Utility.hpp"
 
 #include <caf/event_based_actor.hpp>
 #include <fmt/format.h>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/fwd.hpp>
-#include <optional>
 
-class HeroRecvPacket final {
+class AerialRecvPacket final {
 public:
     static constexpr uint16_t id = 0x0A;
 
-    float yaw, pitch, roll, bulletSpeed, speedX, speedY;
-    uint8_t color, periodMode, priorMode;
+    float yaw, pitch, bulletSpeed, speedX, speedY;
+    uint8_t color, energyMode = 0, priorNum = 8 /*Negative*/;
     float capEnergy, chasisPower;
-    uint16_t shootDelay;
-    explicit HeroRecvPacket(std::array<uint8_t, 1024>& buffer) {
+    explicit AerialRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
-        roll = reader.readCompressedFloat(-4.0f, 0.0005f);
         speedX = reader.readCompressedFloat(-20.0f, 0.01f);
         speedY = reader.readCompressedFloat(-20.0f, 0.01f);
         const auto mask = reader.read();
         color = mask & 1;
-        periodMode = (mask >> 4) & 1;
-        priorMode = (mask >> 5) & 1;
-
+        if(((mask >> 1) & 1) == 1) {
+            energyMode = 1;
+        } else if(((mask >> 2) & 1) == 1) {
+            energyMode = 2;
+        }
+        priorNum = mask >> 3;
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
         capEnergy = reader.readCompressedFloat(-1.0f, 0.1f);
         chasisPower = reader.readCompressedFloat(-1.0f, 0.01f);
-        shootDelay = reader.read<uint16_t>();
     }
 };
 
-class HeroSendPacket final {
+class AerialSendPacket final {
 public:
     static constexpr uint16_t id = 0x0F;
 
@@ -71,22 +70,21 @@ public:
                                               static_cast<uint8_t>(targetType << 2)));
         buffer.serializeCrc16();
     }
-
 };
 
-struct HeroSerialPortSettings final {
+struct AerialSerialPortSettings final {
     std::string devPath;
     uint32_t baudRate;
 };
 
 template <class Inspector>
-bool inspect(Inspector& f, HeroSerialPortSettings& x) {
+bool inspect(Inspector& f, AerialSerialPortSettings& x) {
     return f.object(x).fields(f.field("devPath", x.devPath), f.field("baudRate", x.baudRate));
 }
 
-class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerialPortSettings, update_head_atom,
-                                                  update_posture_atom>,
-                                 public SerialPort<HeroRecvPacket, HeroSendPacket> {
+class AerialSerialPort final : public HubHelper<caf::event_based_actor, AerialSerialPortSettings, update_head_atom,
+                                                  update_posture_atom, energy_detector_control_atom>,
+                                 public SerialPort<AerialRecvPacket, AerialSendPacket> {
     Identifier mKey;
 
     constexpr static size_t latencyLen = 100;
@@ -95,19 +93,23 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
     float mYaw = 0., mPitch = 0., mCapEnergy = 0., mChasisPower = 0.;
     TimePoint mLastReceivedTime, mLastTargetTime;
 
-    void HeroRecvCB(const HeroRecvPacket& fdb) {
-        GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
+    void aerialRecvCB(const AerialRecvPacket& fdb) {
+        GlobalSettings::get().bulletSpeed = 28.5;
+        // GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
         HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
 
         auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
         auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
-        HubLogger::watch("yaw1", fdb.yaw * 180.0 / glm::pi<double>());
-        HubLogger::watch("pitch1", fdb.pitch * 180.0 / glm::pi<double>());
-        HubLogger::watch("deltaYaw1", deltaYaw1 * 180.0 / glm::pi<double>());
-        HubLogger::watch("deltaPitch1", deltaPitch1 * 180.0 / glm::pi<double>());
+        HubLogger::watch("yaw1", fdb.yaw);
+        HubLogger::watch("pitch1", fdb.pitch);
+        HubLogger::watch("deltaYaw1", deltaYaw1);
+        HubLogger::watch("deltaPitch1", deltaPitch1);
 
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
+
+        GlobalSettings::get().taskMode = fdb.energyMode;
+        GlobalSettings::get().priorNum = fdb.priorNum;
 
         const double yaw = fdb.yaw;
         const double pitch = fdb.pitch;
@@ -119,12 +121,6 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
         mCapEnergy = fdb.capEnergy;
         mChasisPower = fdb.chasisPower;
 
-        // if (fdb.shootDelay < 500){
-        //     GlobalSettings::get().shootDelayTime = fdb.shootDelay;
-        // }
-        GlobalSettings::get().shootDelayTime = fdb.shootDelay;
-        HubLogger::watch("shootDelayTime", GlobalSettings::get().shootDelayTime);
-
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();
         posture.tfGround2Robot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
@@ -134,7 +130,7 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
         sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoHead));
     }
 
-    void HeroSetPacket() {
+    void aerialSetPacket() {
         mSendPacket.hasTargets = 0;
         if(Clock::now() - mLastTargetTime < 500ms)
             mSendPacket.hasTargets |= 1;
@@ -142,12 +138,12 @@ class HeroSerialPort final : public HubHelper<caf::event_based_actor, HeroSerial
     }
 
 public:
-    HeroSerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, SerialPort<HeroRecvPacket, HeroSendPacket>(
+    AerialSerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
+        : HubHelper{ base, config, std::move(name) }, SerialPort<AerialRecvPacket, AerialSendPacket>(
                                                           mConfig.devPath, mConfig.baudRate,
-                                                          std::bind(&HeroSerialPort::HeroRecvCB, this,
+                                                          std::bind(&AerialSerialPort::aerialRecvCB, this,
                                                                     std::placeholders::_1),
-                                                          std::bind(&HeroSerialPort::HeroSetPacket, this)),
+                                                          std::bind(&AerialSerialPort::aerialSetPacket, this)),
           mKey{ generateKey(this) } {
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
@@ -167,15 +163,13 @@ public:
             [this](set_target_info_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(set_target_info_atom, TypedIdentifier<SelectedTargetInfo>);
                 auto data = BlackBoard::instance().get<SelectedTargetInfo>(key).value();
-                double yawAngle = normalizeAngle(data.yawAngle - glm::half_pi<double>());
+                double yawAngle = data.yawAngle;
                 double pitchAngle = data.pitchAngle;
-                bool isFire = data.isFire;
-                //SolverType solverType = data.solveType;
-                //isFire = solverType && isFire;
-                
-                HubLogger::watch("isFire1",isFire);
                 glm::dvec3 targetPos = data.targetPos.has_value() ? data.targetPos.value() : glm::dvec3(0.0f, 0.0f, 0.0f);
                 RobotType targetType = data.targetType.value();
+                bool isFire = data.isFire;
+                yawAngle = normalizeAngle(yawAngle - glm::half_pi<double>());
+
                 {
                     std::lock_guard lock{ mPacketMutex };
                     mSendPacket.yaw = static_cast<float>(yawAngle);
@@ -201,7 +195,7 @@ public:
                 // HubLogger::watch("targetTypeReferee", tfRobotType(targetType));
                 // HubLogger::watch("targetHorizontalDist", std::sqrt(square(targetPos.x) + square(targetPos.y)));
                 HubLogger::visualLog(
-                    fmt::format("HeroSerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
+                    fmt::format("AerialSerialPort: target yaw: {:.3f}, target pitch: {:.3f},nowLatency: {}ms avgLatency: {}ms",
                                 yawAngle, pitchAngle, static_cast<int>(mLatency.back() * 1000),
                                 static_cast<int>(GlobalSettings::get().latency * 1000)));
             },
@@ -209,4 +203,4 @@ public:
     }
 };
 
-HUB_REGISTER_CLASS(HeroSerialPort);
+HUB_REGISTER_CLASS(AerialSerialPort);

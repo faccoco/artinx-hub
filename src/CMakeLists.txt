@@ -13,6 +13,7 @@ set(SOURCE
         "DataLink/InfantrySerialPort.cpp"
         "DataLink/HeroSerialPort.cpp"
         "DataLink/SentrySerialPort.cpp"
+        "DataLink/AerialSerialPort.cpp"
         "DataLink/PosSynchronization.cpp"
         "Detect/NumClassifier.cpp"
         "Detect/ArmorDetector.cpp"

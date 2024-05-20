@@ -65,11 +65,22 @@ public:
                     mImagePoint = armor.light4Point;
                     auto armorType = armor.isLargeArmor ? ArmorType::Large : ArmorType::Small;
 
+                    if (mImagePoint.size() < 4){
+                        HubLogger::visualLog("wrong point numbers of pnp!");
+                        continue;
+                    }
+
                     cv::Mat rvec, tvec;
                     const auto pnpRes =
                         cv::solvePnP(armor.isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
                                      cameraInfo.cameraMatrix, cameraInfo.distCoefficients, rvec, tvec, false, cv::SOLVEPNP_IPPE);
                     if(!pnpRes) {
+                        continue;
+                    }
+
+                    if(std::isnan(tvec.at<double>(0, 0)) || std::isnan(-tvec.at<double>(1, 0)) || std::isnan(-tvec.at<double>(2, 0))){
+                        HubLogger::visualLog("ArmorLocator: nan orrcur");
+                        logInfo("ArmorLocator: nan orrcur");
                         continue;
                     }
                     glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
@@ -82,13 +93,13 @@ public:
                     auto axis = rvecRefCam.mVal / angle;
                     auto rmat = glm::mat4_cast(glm::angleAxis(-angle, axis));
 
-                    // HubLogger::watch("XRefCam", p0.x);
-                    // HubLogger::watch("YRefCam", p0.y);
-                    // HubLogger::watch("ZRefCam", p0.z);
+                    HubLogger::watch("XRefCam", p0.x);
+                    HubLogger::watch("YRefCam", p0.y);
+                    HubLogger::watch("ZRefCam", p0.z);
                     // HubLogger::watch("isLargeArmor", armor.isLargeArmor);
                     // logInfo(fmt::format("isLargeArmor: {} {}", armor.ratio, isLargeArmor));
-                    // HubLogger::watch("YawRefCam", glm::degrees(normalizeAngle(-atan2(rmat[2][0], rmat[2][2]) -
-                    // glm::half_pi<double>())));
+                    HubLogger::watch("YawRefCam", glm::degrees(normalizeAngle(-atan2(rmat[2][0], rmat[2][2]) -
+                    glm::half_pi<double>())));
 
                     auto armorImgCenter = clcArmorImgCenter();
                     res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefCam, armor.robotType,

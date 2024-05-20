@@ -81,7 +81,11 @@ constexpr float sigmoid(float x) {
     return 1 / (1 + std::exp(-x));
 }
 
-TRTModule::TRTModule(const std::string& onnx_file) {
+TRTModule::TRTModule(const std::string& onnx_file, int kptNum, int classNum, int anchorNum, bool rune = false) {
+    this->kptNum = kptNum;
+    this->classNum = classNum;
+    this->anchorNum = anchorNum;
+
     std::filesystem::path onnx_file_path(onnx_file);
     auto cache_file_path = onnx_file_path;
     cache_file_path.replace_extension("cache");
@@ -124,10 +128,34 @@ void TRTModule::build_engine_from_onnx(const std::string& onnx_file) {
     TRT_ASSERT(parser != nullptr);
     parser->parseFromFile(onnx_file.c_str(), static_cast<int>(ILogger::Severity::kINFO));
     auto yolov5_output = network->getOutput(0);
+    /*
+        在这里的TensorRT网络中，输出尺寸为 1 * 15120 * 22，这意味着网络的输出是一个三维数组，其中有1个批次（batch），15120个元素，每个元素包含22个特征。这种格式通常用于对象检测任务中，其中15120可能代表了不同的锚框（anchor boxes），而22个特征包含了位置坐标、置信度和类别概率等信息。
+        这里创建的切片层auto slice_layer = network->addSlice(*yolov5_output, Dims3{ 0, 0, 8 }, Dims3{ 1, 15120, 1 }, Dims3{ 1, 1, 1 });的作用是从整个输出中提取特定的数据子集。这里的参数解释如下：
+        Dims3{ 0, 0, 8 } 表示切片的起始点，分别是批次维度的第0位、元素维度的第0位、特征维度的第8位。因此，切片是从每个元素的第8个特征开始的。
+        Dims3{ 1, 15120, 1 } 表示切片的尺寸，即在批次维度取1（整个批次），在元素维度取15120（全部元素），在特征维度取1（仅取一个特征）。这意味着你正在从每个元素中仅提取第8个特征，这个特征很可能是置信度（confidence score）。
+        Dims3{ 1, 1, 1 } 是步长，指明在每个维度上移动的步长，这里都是1，意味着连续提取，没有跳过。
+        总结来说，这个切片层的创建是为了从每个预测元素的22个特征中提取第8个特征（可能是置信度），并且对全部15120个预测元素进行这样的操作。这种操作通常在需要单独处理某些特定数据（如置信度）以进行进一步操作（如TopK筛选）时使用。
+    */
+    
     auto slice_layer = network->addSlice(*yolov5_output, Dims3{ 0, 0, 8 }, Dims3{ 1, 15120, 1 }, Dims3{ 1, 1, 1 });
     auto yolov5_conf = slice_layer->getOutput(0);
     auto shuffle_layer = network->addShuffle(*yolov5_conf);
     shuffle_layer->setReshapeDimensions(Dims2{ 1, 15120 });
+
+    if (rune){
+        auto feature_3 = network->addSlice(*yolov5_output, Dims3{ 0, 4, 0 }, Dims3{ 1, 1, 3549 }, Dims3{ 1, 1, 1 })->getOutput(0);
+        auto feature_4 = network->addSlice(*yolov5_output, Dims3{ 0, 5, 0 }, Dims3{ 1, 1, 3549 }, Dims3{ 1, 1, 1 })->getOutput(0);
+        auto feature_5 = network->addSlice(*yolov5_output, Dims3{ 0, 6, 0 }, Dims3{ 1, 1, 3549 }, Dims3{ 1, 1, 1 })->getOutput(0);
+        auto feature_6 = network->addSlice(*yolov5_output, Dims3{ 0, 7, 0 }, Dims3{ 1, 1, 3549 }, Dims3{ 1, 1, 1 })->getOutput(0);
+        auto max_layer_1 = network->addElementWise(*feature_3, *feature_4, ElementWiseOperation::kMAX)->getOutput(0);
+        auto max_layer_2 = network->addElementWise(*feature_5, *feature_6, ElementWiseOperation::kMAX)->getOutput(0);
+        yolov5_conf = network->addElementWise(*max_layer_1, *max_layer_2, ElementWiseOperation::kMAX)->getOutput(0);
+        shuffle_layer = network->addShuffle(*yolov5_conf);
+        shuffle_layer->setReshapeDimensions(Dims2{ 1, 3549 });
+    }
+
+
+
     yolov5_conf = shuffle_layer->getOutput(0);
     auto topk_layer = network->addTopK(*yolov5_conf, TopKOperation::kMAX, TOPK_NUM, 1 << 1);
     auto topk_idx = topk_layer->getOutput(1);
@@ -181,11 +209,14 @@ void TRTModule::cache_engine(const std::string& cache_file) {
 
 std::vector<bbox_t> TRTModule::operator()(const cv::Mat& src) const {
     // pre-process [bgr2rgb & resize]
+
+    auto img_width = rune ? 416.f : 640.f;
+    auto img_height = rune ? 416.f : 512.f;
     cv::Mat x;
-    float fx = (float)src.cols / 640.f, fy = (float)src.rows / 384.f;
+    float fx = (float)src.cols / img_width, fy = (float)src.rows / img_height;
     cv::cvtColor(src, x, cv::COLOR_BGR2RGB);
-    if(src.cols != 640 || src.rows != 384) {
-        cv::resize(x, x, { 640, 384 });
+    if(src.cols != static_cast<int>(img_width) || src.rows != static_cast<int>(img_height)) {
+        cv::resize(x, x, { static_cast<int>(img_width),  static_cast<int>(img_height) });
     }
     x.convertTo(x, CV_32F);
 
@@ -199,32 +230,59 @@ std::vector<bbox_t> TRTModule::operator()(const cv::Mat& src) const {
     std::vector<bbox_t> rst;
     rst.reserve(TOPK_NUM);
     std::vector<uint8_t> removed(TOPK_NUM);
-    for(int i = 0; i < TOPK_NUM; i++) {
-        auto* box_buffer = output_buffer + i * 22;  // 20->23
-        if(box_buffer[8] < inv_sigmoid(KEEP_THRES))
-            break;
-        if(removed[i])
-            continue;
-        rst.emplace_back();
-        auto& box = rst.back();
-        memcpy(&box.pts, box_buffer, 8 * sizeof(float));
-        for(auto& pt : box.pts)
-            pt.x *= fx, pt.y *= fy;
-        box.confidence = sigmoid(box_buffer[8]);
-        box.color_id = argmax(box_buffer + 9, 4);
-        box.tag_id = argmax(box_buffer + 13, 9);
-        for(int j = i + 1; j < TOPK_NUM; j++) {
-            auto* box2_buffer = output_buffer + j * 22;
-            if(box2_buffer[8] < inv_sigmoid(KEEP_THRES))
+    if (rune){
+        for(int i = 0; i < TOPK_NUM; i++) {
+            auto* box_buffer = output_buffer + i * 8;
+            if(argmax(box_buffer + 4, 4) < inv_sigmoid(KEEP_THRES))
                 break;
-            if(removed[j])
+            if(removed[i])
                 continue;
-            if(is_overlap(box_buffer, box2_buffer))
-                removed[j] = true;
+            rst.emplace_back();
+            auto& box = rst.back();
+            memcpy(&box.pts, box_buffer, 4 * sizeof(float));
+            for(auto& pt : box.pts)
+                pt.x *= fx, pt.y *= fy;
+            box.confidence = sigmoid(argmax(box_buffer + 4, 4));
+            box.color_id = 0;
+            box.tag_id = argmax(box_buffer + 13, 9);
+            for(int j = i + 1; j < TOPK_NUM; j++) {
+                auto* box2_buffer = output_buffer + j * 22;
+                if(box2_buffer[8] < inv_sigmoid(KEEP_THRES))
+                    break;
+                if(removed[j])
+                    continue;
+                if(is_overlap(box_buffer, box2_buffer))
+                    removed[j] = true;
+            }
         }
+        return rst;
+    }else{
+        for(int i = 0; i < TOPK_NUM; i++) {
+            auto* box_buffer = output_buffer + i * 22;  // 20->23
+            if(box_buffer[8] < inv_sigmoid(KEEP_THRES))
+                break;
+            if(removed[i])
+                continue;
+            rst.emplace_back();
+            auto& box = rst.back();
+            memcpy(&box.pts, box_buffer, 8 * sizeof(float));
+            for(auto& pt : box.pts)
+                pt.x *= fx, pt.y *= fy;
+            box.confidence = sigmoid(box_buffer[8]);
+            box.color_id = argmax(box_buffer + 9, 4);
+            box.tag_id = argmax(box_buffer + 13, 9);
+            for(int j = i + 1; j < TOPK_NUM; j++) {
+                auto* box2_buffer = output_buffer + j * 22;
+                if(box2_buffer[8] < inv_sigmoid(KEEP_THRES))
+                    break;
+                if(removed[j])
+                    continue;
+                if(is_overlap(box_buffer, box2_buffer))
+                    removed[j] = true;
+            }
+        }
+        return rst;
     }
-
-    return rst;
 }
 // NOLINTEND
 #endif
