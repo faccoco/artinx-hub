@@ -190,8 +190,6 @@ public:
                 }
 
                 // solve and determine possible armor
-                std::optional<double> yaw, pitch;
-                glm::dvec3 targetPos;
                 int armorNum = data->armorNum;
                 std::vector<CandidateTarget> candTargets;
                 double avgLatency;
@@ -247,6 +245,7 @@ public:
 
                 if(!candTargets.empty()) {
                     std::optional<double> yaw, pitch;
+                    glm::dvec3 targetPos;
                     bool fire = false;
 
                     std::sort(candTargets.begin(), candTargets.end(),
