@@ -40,15 +40,14 @@ struct AngleSolverSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, AngleSolverSettings& x) {
-    return f.object(x).fields(f.field("delay", x.delay).fallback(0.0), f.field("gimbalFixed", x.gimbalFixed).fallback(false),
-                              f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
-                              f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
-                              f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60),
-                              f.field("lVelDiscount", x.lVelDiscount).fallback(1.0),
-                              f.field("orietationAngle", x.orietationAngle).fallback(37),
-                              f.field("latencyThreshold", x.latencyThreshold).fallback(500),
-                              f.field("enableOrietationAngleLimit", x.enableOrietationAngleLimit).fallback(false),
-                              f.field("aVelThreshold", x.aVelThreshold).fallback(9.0));
+    return f.object(x).fields(
+        f.field("delay", x.delay).fallback(0.0), f.field("gimbalFixed", x.gimbalFixed).fallback(false),
+        f.field("sameTimeThreshold", x.sameTimeThreshold).fallback(0.05),
+        f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
+        f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60), f.field("lVelDiscount", x.lVelDiscount).fallback(1.0),
+        f.field("orietationAngle", x.orietationAngle).fallback(37), f.field("latencyThreshold", x.latencyThreshold).fallback(500),
+        f.field("enableOrietationAngleLimit", x.enableOrietationAngleLimit).fallback(false),
+        f.field("aVelThreshold", x.aVelThreshold).fallback(9.0));
 }
 
 struct CandidateTarget final {
@@ -210,13 +209,13 @@ public:
                             // HubLogger::logInfoBoth(fmt::format("AngleSolver: {}th armor gets inaccessible", i));
                             break;
                         }
-                        
+
                         double delay;
-                        if (mConfig.gimbalFixed){
+                        if(mConfig.gimbalFixed) {
                             avgLatency = getAvglatency(latency, mConfig.latencyThreshold);
                             HubLogger::watch("avgShootDelay", avgLatency);
                             delay = avgLatency / 1000;
-                        }else{
+                        } else {
                             delay = mConfig.delay;
                         }
                         double requiredTime = airTime + delay + GlobalSettings::get().latency;
@@ -292,18 +291,11 @@ public:
                                                          yaw.value(), pitch.value()));
                     }
                     HubLogger::watch("fire", fire);
-                    HubLogger::visualLog(
-                        fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", 0, yaw.value(), pitch.value()));
 
-                    if (mConfig.gimbalFixed) {
-                        HubLogger::visualLog(fmt::format("AngleSolver: Shootdelay time is {}, avg is {}", GlobalSettings::get().shootDelayTime, avgLatency));
+                    if(mConfig.gimbalFixed) {
+                        HubLogger::visualLog(fmt::format("AngleSolver: Shootdelay time is {}, avg is {}",
+                                                         GlobalSettings::get().shootDelayTime, avgLatency));
                     }
-                    res.pitchAngle = pitch.value();
-                    res.yawAngle = yaw.value();
-                    res.isFire = fire;
-                    res.solveType = normalSolver;
-                    sendAll(set_target_info_atom_v,
-                            BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
                     return;
                 }
             },
