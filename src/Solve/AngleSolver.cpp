@@ -191,7 +191,6 @@ public:
 
                 // solve and determine possible armor
                 std::optional<double> yaw, pitch;
-                glm::dvec3 targetPos;
                 int armorNum = data->armorNum;
                 std::vector<CandidateTarget> candTargets;
                 double avgLatency;

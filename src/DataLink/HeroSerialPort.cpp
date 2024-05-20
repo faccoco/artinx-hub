@@ -69,9 +69,6 @@ public:
         buffer.serialize(horizontalDist, -4.0f, 0.0005f);
         buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | static_cast<uint8_t>(hasTargets << 1) |
                                               static_cast<uint8_t>(targetType << 2)));
-        buffer.serialize(horizontalDist, -4.0f, 0.0005f);
-        buffer.serialize(static_cast<uint8_t>(static_cast<uint8_t>(isFire) | static_cast<uint8_t>(hasTargets << 1) |
-                                              static_cast<uint8_t>(targetType << 2)));
         buffer.serializeCrc16();
     }
 
