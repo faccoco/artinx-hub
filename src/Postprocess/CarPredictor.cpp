@@ -61,6 +61,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         RobotType id;
         TrackingState trackingState;
         int armorNum;
+        ArmorType armorType;
     } mTrackedArmor;
     double mLastY = 0.0, mLastR = 0.2;
     int mDetectCount = 0, mLostCount = 0;
@@ -178,6 +179,7 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         mTrackedArmor.id = armor.id;
 
         int armorId = static_cast<int>(armor.id);
+        mTrackedArmor.armorType = armor.type;
         if(armor.type == ArmorType::Large && armorId >= 3 && armorId <= 5) {
             mTrackedArmor.armorNum = 2;
         } else if(armor.id == RobotType::Outpost) {
@@ -435,6 +437,7 @@ public:
                             res.y = { mTrackedArmor.state(1), mLastY };
                             res.armorNum = mTrackedArmor.armorNum;
                             res.robotType = mTrackedArmor.id;
+                            res.armorType = mTrackedArmor.armorType;
                             sendAll(car_predict_atom_v,
                                     BlackBoard::instance().updateSync<PredictedTarget>(Identifier{ mKey.val }, res));
                         }
@@ -463,7 +466,8 @@ public:
                     res.radius = { 0, 0 };
                     res.y = { res.center.mVal.y, res.center.mVal.y };
                     res.armorNum = 1;
-                    res.robotType = mTrackedArmor.id;
+                    res.robotType = data->selected.value().id;
+                    res.armorType = data->selected.value().type;
                     // logInfo("ArmorPredictor send");
                     HubLogger::visualLog(fmt::format("ArmorPredictor do not use predict func, position : ({:.3f} {:.3f} {:.3f}), "
                                                      "linearVel: ({:.3f} {:.3f} {:.3f})",
