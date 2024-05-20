@@ -242,18 +242,6 @@ public:
                         }
                         predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
                     }
-                    if(yaw.has_value()) {
-                        HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", i,
-                                                         yaw.value(), pitch.value()));
-                        res.pitchAngle = pitch.value();
-                        res.yawAngle = yaw.value();
-                        res.solveType = normalSolver;
-                        res.isFire = true;
-                        res.targetPos = targetPos;
-                        sendAll(set_target_info_atom_v,
-                                BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
-                        return;
-                    }
                     theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
                 }
 
