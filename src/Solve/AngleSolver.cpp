@@ -13,7 +13,6 @@
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
-#include <cmath>
 #include <fmt/format.h>
 #include <glm/fwd.hpp>
 #include <glm/gtc/constants.hpp>
@@ -96,9 +95,7 @@ public:
                 } else {
                     return;
                 }
-
                 res.lastUpdate = data.value().lastUpdate;
-
                 Vector<UnitType::Distance, FrameOfRef::Robot> posRefRobot = data->center;
                 Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->linearVel;
                 RobotType targetType = data->robotType;
@@ -159,6 +156,7 @@ public:
 
                 double aVel = -data->angularVel.mVal;
 
+                // double aVel = getMaxAVel(-data->angularVel.mVal);
                 HubLogger::watch("CenterYaw", centerYaw);
                 HubLogger::watch("AngleVelRefRobot", aVel);
 
