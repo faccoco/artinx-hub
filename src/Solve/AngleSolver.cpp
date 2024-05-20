@@ -57,6 +57,7 @@ struct CandidateTarget final {
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
     Identifier mKey;
     std::deque<double> mPastAVel;
+    std::list<double> latency;
     static double absAngleDifferece(double a, double b) {
         return std::abs(normalizeAngle(b - a));
     }
@@ -70,12 +71,14 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
         return { center.x + r * cos(theta), center.y + r * sin(theta), center.z };
     }
 
-    double getAvelatency(std::list<double> &latency,double threshold){
+    static double getAvglatency(std::list<double> &latency,double threshold){
         double addLatency=0;
-        if (latency.size()<20) latency.push_back(GlobalSettings::get().latency);
+        if (latency.size()<20) {
+            latency.push_back(GlobalSettings::get().shootDelayTime);
+        }
         else {
             latency.pop_front();
-            latency.push_back(GlobalSettings::get().latency);
+            latency.push_back(GlobalSettings::get().shootDelayTime);
         }
         int count=0;
         for (double a : latency)
@@ -83,7 +86,7 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
             addLatency+=a;
             count++;
         }
-        return addLatency/count;
+        return addLatency/count/1000;
     }
 
 public:
@@ -189,9 +192,8 @@ public:
                 // solve and determine possible armor
                 std::optional<double> yaw, pitch;
                 int armorNum = data->armorNum;
-                std::vector<CandidateTarget> candTargets;
-                std::list<double> latency; 
-                double aveLatency;
+                std::vector<CandidateTarget> candTargets; 
+                double avgLatency;
                 for(int i = 0; i < armorNum; i++) {
                     double r = R[i & 1];
                     center.z = Z[i & 1];
@@ -206,8 +208,9 @@ public:
                             // HubLogger::logInfoBoth(fmt::format("AngleSolver: {}th armor gets inaccessible", i));
                             break;
                         }
-                        aveLatency=getAvelatency(latency,mConfig.latencyThreshold);
-                        double requiredTime = airTime + mConfig.delay + aveLatency;
+                        avgLatency=getAvglatency(latency,mConfig.latencyThreshold);
+                        HubLogger::watch("avgLatency(outpost)",avgLatency);
+                        double requiredTime = airTime + avgLatency + GlobalSettings::get().latency;
                         double requiredTheta = theta + aVel * requiredTime;
 
                         if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {
