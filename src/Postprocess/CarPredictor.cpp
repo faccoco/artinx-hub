@@ -204,9 +204,9 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             filterState(4) = 0;
             filterState(5) = 0;
             filterState(6) = 0;
-            if (filterState(7) < -1) {
+            if (filterState(7) < -1.5) {
                 filterState(7) = -2.512;
-            } else if (filterState(7) > 1) {
+            } else if (filterState(7) > 1.5) {
                 filterState(7) = 2.512;
             }
             filterState(8) = 0.265;

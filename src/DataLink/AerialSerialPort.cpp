@@ -94,7 +94,8 @@ class AerialSerialPort final : public HubHelper<caf::event_based_actor, AerialSe
     TimePoint mLastReceivedTime, mLastTargetTime;
 
     void aerialRecvCB(const AerialRecvPacket& fdb) {
-        GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
+        GlobalSettings::get().bulletSpeed = 28.5;
+        // GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
         HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
 
         auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
