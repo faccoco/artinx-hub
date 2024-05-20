@@ -13,7 +13,7 @@
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
-#include <cmath>
+#include<cmath>
 #include <fmt/format.h>
 #include <glm/fwd.hpp>
 #include <glm/gtc/constants.hpp>
@@ -21,7 +21,7 @@
 #include <magic_enum.hpp>
 #include <optional>
 #include <vector>
-
+#include<list>
 #include "SuppressWarningEnd.hpp"
 
 struct AngleSolverSettings final {
@@ -32,6 +32,7 @@ struct AngleSolverSettings final {
     double maxShootDeltaTheta;  // in degree
     double lVelDiscount;
     double orietationAngle;  // in degree
+    double latencyThreshold;
 };
 
 template <class Inspector>
@@ -41,7 +42,8 @@ bool inspect(Inspector& f, AngleSolverSettings& x) {
                               f.field("requiredTimeWeight", x.requiredTimeWeight).fallback(1),
                               f.field("maxShootDeltaTheta", x.maxShootDeltaTheta).fallback(60),
                               f.field("lVelDiscount", x.lVelDiscount).fallback(1.0),
-                              f.field("orietationAngle", x.orietationAngle).fallback(37));
+                              f.field("orietationAngle", x.orietationAngle).fallback(37),
+                              f.field("latencyThreshold",x.latencyThreshold).fallback(500));
 }
 
 struct CandidateTarget final {
@@ -55,6 +57,7 @@ struct CandidateTarget final {
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
     Identifier mKey;
     std::deque<double> mPastAVel;
+    std::list<double> latency;
     static double absAngleDifferece(double a, double b) {
         return std::abs(normalizeAngle(b - a));
     }
@@ -66,6 +69,24 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
 
     static glm::dvec3 getPos(const glm::dvec3& center, double r, double theta) {
         return { center.x + r * cos(theta), center.y + r * sin(theta), center.z };
+    }
+
+    static double getAvglatency(std::list<double> &latency,double threshold){
+        double addLatency=0;
+        if (latency.size()<20) {
+            latency.push_back(GlobalSettings::get().shootDelayTime);
+        }
+        else {
+            latency.pop_front();
+            latency.push_back(GlobalSettings::get().shootDelayTime);
+        }
+        int count=0;
+        for (double a : latency)
+        if (a<threshold) {
+            addLatency+=a;
+            count++;
+        }
+        return addLatency/count/1000;
     }
 
 public:
@@ -150,7 +171,6 @@ public:
                 res.targetType = data.value().robotType;
                 glm::dvec3 center = tf(data->center.mVal);
                 double theta = -data->yaw.mVal;
-
                 double centerYaw = normalizeAngle(atan2(center.y, center.x) - glm::half_pi<double>());
                 // glm::dvec3 lVel = tf(data->linearVel.mVal) * mConfig.lVelDiscount;
                 glm::dvec3 lVel = tf(data->linearVel.mVal);
@@ -173,7 +193,8 @@ public:
                 std::optional<double> yaw, pitch;
                 glm::dvec3 targetPos;
                 int armorNum = data->armorNum;
-                std::vector<CandidateTarget> candTargets;
+                std::vector<CandidateTarget> candTargets; 
+                double avgLatency;
                 for(int i = 0; i < armorNum; i++) {
                     double r = R[i & 1];
                     center.z = Z[i & 1];
@@ -182,13 +203,15 @@ public:
                         glm::dvec3 predictCenter = center + lVel * predictTime;
                         double predictTheta = theta + aVel * predictTime;
                         glm::dvec3 predictPos = getPos(predictCenter, r, predictTheta);
-
+                        
                         auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(predictPos, lVel);
                         if(!accessible) {
                             // HubLogger::logInfoBoth(fmt::format("AngleSolver: {}th armor gets inaccessible", i));
                             break;
                         }
-                        double requiredTime = airTime + mConfig.delay + GlobalSettings::get().latency;
+                        avgLatency=getAvglatency(latency,mConfig.latencyThreshold);
+                        HubLogger::watch("avgLatency(outpost)",avgLatency);
+                        double requiredTime = airTime + avgLatency + GlobalSettings::get().latency;
                         double requiredTheta = theta + aVel * requiredTime;
 
                         if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {

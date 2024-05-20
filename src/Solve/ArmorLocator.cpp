@@ -65,11 +65,22 @@ public:
                     mImagePoint = armor.light4Point;
                     auto armorType = armor.isLargeArmor ? ArmorType::Large : ArmorType::Small;
 
+                    if (mImagePoint.size() < 4){
+                        HubLogger::visualLog("wrong point numbers of pnp!");
+                        continue;
+                    }
+
                     cv::Mat rvec, tvec;
                     const auto pnpRes =
                         cv::solvePnP(armor.isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
                                      cameraInfo.cameraMatrix, cameraInfo.distCoefficients, rvec, tvec, false, cv::SOLVEPNP_IPPE);
                     if(!pnpRes) {
+                        continue;
+                    }
+
+                    if(std::isnan(tvec.at<double>(0, 0)) || std::isnan(-tvec.at<double>(1, 0)) || std::isnan(-tvec.at<double>(2, 0))){
+                        HubLogger::visualLog("ArmorLocator: nan orrcur");
+                        logInfo("ArmorLocator: nan orrcur");
                         continue;
                     }
                     glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
