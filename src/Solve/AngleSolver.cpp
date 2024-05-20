@@ -253,6 +253,7 @@ public:
                               [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
                     yaw = candTargets[0].yawAngle;
                     pitch = candTargets[0].pitchAngle;
+                    targetPos = candTargets[0].pos;
                     if(mConfig.enableOrietationAngleLimit) {
                         if(aVel > mConfig.aVelThreshold && candTargets[0].diffAngle > glm::radians(mConfig.orietationAngle)) {
                             yaw.reset();
@@ -270,6 +271,7 @@ public:
                             HubLogger::watch("diffAngle", candTargets[0].diffAngle);
                             yaw = yawAngle;
                             pitch = pitchAngle;
+                            targetPos = armorFaced;
                         }
                     }
                     SelectedTargetInfo res;
@@ -278,7 +280,7 @@ public:
                         res.pitchAngle = pitch.value();
                         res.solveType = normalSolver;
                         res.isFire = fire;
-                        res.targetPos = candTargets[0].pos;
+                        res.targetPos = targetPos;
                         res.lastUpdate = data.value().lastUpdate;
                         res.targetType = data.value().robotType;
                         res.armorType = data.value().armorType;
