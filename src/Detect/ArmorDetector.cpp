@@ -334,6 +334,11 @@ class ArmorDetector final
                 condArmor.points = points;
                 condArmor.color = light1.color;
 
+                if (condArmor.isLargeArmor && (condArmor.id == 0 || condArmor.id == 2 || condArmor.id == 6))
+                {
+                    continue;
+                }
+                
                 condArmors.push_back(std::move(condArmor));
             }
         }
