@@ -14,6 +14,8 @@
 
 #include "SuppressWarningEnd.hpp"
 #include <caf/event_based_actor.hpp>
+#include <cmath>
+#include <fmt/core.h>
 #include <fmt/format.h>
 #include <glm/fwd.hpp>
 #include <glm/gtc/constants.hpp>
@@ -83,6 +85,7 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
             latency.pop_front();
             latency.push_back(GlobalSettings::get().shootDelayTime);
         }
+
         int count = 0;
         for(double a : latency) {
             if(a < threshold) {
@@ -211,7 +214,7 @@ public:
                         double delay;
                         if (mConfig.gimbalFixed){
                             avgLatency = getAvglatency(latency, mConfig.latencyThreshold);
-                            HubLogger::watch("avgLatency", avgLatency);
+                            HubLogger::watch("avgShootDelay", avgLatency);
                             delay = avgLatency / 1000;
                         }else{
                             delay = mConfig.delay;
@@ -289,6 +292,18 @@ public:
                                                          yaw.value(), pitch.value()));
                     }
                     HubLogger::watch("fire", fire);
+                    HubLogger::visualLog(
+                        fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", 0, yaw.value(), pitch.value()));
+
+                    if (mConfig.gimbalFixed) {
+                        HubLogger::visualLog(fmt::format("AngleSolver: Shootdelay time is {}, avg is {}", GlobalSettings::get().shootDelayTime, avgLatency));
+                    }
+                    res.pitchAngle = pitch.value();
+                    res.yawAngle = yaw.value();
+                    res.isFire = fire;
+                    res.solveType = normalSolver;
+                    sendAll(set_target_info_atom_v,
+                            BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
                     return;
                 }
             },
