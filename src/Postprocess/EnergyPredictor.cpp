@@ -1,3 +1,4 @@
+#define GLM_ENABLE_EXPERIMENTAL
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedEnergyFan.hpp"

@@ -1,7 +1,7 @@
-// //
-// // Created by 12012710 on 24-6-23.
-// //
 //
+// Created by 12012710 on 24-6-23.
+//
+
 #include <cv_bridge/cv_bridge.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
@@ -50,12 +50,12 @@ public:
         imgSubscription = node->create_subscription<sensor_msgs::msg::Image>(
             "/image", rclcpp::SensorDataQoS(), std::bind(&publisRosImg, this, std::placeholders::_1));
 
-        rclcpp::init(0, nullptr);
+        rclcpp::init(0, nullptr);   // init ROS 
         std::thread([this]() { rclcpp::spin(node); }).detach();
     }
 
     void publisRosImg(const sensor_msgs::msg::Image::ConstSharedPtr& imgMsg) {
-        auto frame = cv_bridge::toCvShare(imgMsg, "rgb8")->image;
+        const auto frame = cv_bridge::toCvShare(imgMsg, "rgb8")->image;
 
         CameraFrame frameData;
         frameData.lastUpdate = SynchronizedClock::instance().now();
@@ -70,5 +70,6 @@ public:
         sendAll(image_frame_atom_v,
                 BlackBoard::instance().updateSync(mKey, std::move(frameData), static_cast<std::string_view>(mConfig.cameraName)));
     }
+    void restartCamera() noexcept override;
 };
 HUB_REGISTER_CLASS(RosCameraDriver);

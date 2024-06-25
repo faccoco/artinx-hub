@@ -13,6 +13,7 @@
 namespace fs = std::filesystem;
 
 #include <unistd.h>
+#include <fstream>
 
 struct ArmorLabelerSettings final {
     std::string savePath;

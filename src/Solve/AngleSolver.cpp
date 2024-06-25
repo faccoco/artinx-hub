@@ -1,3 +1,4 @@
+#define GLM_ENABLE_EXPERIMENTAL
 #include "BlackBoard.hpp"
 #include "Common.hpp"
 #include "DataDesc.hpp"
@@ -194,7 +195,7 @@ public:
                 // solve and determine possible armor
                 int armorNum = data->armorNum;
                 std::vector<CandidateTarget> candTargets;
-                double avgLatency;
+                double avgLatency = 0.0;
                 for(int i = 0; i < armorNum; i++) {
                     double r = R[i & 1];
                     center.z = Z[i & 1];
