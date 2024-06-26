@@ -64,7 +64,7 @@ set(SOURCE
         "Utility/NetInference.cpp"
         "Utility/TRTModule.cpp"
         "Utility/ArmorLabeler.cpp"
-        "Utility/RosCameraDriver.cpp"
+        "Utility/RosCamera.cpp"
 )
 
 find_package(CAF REQUIRED COMPONENTS core io)
@@ -151,8 +151,8 @@ if (DEFINED ENV{ROS_DISTRO})
             std_msgs
             rclcpp_components
             sensor_msgs
-            cv_bridge
             image_transport
+            vision_opencv
             image_transport_plugins
     )
     foreach(package ${DEPENDENCIES})
