@@ -49,6 +49,8 @@ public:
             mConfig.cameraInfoTopic, rclcpp::SensorDataQoS(), [this](sensor_msgs::msg::CameraInfo::ConstSharedPtr cameraInfoMsg) {
                 camCenter = cv::Point2f(cameraInfoMsg->k[2], cameraInfoMsg->k[5]);
                 camerainfo = std::make_shared<sensor_msgs::msg::CameraInfo>(*cameraInfoMsg);
+                auto cameraMatrix = camerainfo->k;
+                auto distCoefficients = camerainfo->d;
                 mCameraMatrix = cv::Mat(3, 3, CV_64F, const_cast<double*>(camerainfo->k.data())).clone();
                 mDistCoefficients = cv::Mat(1, 5, CV_64F, const_cast<double*>(camerainfo->d.data())).clone();
                 cameraInfoSubscription.reset();

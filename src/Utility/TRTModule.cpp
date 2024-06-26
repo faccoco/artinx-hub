@@ -139,12 +139,12 @@ void TRTModule::build_engine_from_onnx(const std::string& onnx_file) {
     network->markOutput(*yolov5_output_topk);
     network->unmarkOutput(*yolov5_output);
     auto config = builder->createBuilderConfig();
-    // if (builder->platformHasFastFp16()) {
-    //     std::cout << "[INFO]: platform support fp16, enable fp16" << std::endl;
-    //     config->setFlag(BuilderFlag::kFP16);
-    // } else {
-    //     std::cout << "[INFO]: platform do not support fp16, enable fp32" << std::endl;
-    // }
+    if(builder->platformHasFastFp16()) {
+        std::cout << "[INFO]: platform support fp16, enable fp16" << std::endl;
+        config->setFlag(BuilderFlag::kFP16);
+    } else {
+        std::cout << "[INFO]: platform do not support fp16, enable fp32" << std::endl;
+    }
     size_t free, total;
     cuMemGetInfo(&free, &total);
     std::cout << "[INFO]: total gpu mem: " << (total >> 20) << "MB, free gpu mem: " << (free >> 20) << "MB" << std::endl;
@@ -200,7 +200,7 @@ std::vector<bbox_t> TRTModule::operator()(const cv::Mat& src) const {
     rst.reserve(TOPK_NUM);
     std::vector<uint8_t> removed(TOPK_NUM);
     for(int i = 0; i < TOPK_NUM; i++) {
-        auto* box_buffer = output_buffer + i * 22;  // 20->23
+        auto* box_buffer = output_buffer + i * 20;  // 20->23
         if(box_buffer[8] < inv_sigmoid(KEEP_THRES))
             break;
         if(removed[i])
@@ -212,15 +212,18 @@ std::vector<bbox_t> TRTModule::operator()(const cv::Mat& src) const {
             pt.x *= fx, pt.y *= fy;
         box.confidence = sigmoid(box_buffer[8]);
         box.color_id = argmax(box_buffer + 9, 4);
-        box.tag_id = argmax(box_buffer + 13, 9);
+        box.tag_id = argmax(box_buffer + 13, 7);
         for(int j = i + 1; j < TOPK_NUM; j++) {
-            auto* box2_buffer = output_buffer + j * 22;
-            if(box2_buffer[8] < inv_sigmoid(KEEP_THRES))
+            auto* box2_buffer = output_buffer + j * 20;
+            if(box2_buffer[8] < inv_sigmoid(KEEP_THRES)) {
                 break;
-            if(removed[j])
+            }
+            if(removed[j]) {
                 continue;
-            if(is_overlap(box_buffer, box2_buffer))
+            }
+            if(is_overlap(box_buffer, box2_buffer)) {
                 removed[j] = true;
+            }
         }
     }
 

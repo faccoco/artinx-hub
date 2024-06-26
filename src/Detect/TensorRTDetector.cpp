@@ -27,6 +27,8 @@ struct TensorRTDetectorSetting final {
     bool debugView;
     std::string onnxPath;
     float numThresh;
+
+    double edgeRatio;
 };
 
 constexpr float fontScale = 1.5;
@@ -34,7 +36,7 @@ constexpr float fontScale = 1.5;
 template <class Inspector>
 bool inspect(Inspector& f, TensorRTDetectorSetting& x) {
     return f.object(x).fields(f.field("debugView", x.debugView).fallback(false), f.field("onnxPath", x.onnxPath),
-                              f.field("numThresh", x.numThresh));
+                              f.field("numThresh", x.numThresh).fallback(0.7), f.field("edgeRatio", x.edgeRatio).fallback(5.0));
 }
 
 class TensorRTDetector final
@@ -98,6 +100,12 @@ class TensorRTDetector final
         copyBBoxToArmor(armors, detections);
         return detections;
     }
+
+//    void postProcess(std::vector<Armor>& armors){
+//        for (auto& armor : armors){
+//            if ()
+//        }
+//    }
 
 public:
     TensorRTDetector(caf::actor_config& base, const HubConfig& config, std::string name)
