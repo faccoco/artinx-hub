@@ -1,7 +1,7 @@
 //
 // Created by 12012710 on 24-6-23.
 //
-
+#ifdef ARTINX_ROS
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -126,3 +126,4 @@ public:
 };
 
 HUB_REGISTER_CLASS(RosCamera);
+#endif
