@@ -25,18 +25,7 @@ class ArmorLocator final
     : public HubHelper<caf::event_based_actor, ArmorLocatorSettings, detect_available_atom, image_frame_atom> {
     Identifier mKey /*, mHeadKey{}*/;
 
-    const std::vector<cv::Point3d> mObjectPointsSmall = {
-        { -widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-        { -widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-    };
-    const std::vector<cv::Point3d> mObjectPointsLarge = {
-        { -widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-        { -widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-    };
+
     std::vector<cv::Point2f> mImagePoint{ 4 };
 
     cv::Point2f clcArmorImgCenter() {
@@ -84,6 +73,7 @@ public:
                         continue;
                     }
                     glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
+
                     glm::dvec3 r = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
 
                     auto pointRefCam = Point<UnitType::Distance, FrameOfRef::Camera>{ p0 };

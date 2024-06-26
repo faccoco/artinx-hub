@@ -73,7 +73,7 @@ class ArmorDetector final
 
     void debugView(const std::string_view& name, const cv::Mat& src, const std::function<void(cv::Mat&)>& func) {
 #ifndef ARTINXHUB_DEBUG
-        // return;
+         return;
 #endif
 
         const auto hash = std::hash<std::string_view>{}(name);

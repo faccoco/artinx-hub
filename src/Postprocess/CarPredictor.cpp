@@ -398,6 +398,7 @@ public:
 
                 PredictedTarget res;
                 res.lastUpdate = data->lastUpdate;
+                res.tfRobot2Camera = data->tfRobot2Camera;
                 mTfCamera2Robot = data->tfRobot2Camera.invTransformObj();
 
                 if(mConfig.enablePredictor) {  // 如果使用预测功能的话，目标相对机器人的速度即为机器人坐标系下，相机所观测的速度
@@ -480,7 +481,6 @@ public:
                 ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);
                 mIMUKey = key;
             }
-
         };
     }
 };

@@ -1,7 +1,9 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
+#include "ExceptionProbe.hpp"
 #include "Hub.hpp"
+#include "SelectedTarget.hpp"
 #include "Utility.hpp"
 #include "magic_enum.hpp"
 
@@ -13,6 +15,7 @@
 
 class ArmorDetectorDrawer final : public HubHelper<caf::event_based_actor, void, image_frame_atom> {
     Identifier mKey;
+    cv::Mat mImage;
 
 public:
     ArmorDetectorDrawer(caf::actor_config& base, const HubConfig& config, std::string name)
@@ -24,6 +27,7 @@ public:
 
                      cv::Mat showImg;
                      res.frame.frame.copyTo(showImg);
+                     res.frame.frame.copyTo(mImage);
 
                      int x = static_cast<int>(showImg.size().width),
                          y = static_cast<int>(showImg.size().height);  // 绘制十字瞄准线
@@ -57,6 +61,39 @@ public:
 
                      sendAll(image_frame_atom_v,
                              BlackBoard::instance().updateSync(mKey, std::move(frame), std::string_view("ArmorDetectorDrawer")));
+                 },
+                 [&](set_projected_target_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(set_projected_target_atom, TypedIdentifier<ProjectedTarget>);
+                     ACTOR_EXCEPTION_PROBE();
+                     auto res = BlackBoard::instance().get<ProjectedTarget>(key).value();
+                     auto projectedPoints = res.projectedPoints;
+
+                     auto name = "ProjectionDrawer";
+                     const auto hash = std::hash<std::string_view>{}(name);
+                     const Identifier newKey{ mKey.val ^ hash };
+
+                     if(mImage.empty()) {
+                         return;
+                     }
+
+                     cv::Mat showImg;
+                     mImage.copyTo(showImg);
+
+                     for(const auto& points : projectedPoints) {
+//                         cv::line(showImg, points[0], points[1], cv::Scalar(0, 255, 255), 1);
+//                         cv::line(showImg, points[1], points[2], cv::Scalar(0, 255, 255), 1);
+//                         cv::line(showImg, points[2], points[3], cv::Scalar(0, 255, 255), 1);
+//                         cv::line(showImg, points[3], points[0], cv::Scalar(0, 255, 255), 1);
+                        auto pointCenter = (points[0] + points[1] + points[2] + points[3]) / 4;
+                        cv::circle(showImg, pointCenter, 2, cv::Scalar(0, 255, 255), 2);
+                     }
+
+                     CameraFrame frame;
+                     frame.frame = std::move(showImg);
+                     frame.lastUpdate = res.lastUpdate;
+
+                     sendAll(image_frame_atom_v,
+                             BlackBoard::instance().updateSync(newKey, std::move(frame), std::string_view(name)));
                  } };
     }
 };

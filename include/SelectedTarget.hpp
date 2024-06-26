@@ -15,6 +15,7 @@ struct SelectedTarget final {
 
 struct PredictedTarget final {
     TimePoint lastUpdate;
+    Transform<FrameOfRef::Robot, FrameOfRef::Camera, true> tfRobot2Camera;
     Vector<UnitType::Distance, FrameOfRef::Robot> center;
     Scalar<UnitType::Angle> yaw;
     Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel;
@@ -43,6 +44,11 @@ struct SelectedTargetInfo final {
     std::optional<RobotType> targetType;
 };
 
+struct ProjectedTarget final {
+    TimePoint lastUpdate;
+    std::vector<std::vector<cv::Point2d>> projectedPoints;
+};
+
 ACTOR_PROTOCOL_DEFINE(hero_strategy_control_atom, bool, bool);
 ACTOR_PROTOCOL_DEFINE(set_target_atom, TypedIdentifier<SelectedTarget>);
 ACTOR_PROTOCOL_DEFINE(set_period_target_atom, TypedIdentifier<SelectedTarget>, bool);
@@ -51,3 +57,4 @@ ACTOR_PROTOCOL_DEFINE(predict_success_atom, TypedIdentifier<PredictedTarget>);
 ACTOR_PROTOCOL_DEFINE(car_predict_atom, TypedIdentifier<PredictedTarget>);
 ACTOR_PROTOCOL_DEFINE(period_predict_success_atom, TypedIdentifier<PredictedPeriodTarget>);
 ACTOR_PROTOCOL_DEFINE(set_target_info_atom, TypedIdentifier<SelectedTargetInfo>);
+ACTOR_PROTOCOL_DEFINE(set_projected_target_atom, TypedIdentifier<ProjectedTarget>);
