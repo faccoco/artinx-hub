@@ -76,6 +76,9 @@ public:
         frameData.info.tfRobot2Camera = clcTfRobot2Camera(0.0, 0.0, 0.0);
         frame.copyTo(frameData.frame);
 
+        if (frameData.info.cameraMatrix.empty()){
+            return ;
+        }
         sendAll(image_frame_atom_v,
                 BlackBoard::instance().updateSync(mKey, std::move(frameData), static_cast<std::string_view>("ros_camera")));
     }

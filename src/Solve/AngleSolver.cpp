@@ -18,8 +18,8 @@
 #include <cmath>
 #include <fmt/core.h>
 #include <fmt/format.h>
-#include <glm/glm.hpp>
 #include <glm/fwd.hpp>
+#include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <list>
@@ -60,10 +60,11 @@ struct CandidateTarget final {
     double r;
     double height;
     glm::dvec3 pos;
-    double hitTime;
+    double reachTime;
 };
 
-class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom, set_projected_target_atom> {
+class AngleSolver final
+    : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom, set_projected_target_atom> {
     CameraFrame mFrame;
     bool frameInit;
     Identifier mKey;
@@ -105,32 +106,62 @@ class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSe
         return addLatency / count;
     }
 
-    void targetVisialize(const PredictedTarget& target, const double hitTime) {
+    void targetView(const PredictedTarget& target, const double reachTime) {
 #ifndef ARTINXHUB_DEBUG
 //        return;
 #endif
         auto theta = -target.yaw.mVal;
-        std::vector<std::vector<cv::Point2d>> pointsList(target.armorNum);
-        for (int i = 0; i < target.armorNum; i++){
+        auto aVel = std::abs(target.angularVel.mVal) > 1 ? -target.angularVel.mVal : 0;
+        auto lVel = target.linearVel.mVal;
+
+        auto predictCarCenter = target.center.mVal + lVel * reachTime;
+        auto predictTheta = theta + aVel * reachTime;
+
+        std::vector<cv::Point3d> pointsList;
+        std::vector<cv::Point3d> pointsListPred;
+        for(int i = 0; i < target.armorNum; i++) {
             auto r = i % 2 ? target.radius.second : target.radius.first;
             auto y = i % 2 ? target.y.second : target.y.first;
             auto armorTheta = theta + (i * (2 * glm::pi<double>() / target.armorNum));
+            auto armorThetaPred = predictTheta + (i * (2 * glm::pi<double>() / target.armorNum));
+
+            // armorPos
             Point<UnitType::Distance, FrameOfRef::Robot> armorPos = inverseTf(getPos(tf(target.center.mVal), r, armorTheta));
             armorPos.mVal.y = y;
             auto posRefCam = Point<UnitType::Distance, FrameOfRef::Camera>{ target.tfRobot2Camera(armorPos).mVal };
-            cv::Mat tvec = (cv::Mat_<double>(3, 1) << armorPos.mVal.x, -armorPos.mVal.y, -armorPos.mVal.z);
-            cv::Mat rvec = (cv::Mat_<double>(3, 1) << 0, 0, 0);
-            cv::projectPoints(target.armorType == ArmorType::Large ? mObjectPointsLarge : mObjectPointsSmall, rvec, tvec, mFrame.info.cameraMatrix, mFrame.info.distCoefficients, pointsList[i]);
+            pointsList.emplace_back(posRefCam.mVal.x, -posRefCam.mVal.y, -posRefCam.mVal.z);
+
+            // predicted armorPos
+            Point<UnitType::Distance, FrameOfRef::Robot> predictArmorPos =
+                inverseTf(getPos(tf(predictCarCenter), r, armorThetaPred));
+            predictArmorPos.mVal.y = y;
+            auto predictPosRefCam = Point<UnitType::Distance, FrameOfRef::Camera>{ target.tfRobot2Camera(predictArmorPos).mVal };
+            pointsListPred.emplace_back(predictPosRefCam.mVal.x, -predictPosRefCam.mVal.y, -predictPosRefCam.mVal.z);
         }
 
-        // TODO: add predicted target to image
+        Point<UnitType::Distance, FrameOfRef::Robot> carCenter = target.center.mVal;
+        carCenter.mVal.y = (target.y.first + target.y.second) / 2;
+        auto carCenterRefCam = Point<UnitType::Distance, FrameOfRef::Camera>{ target.tfRobot2Camera(carCenter).mVal };
 
+        Point<UnitType::Distance, FrameOfRef::Robot> carCenterPred = predictCarCenter;
+        carCenterPred.mVal.y = (target.y.first + target.y.second) / 2 + lVel.y * reachTime;
+        auto carCenterPredRefCam = Point<UnitType::Distance, FrameOfRef::Camera>{ target.tfRobot2Camera(carCenterPred).mVal };
 
+        pointsList.emplace_back(carCenterRefCam.mVal.x, -carCenterRefCam.mVal.y, -carCenterRefCam.mVal.z);
+        pointsListPred.emplace_back(carCenterPredRefCam.mVal.x, -carCenterPredRefCam.mVal.y, -carCenterPredRefCam.mVal.z);
+
+        std::vector<cv::Point2d> imagPoints;
+        std::vector<cv::Point2d> imagPointsPred;
+        cv::projectPoints(pointsList, cv::Vec3d{ 0, 0, 0 }, cv::Vec3d{ 0, 0, 0 }, mFrame.info.cameraMatrix,
+                          mFrame.info.distCoefficients, imagPoints);
+        cv::projectPoints(pointsListPred, cv::Vec3d{ 0, 0, 0 }, cv::Vec3d{ 0, 0, 0 }, mFrame.info.cameraMatrix,
+                          mFrame.info.distCoefficients, imagPointsPred);
 
         ProjectedTarget res;
         res.lastUpdate = target.lastUpdate;
-        res.projectedPoints = pointsList;
-        sendAll(set_projected_target_atom_v, BlackBoard::instance().updateSync<ProjectedTarget>(Identifier{ mKey.val }, std::move(res)));
+        res.projectedPoints = std::make_pair(imagPoints, imagPointsPred);
+        sendAll(set_projected_target_atom_v,
+                BlackBoard::instance().updateSync<ProjectedTarget>(Identifier{ mKey.val }, std::move(res)));
     }
 
 public:
@@ -213,12 +244,10 @@ public:
                 glm::dvec3 center = tf(data->center.mVal);
                 double theta = -data->yaw.mVal;
                 double centerYaw = normalizeAngle(atan2(center.y, center.x) - glm::half_pi<double>());
-                // glm::dvec3 lVel = tf(data->linearVel.mVal) * mConfig.lVelDiscount;
                 glm::dvec3 lVel = tf(data->linearVel.mVal);
 
                 double aVel = std::abs(data->angularVel.mVal) > 1 ? -data->angularVel.mVal : 0;
 
-                // double aVel = getMaxAVel(-data->angularVel.mVal);
                 HubLogger::watch("CenterYaw", centerYaw);
                 HubLogger::watch("AngleVelRefRobot", aVel);
 
@@ -273,7 +302,7 @@ public:
                                 candTarget.r = r;
                                 candTarget.height = center.z;
                                 candTarget.pos = predictPos;
-                                candTarget.hitTime = requiredTime;
+                                candTarget.reachTime = requiredTime;
                                 candTargets.push_back(candTarget);
                             } else {
                                 HubLogger::visualLog(fmt::format(
@@ -340,8 +369,8 @@ public:
                                                          GlobalSettings::get().shootDelayTime, avgLatency));
                     }
 
-                    if (mConfig.debugView){
-                        targetVisialize(data.value(), selectedTarget.hitTime);
+                    if(mConfig.debugView && frameInit) {
+                        targetView(data.value(), selectedTarget.reachTime);
                     }
                     return;
                 }

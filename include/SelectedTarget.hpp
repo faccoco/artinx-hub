@@ -46,7 +46,7 @@ struct SelectedTargetInfo final {
 
 struct ProjectedTarget final {
     TimePoint lastUpdate;
-    std::vector<std::vector<cv::Point2d>> projectedPoints;
+    std::pair<std::vector<cv::Point2d>, std::vector<cv::Point2d>> projectedPoints;
 };
 
 ACTOR_PROTOCOL_DEFINE(hero_strategy_control_atom, bool, bool);

@@ -200,7 +200,7 @@ std::vector<bbox_t> TRTModule::operator()(const cv::Mat& src) const {
     rst.reserve(TOPK_NUM);
     std::vector<uint8_t> removed(TOPK_NUM);
     for(int i = 0; i < TOPK_NUM; i++) {
-        auto* box_buffer = output_buffer + i * 20;  // 20->23
+        auto* box_buffer = output_buffer + i * 22;  // 20->23
         if(box_buffer[8] < inv_sigmoid(KEEP_THRES))
             break;
         if(removed[i])
@@ -212,9 +212,9 @@ std::vector<bbox_t> TRTModule::operator()(const cv::Mat& src) const {
             pt.x *= fx, pt.y *= fy;
         box.confidence = sigmoid(box_buffer[8]);
         box.color_id = argmax(box_buffer + 9, 4);
-        box.tag_id = argmax(box_buffer + 13, 7);
+        box.tag_id = argmax(box_buffer + 13, 9);
         for(int j = i + 1; j < TOPK_NUM; j++) {
-            auto* box2_buffer = output_buffer + j * 20;
+            auto* box2_buffer = output_buffer + j * 22;
             if(box2_buffer[8] < inv_sigmoid(KEEP_THRES)) {
                 break;
             }

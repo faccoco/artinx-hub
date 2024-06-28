@@ -79,14 +79,14 @@ public:
                      cv::Mat showImg;
                      mImage.copyTo(showImg);
 
-                     for(const auto& points : projectedPoints) {
-//                         cv::line(showImg, points[0], points[1], cv::Scalar(0, 255, 255), 1);
-//                         cv::line(showImg, points[1], points[2], cv::Scalar(0, 255, 255), 1);
-//                         cv::line(showImg, points[2], points[3], cv::Scalar(0, 255, 255), 1);
-//                         cv::line(showImg, points[3], points[0], cv::Scalar(0, 255, 255), 1);
-                        auto pointCenter = (points[0] + points[1] + points[2] + points[3]) / 4;
-                        cv::circle(showImg, pointCenter, 2, cv::Scalar(0, 255, 255), 2);
+                     for (const auto& point : projectedPoints.first) {
+                         cv::circle(showImg, point, 2, cv::Scalar(0, 255, 0), 2);
                      }
+
+                    for (const auto& point : projectedPoints.second) {
+                        cv::circle(showImg, point, 2, cv::Scalar(0, 255, 255), 2);
+                    }
+
 
                      CameraFrame frame;
                      frame.frame = std::move(showImg);
