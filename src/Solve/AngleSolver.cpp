@@ -173,6 +173,7 @@ public:
     AngleSolver(caf::actor_config& base, const HubConfig& config, std::string name)
         : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
         latestReceived = TimePoint::min();
+        frameInit = false;
     }
     caf::behavior make_behavior() override {
         return {
