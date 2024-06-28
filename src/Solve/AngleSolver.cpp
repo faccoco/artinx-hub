@@ -152,11 +152,16 @@ class AngleSolver final
 
         std::vector<cv::Point2d> imagPoints;
         std::vector<cv::Point2d> imagPointsPred;
-        cv::projectPoints(pointsList, cv::Vec3d{ 0, 0, 0 }, cv::Vec3d{ 0, 0, 0 }, mFrame.info.cameraMatrix,
-                          mFrame.info.distCoefficients, imagPoints);
-        cv::projectPoints(pointsListPred, cv::Vec3d{ 0, 0, 0 }, cv::Vec3d{ 0, 0, 0 }, mFrame.info.cameraMatrix,
-                          mFrame.info.distCoefficients, imagPointsPred);
 
+        if (frameInit) {
+            cv::projectPoints(pointsList, cv::Vec3d{ 0, 0, 0 }, cv::Vec3d{ 0, 0, 0 }, mFrame.info.cameraMatrix,
+                              mFrame.info.distCoefficients, imagPoints);
+            cv::projectPoints(pointsListPred, cv::Vec3d{ 0, 0, 0 }, cv::Vec3d{ 0, 0, 0 }, mFrame.info.cameraMatrix,
+                              mFrame.info.distCoefficients, imagPointsPred);
+        }else {
+            logWarning("AngleSolver Visualization: frame not initialized");
+        }
+        
         ProjectedTarget res;
         res.lastUpdate = target.lastUpdate;
         res.projectedPoints = std::make_pair(imagPoints, imagPointsPred);
@@ -369,7 +374,7 @@ public:
                                                          GlobalSettings::get().shootDelayTime, avgLatency));
                     }
 
-                    if(mConfig.debugView && frameInit) {
+                    if(mConfig.debugView) {
                         targetView(data.value(), selectedTarget.reachTime);
                     }
                     return;

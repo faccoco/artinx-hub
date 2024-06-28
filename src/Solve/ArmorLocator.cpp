@@ -1,4 +1,5 @@
 #include "BlackBoard.hpp"
+#include "Common.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
 #include "DetectedTarget.hpp"
@@ -48,6 +49,12 @@ public:
                 res.lastUpdate = data.frame.lastUpdate;
                 const auto& cameraInfo = data.frame.info;
                 res.tfRobot2Camera = cameraInfo.tfRobot2Camera;
+
+                if (cameraInfo.cameraMatrix.empty() || cameraInfo.distCoefficients.empty()) {
+                    HubLogger::visualLog("ArmorLocator: cameraMatrix or distCoefficients is empty");
+                    logInfo("ArmorLocator: cameraMatrix or distCoefficients is empty");
+                    return;
+                }
 
                 cv::Point2f imgCenter{ data.frame.frame.cols / 2.f, data.frame.frame.rows / 2.f };
                 for(const auto& armor : data.armors) {
