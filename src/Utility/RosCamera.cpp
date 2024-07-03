@@ -5,6 +5,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
 
 #include <caf/event_based_actor.hpp>
 
@@ -21,27 +22,35 @@ struct RosCameraSettings final {
     std::string ip;
     std::string imageTopic;
     std::string cameraInfoTopic;
+    std::string jointTopic;
 };
 
 template <class Inspector>
 bool inspect(Inspector& f, RosCameraSettings& x) {
     return f.object(x).fields(f.field("ip", x.ip).fallback("127.0.0.1"), f.field("imageTopic", x.imageTopic).fallback("/image"),
-                              f.field("cameraInfoTopic", x.cameraInfoTopic).fallback("/camera_info"));
+                              f.field("cameraInfoTopic", x.cameraInfoTopic).fallback("/camera_info"),
+                              f.field("jointTopic", x.jointTopic).fallback("/joint"));
 }
 //
 class RosCamera final : public HubHelper<caf::event_based_actor, RosCameraSettings, image_frame_atom> {
     Identifier mKey;
     rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cameraInfoSubscription;
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr imgSubscription;
+    rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr jointSubscription;
     rclcpp::Node::SharedPtr node;
     cv::Mat mCameraMatrix;
     cv::Mat mDistCoefficients;
     cv::Point2f camCenter;
     std::shared_ptr<sensor_msgs::msg::CameraInfo> camerainfo;
 
+    double yaw;
+    double pitch;
+
 public:
     RosCamera(caf::actor_config& base, const HubConfig& config, std::string name)
         : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
+        yaw = 0;
+        pitch = 0;
         rclcpp::init(0, nullptr);  // init ROS
         // initialize node
         node = rclcpp::Node::make_shared("ros_connector");
@@ -57,6 +66,8 @@ public:
             });
         imgSubscription = node->create_subscription<sensor_msgs::msg::Image>(
             mConfig.imageTopic, rclcpp::SensorDataQoS(), std::bind(&RosCamera::publishRosImg, this, std::placeholders::_1));
+        jointSubscription = node->create_subscription<sensor_msgs::msg::JointState>(
+            mConfig.jointTopic, rclcpp::SensorDataQoS(), std::bind(&RosCamera::publishJointState, this, std::placeholders::_1));
         std::thread([this]() { rclcpp::spin(node); }).detach();
     }
 
@@ -73,7 +84,7 @@ public:
         frameData.info.identifier = "RosCamera";
         frameData.info.width = frame.cols;
         frameData.info.height = frame.rows;
-        frameData.info.tfRobot2Camera = clcTfRobot2Camera(0.0, 0.0, 0.0);
+        frameData.info.tfRobot2Camera = clcTfRobot2Camera(yaw, pitch, 0.0);
         frame.copyTo(frameData.frame);
 
         if (frameData.info.cameraMatrix.empty()){
@@ -83,11 +94,19 @@ public:
                 BlackBoard::instance().updateSync(mKey, std::move(frameData), static_cast<std::string_view>("ros_camera")));
     }
 
-    Transform<FrameOfRef::Robot, FrameOfRef::Camera, true> clcTfRobot2Camera(const double yaw, const double pitch,
-                                                                             const double roll) {
+    void publishJointState(const sensor_msgs::msg::JointState::ConstSharedPtr& jointMsg){
+        ACTOR_EXCEPTION_PROBE();
+        yaw = jointMsg->position[0];
+        pitch = jointMsg->position[1];
+        HubLogger::watch("simYaw", yaw);
+        HubLogger::watch("simPitch", pitch);
+    }
+
+    Transform<FrameOfRef::Robot, FrameOfRef::Camera, true> clcTfRobot2Camera(const double yawAngle, const double pitchAngle,
+                                                                             const double rollAngle) {
         return glm::rotate(
-            glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -roll, glm::dvec3{ 0, 0, 1 }), -pitch, glm::dvec3{ 1, 0, 0 }),
-            -yaw, glm::dvec3{ 0, 1, 0 });
+            glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -rollAngle, glm::dvec3{ 0, 0, 1 }), -pitchAngle, glm::dvec3{ 1, 0, 0 }),
+            -yawAngle, glm::dvec3{ 0, 1, 0 });
     }
 
     caf::behavior make_behavior() override {
