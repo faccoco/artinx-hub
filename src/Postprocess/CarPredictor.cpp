@@ -1,10 +1,13 @@
 // Ref: https://github.com/chenjunnn/rm_auto_aim
 
 #include "BlackBoard.hpp"
+#include "CameraFrame.hpp"
+#include "Common.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
 #include "EKF.hpp"
 #include "ExceptionProbe.hpp"
+#include "HeadInfo.hpp"
 #include "Hub.hpp"
 #include "PostureData.hpp"
 #include "SelectedTarget.hpp"
@@ -12,8 +15,26 @@
 #include "SuppressWarningBegin.hpp"
 #include "Utility.hpp"
 
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 #include <caf/event_based_actor.hpp>
+#include <cmath>
+#include <fmt/core.h>
+#include <glm/ext.hpp>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/quaternion_common.hpp>
+#include <glm/ext/scalar_constants.hpp>
+#include <glm/fwd.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
+#include <glm/gtx/transform.hpp>
+#include <glm/matrix.hpp>
+#include <glm/trigonometric.hpp>
+#include <iostream>
 #include <magic_enum.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/core/cvdef.h>
+#include <opencv2/core/mat.hpp>
 
 struct CarPredictorSettings final {
     bool enablePredictor;
@@ -27,8 +48,6 @@ struct CarPredictorSettings final {
     double sigma2QR;    // Process noise variance of r
     double Rxyz;        // Measurement covariance matrix factor of xyz
     double Ryaw;        // Measurement covariance matrix factor of yaw
-    // std::vector<double> Q;  // Process covariance matrix
-    // std::vector<double> R;  // Measurement covariance mat
 };
 
 template <class Inspector>
@@ -39,9 +58,6 @@ bool inspect(Inspector& f, CarPredictorSettings& x) {
         f.field("lostThreshold", x.lostThreshold).fallback(5), f.field("sigma2Qxyz", x.sigma2Qxyz).fallback(20.0),
         f.field("sigma2Qyaw", x.sigma2Qyaw).fallback(100.0), f.field("sigma2QR", x.sigma2QR).fallback(800.0),
         f.field("Rxyz", x.Rxyz).fallback(0.05), f.field("Ryaw", x.Ryaw).fallback(0.02));
-
-    // f.field("Q", x.Q).invariant([](auto& c) { return c.size() == 9; }).fallback(std::vector<double>(9, 0)),
-    // f.field("R", x.R).invariant([](auto& c) { return c.size() == 4; }).fallback(std::vector<double>(4, 0)));
 }
 
 class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictorSettings, car_predict_atom> {
@@ -66,6 +82,13 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
     double mLastY = 0.0, mLastR = 0.2;
     int mDetectCount = 0, mLostCount = 0;
     double mDt = 0.01;
+    CameraInfo mCameraInfo;
+    bool cameraInfoInit = false;
+
+    static double euclideanDistance(const cv::Point2f& p1, const cv::Point2f& p2) {
+        cv::Point diff = p1 - p2;
+        return cv::sqrt(diff.x * diff.x + diff.y * diff.y);
+    }
 
     Transform<FrameOfRef::Camera, FrameOfRef::Robot, true> mTfCamera2Robot;
 
@@ -76,6 +99,123 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
     double getArmorYaw(const DetectedTarget& armor) {
         auto rmat = combine(mTfCamera2Robot, armor.rmat);
         return normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
+        // auto rmat = armor.rmat;
+        // // auto rmat = combine(mTfCamera2Robot, armor.rmat);
+
+        // double yaw = normalizeAngle(atan2(rmat.raw()[2][0], -rmat.raw()[2][2]));
+        // double yawFixed = normalizeAngle(fixArmorYaw(armor, yaw));
+
+        // yaw = normalizeAngle(yaw + glm::half_pi<double>());
+        // yawFixed = normalizeAngle(yawFixed + glm::half_pi<double>());
+        // HubLogger::watch("armorYaw", glm::degrees<double>(yaw));
+        // HubLogger::watch("armorYawFixed", glm::degrees<double>(yawFixed));
+        // return yaw;
+    }
+
+    double fixArmorYaw(const DetectedTarget& armor, double yaw) {
+        // // const auto t1 = Clock::now();
+        double gap = 1 / (20 * CV_PI);
+        int cnt = 0;
+        double left = yaw - CV_PI / 8, right = yaw + CV_PI / 8;
+        // logInfo(fmt::format("init loss: {}, cnt: {}", calLoss(armor, (left + right) / 2), cnt));
+
+        // while(right - left > gap && cnt < 30) {
+        while(cnt < 30) {
+            double mid = (left + right) / 2;
+            double lossLeft = calLoss(armor, (left + right) / 2 - gap);
+            double lossRight = calLoss(armor, (left + right) / 2 + gap);
+            if(lossLeft < lossRight) {
+                right = mid;
+            } else {
+                left = mid;
+            }
+            cnt++;
+            // logInfo(fmt::format("loss: {}, cnt: {}", calLoss(armor, (left + right) / 2), cnt));
+        }
+        // logInfo(fmt::format("YawFix cost {}", durationCastDouble(Clock::now() - t1) * 1000));
+
+        return (left + right) / 2;
+    }
+
+    double calLoss(const DetectedTarget& armor, double yaw) {
+
+        std::vector<cv::Point2f> projectedPoints;
+        reproject(armor, yaw, projectedPoints);
+        // calculate loss
+        double armorLoss = 0.0;
+
+        for(int i = 0; i < 4; i++) {
+            auto point = armor.armorPoints[i];
+            cv::Point2f cvPoint = cv::Point2f(point.x, point.y);
+            double loss = euclideanDistance(cvPoint, projectedPoints[i]);
+            armorLoss += loss;
+        }
+
+        // double angleReal = (armor.armorPoints[2].x - armor.armorPoints[1].x) / (armor.armorPoints[2].y - armor.armorPoints[1].y);
+        // double angleProj = (projected_points[2].x - projected_points[1].x) / (projected_points[2].y - projected_points[1].y);
+        // armorLoss = std::abs(angleReal - angleProj);
+
+        // cv::Point2f vec1Real = armor.armorPoints[0] - armor.armorPoints[3];
+        // cv::Point2f vec2Real = armor.armorPoints[1] - armor.armorPoints[2];
+        // cv::Point2f vec1Proj = projected_points[0] - projected_points[3];
+        // cv::Point2f vec2Proj = projected_points[1] - projected_points[2];
+        // double angleReal = acos(vec1Real.dot(vec2Real) / (cv::norm(vec1Real) * cv::norm(vec2Real))) * 180.0 / CV_PI;
+        // double angleProj = acos(vec1Proj.dot(vec2Proj) / (cv::norm(vec1Proj) * cv::norm(vec2Proj))) * 180.0 / CV_PI;
+        // armorLoss = std::abs(angleReal - angleProj);
+
+        // double ratioReal = euclideanDistance(armor.armorPoints[0], armor.armorPoints[1]) /
+        //     euclideanDistance(armor.armorPoints[1], armor.armorPoints[2]);
+        // double ratioProj = euclideanDistance(projected_points[0], projected_points[1]) /
+        //     euclideanDistance(projected_points[1], projected_points[2]);
+        // armorLoss = std::abs(ratioReal - ratioProj);
+
+        return armorLoss;
+    };
+
+    void reproject(const DetectedTarget& armor, double yaw, std::vector<cv::Point2f>& projected_points) {
+        // rebuild tvec and rvec from yaw, pitch=15, roll=0
+        cv::Mat rvec;
+        calArmorRVec(yaw, glm::radians(15.), 0, rvec);
+        glm::dvec3 p0 = armor.center.mVal;
+        cv::Mat tvec = (cv::Mat_<double>(3, 1) << p0.x, -p0.y, -p0.z);
+
+        // calculate projection points
+        auto objectPoints = armor.type == ArmorType::Large ? mObjectPointsLarge : mObjectPointsSmall;
+        cv::projectPoints(objectPoints, rvec, tvec, mCameraInfo.cameraMatrix, mCameraInfo.distCoefficients, projected_points);
+    }
+
+    int calArmorRVec(double yaw, double pitch, double roll, cv::Mat& rvec) {
+        pitch += glm::pi<double>();
+        auto tfRobot2Camera = glm::identity<glm::dmat4>();
+        // glm::dmat4 tfRobot2Camera = glm::inverse(mTfCamera2Robot.raw());
+        glm::dmat3 armor2Cam =
+            glm::dmat3(tfRobot2Camera *
+                       glm::rotate(glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -roll, glm::dvec3{ 0, 0, 1 }), -yaw,
+                                               glm::dvec3{ 0, 1, 0 }),
+                                   -pitch, glm::dvec3{ 1, 0, 0 }));
+
+        cv::Mat rmat = cv::Mat(3, 3, CV_64F);
+        for(int i = 0; i < 3; i++) {
+            for(int j = 0; j < 3; j++) {
+                rmat.at<double>(i, j) = armor2Cam[j][i];  // glm is colomn-first, while opencv is row-first
+            }
+        }
+        cv::Rodrigues(rmat, rvec);
+        rvec = (cv::Mat_<double>(3, 1) << rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0));
+        return 0;
+    }
+
+    template <class T>
+    static void printGlmMat(int dim, const T& matrix) {
+        // Print the matrix
+        std::cout << "[\n";
+        for(int i = 0; i < dim; ++i) {
+            for(int j = 0; j < dim; ++j) {
+                std::cout << matrix[i][j] << " \t";
+            }
+            std::cout << "\n";
+        }
+        std::cout << "]\n";
     }
 
     void setArmorYaw(double yaw) {
@@ -480,6 +620,16 @@ public:
             [this](update_posture_atom, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(update_posture_atom, TypedIdentifier<PostureData>);
                 mIMUKey = key;
+            },
+            [this](image_frame_atom, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
+                if(cameraInfoInit) {
+                    return;
+                }
+                const auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
+                auto frame = std::get<0>(data);
+                mCameraInfo = frame.info;
+                cameraInfoInit = true;
             }
         };
     }

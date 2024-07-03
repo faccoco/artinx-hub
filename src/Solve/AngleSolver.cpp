@@ -376,7 +376,7 @@ public:
                     }
 
                     if(mConfig.debugView) {
-                        targetView(data.value(), selectedTarget.reachTime);
+                        targetView(data.value(), selectedTarget.reachTime - mConfig.delay);
                     }
                     return;
                 }

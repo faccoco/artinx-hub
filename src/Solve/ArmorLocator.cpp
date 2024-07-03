@@ -34,6 +34,19 @@ class ArmorLocator final
                  (mImagePoint[0].y + mImagePoint[1].y + mImagePoint[2].y + mImagePoint[3].y) / 4 };
     }
 
+    template <class T>
+    static void printGlmMat(int dim, const T& matrix) {
+        // Print the matrix
+        std::cout << "[\n";
+        for(int i = 0; i < dim; ++i) {
+            for(int j = 0; j < dim; ++j) {
+                std::cout << matrix[i][j] << " \t";
+            }
+            std::cout << "\n";
+        }
+        std::cout << "]\n";
+    }
+
 public:
     ArmorLocator(caf::actor_config& base, const HubConfig& config, std::string name)
         : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {}
@@ -79,6 +92,8 @@ public:
                         logInfo("ArmorLocator: nan orrcur");
                         continue;
                     }
+                    // in opencv, camera coordinate is x right, y down, z toward observe direction
+                    // we use opengl's camera coordinate, y is up, so take minus in y and z
                     glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
 
                     glm::dvec3 r = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
@@ -100,7 +115,7 @@ public:
 
                     auto armorImgCenter = clcArmorImgCenter();
                     res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefCam, armor.robotType,
-                                            armorType, ArmorMotion::Unsure,
+                                            armorType, ArmorMotion::Unsure, mImagePoint,
                                             Transform<FrameOfRef::Armor, FrameOfRef::Camera>(rmat) });
 
                     if(std::isnan(p0.x) || std::isnan(p0.y) || std::isnan(p0.z)) {

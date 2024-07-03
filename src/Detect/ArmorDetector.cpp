@@ -166,7 +166,6 @@ class ArmorDetector final
     std::vector<Light> findLights(const cv::Mat& bgrImg, const cv::Mat& binary) {
         mDebugLights.clear();
 
-        // auto selfColor = Color::Purple;
         std::vector<std::vector<cv::Point2i>> contours;
         cv::findContours(binary, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
         std::vector<Light> lights;

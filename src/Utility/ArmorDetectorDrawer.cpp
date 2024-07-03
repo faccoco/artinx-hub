@@ -10,6 +10,8 @@
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
+#include <opencv2/imgproc.hpp>
+#include <string>
 
 #include "SuppressWarningEnd.hpp"
 
