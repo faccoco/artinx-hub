@@ -64,7 +64,7 @@ struct CandidateTarget final {
 };
 
 class AngleSolver final
-    : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom, set_projected_target_atom> {
+    : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom, angle_solver_view_atom> {
     CameraFrame mFrame;
     bool frameInit;
     Identifier mKey;
@@ -187,12 +187,11 @@ class AngleSolver final
             logWarning("AngleSolver Visualization: frame not initialized");
         }
 
-
         ProjectedTarget res;
         res.lastUpdate = target.lastUpdate;
         res.armorCorners = imagPointsArmor;
         res.projectedPoints = std::make_pair(imagPoints, imagPointsPred);
-        sendAll(set_projected_target_atom_v,
+        sendAll(angle_solver_view_atom_v,
                 BlackBoard::instance().updateSync<ProjectedTarget>(Identifier{ mKey.val }, std::move(res)));
     }
 
@@ -267,6 +266,11 @@ public:
                 if(!(data.has_value())) {
                     return;
                 }
+                if(!frameInit) {
+                    mFrame = data->frame;
+                    frameInit = true;
+                }
+
                 // check pkg order
                 if(data->lastUpdate.time_since_epoch().count() > latestReceived.time_since_epoch().count()) {
                     latestReceived = data->lastUpdate;
@@ -407,17 +411,6 @@ public:
                     }
                     return;
                 }
-            },
-            [&](image_frame_atom, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(image_frame_atom, TypedIdentifier<CameraFrame, std::string_view>);
-                ACTOR_EXCEPTION_PROBE();
-                if(frameInit) {
-                    return;
-                }
-                const auto data = BlackBoard::instance().get<CameraFrame, std::string_view>(key).value();
-                auto frame = std::get<0>(data);
-                mFrame = frame;
-                frameInit = true;
             }
         };
     }

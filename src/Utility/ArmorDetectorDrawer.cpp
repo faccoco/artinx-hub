@@ -64,8 +64,8 @@ public:
                      sendAll(image_frame_atom_v,
                              BlackBoard::instance().updateSync(mKey, std::move(frame), std::string_view("ArmorDetectorDrawer")));
                  },
-                 [&](set_projected_target_atom, Identifier key) {
-                     ACTOR_PROTOCOL_CHECK(set_projected_target_atom, TypedIdentifier<ProjectedTarget>);
+                 [&](angle_solver_view_atom, Identifier key) {
+                     ACTOR_PROTOCOL_CHECK(angle_solver_view_atom, TypedIdentifier<ProjectedTarget>);
                      ACTOR_EXCEPTION_PROBE();
                      auto res = BlackBoard::instance().get<ProjectedTarget>(key).value();
                      auto projectedPoints = res.projectedPoints;

@@ -129,7 +129,7 @@ CAF_ADD_ATOM(ArtinxHub, monitor_response_atom)
 CAF_ADD_ATOM(ArtinxHub, payload_atom)
 CAF_ADD_ATOM(ArtinxHub, energy_detector_control_atom)
 CAF_ADD_ATOM(ArtinxHub, hero_strategy_control_atom)
-CAF_ADD_ATOM(ArtinxHub, set_projected_target_atom)
+CAF_ADD_ATOM(ArtinxHub, angle_solver_view_atom)
 
 CAF_ADD_TYPE_ID(ArtinxHub, (Identifier))
 

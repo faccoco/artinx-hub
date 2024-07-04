@@ -15,6 +15,7 @@ struct SelectedTarget final {
 
 struct PredictedTarget final {
     TimePoint lastUpdate;
+    CameraFrame frame;
     Transform<FrameOfRef::Robot, FrameOfRef::Camera, true> tfRobot2Camera;
     Vector<UnitType::Distance, FrameOfRef::Robot> center;
     Scalar<UnitType::Angle> yaw;
@@ -58,4 +59,4 @@ ACTOR_PROTOCOL_DEFINE(predict_success_atom, TypedIdentifier<PredictedTarget>);
 ACTOR_PROTOCOL_DEFINE(car_predict_atom, TypedIdentifier<PredictedTarget>);
 ACTOR_PROTOCOL_DEFINE(period_predict_success_atom, TypedIdentifier<PredictedPeriodTarget>);
 ACTOR_PROTOCOL_DEFINE(set_target_info_atom, TypedIdentifier<SelectedTargetInfo>);
-ACTOR_PROTOCOL_DEFINE(set_projected_target_atom, TypedIdentifier<ProjectedTarget>);
+ACTOR_PROTOCOL_DEFINE(angle_solver_view_atom, TypedIdentifier<ProjectedTarget>);
