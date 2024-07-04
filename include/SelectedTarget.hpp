@@ -46,6 +46,7 @@ struct SelectedTargetInfo final {
 
 struct ProjectedTarget final {
     TimePoint lastUpdate;
+    std::vector<cv::Point2d> armorCorners;
     std::pair<std::vector<cv::Point2d>, std::vector<cv::Point2d>> projectedPoints;
 };
 

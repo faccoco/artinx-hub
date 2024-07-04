@@ -81,6 +81,10 @@ public:
                      cv::Mat showImg;
                      mImage.copyTo(showImg);
 
+                     for (int i = 0; i < res.armorCorners.size(); i++) {
+                         cv::line(showImg, res.armorCorners[i], res.armorCorners[(i + 1) % 4], cv::Scalar(0, 255, 255), 1);
+                     }
+
                      for (const auto& point : projectedPoints.first) {
                          cv::circle(showImg, point, 2, cv::Scalar(0, 255, 0), 2);
                      }

@@ -161,9 +161,36 @@ class AngleSolver final
         }else {
             logWarning("AngleSolver Visualization: frame not initialized");
         }
-        
+
+        // draw armor corners
+        double armorPitch = glm::radians(-15.0f);
+        double armorYaw = target.yaw.mVal - glm::half_pi<double>();
+
+        auto rotationMatrix = glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -armorPitch, glm::dvec3(1, 0, 0)), armorYaw, glm::dvec3(0, 1, 0));
+        auto armorPos = inverseTf(getPos(tf(target.center.mVal), target.radius.first, -target.yaw.mVal));
+        auto transformMatrix = glm::translate(glm::identity<glm::dmat4>(), armorPos);
+        auto mTfArmor2Robot = Transform<FrameOfRef::Robot, FrameOfRef::Armor, true>{ rotationMatrix * transformMatrix };
+        auto mTfArmor2Camera = combine(mTfArmor2Robot.invTransformObj(), target.tfRobot2Camera);
+
+        std::vector<cv::Point3d> armorCorner;
+        for (const auto& point : target.armorType == ArmorType::Large ? mObjectPointsLarge : mObjectPointsSmall){
+            auto posArmor = Point<UnitType::Distance, FrameOfRef::Armor>{ glm::dvec3 { point.x, point.y, point.z } };
+            auto posCamera = mTfArmor2Camera(posArmor);
+            armorCorner.emplace_back(posCamera.mVal.x, -posCamera.mVal.y, -posCamera.mVal.z);
+        }
+
+        std::vector<cv::Point2d> imagPointsArmor;
+        if (frameInit) {
+            cv::projectPoints(armorCorner, cv::Vec3d{ 0, 0, 0 }, cv::Vec3d{ 0, 0, 0 }, mFrame.info.cameraMatrix,
+                              mFrame.info.distCoefficients, imagPointsArmor);
+        }else {
+            logWarning("AngleSolver Visualization: frame not initialized");
+        }
+
+
         ProjectedTarget res;
         res.lastUpdate = target.lastUpdate;
+        res.armorCorners = imagPointsArmor;
         res.projectedPoints = std::make_pair(imagPoints, imagPointsPred);
         sendAll(set_projected_target_atom_v,
                 BlackBoard::instance().updateSync<ProjectedTarget>(Identifier{ mKey.val }, std::move(res)));
