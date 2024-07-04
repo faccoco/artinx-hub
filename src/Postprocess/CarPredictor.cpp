@@ -38,6 +38,9 @@
 
 struct CarPredictorSettings final {
     bool enablePredictor;
+    bool debugView;
+    bool enableFixYaw;
+    double fixYawThresh;
     double maxMatchDist;
     double maxMatchYaw;
     int trackingThreshold;
@@ -51,7 +54,8 @@ struct CarPredictorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, CarPredictorSettings& x) {
-    return f.object(x).fields(
+    return f.object(x).fields(f.field("debugView", x.debugView).fallback(false), f.field("fixYawThresh", x.fixYawThresh).fallback(25.0),
+        f.field("enableFixYaw", x.enableFixYaw).fallback(false),
         f.field("enablePredictor", x.enablePredictor), f.field("maxMatchDist", x.maxMatchDist).fallback(0.4),
         f.field("maxMatchYaw", x.maxMatchYaw).fallback(0.3), f.field("trackingThreshold", x.trackingThreshold).fallback(5),
         f.field("lostThreshold", x.lostThreshold).fallback(5), f.field("sigma2Qxyz", x.sigma2Qxyz).fallback(20.0),
@@ -59,7 +63,7 @@ bool inspect(Inspector& f, CarPredictorSettings& x) {
         f.field("Rxyz", x.Rxyz).fallback(0.05), f.field("Ryaw", x.Ryaw).fallback(0.02));
 }
 
-class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictorSettings, car_predict_atom, angle_solver_view_atom> {
+class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictorSettings, car_predict_atom, car_predict_view_atom> {
     Identifier mKey, mIMUKey;
 
     enum class TrackingState {
@@ -89,6 +93,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         return cv::sqrt(diff.x * diff.x + diff.y * diff.y);
     }
 
+
+
     Transform<FrameOfRef::Camera, FrameOfRef::Robot, true> mTfCamera2Robot;
 
     glm::dvec3 getArmorPos(const DetectedTarget& armor) {
@@ -99,17 +105,39 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         auto rmat = combine(mTfCamera2Robot, armor.rmat);
         auto yaw = normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
 
-//         double yawFixed = fixArmorYaw(armor, yaw);
-//         return yawFixed;
-        return yaw;
+        auto armorPoints = reproject(armor, yaw);
+        if (mConfig.debugView){
+            debugView(armorPoints.value());
+        }
+
+        double yawFixed = fixArmorYaw(armor, yaw);
+        return yawFixed;
+    }
+
+    void debugView(std::vector<cv::Point2d>& armorPoints){
+        ProjectedArmor projectedArmor;
+        projectedArmor.armorCorners = armorPoints;
+        projectedArmor.lastUpdate = mTrackedArmor.lastUpdate;
+        sendAll(car_predict_view_atom_v,
+                BlackBoard::instance().updateSync(mKey, std::move(projectedArmor)));
     }
 
     double fixArmorYaw(const DetectedTarget& armor, double yaw) {
+
+        if (!mConfig.enableFixYaw){
+            return yaw;
+        }
+
+//        if (std::abs(glm::degrees(normalizeAngle(-atan2(armor.rmat.raw()[2][0], armor.rmat.raw()[2][2]) -
+//                         glm::pi<double>()))) < mConfig.fixYawThresh ){
+//            return yaw;
+//        }
+
         double gap = 1 / (20 * CV_PI);
         int cnt = 0;
-        double left = yaw - CV_PI / 8, right = yaw + CV_PI / 8;
+        double left = yaw - CV_PI / 4, right = yaw + CV_PI / 4;
 
-         while(right - left > gap && cnt < 30) {
+         while(right - left > gap && cnt < 5) {
             double mid = (left + right) / 2;
             auto lossLeft = calLoss(armor, (left + right) / 2 - gap);
             auto lossRight = calLoss(armor, (left + right) / 2 + gap);
@@ -128,29 +156,44 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
 
     std::optional<double> calLoss(const DetectedTarget& armor, double yaw) {
 
-        std::vector<cv::Point2d> projectedPoints;
-        if (!reproject(armor, yaw, projectedPoints)) {
+        auto projectedPoints = reproject(armor, yaw);
+        if (!projectedPoints.has_value()) {
             return {};
         }
 
         // calculate loss
         double armorLoss = 0.0;
+//      1. EuclideanDistance
+//      for(int i = 0; i < 4; i++) {
+//          auto point = armor.armorPoints[i];
+//          cv::Point2f cvPoint = cv::Point2f(point.x, point.y);
+//          double loss = euclideanDistance(cvPoint, projectedPoints.value()[(i + 2) % 4]);
+//
+//          armorLoss += loss;
+//      }
 
-        for(int i = 0; i < 4; i++) {
-            auto point = armor.armorPoints[i];
-            cv::Point2f cvPoint = cv::Point2f(point.x, point.y);
-            double loss = euclideanDistance(cvPoint, projectedPoints[i]);
-            armorLoss += loss;
-        }
+//      2. short edge angle
+        auto edge1 = projectedPoints.value()[2] - projectedPoints.value()[3];
+        auto edge2 = projectedPoints.value()[1] - projectedPoints.value()[4];
+
+        auto angle1 = atan2(edge1.y, edge1.x);
+        auto angle2 = atan2(edge2.y, edge2.x);
+
+        auto imageEdge1 = armor.armorPoints[0] - armor.armorPoints[1];
+        auto imageEdge2 = armor.armorPoints[3] - armor.armorPoints[2];
+
+        auto imageAngle1 = atan2(imageEdge1.y, imageEdge1.x);
+        auto imageAngle2 = atan2(imageEdge2.y, imageEdge2.x);
+
+        armorLoss += std::abs(angle1 - imageAngle1) + std::abs(angle2 - imageAngle2);
 
         HubLogger::watch("armorLoss", armorLoss);
-
         return armorLoss;
     };
 
-    bool reproject(const DetectedTarget& armor, double yaw, std::vector<cv::Point2d>& imagPointsArmor) {
+    std::optional<std::vector<cv::Point2d>> reproject(const DetectedTarget& armor, double yaw) {
         double armorPitch = glm::radians(-15.0f);
-        double armorYaw = -yaw;
+        double armorYaw = yaw - glm::half_pi<double>();
 
         auto rotationMatrix = glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -armorPitch, glm::dvec3(1, 0, 0)), armorYaw, glm::dvec3(0, 1, 0));
         auto armorPos = mTfCamera2Robot(armor.center).mVal;
@@ -166,14 +209,15 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             armorCorner.emplace_back(posCamera.mVal.x, -posCamera.mVal.y, -posCamera.mVal.z);
         }
 
+        std::vector<cv::Point2d> imagPointsArmor;
         if (frameInit) {
             cv::projectPoints(armorCorner, cv::Vec3d{ 0, 0, 0 }, cv::Vec3d{ 0, 0, 0 }, mFrame.info.cameraMatrix,
                               mFrame.info.distCoefficients, imagPointsArmor);
         }else {
             logWarning("CarPrediction: frame not initialized");
-            return false;
+            return {};
         }
-        return true;
+        return imagPointsArmor;
     }
 
     void setArmorYaw(double yaw) {

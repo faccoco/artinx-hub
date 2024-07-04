@@ -82,7 +82,9 @@ public:
                      mImage.copyTo(showImg);
 
                      for (int i = 0; i < res.armorCorners.size(); i++) {
-                         cv::line(showImg, res.armorCorners[i], res.armorCorners[(i + 1) % 4], cv::Scalar(0, 255, 255), 1);
+                        cv::line(showImg, res.armorCorners[i], res.armorCorners[(i + 1) % 4], cv::Scalar(0, 255, 255), 1);
+                        cv::putText(showImg, std::to_string(i), res.armorCorners[i], cv::FONT_HERSHEY_SIMPLEX, 1.0,
+                                    cv::Scalar(255, 255, 255), 1);
                      }
 
                      for (const auto& point : projectedPoints.first) {
@@ -93,14 +95,41 @@ public:
                         cv::circle(showImg, point, 2, cv::Scalar(0, 255, 255), 2);
                     }
 
-
                      CameraFrame frame;
                      frame.frame = std::move(showImg);
                      frame.lastUpdate = res.lastUpdate;
 
                      sendAll(image_frame_atom_v,
                              BlackBoard::instance().updateSync(newKey, std::move(frame), std::string_view(name)));
-                 } };
+                 },
+            [&](car_predict_view_atom, Identifier key) {
+                 ACTOR_PROTOCOL_CHECK(car_predict_view_atom, TypedIdentifier<ProjectedArmor>);
+                 ACTOR_EXCEPTION_PROBE();
+                 auto res = BlackBoard::instance().get<ProjectedArmor>(key).value();
+                 auto name = "PredictorDrawer";
+                 const auto hash = std::hash<std::string_view>{}(name);
+                 const Identifier newKey{ mKey.val ^ hash };
+
+                 if(mImage.empty()) {
+                     return;
+                 }
+
+                 cv::Mat showImg;
+                 mImage.copyTo(showImg);
+
+                for (int i = 0; i < res.armorCorners.size(); i++) {
+                    cv::line(showImg, res.armorCorners[i], res.armorCorners[(i + 1) % 4], cv::Scalar(0, 255, 255), 1);
+                    cv::putText(showImg, std::to_string(i), res.armorCorners[i], cv::FONT_HERSHEY_SIMPLEX, 1.0,
+                                cv::Scalar(255, 255, 255), 1);
+                }
+
+                CameraFrame frame;
+                frame.frame = std::move(showImg);
+                frame.lastUpdate = res.lastUpdate;
+                sendAll(image_frame_atom_v,
+                        BlackBoard::instance().updateSync(newKey, std::move(frame), std::string_view(name)));
+            }
+        };
     }
 };
 

@@ -111,7 +111,7 @@ public:
                     // HubLogger::watch("isLargeArmor", armor.isLargeArmor);
                     // logInfo(fmt::format("isLargeArmor: {} {}", armor.ratio, isLargeArmor));
                     HubLogger::watch("YawRefCam", glm::degrees(normalizeAngle(-atan2(rmat[2][0], rmat[2][2]) -
-                    glm::half_pi<double>())));
+                    glm::pi<double>())));
 
                     auto armorImgCenter = clcArmorImgCenter();
                     res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefCam, armor.robotType,

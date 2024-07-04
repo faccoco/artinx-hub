@@ -51,6 +51,11 @@ struct ProjectedTarget final {
     std::pair<std::vector<cv::Point2d>, std::vector<cv::Point2d>> projectedPoints;
 };
 
+struct ProjectedArmor final{
+    TimePoint lastUpdate;
+    std::vector<cv::Point2d> armorCorners;
+};
+
 ACTOR_PROTOCOL_DEFINE(hero_strategy_control_atom, bool, bool);
 ACTOR_PROTOCOL_DEFINE(set_target_atom, TypedIdentifier<SelectedTarget>);
 ACTOR_PROTOCOL_DEFINE(set_period_target_atom, TypedIdentifier<SelectedTarget>, bool);
@@ -60,3 +65,4 @@ ACTOR_PROTOCOL_DEFINE(car_predict_atom, TypedIdentifier<PredictedTarget>);
 ACTOR_PROTOCOL_DEFINE(period_predict_success_atom, TypedIdentifier<PredictedPeriodTarget>);
 ACTOR_PROTOCOL_DEFINE(set_target_info_atom, TypedIdentifier<SelectedTargetInfo>);
 ACTOR_PROTOCOL_DEFINE(angle_solver_view_atom, TypedIdentifier<ProjectedTarget>);
+ACTOR_PROTOCOL_DEFINE(car_predict_view_atom, TypedIdentifier<ProjectedArmor>);
