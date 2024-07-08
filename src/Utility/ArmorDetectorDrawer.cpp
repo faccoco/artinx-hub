@@ -81,7 +81,7 @@ public:
                      cv::Mat showImg;
                      mImage.copyTo(showImg);
 
-                     for (int i = 0; i < res.armorCorners.size(); i++) {
+                     for (int i = 0; i < static_cast<int>(res.armorCorners.size()); i++) {
                         cv::line(showImg, res.armorCorners[i], res.armorCorners[(i + 1) % 4], cv::Scalar(0, 255, 255), 1);
                         cv::putText(showImg, std::to_string(i), res.armorCorners[i], cv::FONT_HERSHEY_SIMPLEX, 1.0,
                                     cv::Scalar(255, 255, 255), 1);
@@ -117,7 +117,7 @@ public:
                  cv::Mat showImg;
                  mImage.copyTo(showImg);
 
-                for (int i = 0; i < res.armorCorners.size(); i++) {
+                for (int i = 0; i < static_cast<int>(res.armorCorners.size()); i++) {
                     cv::line(showImg, res.armorCorners[i], res.armorCorners[(i + 1) % 4], cv::Scalar(0, 255, 255), 1);
                     cv::putText(showImg, std::to_string(i), res.armorCorners[i], cv::FONT_HERSHEY_SIMPLEX, 1.0,
                                 cv::Scalar(255, 255, 255), 1);
