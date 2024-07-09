@@ -127,7 +127,6 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
         sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoHead));
     }
-
     void infantrySetPacket() {
         mSendPacket.hasTargets = 0;
         if(Clock::now() - mLastTargetTime < 500ms) {

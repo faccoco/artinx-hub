@@ -60,7 +60,7 @@ struct CandidateTarget final {
 };
 
 class AngleSolver final : public HubHelper<caf::event_based_actor, AngleSolverSettings, set_target_info_atom> {
-    Identifier mKey;
+    Identifier mKey,mIMUKey;
     std::deque<double> mPastAVel;
     std::list<double> latency;
     static double absAngleDifferece(double a, double b) {
@@ -108,7 +108,14 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<PredictedTarget>(key);
+               // auto data2 = BlackBoard::instance().get<>
+                const auto dataInfo=BlackBoard::instance().get<HeadInfo>(mIMUKey);
+                HubLogger::visualLog("AngleSolver receive the info of angle");
                 if(!(data.has_value())) {
+                    return;
+                }
+                if(!dataInfo.has_value())  {
+                    HubLogger::visualLog("The value of IMU is null in anglesolver");
                     return;
                 }
                 SelectedTargetInfo res;
@@ -127,14 +134,20 @@ public:
                 HubLogger::watch("horizontalDistance", horizontalDist);
 
                 //(forward:+y,right:+x)
+                
                 glm::dvec3 tfPos = tf(posRefRobot.mVal);
                 glm::dvec3 tfLinearVel = tf(linearVel.mVal);
-
-                const auto delayTime = mConfig.delay + GlobalSettings::get().latency;
+                glm::dvec3 tfPosForFirecontrol = tf(posRefRobot.mVal);
+                const auto Time=GlobalSettings::get().latency;
+                const auto delayTime = mConfig.delay + Time;
                 tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
                           tfPos.z + delayTime * tfLinearVel.z };
 
                 auto [accessible, time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
+                
+                tfPosForFirecontrol={tfPos.x + Time * tfLinearVel.x, tfPos.y + Time * tfLinearVel.y,
+                          tfPos.z + Time * tfLinearVel.z };
+                auto [Accessible, ti, yawAngleForFirecontrol, pitchAngleForFirecontrol] = solveWithoutAirDrag(tfPosForFirecontrol, tfLinearVel);
                 //                     logInfo(fmt::format("x:{}, y:{}, z:{}, xVel:{}, yVel:{}, zVel:{}", tfPos.x, tfPos.y,
                 //                     tfPos.z, tfLinearVel.x, tfLinearVel.y, tfLinearVel.z)); logInfo(fmt::format("time:{},
                 //                     yawAngle:{}, pitch:{}", time, yawAngle, pitchAngle));
@@ -142,7 +155,7 @@ public:
                 //      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
                 //      posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
                 if(accessible) {
-                    res.isFire = true;
+                    res.isFire = (fabs(yawAngleForFirecontrol-dataInfo->yaw) < 0.01 && fabs(pitchAngleForFirecontrol-dataInfo->pitch) < 0.01) 
                     res.lastUpdate = data.value().lastUpdate;
                     res.pitchAngle = pitchAngle;
                     res.yawAngle = yawAngle;
@@ -299,6 +312,10 @@ public:
                     return;
                 }
             },
+            [this](update_head_atom,Identifier key) {
+                ACTOR_PROTOCOL_CHECK(update_head_atom,TypedIdentifier<HeadInfo>);
+                mIMUKey = key;
+            }
         };
     }
 };
