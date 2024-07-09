@@ -174,8 +174,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
 //      }
 
 //      2. short edge angle
-        auto edge1 = projectedPoints.value()[2] - projectedPoints.value()[3];
-        auto edge2 = projectedPoints.value()[1] - projectedPoints.value()[4];
+        auto edge1 = projectedPoints.value()[0] - projectedPoints.value()[1];
+        auto edge2 = projectedPoints.value()[3] - projectedPoints.value()[2];
 
         auto angle1 = atan2(edge1.y, edge1.x);
         auto angle2 = atan2(edge2.y, edge2.x);
