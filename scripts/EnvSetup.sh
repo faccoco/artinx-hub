@@ -4,6 +4,6 @@ sudo apt-get install libdrm-dev libxxf86vm-dev libxt-dev xutils-dev flex bison x
 
 git clone https://github.com/microsoft/vcpkg.git
 
-./vcpkg install boost opencv4[contrib,ffmpeg] glm caf glew glfw3 opengl fmt cpp-httplib bullet3 nlohmann-json magic-enum eigen3 spdlog
+./vcpkg install boost opencv4[contrib,ffmpeg] glm caf glew glfw3 opengl fmt cpp-httplib bullet3 nlohmann-json magic-enum eigen3 spdlog ceres
 
 # sudo apt install -y linux linux-image-3.13.0-24-generic linux-headers-3.13.0-24
