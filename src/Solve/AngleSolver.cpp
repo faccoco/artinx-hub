@@ -168,7 +168,7 @@ class AngleSolver final
 
         auto rotationMatrix = glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -armorPitch, glm::dvec3(1, 0, 0)), armorYaw, glm::dvec3(0, 1, 0));
         auto armorPos = inverseTf(getPos(tf(target.center.mVal), target.radius.first, -target.yaw.mVal));
-        auto transformMatrix = glm::translate(glm::identity<glm::dmat4>(), armorPos);
+        auto transformMatrix = glm::translate(glm::identity<glm::dmat4>(), -armorPos);
         auto mTfArmor2Robot = Transform<FrameOfRef::Robot, FrameOfRef::Armor, true>{ rotationMatrix * transformMatrix };
         auto mTfArmor2Camera = combine(mTfArmor2Robot.invTransformObj(), target.tfRobot2Camera);
 
