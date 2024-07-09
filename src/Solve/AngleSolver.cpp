@@ -275,7 +275,7 @@ public:
                 if(data->lastUpdate.time_since_epoch().count() > latestReceived.time_since_epoch().count()) {
                     latestReceived = data->lastUpdate;
                 } else {
-                    logInfo("angle solver pkg order wrong! ignore wrong order");
+                    // logInfo("angle solver pkg order wrong! ignore wrong order");
                     return;
                 }
                 glm::dvec3 center = tf(data->center.mVal);

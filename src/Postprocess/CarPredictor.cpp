@@ -54,16 +54,18 @@ struct CarPredictorSettings final {
 
 template <class Inspector>
 bool inspect(Inspector& f, CarPredictorSettings& x) {
-    return f.object(x).fields(f.field("debugView", x.debugView).fallback(false), f.field("fixYawThresh", x.fixYawThresh).fallback(25.0),
-        f.field("enableFixYaw", x.enableFixYaw).fallback(false),
-        f.field("enablePredictor", x.enablePredictor), f.field("maxMatchDist", x.maxMatchDist).fallback(0.4),
-        f.field("maxMatchYaw", x.maxMatchYaw).fallback(0.3), f.field("trackingThreshold", x.trackingThreshold).fallback(5),
-        f.field("lostThreshold", x.lostThreshold).fallback(5), f.field("sigma2Qxyz", x.sigma2Qxyz).fallback(20.0),
-        f.field("sigma2Qyaw", x.sigma2Qyaw).fallback(100.0), f.field("sigma2QR", x.sigma2QR).fallback(800.0),
-        f.field("Rxyz", x.Rxyz).fallback(0.05), f.field("Ryaw", x.Ryaw).fallback(0.02));
+    return f.object(x).fields(
+        f.field("debugView", x.debugView).fallback(false), f.field("fixYawThresh", x.fixYawThresh).fallback(25.0),
+        f.field("enableFixYaw", x.enableFixYaw).fallback(false), f.field("enablePredictor", x.enablePredictor),
+        f.field("maxMatchDist", x.maxMatchDist).fallback(0.4), f.field("maxMatchYaw", x.maxMatchYaw).fallback(0.3),
+        f.field("trackingThreshold", x.trackingThreshold).fallback(5), f.field("lostThreshold", x.lostThreshold).fallback(5),
+        f.field("sigma2Qxyz", x.sigma2Qxyz).fallback(20.0), f.field("sigma2Qyaw", x.sigma2Qyaw).fallback(100.0),
+        f.field("sigma2QR", x.sigma2QR).fallback(800.0), f.field("Rxyz", x.Rxyz).fallback(0.05),
+        f.field("Ryaw", x.Ryaw).fallback(0.02));
 }
 
-class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictorSettings, car_predict_atom, car_predict_view_atom> {
+class CarPredictor final
+    : public HubHelper<caf::event_based_actor, CarPredictorSettings, car_predict_atom, car_predict_view_atom> {
     Identifier mKey, mIMUKey;
 
     enum class TrackingState {
@@ -93,8 +95,6 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         return cv::sqrt(diff.x * diff.x + diff.y * diff.y);
     }
 
-
-
     Transform<FrameOfRef::Camera, FrameOfRef::Robot, true> mTfCamera2Robot;
 
     glm::dvec3 getArmorPos(const DetectedTarget& armor) {
@@ -106,43 +106,46 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         auto yaw = normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
 
         auto armorPoints = reproject(armor, yaw);
-        if (mConfig.debugView){
+        if(mConfig.debugView) {
             debugView(armorPoints.value());
         }
 
         double yawFixed = fixArmorYaw(armor, yaw);
         return yawFixed;
-
     }
 
-    void debugView(std::vector<cv::Point2d>& armorPoints){
+    void debugView(std::vector<cv::Point2d>& armorPoints) {
         ProjectedArmor projectedArmor;
         projectedArmor.armorCorners = armorPoints;
         projectedArmor.lastUpdate = mTrackedArmor.lastUpdate;
-        sendAll(car_predict_view_atom_v,
-                BlackBoard::instance().updateSync(mKey, std::move(projectedArmor)));
+        sendAll(car_predict_view_atom_v, BlackBoard::instance().updateSync(mKey, std::move(projectedArmor)));
     }
 
     double fixArmorYaw(const DetectedTarget& armor, double yaw) {
 
-        if (!mConfig.enableFixYaw){
+        if(!mConfig.enableFixYaw) {
             return yaw;
         }
+        bool skipFix = false;
 
-//        if (std::abs(glm::degrees(normalizeAngle(-atan2(armor.rmat.raw()[2][0], armor.rmat.raw()[2][2]) -
-//                         glm::pi<double>()))) < mConfig.fixYawThresh ){
-//            return yaw;
-//        }
+        if(std::abs(glm::degrees(normalizeAngle(-atan2(armor.rmat.raw()[2][0], armor.rmat.raw()[2][2]) - glm::pi<double>()))) >
+          mConfig.fixYawThresh) {
+            skipFix = true;
+        }
+        HubLogger::watch("skipFix", static_cast<int>(skipFix));
+        if(skipFix) {
+            return yaw;
+        }
 
         double gap = 1 / (20 * CV_PI);
         int cnt = 0;
         double left = yaw - CV_PI / 4, right = yaw + CV_PI / 4;
 
-         while(right - left > gap && cnt < 5) {
+        while(right - left > gap && cnt < 5) {
             double mid = (left + right) / 2;
             auto lossLeft = calLoss(armor, (left + right) / 2 - gap);
             auto lossRight = calLoss(armor, (left + right) / 2 + gap);
-            if (!lossLeft.has_value() || !lossRight.has_value()) {
+            if(!lossLeft.has_value() || !lossRight.has_value()) {
                 return yaw;
             }
             if(lossLeft.value() < lossRight.value()) {
@@ -158,22 +161,22 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
     std::optional<double> calLoss(const DetectedTarget& armor, double yaw) {
 
         auto projectedPoints = reproject(armor, yaw);
-        if (!projectedPoints.has_value()) {
+        if(!projectedPoints.has_value()) {
             return {};
         }
 
         // calculate loss
         double armorLoss = 0.0;
-//      1. EuclideanDistance
-//      for(int i = 0; i < 4; i++) {
-//          auto point = armor.armorPoints[i];
-//          cv::Point2f cvPoint = cv::Point2f(point.x, point.y);
-//          double loss = euclideanDistance(cvPoint, projectedPoints.value()[(i + 2) % 4]);
-//
-//          armorLoss += loss;
-//      }
+        //      1. EuclideanDistance
+        //      for(int i = 0; i < 4; i++) {
+        //          auto point = armor.armorPoints[i];
+        //          cv::Point2f cvPoint = cv::Point2f(point.x, point.y);
+        //          double loss = euclideanDistance(cvPoint, projectedPoints.value()[(i + 2) % 4]);
+        //
+        //          armorLoss += loss;
+        //      }
 
-//      2. short edge angle
+        //      2. short edge angle
         auto edge1 = projectedPoints.value()[0] - projectedPoints.value()[1];
         auto edge2 = projectedPoints.value()[3] - projectedPoints.value()[2];
 
@@ -196,7 +199,8 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         double armorPitch = glm::radians(-15.0f);
         double armorYaw = yaw - glm::half_pi<double>();
 
-        auto rotationMatrix = glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -armorPitch, glm::dvec3(1, 0, 0)), armorYaw, glm::dvec3(0, 1, 0));
+        auto rotationMatrix = glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -armorPitch, glm::dvec3(1, 0, 0)), armorYaw,
+                                          glm::dvec3(0, 1, 0));
         auto armorPos = mTfCamera2Robot(armor.center).mVal;
 
         auto transformMatrix = glm::translate(glm::identity<glm::dmat4>(), -armorPos);
@@ -204,17 +208,17 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
         auto mTfArmor2Camera = combine(mTfArmor2Robot.invTransformObj(), mTfCamera2Robot.invTransformObj());
 
         std::vector<cv::Point3d> armorCorner;
-        for (const auto& point : armor.type == ArmorType::Large ? mObjectPointsLarge : mObjectPointsSmall){
-            auto posArmor = Point<UnitType::Distance, FrameOfRef::Armor>{ glm::dvec3 { point.x, point.y, point.z } };
+        for(const auto& point : armor.type == ArmorType::Large ? mObjectPointsLarge : mObjectPointsSmall) {
+            auto posArmor = Point<UnitType::Distance, FrameOfRef::Armor>{ glm::dvec3{ point.x, point.y, point.z } };
             auto posCamera = mTfArmor2Camera(posArmor);
             armorCorner.emplace_back(posCamera.mVal.x, -posCamera.mVal.y, -posCamera.mVal.z);
         }
 
         std::vector<cv::Point2d> imagPointsArmor;
-        if (frameInit) {
+        if(frameInit) {
             cv::projectPoints(armorCorner, cv::Vec3d{ 0, 0, 0 }, cv::Vec3d{ 0, 0, 0 }, mFrame.info.cameraMatrix,
                               mFrame.info.distCoefficients, imagPointsArmor);
-        }else {
+        } else {
             logWarning("CarPrediction: frame not initialized");
             return {};
         }
@@ -349,9 +353,9 @@ class CarPredictor final : public HubHelper<caf::event_based_actor, CarPredictor
             filterState(4) = 0;
             filterState(5) = 0;
             filterState(6) = 0;
-            if (filterState(7) < -1.5) {
+            if(filterState(7) < -1.5) {
                 filterState(7) = -2.512;
-            } else if (filterState(7) > 1.5) {
+            } else if(filterState(7) > 1.5) {
                 filterState(7) = 2.512;
             }
             filterState(8) = 0.265;
