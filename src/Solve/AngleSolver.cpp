@@ -329,7 +329,7 @@ public:
                         yawWithoutDelay = candTargetsWithoutDelay[0].yawAngle;
                         pitchWithoutDelay = candTargetsWithoutDelay[0].pitchAngle;
                         if(yawWithoutDelay.has_value() && pitchWithoutDelay.has_value()){
-                            fire=fabs(yawWithoutDelay-dataInfo.value().pose.yaw)<0.01 && fabs(pitchWithoutDelay-dataInfo.value().pose.pitch)<0.01;
+                            fire=fabs(yawWithoutDelay.value()-dataInfo.value().pose.yaw)<0.01 && fabs(pitchWithoutDelay.value()-dataInfo.value().pose.pitch)<0.01;
                         }
                     }
                     SelectedTargetInfo res;
