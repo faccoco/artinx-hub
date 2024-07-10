@@ -279,6 +279,8 @@ public:
                             targetPos = armorFaced;
                         }
                     }else {
+                        HubLogger::visualLog(fmt::format("gimbal yaw: {:.3f} gimbal pitch: {:.3f}", 
+                                                         dataInfo.value().pose.yaw, dataInfo.value().pose.pitch));
                         std::vector<CandidateTarget> candTargetsWithoutDelay;
                         theta = -data->yaw.mVal;
                         for(int i = 0; i < armorNum; i++) {
@@ -327,7 +329,7 @@ public:
                         yawWithoutDelay = candTargetsWithoutDelay[0].yawAngle;
                         pitchWithoutDelay = candTargetsWithoutDelay[0].pitchAngle;
                         if(yawWithoutDelay.has_value() && pitchWithoutDelay.has_value()){
-                            fire=fabs(yawWithoutDelay-dataInfo.value().pose.yaw)<mConfig.rangeOfyaw && fabs(pitchWithoutDelay-dataInfo.value().pose.pitch)<mConfig.rangeOfpitch;
+                            fire=fabs(yawWithoutDelay-dataInfo.value().pose.yaw)<0.01 && fabs(pitchWithoutDelay-dataInfo.value().pose.pitch)<0.01;
                         }
                     }
                     SelectedTargetInfo res;
@@ -354,10 +356,10 @@ public:
                     return;
                 }
             },
-            // [this](update_head_atom,Identifier key) {
-            //     ACTOR_PROTOCOL_CHECK(update_head_atom,TypedIdentifier<HeadInfo>);
-            //     mIMUKey = key;
-            // }
+            [this](update_head_atom,Identifier key) {
+                ACTOR_PROTOCOL_CHECK(update_head_atom,TypedIdentifier<HeadInfo>);
+                mIMUKey = key;
+            }
         };
     }
 };
