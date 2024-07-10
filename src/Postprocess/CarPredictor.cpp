@@ -83,6 +83,7 @@ class CarPredictor final
         TrackingState trackingState;
         int armorNum;
         ArmorType armorType;
+        std::vector<cv::Point> armorPoints;
     } mTrackedArmor;
     double mLastY = 0.0, mLastR = 0.2;
     int mDetectCount = 0, mLostCount = 0;
@@ -104,14 +105,7 @@ class CarPredictor final
     double getArmorYaw(const DetectedTarget& armor) {
         auto rmat = combine(mTfCamera2Robot, armor.rmat);
         auto yaw = normalizeAngle(-atan2(rmat.raw()[2][0], rmat.raw()[2][2]) - glm::half_pi<double>());
-
-        auto armorPoints = reproject(armor, yaw);
-        if(mConfig.debugView) {
-            debugView(armorPoints.value());
-        }
-
-        double yawFixed = fixArmorYaw(armor, yaw);
-        return yawFixed;
+        return yaw;
     }
 
     void debugView(std::vector<cv::Point2d>& armorPoints) {
@@ -324,6 +318,7 @@ class CarPredictor final
         mLastY = y, mLastR = r;
         mTrackedArmor.state << x, y, z, yaw, 0, 0, 0, 0, r;
         mTrackedArmor.id = armor.id;
+        mTrackedArmor.armorPoints.assign(armor.armorPoints.begin(), armor.armorPoints.end());
 
         int armorId = static_cast<int>(armor.id);
         mTrackedArmor.armorType = armor.type;
@@ -376,6 +371,8 @@ class CarPredictor final
             auto predictedPosition = getArmorPosFromState(ekfPrediction);
             // Difference of the current armor position and tracked armor's predicted position
             double minPositionDiff = 1000.0;
+
+            DetectedTarget candArmor;
             for(const auto& armor : armors) {
                 if(std::isnan(armor.center.mVal.x) || std::isnan(armor.center.mVal.y) || std::isnan(armor.center.mVal.z)) {
                     continue;
@@ -386,15 +383,17 @@ class CarPredictor final
                 auto p = getArmorPos(armor);
                 if(auto positionDiff = glm::distance(predictedPosition, p); positionDiff < minPositionDiff) {
                     minPositionDiff = positionDiff;
+                    candArmor = armor;
                     candidate = { p, getArmorYaw(armor) };
                     isInitCand = true;
+                    mTrackedArmor.armorPoints.assign(armor.armorPoints.begin(), armor.armorPoints.end());
                 }
             }
             if(!isInitCand) {
                 return false;
             }
 
-            double deltaYaw = std::fabs(normalizeAngle(mTrackedArmor.yaw - candidate.second));
+            candidate.second = fixArmorYaw(candArmor, candidate.second);
 
             if(minPositionDiff < mConfig.maxMatchDist) {
                 // Matching armor found
@@ -403,26 +402,33 @@ class CarPredictor final
                 setArmorYaw(candidate.second);
                 Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, mTrackedArmor.yaw);
                 mTrackedArmor.state = mEKF.update(z);
-                HubLogger::visualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}, deltaYaw {:.3f}",
-                                                 minPositionDiff, deltaYaw));
+                HubLogger::visualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}",
+                                                 minPositionDiff));
             } else {
                 // Check if there is same id armor in current frame
                 HubLogger::visualLog(fmt::format("ArmorPred check if have another same armorictor: EKF update did not matched, "
-                                                 "minPositionDiff {:.3f}, deltaYaw "
-                                                 "{:.3f},",
-                                                 minPositionDiff, deltaYaw));
-                // logInfo(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}, deltaYaw "
-                //                     "{:.3f}, check if have another same armor",
-                //                     minPositionDiff, deltaYaw));
-                for(const auto& armor : armors) {
-                    if(armor.id == mTrackedArmor.id) {
-                        // Armor jump happens
-                        matched = true;
-                        handleArmorJump(getArmorPos(armor), getArmorYaw(armor));
-                        break;
-                    }
+                                                 "minPositionDiff {:.3f}",
+                                                 minPositionDiff));
+                logInfo(fmt::format("ArmorPredictor: EKF update did not matched, minPositionDiff {:.3f}"
+                                    ", check if have another same armor",
+                                    minPositionDiff));
+            }
+
+            auto trackedArmorArea = cv::contourArea(mTrackedArmor.armorPoints);
+            for(const auto& armor : armors) {
+                auto armorArea = cv::contourArea(armor.armorPoints);
+                if(armor.id == mTrackedArmor.id && trackedArmorArea < armorArea) {
+                    // Armor jump may happen
+                    handleArmorJump(getArmorPos(armor), fixArmorYaw(armor, getArmorYaw(armor)));
+                    candArmor = armor;
+                    break;
                 }
             }
+            if (mConfig.debugView){
+                auto debugPoints = reproject(candArmor, getArmorYaw(candArmor));
+                debugView(debugPoints.value());
+            }
+
             HubLogger::watch("xRefRobot", mTrackedArmor.state(0));
             HubLogger::watch("yRefRobot", mTrackedArmor.state(1));
             HubLogger::watch("zRefRobot", mTrackedArmor.state(2));
