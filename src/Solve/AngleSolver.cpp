@@ -108,14 +108,7 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<PredictedTarget>(key);
-               // auto data2 = BlackBoard::instance().get<>
-                const auto dataInfo=BlackBoard::instance().get<HeadInfo>(mIMUKey);
-                HubLogger::visualLog("AngleSolver receive the info of angle");
                 if(!(data.has_value())) {
-                    return;
-                }
-                if(!dataInfo.has_value())  {
-                    HubLogger::visualLog("The value of IMU is null in anglesolver");
                     return;
                 }
                 SelectedTargetInfo res;
@@ -137,7 +130,6 @@ public:
                 
                 glm::dvec3 tfPos = tf(posRefRobot.mVal);
                 glm::dvec3 tfLinearVel = tf(linearVel.mVal);
-                glm::dvec3 tfPosForFirecontrol = tf(posRefRobot.mVal);
                 const auto Time=GlobalSettings::get().latency;
                 const auto delayTime = mConfig.delay + Time;
                 tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
@@ -145,17 +137,10 @@ public:
 
                 auto [accessible, time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
                 
-                tfPosForFirecontrol={tfPos.x + Time * tfLinearVel.x, tfPos.y + Time * tfLinearVel.y,
-                          tfPos.z + Time * tfLinearVel.z };
-                auto [Accessible, ti, yawAngleForFirecontrol, pitchAngleForFirecontrol] = solveWithoutAirDrag(tfPosForFirecontrol, tfLinearVel);
-                //                     logInfo(fmt::format("x:{}, y:{}, z:{}, xVel:{}, yVel:{}, zVel:{}", tfPos.x, tfPos.y,
-                //                     tfPos.z, tfLinearVel.x, tfLinearVel.y, tfLinearVel.z)); logInfo(fmt::format("time:{},
-                //                     yawAngle:{}, pitch:{}", time, yawAngle, pitchAngle));
-                //  HubLogger::visualLog(fmt::format(
                 //      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
                 //      posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
                 if(accessible) {
-                    res.isFire = (fabs(yawAngleForFirecontrol-dataInfo->yaw) < 0.01 && fabs(pitchAngleForFirecontrol-dataInfo->pitch) < 0.01) 
+                    res.isFire = true;
                     res.lastUpdate = data.value().lastUpdate;
                     res.pitchAngle = pitchAngle;
                     res.yawAngle = yawAngle;
@@ -173,8 +158,14 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<PredictedTarget>(key);
+                const auto dataInfo=BlackBoard::instance().get<HeadInfo>(mIMUKey);
+                HubLogger::visualLog("AngleSolver receive the info of angle");
                 if(!(data.has_value())) {
                     return;
+                }
+                if(!dataInfo.has_value())  {
+                   HubLogger::visualLog("The value of IMU is null in anglesolver");
+                   return;
                 }
                 // check pkg order
                 if(data->lastUpdate.time_since_epoch().count() > latestReceived.time_since_epoch().count()) {
@@ -287,6 +278,57 @@ public:
                             pitch = pitchAngle;
                             targetPos = armorFaced;
                         }
+                    }else {
+                        std::vector<CandidateTarget> candTargetsWithoutDelay;
+                        theta = -data->yaw.mVal;
+                        for(int i = 0; i < armorNum; i++) {
+                            double r = R[i & 1];
+                            center.z = Z[i & 1];
+                            double predictTime = 0;
+                            for(int iterTimes = 0; iterTimes < 5; iterTimes++) {
+                                glm::dvec3 predictCenter = center + lVel * predictTime;
+                                double predictTheta = theta + aVel * predictTime;
+                                glm::dvec3 predictPos = getPos(predictCenter, r, predictTheta);
+
+                                auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(predictPos, lVel);
+                                if(!accessible) {
+                                    // HubLogger::logInfoBoth(fmt::format("AngleSolver: {}th armor gets inaccessible", i));
+                                    break;
+                                }
+                                double requiredTime = airTime + GlobalSettings::get().latency;
+                                double requiredTheta = theta + aVel * requiredTime;
+
+                                if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {
+                                    double deltaTheta = normalizeAngle(requiredTheta - yawAngle - glm::pi<double>());
+                                    if(r == 0 || std::abs(deltaTheta) <= glm::radians(mConfig.maxShootDeltaTheta)) {
+                                        double angleDiff =
+                                            absAngleDifferece(centerYaw, normalizeAngle(yawAngle - glm::half_pi<double>()));
+                                        CandidateTarget candTarget;
+                                        candTarget.yawAngle = yawAngle;
+                                        candTarget.pitchAngle = pitchAngle;
+                                        candTarget.diffAngle = angleDiff;
+                                        candTarget.r = r;
+                                        candTarget.height = center.z;
+                                        candTarget.pos = predictPos;
+                                        candTargetsWithoutDelay.push_back(candTarget);
+                                    } else {
+                                        HubLogger::visualLog(fmt::format(
+                                        "AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw", i, deltaTheta));
+                                    }
+                                    break;
+                                }
+                                predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
+                            }
+                            theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
+                        }
+                        std::sort(candTargetsWithoutDelay.begin(), candTargetsWithoutDelay.end(),
+                              [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
+                        std::optional<double>  yawWithoutDelay ,pitchWithoutDelay;
+                        yawWithoutDelay = candTargetsWithoutDelay[0].yawAngle;
+                        pitchWithoutDelay = candTargetsWithoutDelay[0].pitchAngle;
+                        if(yawWithoutDelay.has_value() && pitchWithoutDelay.has_value()){
+                            fire=fabs(yawWithoutDelay-dataInfo.value().pose.yaw)<mConfig.rangeOfyaw && fabs(pitchWithoutDelay-dataInfo.value().pose.pitch)<mConfig.rangeOfpitch;
+                        }
                     }
                     SelectedTargetInfo res;
                     if(yaw.has_value()) {
@@ -312,10 +354,10 @@ public:
                     return;
                 }
             },
-            [this](update_head_atom,Identifier key) {
-                ACTOR_PROTOCOL_CHECK(update_head_atom,TypedIdentifier<HeadInfo>);
-                mIMUKey = key;
-            }
+            // [this](update_head_atom,Identifier key) {
+            //     ACTOR_PROTOCOL_CHECK(update_head_atom,TypedIdentifier<HeadInfo>);
+            //     mIMUKey = key;
+            // }
         };
     }
 };
