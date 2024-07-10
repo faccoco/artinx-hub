@@ -158,8 +158,7 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<PredictedTarget>(key);
-                const auto dataInfo=BlackBoard::instance().get<HeadInfo>(mIMUKey);
-                HubLogger::visualLog("AngleSolver receive the info of angle");
+                auto dataInfo = BlackBoard::instance().get<HeadInfo>(mIMUKey);
                 if(!(data.has_value())) {
                     return;
                 }
@@ -278,9 +277,10 @@ public:
                             pitch = pitchAngle;
                             targetPos = armorFaced;
                         }
-                    }else {
-                        HubLogger::visualLog(fmt::format("gimbal yaw: {:.3f} gimbal pitch: {:.3f}", 
-                                                         dataInfo.value().pose.yaw, dataInfo.value().pose.pitch));
+                    }
+                    else {
+                        // HubLogger::visualLog(fmt::format("gimbal yaw: {:.3f} gimbal pitch: {:.3f}", 
+                                                        //  dataInfo.value().pose.yaw, dataInfo.value().pose.pitch));
                         std::vector<CandidateTarget> candTargetsWithoutDelay;
                         theta = -data->yaw.mVal;
                         for(int i = 0; i < armorNum; i++) {
@@ -328,9 +328,14 @@ public:
                         std::optional<double>  yawWithoutDelay ,pitchWithoutDelay;
                         yawWithoutDelay = candTargetsWithoutDelay[0].yawAngle;
                         pitchWithoutDelay = candTargetsWithoutDelay[0].pitchAngle;
+                        // HubLogger::visualLog(fmt::format("solved yaw: {:.3f} solved pitch: {:.3f}", 
+                                                        //   normalizeAngle(yawWithoutDelay.value()-glm::half_pi<double>()), pitchWithoutDelay.value()));
                         if(yawWithoutDelay.has_value() && pitchWithoutDelay.has_value()){
-                            fire=fabs(yawWithoutDelay.value()-dataInfo.value().pose.yaw)<0.01 && fabs(pitchWithoutDelay.value()-dataInfo.value().pose.pitch)<0.01;
+                            double delYaw = fabs(normalizeAngle(yawWithoutDelay.value()-glm::half_pi<double>())-dataInfo.value().pose.yaw);
+                            double delPitch = fabs(pitchWithoutDelay.value()-dataInfo.value().pose.pitch);
+                            fire = delYaw*delYaw + delPitch*delPitch < 0.002f;
                         }
+                        HubLogger::visualLog(fmt::format("---------------------------------isfire:{}-----------------------------------------------------------------------",fire));
                     }
                     SelectedTargetInfo res;
                     if(yaw.has_value()) {
@@ -356,8 +361,8 @@ public:
                     return;
                 }
             },
-            [this](update_head_atom,Identifier key) {
-                ACTOR_PROTOCOL_CHECK(update_head_atom,TypedIdentifier<HeadInfo>);
+            [this](update_head_atom, GroupMask, Identifier key) {
+                ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
                 mIMUKey = key;
             }
         };
