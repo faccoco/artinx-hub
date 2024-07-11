@@ -88,11 +88,11 @@ public:
                      }
 
                      for (const auto& point : projectedPoints.first) {
-                         cv::circle(showImg, point, 2, cv::Scalar(0, 255, 0), 2);
+                         cv::circle(showImg, point, 5, cv::Scalar(0, 255, 0), 10);
                      }
 
                     for (const auto& point : projectedPoints.second) {
-                        cv::circle(showImg, point, 2, cv::Scalar(0, 255, 255), 2);
+                        cv::circle(showImg, point, 5, cv::Scalar(0, 255, 255), 10);
                     }
 
                      CameraFrame frame;

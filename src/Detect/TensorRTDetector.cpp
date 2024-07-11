@@ -69,6 +69,7 @@ class TensorRTDetector final
     }
 
     void copyBBoxToArmor(std::vector<Armor>& armors, std::vector<bbox_t>& detections) {
+        auto color = GlobalSettings::get().getColor();
         for(auto box : detections) {
             Armor armor;
             armor.light4Point.insert(armor.light4Point.end(), std::begin(box.pts), std::end(box.pts));
@@ -76,8 +77,17 @@ class TensorRTDetector final
             armor.robotType = static_cast<RobotType>(box.tag_id);
             armor.robotColor = static_cast<Color>(box.color_id);
             armor.prob = box.confidence;
-            armor.isLargeArmor = false;  // TODO(12012710): how to determine large armor
-            armors.push_back(armor);
+            armor.isLargeArmor = false;
+
+            auto lightWidth = (cv::norm(armor.light4Point[0] - armor.light4Point[1]) + cv::norm(armor.light4Point[2] - armor.light4Point[3])) / 2;
+            auto lightLength = (cv::norm(armor.light4Point[0] - armor.light4Point[3]) + cv::norm(armor.light4Point[1] - armor.light4Point[2])) / 2;
+            if (lightLength / lightWidth > mConfig.edgeRatio || armor.robotType == RobotType::Hero || armor.robotType == RobotType::Base) {
+                armor.isLargeArmor = true;
+            }
+
+            if (box.color_id == static_cast<int>(color)){
+                armors.push_back(armor); // 1 in box.color_id is blue, however enum class Color is defined enum class Color { Blue, Red, Purple, Negative };
+            }
         }
     }
 
