@@ -122,8 +122,9 @@ class CarPredictor final
         }
         bool skipFix = false;
 
-        if(std::abs(glm::degrees(normalizeAngle(-atan2(armor.rmat.raw()[2][0], armor.rmat.raw()[2][2]) - glm::pi<double>()))) >
-          mConfig.fixYawThresh) {
+        double yawFace = glm::degrees(normalizeAngle(-atan2(armor.rmat.raw()[2][0], armor.rmat.raw()[2][2]) - glm::pi<double>()));
+
+        if(std::abs(yawFace) > mConfig.fixYawThresh) {
             skipFix = true;
         }
         HubLogger::watch("skipFix", static_cast<int>(skipFix));
@@ -131,14 +132,16 @@ class CarPredictor final
             return yaw;
         }
 
+        HubLogger::watch("yawFace", yawFace);
+
         double gap = 1 / (20 * CV_PI);
         int cnt = 0;
         double left = yaw - CV_PI / 4, right = yaw + CV_PI / 4;
 
         while(right - left > gap && cnt < 5) {
             double mid = (left + right) / 2;
-            auto lossLeft = calLoss(armor, (left + right) / 2 - gap);
-            auto lossRight = calLoss(armor, (left + right) / 2 + gap);
+            auto lossLeft = calLoss(armor, (left + right) / 2 - gap, yawFace);
+            auto lossRight = calLoss(armor, (left + right) / 2 + gap, yawFace);
             if(!lossLeft.has_value() || !lossRight.has_value()) {
                 return yaw;
             }
@@ -152,7 +155,7 @@ class CarPredictor final
         return (left + right) / 2;
     }
 
-    std::optional<double> calLoss(const DetectedTarget& armor, double yaw) {
+    std::optional<double> calLoss(const DetectedTarget& armor, double yaw, double yawFace) {
 
         auto projectedPoints = reproject(armor, yaw);
         if(!projectedPoints.has_value()) {
@@ -161,29 +164,29 @@ class CarPredictor final
 
         // calculate loss
         double armorLoss = 0.0;
-        //      1. EuclideanDistance
-        //      for(int i = 0; i < 4; i++) {
-        //          auto point = armor.armorPoints[i];
-        //          cv::Point2f cvPoint = cv::Point2f(point.x, point.y);
-        //          double loss = euclideanDistance(cvPoint, projectedPoints.value()[(i + 2) % 4]);
-        //
-        //          armorLoss += loss;
-        //      }
+        if(std::abs(yawFace) > 99.0) {
+            //      1. edge length
+            for (int i = 0; i < 4; i++){
+                auto edgeLength = euclideanDistance( projectedPoints.value()[i], projectedPoints.value()[(i + 1) % 4]);
+                auto imageEdgeLength = euclideanDistance( armor.armorPoints[i], armor.armorPoints[(i + 1) % 4]);
+                armorLoss += std::abs(edgeLength - imageEdgeLength);
+            }
+        } else {
+            //      2. short edge angle
+            auto edge1 = projectedPoints.value()[0] - projectedPoints.value()[1];
+            auto edge2 = projectedPoints.value()[3] - projectedPoints.value()[2];
 
-        //      2. short edge angle
-        auto edge1 = projectedPoints.value()[0] - projectedPoints.value()[1];
-        auto edge2 = projectedPoints.value()[3] - projectedPoints.value()[2];
+            auto angle1 = atan2(edge1.y, edge1.x);
+            auto angle2 = atan2(edge2.y, edge2.x);
 
-        auto angle1 = atan2(edge1.y, edge1.x);
-        auto angle2 = atan2(edge2.y, edge2.x);
+            auto imageEdge1 = armor.armorPoints[0] - armor.armorPoints[1];
+            auto imageEdge2 = armor.armorPoints[3] - armor.armorPoints[2];
 
-        auto imageEdge1 = armor.armorPoints[0] - armor.armorPoints[1];
-        auto imageEdge2 = armor.armorPoints[3] - armor.armorPoints[2];
+            auto imageAngle1 = atan2(imageEdge1.y, imageEdge1.x);
+            auto imageAngle2 = atan2(imageEdge2.y, imageEdge2.x);
 
-        auto imageAngle1 = atan2(imageEdge1.y, imageEdge1.x);
-        auto imageAngle2 = atan2(imageEdge2.y, imageEdge2.x);
-
-        armorLoss += std::abs(angle1 - imageAngle1) + std::abs(angle2 - imageAngle2);
+            armorLoss += std::abs(angle1 - imageAngle1) + std::abs(angle2 - imageAngle2);
+        }
 
         HubLogger::watch("armorLoss", armorLoss);
         return armorLoss;
@@ -402,8 +405,7 @@ class CarPredictor final
                 setArmorYaw(candidate.second);
                 Eigen::Vector4d z(candidate.first.x, candidate.first.y, candidate.first.z, mTrackedArmor.yaw);
                 mTrackedArmor.state = mEKF.update(z);
-                HubLogger::visualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}",
-                                                 minPositionDiff));
+                HubLogger::visualLog(fmt::format("ArmorPredictor: EKF update Matched, minPositionDiff {:.3f}", minPositionDiff));
             } else {
                 // Check if there is same id armor in current frame
                 HubLogger::visualLog(fmt::format("ArmorPred check if have another same armorictor: EKF update did not matched, "
@@ -424,7 +426,7 @@ class CarPredictor final
                     break;
                 }
             }
-            if (mConfig.debugView){
+            if(mConfig.debugView) {
                 auto debugPoints = reproject(candArmor, getArmorYaw(candArmor));
                 debugView(debugPoints.value());
             }
@@ -444,9 +446,8 @@ class CarPredictor final
 
 public:
     CarPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) }, mTrackedArmor{
-              TimePoint(), Eigen::VectorXd::Zero(9), 0, RobotType::Negative, TrackingState::LOST
-          } {
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) },
+          mTrackedArmor{ TimePoint(), Eigen::VectorXd::Zero(9), 0, RobotType::Negative, TrackingState::LOST } {
         // EKF
         // xa = x_armor, xc = x_robot_center
         // state: xc, yc, zc, yaw, v_xc, v_yc, v_zc, v_yaw, r
