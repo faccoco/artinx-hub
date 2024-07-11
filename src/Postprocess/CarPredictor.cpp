@@ -76,7 +76,7 @@ class CarPredictor final
         TEMP_LOST,
     };
 
-    enum class YawFixMode { NONE, SHORT_EDGE_ANGLE, LONG_EDGE_ANGLE, POLYGON_DIFF, LENGTH_POINT_DIFF };
+    enum class YawFixMode { NONE, SHORT_EDGE_ANGLE, LONG_EDGE_LENGTH, POLYGON_DIFF, LENGTH_POINT_DIFF };
 
     ExtendedKalmanFilter mEKF;
     struct TrackedArmor {
@@ -94,6 +94,8 @@ class CarPredictor final
     double mDt = 0.01;
     CameraFrame mFrame;
     bool frameInit = false;
+
+    double mLastYaw = 0.0f;
 
     static double euclideanDistance(const cv::Point2f& p1, const cv::Point2f& p2) {
         cv::Point diff = p1 - p2;
@@ -130,7 +132,7 @@ class CarPredictor final
             std::abs(glm::degrees(normalizeAngle(-atan2(armor.rmat.raw()[2][0], armor.rmat.raw()[2][2]) - glm::pi<double>())));
 
         if(std::abs(yawFace) < mConfig.fixYawThresh) {
-            fixMode = YawFixMode::LENGTH_POINT_DIFF;
+            fixMode = YawFixMode::SHORT_EDGE_ANGLE;
         }
 
         HubLogger::watch("fixMode", static_cast<int>(fixMode));
@@ -140,32 +142,30 @@ class CarPredictor final
             return yaw;
         }
 
-        double gap = 3 / 180.0 * CV_PI;
         int cnt = 0;
-        double left = yaw - CV_PI / 8, right = yaw + CV_PI / 8;
-        // double initLoss = calLoss(armor, yaw, YawFixMode::POLYGON_DIFF).value();
-        while(right - left > gap && cnt < 5) {
-            double mid = (left + right) / 2;
-            auto lossLeft = calLoss(armor, (left + right) / 2 - gap, fixMode, yawFace);
-            auto lossRight = calLoss(armor, (left + right) / 2 + gap, fixMode, yawFace);
+        double left = yaw - CV_PI / 16;
+        double right = yaw + CV_PI / 16;
+        double gap = 3.0f * CV_PI / 180.0f;
+        while(cnt < 10) {
+            auto lossLeft = calLoss(armor, left + (right - left) / 3, fixMode);
+            auto lossRight = calLoss(armor, right - (right - left) / 3, fixMode);
             if((!lossLeft.has_value() || !lossRight.has_value()) || (lossLeft.value() == 0.0 && lossRight.value() == 0.0)) {
                 return yaw;
             }
             if(lossLeft.value() < lossRight.value()) {
-                right = mid;
+                right = right - (right - left) / 3 + gap;
+                left -= gap;
             } else {
-                left = mid;
+                left = left + (right - left) / 3 - gap;
+                right += gap;
             }
             cnt++;
         }
-        // double finalLoss = calLoss(armor, (left + right) / 2, YawFixMode::POLYGON_DIFF).value();
-        // if(finalLoss > initLoss && yawFace < 15.0f) {
-        //     return yaw;
-        // }
-        return (left + right) / 2;
+        auto fixedYaw = (left + right) / 2;
+        return fixedYaw;
     }
 
-    std::optional<double> calLoss(const DetectedTarget& armor, double yaw, YawFixMode fixMode, double yawFace) {
+    std::optional<double> calLoss(const DetectedTarget& armor, double yaw, YawFixMode fixMode) {
 
         auto projectedPoints2d = reproject(armor, yaw);
         if(!projectedPoints2d.has_value()) {
@@ -195,34 +195,31 @@ class CarPredictor final
                 armorLoss += std::abs(angle1 - imageAngle1) + std::abs(angle2 - imageAngle2);
                 break;
             }
-            case YawFixMode::LONG_EDGE_ANGLE: {
-                //      2. long edge angle
+            case YawFixMode::LONG_EDGE_LENGTH: {
+                //      2. long edge length
                 auto edge1 = projectedPoints[0] - projectedPoints[3];
                 auto edge2 = projectedPoints[1] - projectedPoints[2];
-
-                auto angle1 = atan2(edge1.y, edge1.x);
-                auto angle2 = atan2(edge2.y, edge2.x);
 
                 auto imageEdge1 = imagePoint[0] - imagePoint[3];
                 auto imageEdge2 = imagePoint[1] - imagePoint[2];
 
-                auto imageAngle1 = atan2(imageEdge1.y, imageEdge1.x);
-                auto imageAngle2 = atan2(imageEdge2.y, imageEdge2.x);
-
-                armorLoss += std::abs(angle1 - imageAngle1) + std::abs(angle2 - imageAngle2);
+                armorLoss += std::abs(cv::norm(edge1) - cv::norm(imageEdge1)) + std::abs(cv::norm(edge2) - cv::norm(imageEdge2));
                 break;
             }
             case YawFixMode::POLYGON_DIFF: {
                 //      3. polygon difference
-                double area1 = cv::contourArea(projectedPoints);
-                double area2 = cv::contourArea(imagePoint);
-
-                std::vector<cv::Point2f> intersection;
-                cv::intersectConvexConvex(projectedPoints, imagePoint, intersection);
-                armorLoss = std::fabs(cv::contourArea(intersection) - (area1 + area2) / 2);
+                for (size_t i = 0; i < imagePoint.size(); i++){
+                    armorLoss += euclideanDistance(imagePoint[i], projectedPoints[i]);
+                }
                 break;
             }
             case YawFixMode::LENGTH_POINT_DIFF: {
+                auto imageEdge1 = imagePoint[0] - imagePoint[1];
+                auto imageEdge2 = imagePoint[3] - imagePoint[2];
+                auto angle1 = atan2(imageEdge1.x, imageEdge1.y);
+                auto angle2 = atan2(imageEdge2.x, imageEdge2.y);
+                auto incline = std::abs((angle1 + angle2) / 2);
+
                 std::size_t size = imagePoint.size();
                 for(std::size_t i = 0u; i < size; ++i) {
                     std::size_t p = (i + 1u) % size;
@@ -235,8 +232,8 @@ class CarPredictor final
                     double angularLoss = getAngleDiff(ref, pts);
                     // 平方可能是为了配合 sin 和 cos
                     // 弧度差代价（0 度左右占比应该大）
-                    double cost = std::pow((pixelLoss * std::sin(yawFace)), 2) + std::pow((angularLoss * std::cos(yawFace)), 2);
-                    // 重投影像素误差越大，越相信斜率
+                    double cost = std::pow((pixelLoss * std::sin(incline)), 2)
+                        + std::pow((angularLoss * std::cos(incline)), 2) * 0.25;
                     armorLoss += std::sqrt(cost);
                 }
                 break;
@@ -247,15 +244,13 @@ class CarPredictor final
             }
         }
 
-        HubLogger::watch("armorLoss", armorLoss);
         return armorLoss;
     };
 
     static float getAngleDiff(const cv::Point2f& v1, const cv::Point2f& v2) {
-        float dot = v1.x * v2.x + v1.y * v2.y;  // Dot product
-        float det = v1.x * v2.y - v1.y * v2.x;  // Determinant
-        float angle = std::atan2(det, dot);     // atan2(y, x) or atan2(sin, cos)
-        return std::abs(angle);
+        auto angle1 = atan2(v1.y, v1.x);
+        auto angle2 = atan2(v2.y, v2.x);
+        return std::fabs(angle1 - angle2);
     }
 
     std::optional<std::vector<cv::Point2d>> reproject(const DetectedTarget& armor, double yaw) {
@@ -493,13 +488,20 @@ class CarPredictor final
                 auto armorArea = cv::contourArea(armor.armorPoints);
                 if(armor.id == mTrackedArmor.id && trackedArmorArea < armorArea) {
                     // Armor jump may happen
-                    matched = handleArmorJump(getArmorPos(armor), fixArmorYaw(armor, getArmorYaw(armor)));
+                    auto jumpMatched = handleArmorJump(getArmorPos(armor), fixArmorYaw(armor, getArmorYaw(armor)));
+                    if (!matched) {
+                        matched = jumpMatched;
+                    }
                     candArmor = armor;
                     break;
                 }
             }
             if(mConfig.debugView) {
-                auto debugPoints = reproject(candArmor, getArmorYaw(candArmor));
+                mLastYaw = normalizeAngle(mLastYaw + (1 * CV_PI / 180.0f));
+//                auto debugPoints = reproject(candArmor, getArmorYaw(candArmor));
+                auto debugPoints = reproject(candArmor, mLastYaw);
+                auto loss = calLoss(candArmor, mLastYaw, YawFixMode::SHORT_EDGE_ANGLE);
+                HubLogger::watch("loss", loss.value());
                 debugView(debugPoints.value());
             }
 
@@ -518,9 +520,8 @@ class CarPredictor final
 
 public:
     CarPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) }, mTrackedArmor{
-              TimePoint(), Eigen::VectorXd::Zero(9), 0, RobotType::Negative, TrackingState::LOST
-          } {
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) },
+          mTrackedArmor{ TimePoint(), Eigen::VectorXd::Zero(9), 0, RobotType::Negative, TrackingState::LOST } {
         // EKF
         // xa = x_armor, xc = x_robot_center
         // state: xc, yc, zc, yaw, v_xc, v_yc, v_zc, v_yaw, r
