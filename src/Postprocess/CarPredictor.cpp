@@ -143,8 +143,8 @@ class CarPredictor final
         }
 
         int cnt = 0;
-        double left = yaw - CV_PI / 16;
-        double right = yaw + CV_PI / 16;
+        double left = yaw - CV_PI / 32;
+        double right = yaw + CV_PI / 32;
         double gap = 3.0f * CV_PI / 180.0f;
         while(cnt < 10) {
             auto lossLeft = calLoss(armor, left + (right - left) / 3, fixMode);
