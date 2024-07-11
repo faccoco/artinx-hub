@@ -169,7 +169,7 @@ class CarPredictor final
 
         auto projectedPoints2d = reproject(armor, yaw);
         if(!projectedPoints2d.has_value()) {
-            return {};
+            return 0.0;
         }
 
         std::vector<cv::Point2f> projectedPoints(projectedPoints2d.value().begin(), projectedPoints2d.value().end());

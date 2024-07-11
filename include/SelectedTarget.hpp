@@ -51,7 +51,7 @@ struct ProjectedTarget final {
     std::pair<std::vector<cv::Point2d>, std::vector<cv::Point2d>> projectedPoints;
 };
 
-struct ProjectedArmor final{
+struct ProjectedArmor final {
     TimePoint lastUpdate;
     std::vector<cv::Point2d> armorCorners;
 };
