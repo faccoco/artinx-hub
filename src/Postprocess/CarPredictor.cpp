@@ -175,7 +175,7 @@ class CarPredictor final
 
         auto projectedPoints = reproject(armor, yaw);
         if(!projectedPoints.has_value()) {
-            return {};
+            return 0.0;
         }
 
         // calculate loss
