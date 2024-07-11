@@ -55,7 +55,7 @@ struct CarPredictorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, CarPredictorSettings& x) {
     return f.object(x).fields(
-        f.field("debugView", x.debugView).fallback(false), f.field("fixYawThresh", x.fixYawThresh).fallback(25.0),
+        f.field("debugView", x.debugView).fallback(false), f.field("fixYawThresh", x.fixYawThresh).fallback(90.0),
         f.field("enableFixYaw", x.enableFixYaw).fallback(false), f.field("enablePredictor", x.enablePredictor),
         f.field("maxMatchDist", x.maxMatchDist).fallback(0.4), f.field("maxMatchYaw", x.maxMatchYaw).fallback(0.3),
         f.field("trackingThreshold", x.trackingThreshold).fallback(5), f.field("lostThreshold", x.lostThreshold).fallback(5),
@@ -74,6 +74,14 @@ class CarPredictor final
         TRACKING,
         TEMP_LOST,
     };
+
+    enum class YawFixMode {
+        NONE,
+        SHORT_EDGE_ANGLE,
+        LONG_EDGE_ANGLE,
+        POLYGON_DIFF
+    };
+
     ExtendedKalmanFilter mEKF;
     struct TrackedArmor {
         TimePoint lastUpdate;
@@ -120,29 +128,33 @@ class CarPredictor final
         if(!mConfig.enableFixYaw) {
             return yaw;
         }
-        bool skipFix = false;
+        YawFixMode fixMode = YawFixMode::NONE;
 
-        double yawFace = glm::degrees(normalizeAngle(-atan2(armor.rmat.raw()[2][0], armor.rmat.raw()[2][2]) - glm::pi<double>()));
+        double yawFace =
+            std::abs(glm::degrees(normalizeAngle(-atan2(armor.rmat.raw()[2][0], armor.rmat.raw()[2][2]) - glm::pi<double>())));
 
-        if(std::abs(yawFace) > mConfig.fixYawThresh) {
-            skipFix = true;
+
+        if(std::abs(yawFace) < mConfig.fixYawThresh) {
+            fixMode = YawFixMode::SHORT_EDGE_ANGLE;
         }
-        HubLogger::watch("skipFix", static_cast<int>(skipFix));
-        if(skipFix) {
+
+        HubLogger::watch("fixMode", static_cast<int>(fixMode));
+        HubLogger::watch("yawFace", yawFace);
+
+        if(fixMode == YawFixMode::NONE) {
             return yaw;
         }
 
-        HubLogger::watch("yawFace", yawFace);
-
-        double gap = 1 / (20 * CV_PI);
+        double gap = 3 / 180.0 * CV_PI;
         int cnt = 0;
-        double left = yaw - CV_PI / 4, right = yaw + CV_PI / 4;
-
+        double left = yaw - CV_PI / 8, right = yaw + CV_PI / 8;
+        // double initLoss = calLoss(armor, yaw, YawFixMode::POLYGON_DIFF).value();
         while(right - left > gap && cnt < 5) {
             double mid = (left + right) / 2;
-            auto lossLeft = calLoss(armor, (left + right) / 2 - gap, yawFace);
-            auto lossRight = calLoss(armor, (left + right) / 2 + gap, yawFace);
-            if(!lossLeft.has_value() || !lossRight.has_value()) {
+            auto lossLeft = calLoss(armor, (left + right) / 2 - gap, fixMode);
+            auto lossRight = calLoss(armor, (left + right) / 2 + gap, fixMode);
+            if((!lossLeft.has_value() || !lossRight.has_value()) || 
+                (lossLeft.value() == 0.0 && lossRight.value() == 0.0)) {
                 return yaw;
             }
             if(lossLeft.value() < lossRight.value()) {
@@ -152,10 +164,14 @@ class CarPredictor final
             }
             cnt++;
         }
+        // double finalLoss = calLoss(armor, (left + right) / 2, YawFixMode::POLYGON_DIFF).value();
+        // if(finalLoss > initLoss && yawFace < 15.0f) {
+        //     return yaw;
+        // }
         return (left + right) / 2;
     }
 
-    std::optional<double> calLoss(const DetectedTarget& armor, double yaw, double yawFace) {
+    std::optional<double> calLoss(const DetectedTarget& armor, double yaw, YawFixMode fixMode) {
 
         auto projectedPoints = reproject(armor, yaw);
         if(!projectedPoints.has_value()) {
@@ -164,28 +180,56 @@ class CarPredictor final
 
         // calculate loss
         double armorLoss = 0.0;
-        if(std::abs(yawFace) > 99.0) {
-            //      1. edge length
-            for (int i = 0; i < 4; i++){
-                auto edgeLength = euclideanDistance( projectedPoints.value()[i], projectedPoints.value()[(i + 1) % 4]);
-                auto imageEdgeLength = euclideanDistance( armor.armorPoints[i], armor.armorPoints[(i + 1) % 4]);
-                armorLoss += std::abs(edgeLength - imageEdgeLength);
+        switch(fixMode) {
+            case YawFixMode::SHORT_EDGE_ANGLE: {
+                //      1. short edge angle
+                auto edge1 = projectedPoints.value()[0] - projectedPoints.value()[1];
+                auto edge2 = projectedPoints.value()[3] - projectedPoints.value()[2];
+
+                auto angle1 = atan2(edge1.y, edge1.x);
+                auto angle2 = atan2(edge2.y, edge2.x);
+
+                auto imageEdge1 = armor.armorPoints[0] - armor.armorPoints[1];
+                auto imageEdge2 = armor.armorPoints[3] - armor.armorPoints[2];
+
+                auto imageAngle1 = atan2(imageEdge1.y, imageEdge1.x);
+                auto imageAngle2 = atan2(imageEdge2.y, imageEdge2.x);
+
+                armorLoss += std::abs(angle1 - imageAngle1) + std::abs(angle2 - imageAngle2);
+                break;
             }
-        } else {
-            //      2. short edge angle
-            auto edge1 = projectedPoints.value()[0] - projectedPoints.value()[1];
-            auto edge2 = projectedPoints.value()[3] - projectedPoints.value()[2];
+            case YawFixMode::LONG_EDGE_ANGLE: {
+                //      2. long edge angle
+                auto edge1 = projectedPoints.value()[0] - projectedPoints.value()[3];
+                auto edge2 = projectedPoints.value()[1] - projectedPoints.value()[2];
 
-            auto angle1 = atan2(edge1.y, edge1.x);
-            auto angle2 = atan2(edge2.y, edge2.x);
+                auto angle1 = atan2(edge1.y, edge1.x);
+                auto angle2 = atan2(edge2.y, edge2.x);
 
-            auto imageEdge1 = armor.armorPoints[0] - armor.armorPoints[1];
-            auto imageEdge2 = armor.armorPoints[3] - armor.armorPoints[2];
+                auto imageEdge1 = armor.armorPoints[0] - armor.armorPoints[3];
+                auto imageEdge2 = armor.armorPoints[1] - armor.armorPoints[2];
 
-            auto imageAngle1 = atan2(imageEdge1.y, imageEdge1.x);
-            auto imageAngle2 = atan2(imageEdge2.y, imageEdge2.x);
+                auto imageAngle1 = atan2(imageEdge1.y, imageEdge1.x);
+                auto imageAngle2 = atan2(imageEdge2.y, imageEdge2.x);
 
-            armorLoss += std::abs(angle1 - imageAngle1) + std::abs(angle2 - imageAngle2);
+                armorLoss += std::abs(angle1 - imageAngle1) + std::abs(angle2 - imageAngle2);
+                break;
+            }
+            case YawFixMode::POLYGON_DIFF: {
+                //      3. polygon difference
+                std::vector<cv::Point2f> projectedPointsFloat(projectedPoints.value().begin(), projectedPoints.value().end());
+                double area1 = cv::contourArea(projectedPointsFloat);
+                double area2 = cv::contourArea(armor.armorPoints);
+
+                std::vector<cv::Point2f> intersection;
+                cv::intersectConvexConvex(projectedPointsFloat, armor.armorPoints, intersection);
+                armorLoss = std::fabs(cv::contourArea(intersection) - (area1 + area2) / 2);
+                break;
+            }
+            default: {
+                logWarning("CarPrediction: fixMode not supported");
+                break;
+            }
         }
 
         HubLogger::watch("armorLoss", armorLoss);
@@ -236,11 +280,13 @@ class CarPredictor final
         return glm::dvec3{ xa, ya, za };
     }
 
-    void handleArmorJump(const glm::dvec3& targetPos, double targetYaw) {
+    bool handleArmorJump(const glm::dvec3& targetPos, double targetYaw) {
+        bool match = false;
         setArmorYaw(targetYaw);
         double yaw = mTrackedArmor.yaw;
         auto deltayaw = std::fabs(yaw - mTrackedArmor.state(3));
         if(std::fabs(yaw - mTrackedArmor.state(3)) > mConfig.maxMatchYaw) {
+            match = true;
             mLastY = mTrackedArmor.state(1);
             mTrackedArmor.state(1) = targetPos.y;
             mTrackedArmor.state(3) = yaw;
@@ -251,7 +297,10 @@ class CarPredictor final
                 fmt::format("EKF Armor may experience a jump. Change Yaw, Y and R. delta yaw is {:.5f}", deltayaw));
         }
         auto dist = glm::distance(targetPos, getArmorPosFromState(mTrackedArmor.state));
+
+        // ignore R distance
         if(dist > mConfig.maxMatchDist + 0.2) {
+            match = false;
             mTrackedArmor.state(0) = targetPos.x - mTrackedArmor.state(8) * cos(yaw);
             mTrackedArmor.state(2) = targetPos.z - mTrackedArmor.state(8) * sin(yaw);
             mTrackedArmor.state(4) = 0;
@@ -263,6 +312,7 @@ class CarPredictor final
                 fmt::format("ArmorPredictor: The same Armor match distance {} too far. State wrong, reset EKF", dist));
         }
         mEKF.setState(mTrackedArmor.state);
+        return match;
     }
 
     void handleTrackingState(bool matched) {
@@ -421,7 +471,7 @@ class CarPredictor final
                 auto armorArea = cv::contourArea(armor.armorPoints);
                 if(armor.id == mTrackedArmor.id && trackedArmorArea < armorArea) {
                     // Armor jump may happen
-                    handleArmorJump(getArmorPos(armor), fixArmorYaw(armor, getArmorYaw(armor)));
+                    matched = handleArmorJump(getArmorPos(armor), fixArmorYaw(armor, getArmorYaw(armor)));
                     candArmor = armor;
                     break;
                 }
@@ -446,8 +496,9 @@ class CarPredictor final
 
 public:
     CarPredictor(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) },
-          mTrackedArmor{ TimePoint(), Eigen::VectorXd::Zero(9), 0, RobotType::Negative, TrackingState::LOST } {
+        : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) }, mTrackedArmor{
+              TimePoint(), Eigen::VectorXd::Zero(9), 0, RobotType::Negative, TrackingState::LOST
+          } {
         // EKF
         // xa = x_armor, xc = x_robot_center
         // state: xc, yc, zc, yaw, v_xc, v_yc, v_zc, v_yaw, r
