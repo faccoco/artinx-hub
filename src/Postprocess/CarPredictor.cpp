@@ -36,6 +36,7 @@
 #include <opencv2/core/cvdef.h>
 #include <opencv2/core/mat.hpp>
 #include <vector>
+#include <random>
 
 struct CarPredictorSettings final {
     bool enablePredictor;
@@ -129,40 +130,63 @@ class CarPredictor final
         YawFixMode fixMode = YawFixMode::NONE;
 
         double yawFace =
-            std::abs(glm::degrees(normalizeAngle(-atan2(armor.rmat.raw()[2][0], armor.rmat.raw()[2][2]) - glm::pi<double>())));
+            glm::degrees(normalizeAngle(-atan2(armor.rmat.raw()[2][0], armor.rmat.raw()[2][2]) - glm::pi<double>()));
 
+        HubLogger::watch("yawFace", yawFace);
+        yawFace = std::abs(yawFace);
+
+        // TODO: loss function choose
         if(std::abs(yawFace) < mConfig.fixYawThresh) {
-            fixMode = YawFixMode::SHORT_EDGE_ANGLE;
+            fixMode = YawFixMode::LENGTH_POINT_DIFF;
         }
 
         HubLogger::watch("fixMode", static_cast<int>(fixMode));
-        HubLogger::watch("yawFace", yawFace);
 
         if(fixMode == YawFixMode::NONE) {
             return yaw;
         }
 
+        auto gap = glm::radians(45.0f);
+        std::pair<double, double> interval1 = { yaw - gap, yaw + gap };
+        auto yaw1 = getBestYaw(armor, interval1, fixMode, 5);
+
+        std::pair<double, double> interval2 = { yaw - 2 * gap, yaw - gap };
+        auto yaw2 = getBestYaw(armor, interval2, fixMode, 5);
+
+        std::pair<double, double> interval3 = { yaw + gap, yaw + 2 * gap };
+        auto yaw3 = getBestYaw(armor, interval3, fixMode, 5);
+
+        std::vector<std::pair<double, double>> yawList = { yaw1, yaw2, yaw3 };
+        std::sort(yawList.begin(), yawList.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
+
+        return yawList[0].first;
+    }
+
+    std::pair<double, double> getBestYaw(const DetectedTarget& armor, std::pair<double, double>& interval, YawFixMode fixMode, int iterCnt){
         int cnt = 0;
-        double left = yaw - CV_PI / 32;
-        double right = yaw + CV_PI / 32;
-        double gap = 3.0f * CV_PI / 180.0f;
-        while(cnt < 10) {
-            auto lossLeft = calLoss(armor, left + (right - left) / 3, fixMode);
-            auto lossRight = calLoss(armor, right - (right - left) / 3, fixMode);
-            if((!lossLeft.has_value() || !lossRight.has_value()) || (lossLeft.value() == 0.0 && lossRight.value() == 0.0)) {
-                return yaw;
+        double finalLoss = 0;
+        double left = interval.first;
+        double right = interval.second;
+        double yaw = (left + right) / 2;
+        while(cnt < iterCnt) {
+            auto lossLeft = calLoss(armor, left, fixMode);
+            auto lossRight = calLoss(armor, right, fixMode);
+
+            if(!lossLeft.has_value() || !lossRight.has_value()) {
+                return { yaw, 0.0f };
             }
+
             if(lossLeft.value() < lossRight.value()) {
-                right = right - (right - left) / 3 + gap;
-                left -= gap;
+                right = right - (right - left) / 3;
             } else {
-                left = left + (right - left) / 3 - gap;
-                right += gap;
+                left = left + (right - left) / 3;
             }
+            finalLoss = std::min(lossLeft.value(), lossRight.value());
             cnt++;
         }
+
         auto fixedYaw = (left + right) / 2;
-        return fixedYaw;
+        return { fixedYaw, finalLoss };
     }
 
     std::optional<double> calLoss(const DetectedTarget& armor, double yaw, YawFixMode fixMode) {
@@ -229,11 +253,11 @@ class CarPredictor final
                     double pixelLoss =
                         0.5 * (cv::norm(imagePoint[i] - projectedPoints[i]) + cv::norm(imagePoint[p] - projectedPoints[p])) +
                         std::fabs(cv::norm(ref) - cv::norm(pts)) / cv::norm(ref);
-                    double angularLoss = getAngleDiff(ref, pts);
+                    double angularLoss = getAngleDiff(ref, pts) * static_cast<double>(i % 2 != 1);
                     // 平方可能是为了配合 sin 和 cos
                     // 弧度差代价（0 度左右占比应该大）
                     double cost = std::pow((pixelLoss * std::sin(incline)), 2)
-                        + std::pow((angularLoss * std::cos(incline)), 2) * 0.25;
+                        + std::pow((angularLoss * std::cos(incline)), 2) * 0.5;
                     armorLoss += std::sqrt(cost);
                 }
                 break;
@@ -500,7 +524,7 @@ class CarPredictor final
                 mLastYaw = normalizeAngle(mLastYaw + (1 * CV_PI / 180.0f));
 //                auto debugPoints = reproject(candArmor, getArmorYaw(candArmor));
                 auto debugPoints = reproject(candArmor, mLastYaw);
-                auto loss = calLoss(candArmor, mLastYaw, YawFixMode::SHORT_EDGE_ANGLE);
+                auto loss = calLoss(candArmor, mLastYaw, YawFixMode::LENGTH_POINT_DIFF);
                 HubLogger::watch("loss", loss.value());
                 debugView(debugPoints.value());
             }
