@@ -16,27 +16,20 @@
 #include "Utility.hpp"
 
 #include <Eigen/Core>
-#include <Eigen/Geometry>
 #include <caf/event_based_actor.hpp>
 #include <cmath>
 #include <fmt/core.h>
-#include <glm/ext.hpp>
 #include <glm/ext/matrix_transform.hpp>
-#include <glm/ext/quaternion_common.hpp>
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/fwd.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
-#include <glm/gtx/transform.hpp>
 #include <glm/matrix.hpp>
 #include <glm/trigonometric.hpp>
-#include <iostream>
 #include <magic_enum.hpp>
-#include <opencv2/core.hpp>
 #include <opencv2/core/cvdef.h>
 #include <opencv2/core/mat.hpp>
 #include <vector>
-#include <random>
 
 struct CarPredictorSettings final {
     bool enablePredictor;
@@ -146,6 +139,7 @@ class CarPredictor final
             return yaw;
         }
 
+        // multi start point to avoid track into local optimum
         auto gap = glm::radians(45.0f);
         std::pair<double, double> interval1 = { yaw - gap, yaw + gap };
         auto yaw1 = getBestYaw(armor, interval1, fixMode, 5);

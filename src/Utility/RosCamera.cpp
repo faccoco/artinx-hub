@@ -5,7 +5,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <sensor_msgs/msg/image.hpp>
-#include <sensor_msgs/msg/joint_state.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
 
 #include <caf/event_based_actor.hpp>
 
@@ -36,7 +36,7 @@ class RosCamera final : public HubHelper<caf::event_based_actor, RosCameraSettin
     Identifier mKey;
     rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr cameraInfoSubscription;
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr imgSubscription;
-    rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr jointSubscription;
+    rclcpp::Subscription<geometry_msgs::msg::Vector3>::SharedPtr jointSubscription;
     rclcpp::Node::SharedPtr node;
     cv::Mat mCameraMatrix;
     cv::Mat mDistCoefficients;
@@ -45,12 +45,14 @@ class RosCamera final : public HubHelper<caf::event_based_actor, RosCameraSettin
 
     double yaw;
     double pitch;
+    double roll;
 
 public:
     RosCamera(caf::actor_config& base, const HubConfig& config, std::string name)
         : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
         yaw = 0;
         pitch = 0;
+        roll = 0;
         rclcpp::init(0, nullptr);  // init ROS
         // initialize node
         node = rclcpp::Node::make_shared("ros_connector");
@@ -66,7 +68,7 @@ public:
             });
         imgSubscription = node->create_subscription<sensor_msgs::msg::Image>(
             mConfig.imageTopic, rclcpp::SensorDataQoS(), std::bind(&RosCamera::publishRosImg, this, std::placeholders::_1));
-        jointSubscription = node->create_subscription<sensor_msgs::msg::JointState>(
+        jointSubscription = node->create_subscription<geometry_msgs::msg::Vector3>(
             mConfig.jointTopic, rclcpp::SensorDataQoS(), std::bind(&RosCamera::publishJointState, this, std::placeholders::_1));
         std::thread([this]() { rclcpp::spin(node); }).detach();
     }
@@ -84,7 +86,7 @@ public:
         frameData.info.identifier = "RosCamera";
         frameData.info.width = frame.cols;
         frameData.info.height = frame.rows;
-        frameData.info.tfRobot2Camera = clcTfRobot2Camera(yaw, pitch, 0.0);
+        frameData.info.tfRobot2Camera = clcTfRobot2Camera(yaw, pitch, roll);
         frame.copyTo(frameData.frame);
 
         if (frameData.info.cameraMatrix.empty()){
@@ -94,10 +96,11 @@ public:
                 BlackBoard::instance().updateSync(mKey, std::move(frameData), static_cast<std::string_view>("ros_camera")));
     }
 
-    void publishJointState(const sensor_msgs::msg::JointState::ConstSharedPtr& jointMsg){
+    void publishJointState(const geometry_msgs::msg::Vector3::ConstSharedPtr& jointMsg){
         ACTOR_EXCEPTION_PROBE();
-        yaw = jointMsg->position[0];
-        pitch = jointMsg->position[1];
+        yaw = jointMsg->x;
+        pitch = jointMsg->y;
+        roll = jointMsg->z;
         HubLogger::watch("simYaw", yaw);
         HubLogger::watch("simPitch", pitch);
     }
