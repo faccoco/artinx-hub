@@ -27,13 +27,14 @@ class InfantryRecvPacket final {
 public:
     static constexpr uint16_t id = 0x0A;
 
-    float yaw, pitch, bulletSpeed, speedX, speedY;
+    float yaw, pitch, roll, bulletSpeed, speedX, speedY;
     uint8_t color, energyMode = 0, priorNum = 8 /*Negative*/;
     float capEnergy, chasisPower;
     explicit InfantryRecvPacket(std::array<uint8_t, 1024>& buffer) {
         PacketReader<1024> reader(buffer);
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
+        roll = reader.readCompressedFloat(-4.0f, 0.0005f);
         speedX = reader.readCompressedFloat(-20.0f, 0.01f);
         speedY = reader.readCompressedFloat(-20.0f, 0.01f);
         const auto mask = reader.read();
@@ -89,7 +90,7 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
     constexpr static size_t latencyLen = 100;
     std::deque<double> mLatency;
 
-    float mYaw = 0., mPitch = 0., mCapEnergy = 0., mChasisPower = 0.;
+    float mYaw = 0., mPitch = 0., mRoll = 0., mCapEnergy = 0., mChasisPower = 0.;
     TimePoint mLastReceivedTime, mLastTargetTime;
 
     void infantryRecvCB(const InfantryRecvPacket& fdb) {
@@ -100,6 +101,7 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
         HubLogger::watch("yaw1", glm::degrees(fdb.yaw));
         HubLogger::watch("pitch1", glm::degrees(fdb.pitch));
+        HubLogger::watch("roll", glm::degrees(fdb.roll));
         HubLogger::watch("deltaYaw1", glm::degrees(deltaYaw1));
         HubLogger::watch("deltaPitch1", glm::degrees(deltaPitch1));
 
@@ -111,11 +113,12 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
 
         const double yaw = fdb.yaw;
         const double pitch = fdb.pitch;
-        const double roll = 0.0;
+        const double roll = fdb.roll;
         const HeadInfo infoHead{ SynchronizedClock::instance().now(), { roll, pitch, yaw } };
 
         mYaw = fdb.yaw;
         mPitch = fdb.pitch;
+        mRoll = fdb.roll;
         mCapEnergy = fdb.capEnergy;
         mChasisPower = fdb.chasisPower;
 
@@ -140,14 +143,17 @@ public:
     InfantrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
         : HubHelper{ base, config, std::move(name) }, SerialPort<InfantryRecvPacket, InfantrySendPacket>(
                                                           mConfig.devPath, mConfig.baudRate,
-                                                          [this](auto && PH1) { infantryRecvCB(std::forward<decltype(PH1)>(PH1)); },
+                                                          [this](auto&& PH1) {
+                                                              infantryRecvCB(std::forward<decltype(PH1)>(PH1));
+                                                          },
                                                           std::bind(&InfantrySerialPort::infantrySetPacket, this)),
           mKey{ generateKey(this) } {
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
                 ReadableTimePoint readableTimePoint(std::chrono::system_clock::now());
-                HubLogger::electricCtrlLog(fmt::format("CapEnegy: {:.3f}, Chasis: {:.3f} Yaw: {:.3f}, Pitch: {:.3f}", mCapEnergy,
-                                                       mChasisPower, mYaw, mPitch));
+                HubLogger::electricCtrlLog(
+                    fmt::format("CapEnegy: {:.3f}, Chasis: {:.3f} Yaw: {:.3f}, Pitch: {:.3f}, Roll: {:.3f}", mCapEnergy,
+                                mChasisPower, mYaw, mPitch, mRoll));
                 std::this_thread::sleep_for(50ms);
             }
         }).detach();
@@ -180,11 +186,12 @@ public:
                 }
 
                 const auto current = Clock::now();
-                const auto latency = double(current.time_since_epoch().count() - data.lastUpdate.time_since_epoch().count()) /
+                const auto latency = static_cast<double>(current.time_since_epoch().count() - data.lastUpdate.time_since_epoch().count()) /
                     Duration::period::den * Duration::period::num;
 
-                if(mLatency.size() >= latencyLen)
+                if(mLatency.size() >= latencyLen) {
                     mLatency.pop_front();
+                }
                 mLatency.push_back(latency);
                 GlobalSettings::get().latency = avg(mLatency);
                 HubLogger::watch("avgLatency", static_cast<int>(GlobalSettings::get().latency * 1000));
