@@ -120,35 +120,23 @@ class CarPredictor final
         if(!mConfig.enableFixYaw) {
             return yaw;
         }
-        YawFixMode fixMode = YawFixMode::NONE;
-
+        
         double yawFace =
             glm::degrees(normalizeAngle(-atan2(armor.rmat.raw()[2][0], armor.rmat.raw()[2][2]) - glm::pi<double>()));
 
         HubLogger::watch("yawFace", yawFace);
         yawFace = std::abs(yawFace);
 
-        // TODO: loss function choose
-        if(std::abs(yawFace) < mConfig.fixYawThresh) {
-            fixMode = YawFixMode::LENGTH_POINT_DIFF;
-        }
-
-        HubLogger::watch("fixMode", static_cast<int>(fixMode));
-
-        if(fixMode == YawFixMode::NONE) {
-            return yaw;
-        }
-
         // multi start point to avoid track into local optimum
         auto gap = glm::radians(45.0f);
         std::pair<double, double> interval1 = { yaw - gap, yaw + gap };
-        auto yaw1 = getBestYaw(armor, interval1, fixMode, 5);
+        auto yaw1 = getBestYaw(armor, interval1, YawFixMode::LENGTH_POINT_DIFF, 5);
 
         std::pair<double, double> interval2 = { yaw - 2 * gap, yaw - gap };
-        auto yaw2 = getBestYaw(armor, interval2, fixMode, 5);
+        auto yaw2 = getBestYaw(armor, interval2, YawFixMode::LENGTH_POINT_DIFF, 5);
 
         std::pair<double, double> interval3 = { yaw + gap, yaw + 2 * gap };
-        auto yaw3 = getBestYaw(armor, interval3, fixMode, 5);
+        auto yaw3 = getBestYaw(armor, interval3, YawFixMode::LENGTH_POINT_DIFF, 5);
 
         std::vector<std::pair<double, double>> yawList = { yaw1, yaw2, yaw3 };
         std::sort(yawList.begin(), yawList.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
