@@ -34,7 +34,7 @@ bool inspect(Inspector& f, CameraBaseSettings& x) {
         f.field("openMode", x.openMode).invariant([](std::string_view v) { return v == "Index" || v == "SerialNumber"; }),
         f.field("identifier", x.identifier), f.field("cameraName", x.cameraName).fallback("origin"),
         f.field("fps", x.fps).fallback(30.0).invariant([](const double v) { return v >= 1.0 && v <= 500.0; }),
-        f.field("fov", x.fov), f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
+        f.field("fov", x.fov).fallback(30.0), f.field("exposureTime", x.exposureTime), f.field("flip", x.flip).fallback(false),
         f.field("enableAutoWhiteBalance", x.enableAutoWhiteBalance).fallback(false), f.field("gain", x.gain).fallback(0.0),
         f.field("isAtGun", x.isAtGun).fallback(true), f.field("dx", x.offset.x).fallback(0.0),
         f.field("dy", x.offset.y).fallback(0.0), f.field("dz", x.offset.z).fallback(0.0), f.field("yaw", x.yaw).fallback(0.0),

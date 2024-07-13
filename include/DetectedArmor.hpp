@@ -51,4 +51,18 @@ struct DetectedArmorArray final {
     std::vector<Armor> armors;
 };
 
+const std::vector<cv::Point3d> mObjectPointsSmall = {
+    { -widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
+    { -widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
+    { +widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
+    { +widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
+};
+
+const std::vector<cv::Point3d> mObjectPointsLarge = {
+    { -widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
+    { -widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
+    { +widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
+    { +widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
+};
+
 ACTOR_PROTOCOL_DEFINE(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);

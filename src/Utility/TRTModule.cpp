@@ -139,12 +139,12 @@ void TRTModule::build_engine_from_onnx(const std::string& onnx_file) {
     network->markOutput(*yolov5_output_topk);
     network->unmarkOutput(*yolov5_output);
     auto config = builder->createBuilderConfig();
-    // if (builder->platformHasFastFp16()) {
-    //     std::cout << "[INFO]: platform support fp16, enable fp16" << std::endl;
-    //     config->setFlag(BuilderFlag::kFP16);
-    // } else {
-    //     std::cout << "[INFO]: platform do not support fp16, enable fp32" << std::endl;
-    // }
+    if(builder->platformHasFastFp16()) {
+        std::cout << "[INFO]: platform support fp16, enable fp16" << std::endl;
+        config->setFlag(BuilderFlag::kFP16);
+    } else {
+        std::cout << "[INFO]: platform do not support fp16, enable fp32" << std::endl;
+    }
     size_t free, total;
     cuMemGetInfo(&free, &total);
     std::cout << "[INFO]: total gpu mem: " << (total >> 20) << "MB, free gpu mem: " << (free >> 20) << "MB" << std::endl;
@@ -215,12 +215,15 @@ std::vector<bbox_t> TRTModule::operator()(const cv::Mat& src) const {
         box.tag_id = argmax(box_buffer + 13, 9);
         for(int j = i + 1; j < TOPK_NUM; j++) {
             auto* box2_buffer = output_buffer + j * 22;
-            if(box2_buffer[8] < inv_sigmoid(KEEP_THRES))
+            if(box2_buffer[8] < inv_sigmoid(KEEP_THRES)) {
                 break;
-            if(removed[j])
+            }
+            if(removed[j]) {
                 continue;
-            if(is_overlap(box_buffer, box2_buffer))
+            }
+            if(is_overlap(box_buffer, box2_buffer)) {
                 removed[j] = true;
+            }
         }
     }
 

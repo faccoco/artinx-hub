@@ -64,7 +64,8 @@ set(SOURCE
         "Utility/NetInference.cpp"
         "Utility/TRTModule.cpp"
         "Utility/ArmorLabeler.cpp"
-        )
+        "Utility/RosCamera.cpp"
+)
 
 find_package(CAF REQUIRED COMPONENTS core io)
 find_package(glm CONFIG REQUIRED)
@@ -141,6 +142,29 @@ if (DEFINED ENV{CUDA_PATH})
     target_link_libraries(ArtinxHub PRIVATE $ENV{TensorRT_SOURCE} ${TensorRT_LIBS} cuda nvonnxparser)
     add_compile_definitions("ARTINX_CUDA")
 endif()
+
+if (DEFINED ENV{ROS_DISTRO})
+    set(ROS_PATH /opt/ros/$ENV{ROS_DISTRO}/)
+    set(DEPENDENCIES
+            ament_cmake
+            rclcpp
+            std_msgs
+            rclcpp_components
+            sensor_msgs
+            image_transport
+            vision_opencv
+            image_transport_plugins
+    )
+    foreach(package ${DEPENDENCIES})
+        include_directories(ArtinxHub ${ROS_PATH}/include/${package})
+        find_package(${package} REQUIRED)
+        include_directories(ArtinxHub ${${package}_INCLUDE_DIRS})
+        target_link_libraries(ArtinxHub PRIVATE ${${package}_LIBRARIES})
+    endforeach()
+    add_compile_definitions("ARTINX_ROS")
+else()
+    message("ROS2 not found")
+endif ()
 
 if (DEFINED ENV{ARTINX_RADAR})
     set(CUDA_TOOLKIT_ROOT_DIR $ENV{CUDA_PATH})

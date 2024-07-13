@@ -15,6 +15,7 @@ struct DetectedTarget final {
     RobotType id;
     ArmorType type;
     ArmorMotion motion;  // get from strategy
+    std::vector<cv::Point2f> armorPoints;
     Transform<FrameOfRef::Armor, FrameOfRef::Camera> rmat;
 };
 

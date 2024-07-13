@@ -1,4 +1,5 @@
 #include "BlackBoard.hpp"
+#include "Common.hpp"
 #include "DataDesc.hpp"
 #include "DetectedArmor.hpp"
 #include "DetectedTarget.hpp"
@@ -25,23 +26,24 @@ class ArmorLocator final
     : public HubHelper<caf::event_based_actor, ArmorLocatorSettings, detect_available_atom, image_frame_atom> {
     Identifier mKey /*, mHeadKey{}*/;
 
-    const std::vector<cv::Point3d> mObjectPointsSmall = {
-        { -widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-        { -widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfSmallArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfSmallArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-    };
-    const std::vector<cv::Point3d> mObjectPointsLarge = {
-        { -widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-        { -widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfLargeArmor / 2, -heightOfArmorLightBar / 2, 0.0 },
-        { +widthOfLargeArmor / 2, +heightOfArmorLightBar / 2, 0.0 },
-    };
     std::vector<cv::Point2f> mImagePoint{ 4 };
 
     cv::Point2f clcArmorImgCenter() {
         return { (mImagePoint[0].x + mImagePoint[1].x + mImagePoint[2].x + mImagePoint[3].x) / 4,
                  (mImagePoint[0].y + mImagePoint[1].y + mImagePoint[2].y + mImagePoint[3].y) / 4 };
+    }
+
+    template <class T>
+    static void printGlmMat(int dim, const T& matrix) {
+        // Print the matrix
+        std::cout << "[\n";
+        for(int i = 0; i < dim; ++i) {
+            for(int j = 0; j < dim; ++j) {
+                std::cout << matrix[i][j] << " \t";
+            }
+            std::cout << "\n";
+        }
+        std::cout << "]\n";
     }
 
 public:
@@ -60,12 +62,18 @@ public:
                 const auto& cameraInfo = data.frame.info;
                 res.tfRobot2Camera = cameraInfo.tfRobot2Camera;
 
+                if(cameraInfo.cameraMatrix.empty() || cameraInfo.distCoefficients.empty()) {
+                    HubLogger::visualLog("ArmorLocator: cameraMatrix or distCoefficients is empty");
+                    logInfo("ArmorLocator: cameraMatrix or distCoefficients is empty");
+                    return;
+                }
+
                 cv::Point2f imgCenter{ data.frame.frame.cols / 2.f, data.frame.frame.rows / 2.f };
                 for(const auto& armor : data.armors) {
                     mImagePoint = armor.light4Point;
                     auto armorType = armor.isLargeArmor ? ArmorType::Large : ArmorType::Small;
 
-                    if (mImagePoint.size() < 4){
+                    if(mImagePoint.size() < 4) {
                         HubLogger::visualLog("wrong point numbers of pnp!");
                         continue;
                     }
@@ -81,12 +89,16 @@ public:
                         continue;
                     }
 
-                    if(std::isnan(tvec.at<double>(0, 0)) || std::isnan(-tvec.at<double>(1, 0)) || std::isnan(-tvec.at<double>(2, 0))){
+                    if(std::isnan(tvec.at<double>(0, 0)) || std::isnan(-tvec.at<double>(1, 0)) ||
+                       std::isnan(-tvec.at<double>(2, 0))) {
                         HubLogger::visualLog("ArmorLocator: nan orrcur");
                         logInfo("ArmorLocator: nan orrcur");
                         continue;
                     }
+                    // in opencv, camera coordinate is x right, y down, z toward observe direction
+                    // we use opengl's camera coordinate, y is up, so take minus in y and z
                     glm::dvec3 p0 = { tvec.at<double>(0, 0), -tvec.at<double>(1, 0), -tvec.at<double>(2, 0) };
+
                     glm::dvec3 r = { rvec.at<double>(0, 0), -rvec.at<double>(1, 0), -rvec.at<double>(2, 0) };
 
                     auto pointRefCam = Point<UnitType::Distance, FrameOfRef::Camera>{ p0 };
@@ -101,12 +113,12 @@ public:
                     HubLogger::watch("ZRefCam", p0.z);
                     // HubLogger::watch("isLargeArmor", armor.isLargeArmor);
                     // logInfo(fmt::format("isLargeArmor: {} {}", armor.ratio, isLargeArmor));
-                    HubLogger::watch("YawRefCam", glm::degrees(normalizeAngle(-atan2(rmat[2][0], rmat[2][2]) -
-                    glm::half_pi<double>())));
+//                    HubLogger::watch("YawRefCam",
+//                                     glm::degrees(normalizeAngle(-atan2(rmat[2][0], rmat[2][2]) - glm::pi<double>())));
 
                     auto armorImgCenter = clcArmorImgCenter();
                     res.targets.push_back({ armorImgCenter, distance2D(armorImgCenter, imgCenter), pointRefCam, armor.robotType,
-                                            armorType, ArmorMotion::Unsure,
+                                            armorType, ArmorMotion::Unsure, mImagePoint,
                                             Transform<FrameOfRef::Armor, FrameOfRef::Camera>(rmat) });
 
                     if(std::isnan(p0.x) || std::isnan(p0.y) || std::isnan(p0.z)) {
