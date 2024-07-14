@@ -260,7 +260,7 @@ class CarPredictor final
     }
 
     std::optional<std::vector<cv::Point2d>> reproject(const DetectedTarget& armor, double yaw) {
-        double armorPitch = glm::radians(-15.0f);
+        double armorPitch = glm::radians(armor.id == RobotType::Outpost ? 15.0f : -15.0f);
         double armorYaw = yaw - glm::half_pi<double>();
 
         auto rotationMatrix = glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -armorPitch, glm::dvec3(1, 0, 0)), armorYaw,
