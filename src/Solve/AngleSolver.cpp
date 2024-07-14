@@ -262,13 +262,8 @@ public:
                 ACTOR_EXCEPTION_PROBE();
 
                 auto data = BlackBoard::instance().get<PredictedTarget>(key);
-                auto dataInfo = BlackBoard::instance().get<HeadInfo>(mIMUKey);
                 if(!(data.has_value())) {
                     return;
-                }
-                if(!dataInfo.has_value())  {
-                   HubLogger::visualLog("The value of IMU is null in anglesolver");
-                   return;
                 }
                 if(!frameInit) {
                     mFrame = data->frame;
@@ -441,8 +436,8 @@ public:
                         // HubLogger::visualLog(fmt::format("solved yaw: {:.3f} solved pitch: {:.3f}", 
                                                         //   normalizeAngle(yawWithoutDelay.value()-glm::half_pi<double>()), pitchWithoutDelay.value()));
                         if(yawWithoutDelay.has_value() && pitchWithoutDelay.has_value()){
-                            double delYaw = fabs(normalizeAngle(yawWithoutDelay.value()-glm::half_pi<double>())-dataInfo.value().pose.yaw);
-                            double delPitch = fabs(pitchWithoutDelay.value()-dataInfo.value().pose.pitch);
+                            double delYaw = fabs(normalizeAngle(yawWithoutDelay.value()-glm::half_pi<double>())-GlobalSettings::get().yawFromserial);
+                            double delPitch = fabs(pitchWithoutDelay.value()-GlobalSettings::get().pitchFromserial);
                             fire = delYaw*delYaw + delPitch*delPitch < 0.002f;
                         }
                         // HubLogger::visualLog(fmt::format("---------------------------------isfire:{}-----------------------------------------------------------------------",fire));
@@ -474,10 +469,6 @@ public:
                     }
                     return;
                 }
-            },
-            [this](update_head_atom, GroupMask, Identifier key) {
-                ACTOR_PROTOCOL_CHECK(update_head_atom, GroupMask, TypedIdentifier<HeadInfo>);
-                mIMUKey = key;
             }
         };
     }

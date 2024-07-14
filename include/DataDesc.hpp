@@ -29,6 +29,8 @@ struct GlobalSettings final {
     bool isRed;
     double bulletSpeed;
     double shootDelayTime = 0.f;
+    double pitchFromserial = 0.f;
+    double yawFromserial = 0.f;
     bool started = false;
     int taskMode = 0;
 
