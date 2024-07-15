@@ -2,6 +2,7 @@
 sleep 3
 source /opt/intel/openvino_2021/bin/setupvars.sh
 source /opt/env_setup.sh
+source /etc/profile
 
 # cd to the bash script location
 str=$0 # the bash script location

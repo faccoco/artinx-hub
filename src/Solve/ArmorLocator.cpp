@@ -79,6 +79,9 @@ public:
                     }
 
                     cv::Mat rvec, tvec;
+                    //世界坐标系——装甲板所在平面为xOy
+                    //rvec 和 tvec均为此坐标系下相机位姿
+                    //tvec为装甲板中点到相机光心
                     const auto pnpRes =
                         cv::solvePnP(armor.isLargeArmor ? mObjectPointsLarge : mObjectPointsSmall, mImagePoint,
                                      cameraInfo.cameraMatrix, cameraInfo.distCoefficients, rvec, tvec, false, cv::SOLVEPNP_IPPE);

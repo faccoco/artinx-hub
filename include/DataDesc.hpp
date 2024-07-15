@@ -29,6 +29,8 @@ struct GlobalSettings final {
     bool isRed;
     double bulletSpeed;
     double shootDelayTime = 0.f;
+    double gimbalPitch = 0.f;
+    double gimbalYaw = 0.f;
     bool started = false;
     int taskMode = 0;
 
