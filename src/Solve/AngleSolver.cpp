@@ -197,7 +197,7 @@ class AngleSolver final
                 BlackBoard::instance().updateSync<ProjectedTarget>(Identifier{ mKey.val }, std::move(res)));
     }
 
-    static CandidateTarget chooseTarget(const std::vector<CandidateTarget>& candTargets) {
+    static CandidateTarget chooseTarget(std::vector<CandidateTarget>& candTargets) {
         std::sort(candTargets.begin(), candTargets.end(),
                   [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
 
