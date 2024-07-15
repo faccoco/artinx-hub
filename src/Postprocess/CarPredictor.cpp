@@ -417,7 +417,7 @@ class CarPredictor final
 
     bool update(const double dt, const std::vector<DetectedTarget>& armors) {
         mDt = dt;
-        HubLogger::watch("dt", dt);
+        // HubLogger::watch("dt", dt);
 
         if(mTrackedArmor.id == RobotType::Outpost) {
             auto filterState = mEKF.getState();
@@ -516,9 +516,9 @@ class CarPredictor final
             HubLogger::watch("zRefRobot", mTrackedArmor.state(2));
             HubLogger::watch("yawRefRobot", glm::degrees(mTrackedArmor.state(3)));
             HubLogger::watch("R", mTrackedArmor.state(8));
-            HubLogger::watch("xDetected", candidate.first.x);
-            HubLogger::watch("yDetected", candidate.first.y);
-            HubLogger::watch("zDetected", candidate.first.z);
+            // HubLogger::watch("xDetected", candidate.first.x);
+            // HubLogger::watch("yDetected", candidate.first.y);
+            // HubLogger::watch("zDetected", candidate.first.z);
             HubLogger::watch("yawDetected", glm::degrees(mTrackedArmor.yaw));
         }
         return matched;

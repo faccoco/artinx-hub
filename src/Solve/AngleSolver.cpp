@@ -195,6 +195,16 @@ class AngleSolver final
                 BlackBoard::instance().updateSync<ProjectedTarget>(Identifier{ mKey.val }, std::move(res)));
     }
 
+    static CandidateTarget chooseTarget(const std::vector<CandidateTarget>& candTargets) {
+        if(candTargets.empty()) {
+            return {};
+        }
+        std::sort(candTargets.begin(), candTargets.end(),
+                  [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
+
+        return candTargets[0];
+    }
+
 public:
     AngleSolver(caf::actor_config& base, const HubConfig& config, std::string name)
         : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
@@ -224,8 +234,8 @@ public:
                 Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->linearVel;
                 RobotType targetType = data->robotType;
                 auto horizontalDist = std::sqrt(square(posRefRobot.mVal.z) + square(posRefRobot.mVal.x));
-                HubLogger::watch("verticalDistance", posRefRobot.mVal.y);
-                HubLogger::watch("horizontalDistance", horizontalDist);
+                // HubLogger::watch("verticalDistance", posRefRobot.mVal.y);
+                // HubLogger::watch("horizontalDistance", horizontalDist);
 
                 //(forward:+y,right:+x)
                 glm::dvec3 tfPos = tf(posRefRobot.mVal);
@@ -285,8 +295,8 @@ public:
 
                 double aVel = std::abs(data->angularVel.mVal) > 1 ? -data->angularVel.mVal : 0;
 
-                HubLogger::watch("CenterYaw", centerYaw);
-                HubLogger::watch("AngleVelRefRobot", aVel);
+                // HubLogger::watch("CenterYaw", centerYaw);
+                // HubLogger::watch("AngleVelRefRobot", aVel);
 
                 double R[2] = { data->radius.first, data->radius.second };
                 double Z[2] = { data->y.first, data->y.second };
@@ -357,9 +367,8 @@ public:
                     glm::dvec3 targetPos;
                     bool fire = false;
 
-                    std::sort(candTargets.begin(), candTargets.end(),
-                              [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
-                    CandidateTarget selectedTarget = candTargets[0];
+                    CandidateTarget selectedTarget = chooseTarget(candTargets);
+
                     yaw = selectedTarget.yawAngle;
                     pitch = selectedTarget.pitchAngle;
                     targetPos = selectedTarget.pos;
@@ -378,7 +387,7 @@ public:
                         auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(armorFaced, lVel);
                         if(accessible) {
                             fire = glm::degrees(selectedTarget.diffAngle) < mConfig.orietationAngle;
-                            HubLogger::watch("diffAngle", selectedTarget.diffAngle);
+                            // HubLogger::watch("diffAngle", selectedTarget.diffAngle);
                             yaw = yawAngle;
                             pitch = pitchAngle;
                             targetPos = armorFaced;

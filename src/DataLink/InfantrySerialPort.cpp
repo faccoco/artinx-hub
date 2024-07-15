@@ -99,9 +99,6 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
 
         auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
         auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
-        HubLogger::watch("yaw1", glm::degrees(fdb.yaw));
-        HubLogger::watch("pitch1", glm::degrees(fdb.pitch));
-        HubLogger::watch("roll", glm::degrees(fdb.roll));
         HubLogger::watch("deltaYaw1", glm::degrees(deltaYaw1));
         HubLogger::watch("deltaPitch1", glm::degrees(deltaPitch1));
 
@@ -129,8 +126,10 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
 
         GlobalSettings::get().gimbalYaw = mPitch;
         GlobalSettings::get().gimbalPitch = mYaw;
+        GlobalSettings::get().gimbalRoll = mRoll;
         HubLogger::watch("gimbalYaw", GlobalSettings::get().gimbalYaw);
         HubLogger::watch("gimbalPitch", GlobalSettings::get().gimbalPitch);
+        HubLogger::watch("gimbalRoll", GlobalSettings::get().gimbalRoll);
         sendAll(update_posture_atom_v, BlackBoard::instance().updateSync(mKey, posture));
         sendMasked(update_head_atom_v, 1U, 1U, BlackBoard::instance().updateSync(mKey, infoHead));
     }

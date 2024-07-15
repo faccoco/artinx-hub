@@ -31,6 +31,7 @@ struct GlobalSettings final {
     double shootDelayTime = 0.f;
     double gimbalPitch = 0.f;
     double gimbalYaw = 0.f;
+    double gimbalRoll = 0.f;
     bool started = false;
     int taskMode = 0;
 
