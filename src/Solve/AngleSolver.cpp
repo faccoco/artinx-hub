@@ -103,7 +103,9 @@ class AngleSolver final
                 count++;
             }
         }
-        return addLatency / count;
+        double delay = addLatency / count;
+        HubLogger::watch("avgShootDelay", delay);
+        return delay;
     }
 
     void targetView(const PredictedTarget& target, const double reachTime) {
@@ -323,14 +325,7 @@ public:
                             break;
                         }
 
-                        double delay;
-                        if(mConfig.gimbalFixed) {
-                            avgLatency = getAvglatency(latency, mConfig.latencyThreshold);
-                            HubLogger::watch("avgShootDelay", avgLatency);
-                            delay = avgLatency / 1000;
-                        } else {
-                            delay = mConfig.delay;
-                        }
+                        double delay = mConfig.gimbalFixed ? getAvglatency(latency, mConfig.latencyThreshold) / 1000 : mConfig.delay;
                         double requiredTime = airTime + delay + GlobalSettings::get().latency;
                         double requiredTheta = theta + aVel * requiredTime;
 
