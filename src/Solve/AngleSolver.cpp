@@ -196,9 +196,6 @@ class AngleSolver final
     }
 
     static CandidateTarget chooseTarget(const std::vector<CandidateTarget>& candTargets) {
-        if(candTargets.empty()) {
-            return {};
-        }
         std::sort(candTargets.begin(), candTargets.end(),
                   [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
 
