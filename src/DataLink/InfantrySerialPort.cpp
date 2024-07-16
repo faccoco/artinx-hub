@@ -124,8 +124,8 @@ class InfantrySerialPort final : public HubHelper<caf::event_based_actor, Infant
         posture.tfGround2Robot = Transform<FrameOfRef::Ground, FrameOfRef::Robot>{ glm::identity<glm::dmat4>() };
         posture.linearVelocityOfRobot = Vector<UnitType::LinearVelocity, FrameOfRef::Ground>{ { fdb.speedX, 0, -fdb.speedY } };
 
-        GlobalSettings::get().gimbalYaw = mPitch;
-        GlobalSettings::get().gimbalPitch = mYaw;
+        GlobalSettings::get().gimbalYaw = mYaw;
+        GlobalSettings::get().gimbalPitch = mPitch;
         GlobalSettings::get().gimbalRoll = mRoll;
         HubLogger::watch("gimbalYaw", GlobalSettings::get().gimbalYaw);
         HubLogger::watch("gimbalPitch", GlobalSettings::get().gimbalPitch);

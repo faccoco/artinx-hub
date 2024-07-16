@@ -103,9 +103,55 @@ class AngleSolver final
                 count++;
             }
         }
-        double delay = addLatency / count;
-        HubLogger::watch("avgShootDelay", delay);
-        return delay;
+        return addLatency / count;
+    }
+    static std::vector<CandidateTarget> getTargetposition(double centerYaw,int armorNum,
+            const double R[],const double Z[], glm::dvec3 center,double theta,double aVel,
+                glm::dvec3 lVel,double delay,double sameTimeThreshold,double maxShootDeltaTheta,
+                    double requiredTimeWeight) {
+        std::vector<CandidateTarget> candTargets;
+        for(int i = 0; i < armorNum; i++) {
+            double r = R[i & 1];
+            center.z = Z[i & 1];
+            double predictTime = 0;
+            for(int iterTimes = 0; iterTimes < 5; iterTimes++) {
+                glm::dvec3 predictCenter = center + lVel * predictTime;
+                double predictTheta = theta + aVel * predictTime;
+                glm::dvec3 predictPos = getPos(predictCenter, r, predictTheta);
+
+                auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(predictPos, lVel);
+                if(!accessible) {
+                    // HubLogger::logInfoBoth(fmt::format("AngleSolver: {}th armor gets inaccessible", i));
+                    break;
+                }
+                double requiredTime = airTime + delay + GlobalSettings::get().latency;
+                double requiredTheta = theta + aVel * requiredTime;
+
+                if(requiredTime - predictTime <= sameTimeThreshold) {
+                    double deltaTheta = normalizeAngle(requiredTheta - yawAngle - glm::pi<double>());
+                    if(r == 0 || std::abs(deltaTheta) <= glm::radians(maxShootDeltaTheta)) {
+                        double angleDiff =
+                            absAngleDifferece(centerYaw, normalizeAngle(yawAngle - glm::half_pi<double>()));
+                        CandidateTarget candTarget{};
+                        candTarget.yawAngle = yawAngle;
+                        candTarget.pitchAngle = pitchAngle;
+                        candTarget.diffAngle = angleDiff;
+                        candTarget.r = r;
+                        candTarget.height = center.z;
+                        candTarget.pos = predictPos;
+                        candTarget.reachTime = requiredTime;
+                        candTargets.push_back(candTarget);
+                    } else {
+                        HubLogger::visualLog(fmt::format(
+                        "AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw", i, deltaTheta));
+                    }
+                        break;
+                }
+                predictTime += requiredTimeWeight * (requiredTime - predictTime);
+            }
+            theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
+        }
+        return candTargets;
     }
 
     void targetView(const PredictedTarget& target, const double reachTime) {
@@ -197,13 +243,6 @@ class AngleSolver final
                 BlackBoard::instance().updateSync<ProjectedTarget>(Identifier{ mKey.val }, std::move(res)));
     }
 
-    static CandidateTarget chooseTarget(std::vector<CandidateTarget>& candTargets) {
-        std::sort(candTargets.begin(), candTargets.end(),
-                  [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
-
-        return candTargets[0];
-    }
-
 public:
     AngleSolver(caf::actor_config& base, const HubConfig& config, std::string name)
         : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
@@ -233,26 +272,25 @@ public:
                 Vector<UnitType::LinearVelocity, FrameOfRef::Robot> linearVel = data->linearVel;
                 RobotType targetType = data->robotType;
                 auto horizontalDist = std::sqrt(square(posRefRobot.mVal.z) + square(posRefRobot.mVal.x));
-                // HubLogger::watch("verticalDistance", posRefRobot.mVal.y);
-                // HubLogger::watch("horizontalDistance", horizontalDist);
+                HubLogger::watch("verticalDistance", posRefRobot.mVal.y);
+                HubLogger::watch("horizontalDistance", horizontalDist);
 
                 //(forward:+y,right:+x)
+                
                 glm::dvec3 tfPos = tf(posRefRobot.mVal);
                 glm::dvec3 tfLinearVel = tf(linearVel.mVal);
-
-                const auto delayTime = mConfig.delay + GlobalSettings::get().latency;
+                const auto Time=GlobalSettings::get().latency;
+                const auto delayTime = mConfig.delay + Time;
                 tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
                           tfPos.z + delayTime * tfLinearVel.z };
 
                 auto [accessible, time, yawAngle, pitchAngle] = solveWithoutAirDrag(tfPos, tfLinearVel);
-
-                //                  logInfo(fmt::format("x:{}, y:{}, z:{}, xVel:{}, yVel:{}, zVel:{}", tfPos.x, tfPos.y,
+                //                     logInfo(fmt::format("x:{}, y:{}, z:{}, xVel:{}, yVel:{}, zVel:{}", tfPos.x, tfPos.y,
                 //                     tfPos.z, tfLinearVel.x, tfLinearVel.y, tfLinearVel.z)); logInfo(fmt::format("time:{},
                 //                     yawAngle:{}, pitch:{}", time, yawAngle, pitchAngle));
-                //                  HubLogger::visualLog(fmt::format(
-                //                      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{},
-                //                      time:{}", posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
-
+                //  HubLogger::visualLog(fmt::format(
+                //      "AngleSolver: target verDist: {:.3f} horizDist: {:.3f}, solved angle yaw:{}, pitch:{}, time:{}",
+                //      posRefRobot.mVal.y, horizontalDist, yawAngle, pitchAngle, time));
                 if(accessible) {
                     res.isFire = true;
                     res.lastUpdate = data.value().lastUpdate;
@@ -294,8 +332,8 @@ public:
 
                 double aVel = std::abs(data->angularVel.mVal) > 1 ? -data->angularVel.mVal : 0;
 
-                // HubLogger::watch("CenterYaw", centerYaw);
-                // HubLogger::watch("AngleVelRefRobot", aVel);
+                HubLogger::watch("CenterYaw", centerYaw);
+                HubLogger::watch("AngleVelRefRobot", aVel);
 
                 double R[2] = { data->radius.first, data->radius.second };
                 double Z[2] = { data->y.first, data->y.second };
@@ -308,59 +346,25 @@ public:
 
                 // solve and determine possible armor
                 int armorNum = data->armorNum;
-                std::vector<CandidateTarget> candTargets;
                 double avgLatency = 0.0;
-                for(int i = 0; i < armorNum; i++) {
-                    double r = R[i & 1];
-                    center.z = Z[i & 1];
-                    double predictTime = 0;
-                    for(int iterTimes = 0; iterTimes < 5; iterTimes++) {
-                        glm::dvec3 predictCenter = center + lVel * predictTime;
-                        double predictTheta = theta + aVel * predictTime;
-                        glm::dvec3 predictPos = getPos(predictCenter, r, predictTheta);
-
-                        auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(predictPos, lVel);
-                        if(!accessible) {
-                            // HubLogger::logInfoBoth(fmt::format("AngleSolver: {}th armor gets inaccessible", i));
-                            break;
-                        }
-
-                        double delay = mConfig.gimbalFixed ? getAvglatency(latency, mConfig.latencyThreshold) / 1000 : mConfig.delay;
-                        double requiredTime = airTime + delay + GlobalSettings::get().latency;
-                        double requiredTheta = theta + aVel * requiredTime;
-
-                        if(requiredTime - predictTime <= mConfig.sameTimeThreshold) {
-                            double deltaTheta = normalizeAngle(requiredTheta - yawAngle - glm::pi<double>());
-                            if(r == 0 || std::abs(deltaTheta) <= glm::radians(mConfig.maxShootDeltaTheta)) {
-                                double angleDiff =
-                                    absAngleDifferece(centerYaw, normalizeAngle(yawAngle - glm::half_pi<double>()));
-                                CandidateTarget candTarget{};
-                                candTarget.yawAngle = yawAngle;
-                                candTarget.pitchAngle = pitchAngle;
-                                candTarget.diffAngle = angleDiff;
-                                candTarget.r = r;
-                                candTarget.height = center.z;
-                                candTarget.pos = predictPos;
-                                candTarget.reachTime = requiredTime;
-                                candTargets.push_back(candTarget);
-                            } else {
-                                HubLogger::visualLog(fmt::format(
-                                    "AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw", i, deltaTheta));
-                            }
-                            break;
-                        }
-                        predictTime += mConfig.requiredTimeWeight * (requiredTime - predictTime);
-                    }
-                    theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
+                double delay = mConfig.delay;
+                if(mConfig.gimbalFixed) {
+                    avgLatency = getAvglatency(latency, mConfig.latencyThreshold);
+                    HubLogger::watch("avgShootDelay", avgLatency);
+                    delay = avgLatency / 1000;
                 }
+                std::vector<CandidateTarget> candTargets=getTargetposition(centerYaw, 
+                    armorNum,R,Z,center,theta,aVel,lVel,delay,mConfig.sameTimeThreshold, 
+                    mConfig.maxShootDeltaTheta,mConfig.requiredTimeWeight);
 
                 if(!candTargets.empty()) {
                     std::optional<double> yaw, pitch;
                     glm::dvec3 targetPos;
                     bool fire = false;
 
-                    CandidateTarget selectedTarget = chooseTarget(candTargets);
-
+                    std::sort(candTargets.begin(), candTargets.end(),
+                              [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
+                    CandidateTarget selectedTarget = candTargets[0];
                     yaw = selectedTarget.yawAngle;
                     pitch = selectedTarget.pitchAngle;
                     targetPos = selectedTarget.pos;
@@ -379,11 +383,32 @@ public:
                         auto [accessible, airTime, yawAngle, pitchAngle] = solveWithoutAirDrag(armorFaced, lVel);
                         if(accessible) {
                             fire = glm::degrees(selectedTarget.diffAngle) < mConfig.orietationAngle;
-                            // HubLogger::watch("diffAngle", selectedTarget.diffAngle);
+                            HubLogger::watch("diffAngle", selectedTarget.diffAngle);
                             yaw = yawAngle;
                             pitch = pitchAngle;
                             targetPos = armorFaced;
                         }
+                    }
+                    else {
+                        // HubLogger::visualLog(fmt::format("gimbal yaw: {:.3f} gimbal pitch: {:.3f}", 
+                                                        //  dataInfo.value().pose.yaw, dataInfo.value().pose.pitch));
+                        std::vector<CandidateTarget> candTargetsWithoutDelay=getTargetposition(centerYaw, 
+                            armorNum,R,Z,center,theta,aVel,lVel,0.0,mConfig.sameTimeThreshold, 
+                            mConfig.maxShootDeltaTheta,mConfig.requiredTimeWeight);
+                        
+                        std::sort(candTargetsWithoutDelay.begin(), candTargetsWithoutDelay.end(),
+                              [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
+                        std::optional<double>  yawWithoutDelay ,pitchWithoutDelay;
+                        yawWithoutDelay = candTargetsWithoutDelay[0].yawAngle;
+                        pitchWithoutDelay = candTargetsWithoutDelay[0].pitchAngle;
+                        // HubLogger::visualLog(fmt::format("solved yaw: {:.3f} solved pitch: {:.3f}", 
+                                                        //   normalizeAngle(yawWithoutDelay.value()-glm::half_pi<double>()), pitchWithoutDelay.value()));
+                        if(yawWithoutDelay.has_value() && pitchWithoutDelay.has_value()){
+                            double delYaw = fabs(normalizeAngle(yawWithoutDelay.value()-glm::half_pi<double>())-GlobalSettings::get().gimbalYaw);
+                            double delPitch = fabs(pitchWithoutDelay.value()-GlobalSettings::get().gimbalPitch);
+                            fire = delYaw*delYaw + delPitch*delPitch < 0.0012;
+                        }
+                        // HubLogger::visualLog(fmt::format("---------------------------------isfire:{}-----------------------------------------------------------------------",fire));
                     }
                     SelectedTargetInfo res;
                     if(yaw.has_value()) {
