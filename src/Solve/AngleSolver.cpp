@@ -163,7 +163,7 @@ class AngleSolver final
         }
 
         // draw armor corners
-        double armorPitch = glm::radians(-15.0f);
+        double armorPitch = glm::radians(target.robotType == RobotType::Outpost ? 15.0f : -15.0f);
         double armorYaw = target.yaw.mVal - glm::half_pi<double>();
 
         auto rotationMatrix = glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -armorPitch, glm::dvec3(1, 0, 0)), armorYaw, glm::dvec3(0, 1, 0));
