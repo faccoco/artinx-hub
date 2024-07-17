@@ -105,12 +105,14 @@ class AngleSolver final
         }
         return addLatency / count;
     }
-    static std::vector<CandidateTarget> getTargetposition(double centerYaw,int armorNum,
-            const double R[],const double Z[], glm::dvec3 center,double theta,double aVel,
-                glm::dvec3 lVel,double delay,double sameTimeThreshold,double maxShootDeltaTheta,
-                    double requiredTimeWeight) {
+    
+    static std::vector<CandidateTarget> getTargetposition(double centerYaw, int armorNum, const double R[], const double Z[],
+                                                          glm::dvec3 center, double theta, double aVel, glm::dvec3 lVel,
+                                                          double delay, double sameTimeThreshold, double maxShootDeltaTheta,
+                                                          double requiredTimeWeight) {
         std::vector<CandidateTarget> candTargets;
         for(int i = 0; i < armorNum; i++) {
+            theta = normalizeAngle(theta);
             double r = R[i & 1];
             center.z = Z[i & 1];
             double predictTime = 0;
@@ -130,8 +132,7 @@ class AngleSolver final
                 if(requiredTime - predictTime <= sameTimeThreshold) {
                     double deltaTheta = normalizeAngle(requiredTheta - yawAngle - glm::pi<double>());
                     if(r == 0 || std::abs(deltaTheta) <= glm::radians(maxShootDeltaTheta)) {
-                        double angleDiff =
-                            absAngleDifferece(centerYaw, normalizeAngle(yawAngle - glm::half_pi<double>()));
+                        double angleDiff = absAngleDifferece(centerYaw, normalizeAngle(yawAngle - glm::half_pi<double>()));
                         CandidateTarget candTarget{};
                         candTarget.yawAngle = yawAngle;
                         candTarget.pitchAngle = pitchAngle;
@@ -143,13 +144,13 @@ class AngleSolver final
                         candTargets.push_back(candTarget);
                     } else {
                         HubLogger::visualLog(fmt::format(
-                        "AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw", i, deltaTheta));
+                            "AngleSolver: {}th armor deltaTheta:{:.3f} do not satisfy maxShootDelatYaw", i, deltaTheta));
                     }
-                        break;
+                    break;
                 }
                 predictTime += requiredTimeWeight * (requiredTime - predictTime);
             }
-            theta += (aVel < 0 ? glm::two_pi<double>() / armorNum : -glm::two_pi<double>() / armorNum);
+            theta += glm::two_pi<double>() / armorNum;
         }
         return candTargets;
     }
@@ -168,8 +169,8 @@ class AngleSolver final
         std::vector<cv::Point3d> pointsList;
         std::vector<cv::Point3d> pointsListPred;
         for(int i = 0; i < target.armorNum; i++) {
-            auto r = i % 2 ? target.radius.second : target.radius.first;
-            auto y = i % 2 ? target.y.second : target.y.first;
+            auto r = (i % 2) != 0 ? target.radius.second : target.radius.first;
+            auto y = (i % 2) != 0 ? target.y.second : target.y.first;
             auto armorTheta = theta + (i * (2 * glm::pi<double>() / target.armorNum));
             auto armorThetaPred = predictTheta + (i * (2 * glm::pi<double>() / target.armorNum));
 
@@ -201,12 +202,12 @@ class AngleSolver final
         std::vector<cv::Point2d> imagPoints;
         std::vector<cv::Point2d> imagPointsPred;
 
-        if (frameInit) {
+        if(frameInit) {
             cv::projectPoints(pointsList, cv::Vec3d{ 0, 0, 0 }, cv::Vec3d{ 0, 0, 0 }, mFrame.info.cameraMatrix,
                               mFrame.info.distCoefficients, imagPoints);
             cv::projectPoints(pointsListPred, cv::Vec3d{ 0, 0, 0 }, cv::Vec3d{ 0, 0, 0 }, mFrame.info.cameraMatrix,
                               mFrame.info.distCoefficients, imagPointsPred);
-        }else {
+        } else {
             logWarning("AngleSolver Visualization: frame not initialized");
         }
 
@@ -214,24 +215,25 @@ class AngleSolver final
         double armorPitch = glm::radians(target.robotType == RobotType::Outpost ? 15.0f : -15.0f);
         double armorYaw = target.yaw.mVal - glm::half_pi<double>();
 
-        auto rotationMatrix = glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -armorPitch, glm::dvec3(1, 0, 0)), armorYaw, glm::dvec3(0, 1, 0));
+        auto rotationMatrix = glm::rotate(glm::rotate(glm::identity<glm::dmat4>(), -armorPitch, glm::dvec3(1, 0, 0)), armorYaw,
+                                          glm::dvec3(0, 1, 0));
         auto armorPos = inverseTf(getPos(tf(target.center.mVal), target.radius.first, -target.yaw.mVal));
         auto transformMatrix = glm::translate(glm::identity<glm::dmat4>(), -armorPos);
         auto mTfArmor2Robot = Transform<FrameOfRef::Robot, FrameOfRef::Armor, true>{ rotationMatrix * transformMatrix };
         auto mTfArmor2Camera = combine(mTfArmor2Robot.invTransformObj(), target.tfRobot2Camera);
 
         std::vector<cv::Point3d> armorCorner;
-        for (const auto& point : target.armorType == ArmorType::Large ? mObjectPointsLarge : mObjectPointsSmall){
-            auto posArmor = Point<UnitType::Distance, FrameOfRef::Armor>{ glm::dvec3 { point.x, point.y, point.z } };
+        for(const auto& point : target.armorType == ArmorType::Large ? mObjectPointsLarge : mObjectPointsSmall) {
+            auto posArmor = Point<UnitType::Distance, FrameOfRef::Armor>{ glm::dvec3{ point.x, point.y, point.z } };
             auto posCamera = mTfArmor2Camera(posArmor);
             armorCorner.emplace_back(posCamera.mVal.x, -posCamera.mVal.y, -posCamera.mVal.z);
         }
 
         std::vector<cv::Point2d> imagPointsArmor;
-        if (frameInit) {
+        if(frameInit) {
             cv::projectPoints(armorCorner, cv::Vec3d{ 0, 0, 0 }, cv::Vec3d{ 0, 0, 0 }, mFrame.info.cameraMatrix,
                               mFrame.info.distCoefficients, imagPointsArmor);
-        }else {
+        } else {
             logWarning("AngleSolver Visualization: frame not initialized");
         }
 
@@ -276,11 +278,10 @@ public:
                 HubLogger::watch("horizontalDistance", horizontalDist);
 
                 //(forward:+y,right:+x)
-                
+
                 glm::dvec3 tfPos = tf(posRefRobot.mVal);
                 glm::dvec3 tfLinearVel = tf(linearVel.mVal);
-                const auto Time=GlobalSettings::get().latency;
-                const auto delayTime = mConfig.delay + Time;
+                const auto delayTime = mConfig.delay + GlobalSettings::get().latency;
                 tfPos = { tfPos.x + delayTime * tfLinearVel.x, tfPos.y + delayTime * tfLinearVel.y,
                           tfPos.z + delayTime * tfLinearVel.z };
 
@@ -335,8 +336,8 @@ public:
                 HubLogger::watch("CenterYaw", centerYaw);
                 HubLogger::watch("AngleVelRefRobot", aVel);
 
-                double R[2] = { data->radius.first, data->radius.second };
-                double Z[2] = { data->y.first, data->y.second };
+                double R[2] = { data->radius.first, data->radius.second };  // NOLINT
+                double Z[2] = { data->y.first, data->y.second };            // NOLINT
 
                 {
                     // glm::dvec3 pos = getPos(center, R[0], theta);
@@ -353,9 +354,10 @@ public:
                     HubLogger::watch("avgShootDelay", avgLatency);
                     delay = avgLatency / 1000;
                 }
-                std::vector<CandidateTarget> candTargets=getTargetposition(centerYaw, 
-                    armorNum,R,Z,center,theta,aVel,lVel,delay,mConfig.sameTimeThreshold, 
-                    mConfig.maxShootDeltaTheta,mConfig.requiredTimeWeight);
+
+                std::vector<CandidateTarget> candTargets =
+                    getTargetposition(centerYaw, armorNum, R, Z, center, theta, aVel, lVel, delay, mConfig.sameTimeThreshold,
+                                      mConfig.maxShootDeltaTheta, mConfig.requiredTimeWeight);
 
                 if(!candTargets.empty()) {
                     std::optional<double> yaw, pitch;
@@ -388,25 +390,25 @@ public:
                             pitch = pitchAngle;
                             targetPos = armorFaced;
                         }
-                    }
-                    else {
-                        // HubLogger::visualLog(fmt::format("gimbal yaw: {:.3f} gimbal pitch: {:.3f}", 
-                                                        //  dataInfo.value().pose.yaw, dataInfo.value().pose.pitch));
-                        std::vector<CandidateTarget> candTargetsWithoutDelay=getTargetposition(centerYaw, 
-                            armorNum,R,Z,center,theta,aVel,lVel,0.0,mConfig.sameTimeThreshold, 
-                            mConfig.maxShootDeltaTheta,mConfig.requiredTimeWeight);
-                        
+                    } else {
+                        // HubLogger::visualLog(fmt::format("gimbal yaw: {:.3f} gimbal pitch: {:.3f}",
+                        //  dataInfo.value().pose.yaw, dataInfo.value().pose.pitch));
+                        std::vector<CandidateTarget> candTargetsWithoutDelay =
+                            getTargetposition(centerYaw, armorNum, R, Z, center, theta, aVel, lVel, 0.0,
+                                              mConfig.sameTimeThreshold, mConfig.maxShootDeltaTheta, mConfig.requiredTimeWeight);
+
                         std::sort(candTargetsWithoutDelay.begin(), candTargetsWithoutDelay.end(),
-                              [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
-                        std::optional<double>  yawWithoutDelay ,pitchWithoutDelay;
+                                  [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
+                        std::optional<double> yawWithoutDelay, pitchWithoutDelay;
                         yawWithoutDelay = candTargetsWithoutDelay[0].yawAngle;
                         pitchWithoutDelay = candTargetsWithoutDelay[0].pitchAngle;
-                        // HubLogger::visualLog(fmt::format("solved yaw: {:.3f} solved pitch: {:.3f}", 
-                                                        //   normalizeAngle(yawWithoutDelay.value()-glm::half_pi<double>()), pitchWithoutDelay.value()));
-                        if(yawWithoutDelay.has_value() && pitchWithoutDelay.has_value()){
-                            double delYaw = fabs(normalizeAngle(yawWithoutDelay.value()-glm::half_pi<double>())-GlobalSettings::get().gimbalYaw);
-                            double delPitch = fabs(pitchWithoutDelay.value()-GlobalSettings::get().gimbalPitch);
-                            fire = delYaw*delYaw + delPitch*delPitch < 0.0012;
+                        // HubLogger::visualLog(fmt::format("solved yaw: {:.3f} solved pitch: {:.3f}",
+                        //   normalizeAngle(yawWithoutDelay.value()-glm::half_pi<double>()), pitchWithoutDelay.value()));
+                        if(yawWithoutDelay.has_value() && pitchWithoutDelay.has_value()) {
+                            double delYaw = fabs(normalizeAngle(yawWithoutDelay.value() - glm::half_pi<double>()) -
+                                                 GlobalSettings::get().gimbalYaw);
+                            double delPitch = fabs(pitchWithoutDelay.value() - GlobalSettings::get().gimbalPitch);
+                            fire = delYaw * delYaw + delPitch * delPitch < 0.0012;
                         }
                         // HubLogger::visualLog(fmt::format("---------------------------------isfire:{}-----------------------------------------------------------------------",fire));
                     }

@@ -42,7 +42,7 @@ std::pair<glm::dvec3, double> CircleFitByTaubin(const std::vector<glm::dvec3>& p
     static constexpr int maxIterTimes = 99;
 
     int n = pts.size();
-    double x, y, z, meanX, meanY, meanZ, Mxx, Mzz, Mxz, Mxl, Mzl, Mll;
+    double x, y, z, meanX, meanY, meanZ, Mxx, Mzz, Mxz, Mxl, Mzl, Mll; // NOLINT
     meanX = meanY = meanZ = Mxx = Mzz = Mxz = Mxl = Mzl = Mll = 0;
 
     for(auto& pt : pts) {
@@ -72,6 +72,7 @@ std::pair<glm::dvec3, double> CircleFitByTaubin(const std::vector<glm::dvec3>& p
     Mzl /= n;
     Mll /= n;
 
+    // NOLINTBEGIN
     double Ml = Mxx + Mzz;
     double Cov_xz = Mxx * Mzz - Mxz * Mxz;
     double Var_l = Mll - Ml * Ml;
@@ -81,21 +82,22 @@ std::pair<glm::dvec3, double> CircleFitByTaubin(const std::vector<glm::dvec3>& p
     double A0 = Mxl * (Mxl * Mzz - Mzl * Mxz) + Mzl * (Mzl * Mxx - Mxl * Mxz) - Var_l * Cov_xz;
     double A22 = 2 * A2;
     double A33 = 3 * A3;
+    // NOLINTEND
 
     int i;
     for(x = 0, z = A0, i = 0; i < maxIterTimes; i++) {
         double xnew = x - z / (A1 + x * (A22 + A33 * x));
-        if((xnew == x) || (!std::isfinite(xnew)))
-            break;
+        if((xnew == x) || (!std::isfinite(xnew))){
+            break;}
         double znew = A0 + xnew * (A1 + xnew * (A2 + xnew * A3));
-        if(std::abs(znew) >= std::abs(z))
-            break;
+        if(std::abs(znew) >= std::abs(z)){
+            break;}
         x = xnew;
         z = znew;
     }
 
     double det = x * x - x * Ml + Cov_xz;
-    double Xcenter, Zcenter;
+    double Xcenter, Zcenter; // NOLINT
     if(det == 0) {
         Xcenter = 0;
         Zcenter = 0;
@@ -147,7 +149,7 @@ std::optional<double> ferrari(std::complex<double> a, std::complex<double> b, st
     e *= a;
     const auto p = (c * c + 12.0 * e - 3.0 * b * d) / 9.0;
     const auto q = (27.0 * d * d + 2.0 * c * c * c + 27.0 * b * b * e - 72.0 * c * e - 9.0 * b * c * d) / 54.0;
-    const auto D = sqrtN(q * q - p * p * p, 2.0);
+    const auto D = sqrtN(q * q - p * p * p, 2.0); //NOLINT
     std::complex<double> u = q + D;
     std::complex<double> v = q - D;
     if(v.real() * v.real() + v.imag() * v.imag() > u.real() * u.real() + u.imag() * u.imag()) {
@@ -194,8 +196,9 @@ std::optional<double> ferrari(std::complex<double> a, std::complex<double> b, st
     }
     std::optional<double> ans;
     for(auto& i : x) {
-        if(i.real() > 0 && std::fabs(i.imag()) < 1e-7 && (!ans.has_value() || i.real() < ans))
+        if(i.real() > 0 && std::fabs(i.imag()) < 1e-7 && (!ans.has_value() || i.real() < ans)) {
             ans = i.real();
+        }
     }
     return ans;
 }
@@ -207,8 +210,9 @@ std::tuple<bool, double, double, double> solveWithoutAirDrag(glm::dvec3 targetPo
         1, 0, -(4 * g * targetPos.z + 4 * square(bulletSpeed) - 4 * square(targetVel.x) - 4 * square(targetVel.y)) / square(g),
         (8 * targetPos.x * targetVel.x + 8 * targetPos.y * targetVel.y) / square(g),
         (4 * square(targetPos.x) + 4 * square(targetPos.y) + 4 * square(targetPos.z)) / square(g));
-    if(!airDurationOpt || airDurationOpt.value() < 0)
+    if(!airDurationOpt || airDurationOpt.value() < 0) {
         return { false, 0, 0, 0 };
+    }
     double airDuration = airDurationOpt.value();
     double verticalSpeed = targetPos.z / airDuration - 0.5 * g * airDuration;
     double horizontalSpeedX = (targetPos.x + targetVel.x * airDuration) / airDuration;
@@ -221,9 +225,11 @@ std::tuple<bool, double, double, double> solveWithoutAirDrag(glm::dvec3 targetPo
 }
 
 double normalizeAngle(double a) {
-    while(a > glm::pi<double>())
+    while(a > glm::pi<double>()) {
         a -= glm::two_pi<double>();
-    while(a <= -glm::pi<double>())
+    }
+    while(a <= -glm::pi<double>()) {
         a += glm::two_pi<double>();
+    }
     return a;
 }
