@@ -105,7 +105,7 @@ class AngleSolver final
         }
         return addLatency / count;
     }
-    
+
     static std::vector<CandidateTarget> getTargetposition(double centerYaw, int armorNum, const double R[], const double Z[],
                                                           glm::dvec3 center, double theta, double aVel, glm::dvec3 lVel,
                                                           double delay, double sameTimeThreshold, double maxShootDeltaTheta,
@@ -155,13 +155,11 @@ class AngleSolver final
         return candTargets;
     }
 
-    void targetView(const PredictedTarget& target, const double reachTime) {
+    void targetView(const PredictedTarget& target, const double reachTime, glm::dvec3 lVel, double aVel) {
 #ifndef ARTINXHUB_DEBUG
 //        return;
 #endif
         auto theta = -target.yaw.mVal;
-        auto aVel = std::abs(target.angularVel.mVal) > 1 ? -target.angularVel.mVal : 0;
-        auto lVel = target.linearVel.mVal;
 
         auto predictCarCenter = target.center.mVal + lVel * reachTime;
         auto predictTheta = theta + aVel * reachTime;
@@ -361,23 +359,23 @@ public:
                                       mConfig.maxShootDeltaTheta, mConfig.requiredTimeWeight);
 
                 if(!candTargets.empty()) {
-                    std::optional<double> yaw, pitch;
                     glm::dvec3 targetPos;
                     bool fire = false;
 
                     std::sort(candTargets.begin(), candTargets.end(),
                               [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
                     CandidateTarget selectedTarget = candTargets[0];
-                    yaw = selectedTarget.yawAngle;
-                    pitch = selectedTarget.pitchAngle;
+                    double yaw = selectedTarget.yawAngle;
+                    double pitch = selectedTarget.pitchAngle;
                     targetPos = selectedTarget.pos;
-                    if(mConfig.enableOrietationAngleLimit) {
-                        // TODO(12012710): to be discuss
-                        if(aVel > mConfig.aVelThreshold && selectedTarget.diffAngle > glm::radians(mConfig.orietationAngle)) {
-                            yaw.reset();
-                            pitch.reset();
-                        }
-                    }
+                    //                    TODO(12012710): to be discuss
+                    //                    if(mConfig.enableOrietationAngleLimit) {
+                    //                        if(aVel > mConfig.aVelThreshold && selectedTarget.diffAngle >
+                    //                        glm::radians(mConfig.orietationAngle)) {
+                    //                            yaw.reset();
+                    //                            pitch.reset();
+                    //                        }
+                    //                    }
                     if(mConfig.gimbalFixed) {
                         double r = selectedTarget.r;
                         center.z = selectedTarget.height;
@@ -414,20 +412,17 @@ public:
                         // HubLogger::visualLog(fmt::format("---------------------------------isfire:{}-----------------------------------------------------------------------",fire));
                     }
                     SelectedTargetInfo res;
-                    if(yaw.has_value()) {
-                        res.yawAngle = yaw.value();
-                        res.pitchAngle = pitch.value();
-                        res.solveType = normalSolver;
-                        res.isFire = fire;
-                        res.targetPos = targetPos;
-                        res.lastUpdate = data.value().lastUpdate;
-                        res.targetType = data.value().robotType;
-                        res.armorType = data.value().armorType;
-                        sendAll(set_target_info_atom_v,
-                                BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
-                        HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", 0,
-                                                         yaw.value(), pitch.value()));
-                    }
+                    res.yawAngle = yaw;
+                    res.pitchAngle = pitch;
+                    res.solveType = normalSolver;
+                    res.isFire = fire;
+                    res.targetPos = targetPos;
+                    res.lastUpdate = data.value().lastUpdate;
+                    res.targetType = data.value().robotType;
+                    res.armorType = data.value().armorType;
+                    sendAll(set_target_info_atom_v,
+                            BlackBoard::instance().updateSync<SelectedTargetInfo>(Identifier{ mKey.val }, res));
+                    HubLogger::visualLog(fmt::format("AngleSolver: target {}th armor yaw: {:.3f} pitch: {:.3f}", 0, yaw, pitch));
                     HubLogger::watch("fire", fire);
 
                     if(mConfig.gimbalFixed) {
@@ -436,7 +431,7 @@ public:
                     }
 
                     if(mConfig.debugView) {
-                        targetView(data.value(), selectedTarget.reachTime - mConfig.delay);
+                        targetView(data.value(), selectedTarget.reachTime - mConfig.delay, lVel, aVel);
                     }
                     return;
                 }
