@@ -329,9 +329,10 @@ public:
                 glm::dvec3 center = tf(data->center.mVal);
                 double theta = -data->yaw.mVal;
                 double centerYaw = normalizeAngle(atan2(center.y, center.x) - glm::half_pi<double>());
-                glm::dvec3 lVel = tf(data->linearVel.mVal);
 
-                double aVel = std::abs(data->angularVel.mVal) > 1 ? -data->angularVel.mVal : 0;
+                // TODO(12012710): ignore lVel and aVel when small
+                glm::dvec3 lVel = tf(data->linearVel.mVal);
+                double aVel = -data->angularVel.mVal;
 
                 HubLogger::watch("CenterYaw", centerYaw);
                 HubLogger::watch("AngleVelRefRobot", aVel);
