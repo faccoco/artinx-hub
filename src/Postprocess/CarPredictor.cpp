@@ -416,7 +416,7 @@ class CarPredictor final
 
     bool update(const double dt, const std::vector<DetectedTarget>& armors) {
         mDt = dt;
-        // HubLogger::watch("dt", dt);
+        HubLogger::watch("dt", dt);
 
         if(mTrackedArmor.id == RobotType::Outpost) {
             auto filterState = mEKF.getState();

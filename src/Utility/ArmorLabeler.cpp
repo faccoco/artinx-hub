@@ -90,7 +90,13 @@ public:
 
                      for(const auto& armor : res.armors) {
                          auto id = armor.robotType;
-                         int color = static_cast<int>(armor.robotColor);
+                         int color = 3;
+                         if (armor.robotColor != Color::Negative && armor.robotColor != Color::Purple) {
+                             color = armor.robotColor == Color::Red ? 0 : 1;
+                         }
+                         else {
+                             color = static_cast<int>(armor.robotColor);
+                         }
                          auto robotTag = static_cast<int>(color) * 9 + static_cast<int>(id);
 
                          auto armorPoints = armor.light4Point;
