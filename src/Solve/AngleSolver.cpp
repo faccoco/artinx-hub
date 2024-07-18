@@ -396,18 +396,21 @@ public:
                             getTargetposition(centerYaw, armorNum, R, Z, center, theta, aVel, lVel, 0.0,
                                               mConfig.sameTimeThreshold, mConfig.maxShootDeltaTheta, mConfig.requiredTimeWeight);
 
-                        std::sort(candTargetsWithoutDelay.begin(), candTargetsWithoutDelay.end(),
-                                  [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
-                        std::optional<double> yawWithoutDelay, pitchWithoutDelay;
-                        yawWithoutDelay = candTargetsWithoutDelay[0].yawAngle;
-                        pitchWithoutDelay = candTargetsWithoutDelay[0].pitchAngle;
-                        // HubLogger::visualLog(fmt::format("solved yaw: {:.3f} solved pitch: {:.3f}",
-                        //   normalizeAngle(yawWithoutDelay.value()-glm::half_pi<double>()), pitchWithoutDelay.value()));
-                        if(yawWithoutDelay.has_value() && pitchWithoutDelay.has_value()) {
-                            double delYaw = fabs(normalizeAngle(yawWithoutDelay.value() - glm::half_pi<double>()) -
-                                                 GlobalSettings::get().gimbalYaw);
-                            double delPitch = fabs(pitchWithoutDelay.value() - GlobalSettings::get().gimbalPitch);
-                            fire = delYaw * delYaw + delPitch * delPitch < 0.0012;
+                        if (!candTargetsWithoutDelay.empty()){
+                            std::sort(
+                                candTargetsWithoutDelay.begin(), candTargetsWithoutDelay.end(),
+                                [](const CandidateTarget& a, const CandidateTarget& b) { return a.diffAngle < b.diffAngle; });
+                            std::optional<double> yawWithoutDelay, pitchWithoutDelay;
+                            yawWithoutDelay = candTargetsWithoutDelay[0].yawAngle;
+                            pitchWithoutDelay = candTargetsWithoutDelay[0].pitchAngle;
+                            // HubLogger::visualLog(fmt::format("solved yaw: {:.3f} solved pitch: {:.3f}",
+                            //   normalizeAngle(yawWithoutDelay.value()-glm::half_pi<double>()), pitchWithoutDelay.value()));
+                            if(yawWithoutDelay.has_value() && pitchWithoutDelay.has_value()) {
+                                double delYaw = fabs(normalizeAngle(yawWithoutDelay.value() - glm::half_pi<double>()) -
+                                                     GlobalSettings::get().gimbalYaw);
+                                double delPitch = fabs(pitchWithoutDelay.value() - GlobalSettings::get().gimbalPitch);
+                                fire = delYaw * delYaw + delPitch * delPitch < 0.0012;
+                            }
                         }
                         // HubLogger::visualLog(fmt::format("---------------------------------isfire:{}-----------------------------------------------------------------------",fire));
                     }
