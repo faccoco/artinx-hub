@@ -35,7 +35,6 @@ struct CarPredictorSettings final {
     bool enablePredictor;
     bool debugView;
     bool enableFixYaw;
-    double fixYawThresh;
     double maxMatchDist;
     double maxMatchYaw;
     int trackingThreshold;
@@ -50,7 +49,7 @@ struct CarPredictorSettings final {
 template <class Inspector>
 bool inspect(Inspector& f, CarPredictorSettings& x) {
     return f.object(x).fields(
-        f.field("debugView", x.debugView).fallback(false), f.field("fixYawThresh", x.fixYawThresh).fallback(90.0),
+        f.field("debugView", x.debugView).fallback(false),
         f.field("enableFixYaw", x.enableFixYaw).fallback(false), f.field("enablePredictor", x.enablePredictor),
         f.field("maxMatchDist", x.maxMatchDist).fallback(0.4), f.field("maxMatchYaw", x.maxMatchYaw).fallback(0.3),
         f.field("trackingThreshold", x.trackingThreshold).fallback(5), f.field("lostThreshold", x.lostThreshold).fallback(5),
@@ -132,7 +131,7 @@ class CarPredictor final
         std::pair<double, double> interval1 = { yaw - gap, yaw + gap };
         auto yaw1 = getBestYaw(armor, interval1, YawFixMode::LENGTH_POINT_DIFF, 5);
 
-        std::pair<double, double> interval2 = { yaw - 2 * gap, yaw - gap };
+        std::pair<double, double> interval2 = { yaw - 2 * gap, yaw - gap};
         auto yaw2 = getBestYaw(armor, interval2, YawFixMode::LENGTH_POINT_DIFF, 5);
 
         std::pair<double, double> interval3 = { yaw + gap, yaw + 2 * gap };
@@ -224,7 +223,7 @@ class CarPredictor final
                 auto imageEdge2 = imagePoint[3] - imagePoint[2];
                 auto angle1 = atan2(imageEdge1.x, imageEdge1.y);
                 auto angle2 = atan2(imageEdge2.x, imageEdge2.y);
-                auto incline = std::abs((angle1 + angle2) / 2);
+                auto incline = std::max(std::abs(angle1), std::abs(angle2));
 
                 std::size_t size = imagePoint.size();
                 for(std::size_t i = 0u; i < size; ++i) {
@@ -239,7 +238,7 @@ class CarPredictor final
                     // 平方可能是为了配合 sin 和 cos
                     // 弧度差代价（0 度左右占比应该大）
                     double cost = std::pow((pixelLoss * std::sin(incline)), 2)
-                        + std::pow((angularLoss * std::cos(incline)), 2) * 0.5;
+                        + std::pow((angularLoss * std::cos(incline)), 2) * 100;
                     armorLoss += std::sqrt(cost);
                 }
                 break;
