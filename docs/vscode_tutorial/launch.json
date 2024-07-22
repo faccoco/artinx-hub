@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/cmake-build-debug/src/ArtinxHub",    // 选择你要运行的目标程序，windows上可能要加.exe，一般在编译目标文件夹/src/ArtinxHub，建议与前置任务的目标目录相同，除非你知道自己在干什么
             "args": [
-                "${workspaceFolder}/config_templates/pnp_test.conf"             // 配置文件
+                "${workspaceFolder}/deploy_config/infantry_3.conf"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",                                        // 运行时目录
@@ -37,7 +37,61 @@
             "request": "launch",
             "program": "${workspaceFolder}/cmake-build-release/src/ArtinxHub",  // 选择你要运行的目标程序，windows上可能要加.exe，一般在编译目标文件夹/src/ArtinxHub，建议与前置任务的目标目录相同，除非你知道自己在干什么
             "args": [
-                "${workspaceFolder}/config_templates/pnp_test.conf"             // 配置文件
+                "${workspaceFolder}/deploy_config/infantry_3.conf"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",                                        // 运行时目录
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "将反汇编风格设置为 Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "CMake: build release"                           // 对应tasks.json中的前置和任务lable
+        },
+        {
+            "name": "calibration",                                                  // 任务名，只是方便你分辨的名字，随便改
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/cmake-build-release/src/ArtinxHub",  // 选择你要运行的目标程序，windows上可能要加.exe，一般在编译目标文件夹/src/ArtinxHub，建议与前置任务的目标目录相同，除非你知道自己在干什么
+            "args": [
+                "${workspaceFolder}/deploy_config/camera_calibration.conf"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",                                        // 运行时目录
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "将反汇编风格设置为 Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "CMake: build release"                           // 对应tasks.json中的前置和任务lable
+        },
+        {
+            "name": "labeler",                                                  // 任务名，只是方便你分辨的名字，随便改
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/cmake-build-release/src/ArtinxHub",  // 选择你要运行的目标程序，windows上可能要加.exe，一般在编译目标文件夹/src/ArtinxHub，建议与前置任务的目标目录相同，除非你知道自己在干什么
+            "args": [
+                "${workspaceFolder}/config_templates/labeler.conf"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",                                        // 运行时目录

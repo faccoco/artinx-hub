@@ -36,6 +36,7 @@ public:
                      selected.tfRobot2Camera = data.tfRobot2Camera;
                      RobotType priorNum = static_cast<RobotType>(GlobalSettings::get().priorNum);
                      HubLogger::watch("PriorNum", GlobalSettings::get().priorNum);
+                     
                      bool hasPriorTarget = false;
                      for(const auto& target : data.targets) {
                          if(target.id == priorNum) {
@@ -43,8 +44,10 @@ public:
                              selected.targets.push_back(target);
                          }
                      }
-                     if(!hasPriorTarget)
+                     if(!hasPriorTarget) {
                          selected.targets = data.targets;
+                     }
+                     
                      double minDisToImgCenter = std::numeric_limits<double>::max();
                      for(const auto& target : selected.targets) {
                          if(target.distToImgCenter < minDisToImgCenter) {

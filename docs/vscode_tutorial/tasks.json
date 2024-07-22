@@ -11,7 +11,7 @@
 				"-S ${workspaceFolder}",                      // 源代码文件夹
 				"-B ${workspaceFolder}/cmake-build-debug",    // 生成目标文件夹，可改（这是clion的默认文件夹，不建议和clion混用可能会出问题，要是报错了这个文件夹随便删）
 				"-D ARTINX_HUB_CAMERA:STRING=USB3",           // 相机为2.0或是3.0
-				"-D CMAKE_TOOLCHAIN_FILE:STRING=/home/init/vcpkg/scripts/buildsystems/vcpkg.cmake",  //vcpkg目录，要改
+				"-D CMAKE_TOOLCHAIN_FILE:STRING=/home/artinx/workspace/vcpkg/scripts/buildsystems/vcpkg.cmake",  //vcpkg目录，要改
 				"-D CMAKE_EXPORT_COMPILE_COMMANDS:BOOL=1",
 				"-D CMAKE_BUILD_TYPE:STRING=Debug",           // 决定你编译的程序是debug还是release版本
 				// "-D CMAKE_CXX_COMPLIER=",                  // 报错CMAKE_CXX_COMPLIER时可以自己指定编译器目录
@@ -28,7 +28,7 @@
 				"-S ${workspaceFolder}",                      // 源代码文件夹
 				"-B ${workspaceFolder}/cmake-build-release",  // 生成目标文件夹，可改（这是clion的默认文件夹，不建议和clion混用可能会出问题，要是报错了这个文件夹随便删）
 				"-D ARTINX_HUB_CAMERA:STRING=USB3",           // 相机为2.0或是3.0
-				"-D CMAKE_TOOLCHAIN_FILE:STRING=/home/init/vcpkg/scripts/buildsystems/vcpkg.cmake",  //vcpkg目录，要改
+				"-D CMAKE_TOOLCHAIN_FILE:STRING=/home/artinx/workspace/vcpkg/scripts/buildsystems/vcpkg.cmake",  //vcpkg目录，要改
 				"-D CMAKE_EXPORT_COMPILE_COMMANDS:BOOL=1",
 				"-D CMAKE_BUILD_TYPE:STRING=Release",         // 决定你编译的程序是debug还是release版本
 				// "-D CMAKE_CXX_COMPLIER=",                  // 报错CMAKE_CXX_COMPLIER时可以自己指定编译器目录

@@ -384,6 +384,7 @@ class CarPredictor final
     void init(const DetectedTarget& armor) {
         mTrackedArmor.yaw = 0;
         setArmorYaw(getArmorYaw(armor));
+
         // Set initial position at 0.2m behind the target
         double r = 0.2, yaw = mTrackedArmor.yaw;
         auto p = getArmorPos(armor);
@@ -541,7 +542,7 @@ public:
             return x_new;
         };
         // J_f - Jacobian of process function
-        auto JF = [this](const Eigen::VectorXd&) {
+        auto JF = [this](const Eigen::VectorXd& /*unused*/) {
             Eigen::MatrixXd f(9, 9);
             // clang-format off
             f <<  1,   0,   0,   0,   mDt, 0,   0,   0,   0,
@@ -623,8 +624,8 @@ public:
 
     caf::behavior make_behavior() override {
         return {
-            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-            [this](set_target_atom, Identifier key) {
+            [](start_atom /*unused*/) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [this](set_target_atom /*unused*/, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(set_target_atom, TypedIdentifier<SelectedTarget>);
                 ACTOR_EXCEPTION_PROBE();
                 auto data = BlackBoard::instance().get<SelectedTarget>(key);

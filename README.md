@@ -353,7 +353,7 @@ CAF框架参见[actor_system.md](docs/actor_system.md)
 
 ### Group Mask使用方法
 
-由于哨兵的特殊用法（一个sentry strategy需要根据数据来自前后那个相机进行决策），故引入了group mask机制：
+由于哨兵可能的特殊用法（一个sentry strategy需要根据数据来自前后那个相机进行决策），故引入了group mask机制：
 
 - config里atom的定义改为所有**可能**接受消息的actor
 - config新增两个内置属性group_id和group_mask，如果设置了group_id则mGroupMask为1<<group_id,如果设置了group_mask则mGroupMask为group_mask，否则默认为1
