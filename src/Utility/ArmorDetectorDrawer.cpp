@@ -56,8 +56,11 @@ public:
                                      cv::Scalar(0, 255, 255));
                      }
 
+                     cv::Mat compressFrame;
+                     cv::resize(showImg, compressFrame, { showImg.size().width / 2, showImg.size().height / 2 });
+
                      CameraFrame frame;
-                     frame.frame = std::move(showImg);
+                     frame.frame = std::move(compressFrame);
                      frame.lastUpdate = res.frame.lastUpdate;
                      frame.info = res.frame.info;
 
@@ -94,9 +97,11 @@ public:
                     for (const auto& point : projectedPoints.second) {
                         cv::circle(showImg, point, 5, cv::Scalar(0, 255, 255), 10);
                     }
+                     cv::Mat compressFrame;
+                     cv::resize(showImg, compressFrame, { showImg.size().width / 2, showImg.size().height / 2 });
 
                      CameraFrame frame;
-                     frame.frame = std::move(showImg);
+                     frame.frame = std::move(compressFrame);
                      frame.lastUpdate = res.lastUpdate;
 
                      sendAll(image_frame_atom_v,
@@ -122,9 +127,13 @@ public:
                     cv::putText(showImg, std::to_string(i), res.armorCorners[i], cv::FONT_HERSHEY_SIMPLEX, 1.0,
                                 cv::Scalar(255, 255, 255), 1);
                 }
+                
+                cv::Mat compressFrame;
+                cv::resize(showImg, compressFrame, { showImg.size().width / 2, showImg.size().height / 2 });
 
                 CameraFrame frame;
-                frame.frame = std::move(showImg);
+                frame.frame = std::move(compressFrame);
+
                 frame.lastUpdate = res.lastUpdate;
                 sendAll(image_frame_atom_v,
                         BlackBoard::instance().updateSync(newKey, std::move(frame), std::string_view(name)));

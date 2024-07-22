@@ -1,5 +1,6 @@
 #include "BlackBoard.hpp"
 #include "DataDesc.hpp"
+#include "DetectedArmor.hpp"
 #include "DetectedTarget.hpp"
 #include "Hub.hpp"
 #include "SelectedTarget.hpp"
@@ -7,11 +8,13 @@
 #include "SuppressWarningBegin.hpp"
 
 #include <caf/event_based_actor.hpp>
+#include <cmath>
 #include <glm/glm.hpp>
+#include <vector>
 
 #include "SuppressWarningEnd.hpp"
 
-constexpr auto recordTime = 0.3s;
+constexpr auto recordTime = 0.3s; // NOLINT
 
 struct SentryStrategySettings final {
     std::vector<int> ignoredId;
@@ -23,89 +26,72 @@ bool inspect(Inspector& f, SentryStrategySettings& x) {
     return f.object(x).fields(f.field("ignoredId", x.ignoredId), f.field("maxDistance", x.maxDistance).fallback(8.0));
 }
 
-// 先杀英雄，若无英雄，则选择与上次目标id相同的装甲板进行击打；
-// 无英雄，无上次选择的相同目标，则击打最近的装甲板；
 class SentryStrategy final : public HubHelper<caf::event_based_actor, SentryStrategySettings, set_target_atom> {
     Identifier mKey;
     SelectedTarget mLastTarget1, mLastTarget2;
-    std::set<int> mIgnoreId;
+    std::set<RobotType> mIgnoreId;
 
 public:
     SentryStrategy(caf::actor_config& base, const HubConfig& config, std::string name)
         : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {
         for(auto id : mConfig.ignoredId) {
-            mIgnoreId.insert(id);
+            mIgnoreId.insert(static_cast<RobotType>(id));
         }
     }
     caf::behavior make_behavior() override {
         return {
-            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-            [&](detect_available_atom, GroupMask mask, Identifier key) {
+            [](start_atom /*unused*/) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [&](detect_available_atom /*unused*/, GroupMask mask, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(detect_available_atom, GroupMask, TypedIdentifier<DetectedTargetArray>);
                 const auto data = BlackBoard::instance().get<DetectedTargetArray>(key).value();
 
+                std::set<RobotType> ignoreId;
+                for(auto id : mConfig.ignoredId) {
+                    ignoreId.insert(static_cast<RobotType>(id));
+                }
+                if (GlobalSettings::get().blockEngineer) {
+                    ignoreId.insert(RobotType::Engineer);
+                }
+                if (GlobalSettings::get().blockSentry) {
+                    ignoreId.insert(RobotType::Sentry);
+                }
+
+
+                // 先杀英雄，若无英雄选择最近目标
                 SelectedTarget selected;
                 selected.lastUpdate = data.lastUpdate;
                 selected.tfRobot2Camera = data.tfRobot2Camera;
 
-                std::optional<DetectedTarget> priorTarget, sameTarget, minDistTarget;
                 auto minDistance = 10000.0;
+                auto prior = GlobalSettings::get().priorNum;
+                bool priorInit = false;
+                std::vector<DetectedTarget> candTargets;
                 for(auto& target : data.targets) {
-                    if(target.id != GlobalSettings::get().priorNum &&
-                       (mIgnoreId.count(static_cast<int>(target.id)) ||
-                        (GlobalSettings::get().blockEngineer && target.id == RobotType::Engineer) ||
-                        (GlobalSettings::get().blockSentry && target.id == RobotType::Sentry)))
+
+                    if (target.id == static_cast<RobotType>(prior)) {
+                        selected.targets.push_back(target);
+                        priorInit = true;
+                        break;
+                    }
+
+                    if (ignoreId.find(target.id) != ignoreId.end()) {
                         continue;
-                    selected.targets.emplace_back(target);
+                    }
+
                     auto pos = target.center.mVal;
-                    auto dist = pos.x * pos.x + pos.y * pos.y + pos.z * pos.z;
-                    if(dist > mConfig.maxDistance * mConfig.maxDistance || pos.y > 1.5)  // 距离太远或者高度超过1.5m不打弹
+                    auto dist = std::sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
+                    if (dist < minDistance) {
+                        selected.selected = target;
+                    }
+
+                    if (dist > mConfig.maxDistance || pos.y > 1.5) {
                         continue;
-                    if(dist < minDistance) {
-                        minDistance = dist;
-                        minDistTarget = target;
                     }
-                    if((mLastTarget1.selected.has_value() && mLastTarget1.selected->id == target.id) ||
-                       (mLastTarget2.selected.has_value() && mLastTarget2.selected->id == target.id)) {
-                        sameTarget = target;
-                    }
-                    if(target.id == GlobalSettings::get().priorNum) {
-                        priorTarget = target;
-                    }
-                }
 
-                if(priorTarget.has_value()) {
-                    selected.selected = priorTarget;
-                } else if(sameTarget.has_value()) {
-                    selected.selected = sameTarget;
-                } else {
-                    selected.selected = minDistTarget;
+                    candTargets.push_back(target);
                 }
-
-                if(mask == 1U) {
-                    if(selected.selected.has_value()) {
-                        mLastTarget1 = selected;
-                        if(mLastTarget2.selected.has_value() && Clock::now() - mLastTarget2.lastUpdate < recordTime &&
-                           mLastTarget2.selected->id == GlobalSettings::get().priorNum) {
-                            return;
-                        }
-                    } else {
-                        if(mLastTarget2.selected.has_value() && Clock::now() - mLastTarget2.lastUpdate < recordTime) {
-                            return;
-                        }
-                    }
-                } else {
-                    if(selected.selected.has_value()) {
-                        mLastTarget2 = selected;
-                        if(mLastTarget1.selected.has_value() && Clock::now() - mLastTarget1.lastUpdate < recordTime &&
-                           mLastTarget2.selected->id != GlobalSettings::get().priorNum) {
-                            return;
-                        }
-                    } else {
-                        if(mLastTarget1.selected.has_value() && Clock::now() - mLastTarget1.lastUpdate < recordTime) {
-                            return;
-                        }
-                    }
+                if (!priorInit){
+                    std::copy(candTargets.begin(), candTargets.end(), std::back_inserter(selected.targets));
                 }
 
                 if(selected.selected.has_value()) {

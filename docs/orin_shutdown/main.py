@@ -2,6 +2,8 @@ import subprocess  # 使用 subprocess 执行 shell 脚本
 import RPi.GPIO as GPIO
 from time import sleep
 
+# TODO: add doc
+
 def run_script():
     # 替换 'your_script.sh' 为你的脚本路径
     subprocess.Popen(["/etc/rc.local/poweroff.sh"], shell=True)

@@ -51,8 +51,8 @@ public:
         : HubHelper{ base, config, std::move(name) }, mKey{ generateKey(this) } {}
     caf::behavior make_behavior() override {
         return {
-            [](start_atom) { ACTOR_PROTOCOL_CHECK(start_atom); },
-            [&](armor_detect_available_atom, Identifier key) {
+            [](start_atom /*unused*/) { ACTOR_PROTOCOL_CHECK(start_atom); },
+            [&](armor_detect_available_atom /*unused*/, Identifier key) {
                 ACTOR_PROTOCOL_CHECK(armor_detect_available_atom, TypedIdentifier<DetectedArmorArray>);
                 ACTOR_EXCEPTION_PROBE();
 

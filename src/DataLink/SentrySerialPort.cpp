@@ -21,7 +21,7 @@ class SentryRecvPacket final {
 public:
     static constexpr uint16_t id = 0xE0;
 
-    float yaw, pitch, bulletSpeed, speedX, speedY;
+    float yaw, pitch, roll, bulletSpeed, speedX, speedY;
     uint8_t color, priorNum;
     float capEnergy, chasisPower;
     bool blockSentry, blockEngineer;
@@ -37,6 +37,7 @@ public:
         blockSentry = (mask >> 5) & 1;
         yaw = reader.readCompressedFloat(-4.0f, 0.0005f);
         pitch = reader.readCompressedFloat(-4.0f, 0.0005f);
+        // roll = reader.readCompressedFloat(-4.0, 0.0005f);
         bulletSpeed = reader.readCompressedFloat(-1.0f, 0.005f);
         electricData.bulletSpeed30Offset = reader.readCompressedFloat(-100.0f, 0.1f);
         electricData.fricLeftRpm = reader.readCompressedFloat(0.0f, 1.0f);
@@ -91,17 +92,16 @@ class SentrySerialPort final
 
     SentryRecvPacket::ElectricData mElectricDataBuff;
 
-    void infantryRecvCB(const SentryRecvPacket& fdb) {
-        if(fdb.bulletSpeed > 15)
+    void sentryRecvCb(const SentryRecvPacket& fdb) {
+        if(fdb.bulletSpeed > 15) {
             GlobalSettings::get().bulletSpeed = fdb.bulletSpeed;
+        }
         HubLogger::watch("bullet speed", GlobalSettings::get().bulletSpeed);
 
         auto deltaYaw1 = mSendPacket.yaw - fdb.yaw;
         auto deltaPitch1 = mSendPacket.pitch - fdb.pitch;
         HubLogger::watch("deltaYaw1", deltaYaw1);
         HubLogger::watch("deltaPitch1", deltaPitch1);
-        HubLogger::watch("yaw", fdb.yaw);
-        HubLogger::watch("pitch", fdb.pitch);
 
         GlobalSettings::get().setColor(fdb.color == 0 ? Color::Red : Color::Blue);
         HubLogger::watch("selfColor", GlobalSettings::get().getColor() == Color::Red ? "Red" : "Blue");
@@ -112,7 +112,25 @@ class SentrySerialPort final
 
         HubLogger::watch("priorNum", fdb.priorNum);
 
-        const HeadInfo infoHead{ SynchronizedClock::instance().now(), { 0.0, fdb.pitch, fdb.yaw } };
+
+        const double yaw = fdb.yaw;
+        const double pitch = fdb.pitch;
+        const double roll = 0.0;
+
+        const HeadInfo infoHead{ SynchronizedClock::instance().now(), { roll, pitch, yaw } };
+
+        float mYaw = 0., mPitch = 0., mRoll = 0.;
+        
+        mYaw = fdb.yaw;
+        mPitch = fdb.pitch;
+        mRoll = fdb.roll;
+
+        GlobalSettings::get().gimbalYaw = mYaw;
+        GlobalSettings::get().gimbalPitch = mPitch;
+        GlobalSettings::get().gimbalRoll = mRoll;
+        HubLogger::watch("gimbalYaw", GlobalSettings::get().gimbalYaw);
+        HubLogger::watch("gimbalPitch", GlobalSettings::get().gimbalPitch);
+        HubLogger::watch("gimbalRoll", GlobalSettings::get().gimbalRoll);
 
         PostureData posture;
         posture.lastUpdate = SynchronizedClock::instance().now();
@@ -134,10 +152,10 @@ class SentrySerialPort final
 
 public:
     SentrySerialPort(caf::actor_config& base, const HubConfig& config, std::string name)
-        : HubHelper{ base, config, std::move(name) },
-          SerialPort<SentryRecvPacket, SentrySendPacket>(
-              mConfig.devPath, mConfig.baudRate, std::bind(&SentrySerialPort::infantryRecvCB, this, std::placeholders::_1),
-              std::bind(&SentrySerialPort::sentrySetPacket, this)),
+        : HubHelper{ base, config, std::move(name) }, SerialPort<SentryRecvPacket, SentrySendPacket>(
+                                                          mConfig.devPath, mConfig.baudRate,
+                                                          std::bind(&SentrySerialPort::sentryRecvCb, this, std::placeholders::_1),
+                                                          std::bind(&SentrySerialPort::sentrySetPacket, this)),
           mKey{ generateKey(this) } {
         std::thread([this]() {
             while(globalStatus == RunStatus::running) {
